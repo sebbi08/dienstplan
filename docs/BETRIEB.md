@@ -856,9 +856,9 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 
 | Löschbar ab | Was |
 |---|---|
-| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen, Lesebestätigungen aus „Wissen“; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
+| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit den Zusatztagen nur für ein Jahr |
-| „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
+| „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Lesebestätigungen aus „Wissen“; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Mitarbeiter-Seite beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
 | „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
@@ -2690,7 +2690,8 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
   (Kinderschutz), § 34 IfSG und der RKI-Ratgeber zur Wiederzulassung, das Kindertagesbetreuungsgesetz Baden-Württemberg
   (KiTaG) sowie § 45 und § 47 SGB VIII. Orientierungsplan und KiTaG bekommen nur Einrichtungen in Baden-Württemberg. Alles
   lässt sich ändern oder löschen; **Gelöschtes kommt nicht wieder** (die App merkt sich je Einrichtung, was sie schon
-  bekommen hat). Die Links wurden beim Einbau am 23.11.2026 geprüft; Behörden ändern ihre Adressen manchmal – führt ein
+  bekommen hat). Maßgeblich ist das Bundesland der Einrichtung beim ersten Start bzw. beim Anlegen: Wechselt es später,
+  bleiben die Links, wie sie sind (von Hand löschen oder ergänzen). Die Links wurden beim Einbau am 23.11.2026 geprüft; Behörden ändern ihre Adressen manchmal – führt ein
   Link ins Leere, bitte die neue Adresse eintragen.
 - **Kategorien verwalten**: anlegen, umbenennen, „Wer sieht sie?“ ändern, mit den Pfeilen verschieben. Löschen geht nur,
   solange keine Einträge der Einrichtung darin liegen. Ein Name kommt in einer Einrichtung nur einmal vor.
@@ -2722,12 +2723,16 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
   wie beim Stempeln). Die Bestätigung gilt für diese Person.
 - **Geändert**: Wird die **Datei, der Link oder der Text** eines Eintrags geändert, gilt das als neue Fassung – alle
   müssen neu bestätigen; bei den Personen steht dann „Frühere Fassung bestätigt am …“. Titel, Beschreibung, „Stand vom“
-  oder die Kategorie zu ändern fragt nicht neu.
+  oder die Kategorie zu ändern fragt nicht neu. Wurde ein Eintrag geändert, während jemand ihn offen hatte, nimmt die App
+  die Bestätigung nicht an („Der Eintrag wurde inzwischen geändert …“) und zeigt die neue Fassung – so bestätigt niemand
+  eine Fassung, die er nicht gesehen hat (am Tablet, bevor die PIN geprüft wird).
 - **Wer hat bestätigt?** (Leitung und Träger): je Eintrag die Mitarbeitenden der Einrichtung, die heute angestellt sind
   und den Eintrag sehen (bei „nur Leitung und Träger“ nur diese), aufgeteilt in **noch nicht bestätigt**, **nur frühere
   Fassung** und **bestätigt** (mit Datum und ob am Tablet oder mit eigenem Zugang). Wer bestätigt hat und inzwischen
-  ausgeschieden ist, steht mit Hinweis dabei. **Nachweis drucken** gibt die Liste als Ausdruck bzw. PDF aus.
-  Aushilfen aus anderen Einrichtungen erscheinen in dieser Liste nicht.
+  ausgeschieden ist, steht mit Hinweis dabei, ebenso Aushilfen aus anderen Einrichtungen, die einen eigenen Eintrag der
+  Einrichtung am Tablet bestätigt haben. Bei Einträgen des Trägers für alle Einrichtungen stehen nur die eigenen
+  Mitarbeitenden der Einrichtung in der Liste. **Nachweis drucken** gibt die Liste als Ausdruck bzw. PDF aus, mit der
+  Fassung und dem Tag, seit dem sie gilt („Fassung 2 vom …“).
 
 ### Wer was darf
 
@@ -2742,8 +2747,10 @@ Das Recht „Wissen: pflegen“ steht auf der Seite **Rechte und Rollen** (Berei
 ### Datenschutz und Löschen
 
 - Die Einträge selbst enthalten keine Daten von Kindern oder Mitarbeitern; sie gehören zur Einrichtung und würden mit ihr
-  gelöscht. Ein gelöschter Eintrag nimmt seine Lesebestätigungen mit.
-- Die **Lesebestätigungen** sind personenbezogen (wer hat was wann gelesen). Sie gehören zu den **„Persönlichen Daten“**
-  einer ausgeschiedenen Person und dürfen ab dem Tag nach dem Ausscheiden gelöscht werden (Mehr → Löschfristen, siehe
-  Abschnitt „Löschfristen“); „Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sie mit. Wer einen Nachweis
-  länger braucht (z. B. für eine Belehrung), druckt ihn vorher aus.
+  gelöscht. Ein gelöschter Eintrag nimmt seine Lesebestätigungen mit – **vor dem Löschen eines Eintrags den Nachweis
+  drucken**, wenn er noch gebraucht wird.
+- Die **Lesebestätigungen** sind personenbezogen (wer hat was wann gelesen) und zugleich der Nachweis einer Unterweisung
+  (z. B. Kinderschutzkonzept, Hygieneplan, Aufsichtspflicht). Sie gehören deshalb wie die Fortbildungsnachweise zu
+  **„Beurteilungen und Zeugnisse“** (voreingestellt 3 Jahre nach dem Ende des Jahres, in dem die Person ausgeschieden ist;
+  Mehr → Löschfristen, siehe Abschnitt „Löschfristen“); „Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sie
+  sofort mit.

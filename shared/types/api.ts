@@ -3962,6 +3962,8 @@ export interface KnowledgeEntryDto {
   needsConfirmation: boolean
   /** Counts up with every change of the content (file, link, text); older confirmations then are „frühere Fassung“. */
   version: number
+  /** When the current version came (creation or the last change of file, link or text). */
+  versionAt: string
   updatedAt: string
   /** The viewer's own confirmation; null at the tablet (the person confirms with the PIN) and without a linked employee. */
   myConfirmation: KnowledgeMyConfirmationDto | null
@@ -4021,7 +4023,7 @@ export interface KnowledgeConfirmationRowDto {
 
 /** Who of the facility confirmed an entry and who not yet (knowledge.manage; also printed as „Nachweis“). */
 export interface KnowledgeConfirmationsDto {
-  entry: Pick<KnowledgeEntryDto, 'id' | 'title' | 'kind' | 'needsConfirmation' | 'version' | 'updatedAt' | 'asOf'> & { category: string }
+  entry: Pick<KnowledgeEntryDto, 'id' | 'title' | 'kind' | 'needsConfirmation' | 'version' | 'versionAt' | 'updatedAt' | 'asOf'> & { category: string }
   facilityName: string
   /** Open first, then an earlier version confirmed, then confirmed; each by name. */
   people: KnowledgeConfirmationRowDto[]

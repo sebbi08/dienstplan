@@ -927,5 +927,10 @@ export const knowledgeEntryFields = z.object({
 export const knowledgeCategorySchema = z.object({
   name: z.string().max(KNOWLEDGE_LIMITS.categoryName), visibility: z.enum(TEMPLATE_VISIBILITIES),
 })
-/** „Gelesen und verstanden“: at the tablet the person and their PIN; with an own account nothing (the linked employee). */
-export const knowledgeConfirmSchema = z.object({ employeeId: z.number().int().positive().optional(), pin: z.string().max(10).optional() })
+/**
+ * „Gelesen und verstanden“: the version the reader was shown, and at the tablet the person and their PIN (an own account
+ * confirms for its linked employee).
+ */
+export const knowledgeConfirmSchema = z.object({
+  version: z.number().int().positive(), employeeId: z.number().int().positive().optional(), pin: z.string().max(10).optional(),
+})

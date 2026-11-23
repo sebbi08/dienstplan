@@ -2435,9 +2435,9 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     }
     sqlite.exec(`
       INSERT INTO knowledge_categories (id, facility_id, name) VALUES (1, 1, 'Kinderschutz'), (2, 2, 'Kinderschutz');
-      INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, created_at, updated_at) VALUES (1, 1, 1, 'link', 'Konzept', 'a', 'a');
-      INSERT INTO knowledge_entries (id, facility_id, category_name, kind, title, created_at, updated_at) VALUES (2, NULL, 'Hygiene', 'text', 'Für alle', 'a', 'a');
-      INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, created_at, updated_at) VALUES (3, 2, 2, 'link', 'Krippe', 'a', 'a');
+      INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, version_at, created_at, updated_at) VALUES (1, 1, 1, 'link', 'Konzept', 'a', 'a', 'a');
+      INSERT INTO knowledge_entries (id, facility_id, category_name, kind, title, version_at, created_at, updated_at) VALUES (2, NULL, 'Hygiene', 'text', 'Für alle', 'a', 'a', 'a');
+      INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, version_at, created_at, updated_at) VALUES (3, 2, 2, 'link', 'Krippe', 'a', 'a', 'a');
       INSERT INTO knowledge_confirmations (entry_id, employee_id, entry_version, confirmed_at, via) VALUES (1, 1, 1, 'a', 'account'), (2, 1, 1, 'a', 'tablet');
       INSERT INTO knowledge_starter_seeds (facility_id, starter_key, seeded_at) VALUES (2, 'category:kinderschutz', 'a');
     `)
@@ -2446,6 +2446,8 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT sort_order, visibility FROM knowledge_categories WHERE id = 1').get()).toEqual({ sort_order: 0, visibility: 'all' })
     // Names unique per facility regardless of (ASCII) case; one confirmation per entry and person.
     expect(() => sqlite.exec(`INSERT INTO knowledge_categories (facility_id, name) VALUES (1, 'KINDERSCHUTZ')`)).toThrow(/UNIQUE/)
+    // Every entry knows when its current version came (printed on the proof).
+    expect(() => sqlite.exec(`INSERT INTO knowledge_entries (facility_id, category_id, kind, title, created_at, updated_at) VALUES (1, 1, 'link', 'X', 'a', 'a')`)).toThrow(/NOT NULL/)
     expect(() => sqlite.exec(`INSERT INTO knowledge_confirmations (entry_id, employee_id, entry_version, confirmed_at, via) VALUES (1, 1, 2, 'b', 'account')`)).toThrow(/UNIQUE|PRIMARY/)
     const fks = (table: string) => sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all()
       .map(fk => { const { table: to, from, on_delete } = fk as Record<string, string>; return { to, from, on_delete } })
@@ -2471,6 +2473,24 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT id FROM knowledge_categories').all()).toEqual([{ id: 1 }])
     expect(sqlite.prepare('SELECT id FROM knowledge_entries').all()).toEqual([{ id: 2 }])
     expect(count(sqlite, 'knowledge_starter_seeds')).toBe(0)
+  })
+
+  it('adds version_at to a test database that ran 0114 before it was amended, and seeds it afterwards', () => {
+    const { db, sqlite } = databaseAt('0114')
+    sqlite.exec(`
+      ALTER TABLE knowledge_entries DROP COLUMN version_at;
+      INSERT INTO knowledge_categories (id, facility_id, name) VALUES (1, 1, 'Eigenes');
+      INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, created_at, updated_at) VALUES (1, 1, 1, 'link', 'Alt', 'a', '2026-11-20T08:00:00.000Z');
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT version_at FROM knowledge_entries WHERE id = 1').get()).toEqual({ version_at: '2026-11-20T08:00:00.000Z' })
+    // The starters (with their version date) go in at the next start.
+    seedDefaults(db)
+    expect(count(sqlite, 'knowledge_entries')).toBeGreaterThan(1)
+    expect(sqlite.prepare(`SELECT count(*) AS n FROM knowledge_entries WHERE version_at = ''`).get()).toEqual({ n: 0 })
+    // Run again it changes nothing.
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('PRAGMA table_info(knowledge_entries)').all().filter(column => (column as { name: string }).name === 'version_at')).toHaveLength(1)
   })
 
   it('0109 adds the address book with the example categories for every facility and the future school of a child', () => {

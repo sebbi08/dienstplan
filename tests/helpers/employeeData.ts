@@ -152,7 +152,7 @@ export function fillEmployeeData(
     // „Gelesen und verstanden“ of an entry of „Wissen“.
     const entryId = db.insert(knowledgeEntries).values({
       facilityId: null, categoryName: 'Kinderschutz', kind: 'link', title: `Konzept ${id}`, url: 'https://example.de', needsConfirmation: true,
-      createdAt: at, updatedAt: at,
+      versionAt: at, createdAt: at, updatedAt: at,
     }).returning({ id: knowledgeEntries.id }).get().id
     db.insert(knowledgeConfirmations).values({ entryId, employeeId: id, entryVersion: 1, confirmedAt: at, via: 'tablet' }).run()
     db.insert(childDevelopmentDocs).values({ childId, doneOn: '2026-10-01', doneByEmployeeId: id, doneByName: 'am Tablet', createdAt: at }).run()

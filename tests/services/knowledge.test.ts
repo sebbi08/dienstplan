@@ -1,11 +1,11 @@
 import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeStarterSeeds } from '../../server/db/schema'
-import { deleteImmediateData } from '../../server/services/employeeDeletion'
+import { employees, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeStarterSeeds } from '../../server/db/schema'
+import { deleteAssessmentData, deleteImmediateData } from '../../server/services/employeeDeletion'
 import { createFacility } from '../../server/services/facilities'
 import {
-  confirmAtTablet, confirmWithAccount, createKnowledgeCategory, createKnowledgeEntry, deleteKnowledgeCategory, deleteKnowledgeEntry,
+  confirmAtTablet, confirmKnowledge, confirmWithAccount, createKnowledgeCategory, createKnowledgeEntry, deleteKnowledgeCategory, deleteKnowledgeEntry,
   globalKnowledgeCategoryNames, confirmationOverview as overview, listKnowledge, moveKnowledgeCategory, moveKnowledgeEntry,
   openKnowledgeCount, readKnowledgeFile, seedPendingKnowledgeStarters, updateKnowledgeCategory, updateKnowledgeEntry,
 } from '../../server/services/knowledge'
@@ -132,7 +132,7 @@ describe('„Wissen“ (knowledge library)', () => {
       expect(titles(leitung)).not.toContain('Krippe')
       expect(errorCode(() => updateKnowledgeEntry(db, leitung, other, link(categoryId('Hygiene & Gesundheit')), null, NOW))).toBe('knowledge_entry_not_found')
       expect(errorCode(() => deleteKnowledgeEntry(db, leitung, other))).toBe('knowledge_entry_not_found')
-      expect(errorCode(() => confirmWithAccount(db, { ...staff, employeeId: addEmployee(db, 'Tina') }, other, NOW))).toBe('knowledge_entry_not_found')
+      expect(errorCode(() => confirmWithAccount(db, { ...staff, employeeId: addEmployee(db, 'Tina') }, other, 1, NOW))).toBe('knowledge_entry_not_found')
       expect(errorCode(() => deleteKnowledgeCategory(db, leitung, categoryId('Hygiene & Gesundheit', krippe)))).toBe('knowledge_category_not_found')
       // Filing into another facility's category is refused.
       expect(errorCode(() => createKnowledgeEntry(db, leitung, link(categoryId('Hygiene & Gesundheit', krippe)), null, NOW))).toBe('knowledge_category_invalid')
@@ -255,48 +255,50 @@ describe('„Wissen“ (knowledge library)', () => {
       expect(openKnowledgeCount(db, staff)).toBe(0)
       expect(openKnowledgeCount(db, tablet)).toBe(0)
       expect(listKnowledge(db, tinaAccount()).entries[0]!.myConfirmation).toEqual({ state: 'open', confirmedAt: null })
-      expect(confirmWithAccount(db, tinaAccount(), entry, NOW)).toEqual({ name: 'Tina Test', confirmedAt: NOW.toISOString(), version: 1 })
+      expect(confirmWithAccount(db, tinaAccount(), entry, 1, NOW)).toEqual({ name: 'Tina Test', confirmedAt: NOW.toISOString(), version: 1 })
       expect(listKnowledge(db, tinaAccount())).toMatchObject({ openCount: 0 })
       expect(openKnowledgeCount(db, tinaAccount())).toBe(0)
       expect(listKnowledge(db, tinaAccount()).entries[0]!.myConfirmation).toEqual({ state: 'confirmed', confirmedAt: NOW.toISOString() })
       // Without a linked employee there is nobody to confirm for.
       expect(listKnowledge(db, staff).entries[0]!.myConfirmation).toBeNull()
-      expect(errorCode(() => confirmWithAccount(db, staff, entry, NOW))).toBe('knowledge_no_employee')
-      expect(errorCode(() => confirmWithAccount(db, tablet, entry, NOW))).toBe('knowledge_no_employee')
+      expect(errorCode(() => confirmWithAccount(db, staff, entry, 1, NOW))).toBe('knowledge_no_employee')
+      expect(errorCode(() => confirmWithAccount(db, tablet, entry, 1, NOW))).toBe('knowledge_no_employee')
       // An entry that asks nobody cannot be confirmed.
       const plain = createKnowledgeEntry(db, leitung, link(categoryId('Kinderschutz'), { title: 'Ohne' }), null, NOW)
-      expect(errorCode(() => confirmWithAccount(db, tinaAccount(), plain, NOW))).toBe('knowledge_confirmation_not_needed')
+      expect(errorCode(() => confirmWithAccount(db, tinaAccount(), plain, 1, NOW))).toBe('knowledge_confirmation_not_needed')
       expect(listKnowledge(db, tinaAccount()).entries.find(item => item.id === plain)!.myConfirmation!.state).toBe('none')
     })
 
     it('lets the person at the tablet confirm for themselves with the PIN', () => {
       expect(listKnowledge(db, tablet)).toMatchObject({ confirmVia: 'tablet', openCount: 0 })
-      expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, entry, ben, '000000', NOW))).toBe('pin_invalid')
+      expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, entry, 1, ben, '000000', NOW))).toBe('pin_invalid')
       // Tina has no PIN, so she is not on the tablet's list (no attempt counted).
-      expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, entry, tina, '135790', NOW))).toBe('employee_not_found')
-      expect(confirmAtTablet(db, { facilityId: 1 }, entry, ben, '135790', NOW)).toMatchObject({ name: 'Ben Beispiel', version: 1 })
+      expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, entry, 1, tina, '135790', NOW))).toBe('employee_not_found')
+      expect(confirmAtTablet(db, { facilityId: 1 }, entry, 1, ben, '135790', NOW)).toMatchObject({ name: 'Ben Beispiel', version: 1 })
       expect(db.select().from(knowledgeConfirmations).all()).toEqual([
         { entryId: entry, employeeId: ben, entryVersion: 1, confirmedAt: NOW.toISOString(), via: 'tablet' },
       ])
       // The tablet only shows entries visible to all.
       const managers = createKnowledgeCategory(db, leitung, { name: 'Leitung', visibility: 'managers' })
       const hidden = createKnowledgeEntry(db, leitung, link(managers, { needsConfirmation: true }), null, NOW)
-      expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, hidden, ben, '135790', NOW))).toBe('knowledge_entry_not_found')
+      expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, hidden, 1, ben, '135790', NOW))).toBe('knowledge_entry_not_found')
     })
 
     it('asks again after a change of the content, keeping the earlier confirmation as „frühere Fassung“', () => {
-      confirmWithAccount(db, tinaAccount(), entry, NOW)
+      confirmWithAccount(db, tinaAccount(), entry, 1, NOW)
       const input = link(categoryId('Kinderschutz'), { title: 'Kinderschutzkonzept 2027', needsConfirmation: true, asOf: '2026-12-01' })
-      // Title and „Stand vom“ alone: no new version.
-      updateKnowledgeEntry(db, leitung, entry, input, null, NOW)
-      expect(listKnowledge(db, tinaAccount()).entries[0]).toMatchObject({ version: 1, myConfirmation: { state: 'confirmed' } })
-      updateKnowledgeEntry(db, leitung, entry, { ...input, url: 'https://www.example.de/neu' }, null, NOW)
+      // Title and „Stand vom“ alone: no new version (and the version keeps its date).
+      const edited = new Date('2026-11-23T10:00:00.000Z')
+      updateKnowledgeEntry(db, leitung, entry, input, null, edited)
+      expect(listKnowledge(db, tinaAccount()).entries[0]).toMatchObject({ version: 1, versionAt: NOW.toISOString(), myConfirmation: { state: 'confirmed' } })
+      const changed = new Date('2026-11-23T11:00:00.000Z')
+      updateKnowledgeEntry(db, leitung, entry, { ...input, url: 'https://www.example.de/neu' }, null, changed)
       expect(listKnowledge(db, tinaAccount()).entries[0]).toMatchObject({
-        version: 2, myConfirmation: { state: 'outdated', confirmedAt: NOW.toISOString() },
+        version: 2, versionAt: changed.toISOString(), updatedAt: changed.toISOString(), myConfirmation: { state: 'outdated', confirmedAt: NOW.toISOString() },
       })
       expect(listKnowledge(db, tinaAccount()).openCount).toBe(1)
       const later = new Date('2026-11-24T08:00:00.000Z')
-      confirmWithAccount(db, tinaAccount(), entry, later)
+      confirmWithAccount(db, tinaAccount(), entry, 2, later)
       expect(listKnowledge(db, tinaAccount()).entries[0]!.myConfirmation).toEqual({ state: 'confirmed', confirmedAt: later.toISOString() })
       // A new PDF and another text count as a change too.
       updateKnowledgeEntry(db, leitung, entry, { ...input, kind: 'file' }, { data: PDF }, NOW)
@@ -314,16 +316,18 @@ describe('„Wissen“ (knowledge library)', () => {
       for (const employeeId of [left, helper]) {
         db.insert(knowledgeConfirmations).values({ entryId: entry, employeeId, entryVersion: 1, confirmedAt: NOW.toISOString(), via: 'tablet' }).run()
       }
-      confirmWithAccount(db, tinaAccount(), entry, NOW)
-      confirmAtTablet(db, { facilityId: 1 }, entry, ben, '135790', NOW)
+      confirmWithAccount(db, tinaAccount(), entry, 1, NOW)
+      confirmAtTablet(db, { facilityId: 1 }, entry, 1, ben, '135790', NOW)
       updateKnowledgeEntry(db, leitung, entry, link(categoryId('Kinderschutz'), { needsConfirmation: true, url: 'https://www.example.de/v2' }), null, NOW)
-      confirmWithAccount(db, tinaAccount(), entry, NOW)
+      confirmWithAccount(db, tinaAccount(), entry, 2, NOW)
       const result = overview(db, leitung, entry, TODAY)
-      expect(result.entry).toMatchObject({ id: entry, version: 2, category: 'Kinderschutz' })
+      expect(result.entry).toMatchObject({ id: entry, version: 2, versionAt: NOW.toISOString(), category: 'Kinderschutz' })
+      // A helper of another facility who confirmed the facility's own entry (at its tablet) shows too, not expected.
       expect(result.people.map(person => [person.name, person.state, person.via, person.expected])).toEqual([
         ['Lea Leitung', 'open', null, true],
         ['Alma Alt', 'outdated', 'tablet', false],
         ['Ben Beispiel', 'outdated', 'tablet', true],
+        ['Hans Helfer', 'outdated', 'tablet', false],
         ['Tina Test', 'confirmed', 'account', true],
       ])
       // A category for Leitung and Träger counts only those who see it (by the role of their account).
@@ -333,10 +337,51 @@ describe('„Wissen“ (knowledge library)', () => {
       expect(errorCode(() => overview(db, tinaAccount(), entry, TODAY))).toBe('forbidden')
     })
 
-    it('goes with the employee\'s immediate data and with the entry', () => {
-      confirmWithAccount(db, tinaAccount(), entry, NOW)
-      confirmAtTablet(db, { facilityId: 1 }, entry, ben, '135790', NOW)
+    it('shows an entry for all facilities to each facility with its own staff only', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const kai = addEmployee(db, 'Kai Krippe', { facilityId: krippe })
+      const global = createKnowledgeEntry(db, provider, link(undefined, { scope: 'all', categoryName: 'Kinderschutz', title: 'Leitbild', needsConfirmation: true }), null, NOW)
+      confirmWithAccount(db, tinaAccount(), global, 1, NOW)
+      confirmWithAccount(db, { ...as('observer', krippe), employeeId: kai }, global, 1, NOW)
+      const names = (facilityId: number) => overview(db, as('admin', facilityId), global, TODAY).people.map(person => [person.name, person.state])
+      expect(names(1)).toEqual([['Ben Beispiel', 'open'], ['Lea Leitung', 'open'], ['Tina Test', 'confirmed']])
+      expect(names(krippe)).toEqual([['Kai Krippe', 'confirmed']])
+      expect(overview(db, as('admin', krippe), global, TODAY).facilityName).toBe('Krippe')
+    })
+
+    it('refuses a version the reader was not shown, at the tablet before the PIN is looked at', () => {
+      updateKnowledgeEntry(db, leitung, entry, link(categoryId('Kinderschutz'), { needsConfirmation: true, url: 'https://www.example.de/v2' }), null, NOW)
+      expect(errorCode(() => confirmWithAccount(db, tinaAccount(), entry, 1, NOW))).toBe('knowledge_entry_changed')
+      expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, entry, 1, ben, '000000', NOW))).toBe('knowledge_entry_changed')
+      expect(db.select({ failed: employees.pinFailed }).from(employees).where(eq(employees.id, ben)).get()).toEqual({ failed: 0 })
+      expect(db.select().from(knowledgeConfirmations).all()).toEqual([])
+      expect(confirmWithAccount(db, tinaAccount(), entry, 2, NOW).version).toBe(2)
+    })
+
+    it('confirms an account for its own employee whatever person it names; the tablet needs person and PIN', () => {
+      expect(confirmKnowledge(db, tinaAccount(), entry, { version: 1, employeeId: ben, pin: '135790' }, NOW).name).toBe('Tina Test')
+      expect(db.select().from(knowledgeConfirmations).all().map(row => [row.employeeId, row.via])).toEqual([[tina, 'account']])
+      expect(errorCode(() => confirmKnowledge(db, tablet, entry, { version: 1, employeeId: ben }, NOW))).toBe('invalid_input')
+      expect(confirmKnowledge(db, tablet, entry, { version: 1, employeeId: ben, pin: '135790' }, NOW).name).toBe('Ben Beispiel')
+    })
+
+    it('locks the PIN after five wrong tries, as at stamping', () => {
+      for (let attempt = 1; attempt < 5; attempt++) {
+        expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, entry, 1, ben, '000000', NOW))).toBe('pin_invalid')
+      }
+      expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, entry, 1, ben, '000000', NOW))).toBe('pin_locked')
+      // While locked even the right PIN is refused.
+      expect(errorCode(() => confirmAtTablet(db, { facilityId: 1 }, entry, 1, ben, '135790', NOW))).toBe('pin_locked')
+      expect(db.select().from(knowledgeConfirmations).all()).toEqual([])
+    })
+
+    it('goes with the employee\'s assessment data (Beurteilungen und Zeugnisse) and with the entry', () => {
+      confirmWithAccount(db, tinaAccount(), entry, 1, NOW)
+      confirmAtTablet(db, { facilityId: 1 }, entry, 1, ben, '135790', NOW)
+      // Not with the immediate data: a proof of instruction, kept like the trainings.
       db.transaction(tx => deleteImmediateData(tx, tina))
+      expect(db.select().from(knowledgeConfirmations).all()).toHaveLength(2)
+      db.transaction(tx => deleteAssessmentData(tx, tina))
       expect(db.select().from(knowledgeConfirmations).all().map(row => row.employeeId)).toEqual([ben])
       deleteKnowledgeEntry(db, leitung, entry)
       expect(db.select().from(knowledgeConfirmations).all()).toEqual([])

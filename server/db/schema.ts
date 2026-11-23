@@ -1950,7 +1950,8 @@ export const knowledgeCategories = sqliteTable('knowledge_categories', {
  * null, the Träger's: no category row but a `categoryName` – shown in each facility's category of that name, otherwise
  * under „Vom Träger“ – and its own `visibility`, the stricter one wins; a facility's entry leaves it 'all').
  * `needsConfirmation`: readers confirm „Gelesen und verstanden“; `version` counts up with every change of the content
- * (file, link, text), so older confirmations count as „frühere Fassung“. `asOf` is „Stand vom“. `starterKey` marks a
+ * (file, link, text), so older confirmations count as „frühere Fassung“; `versionAt` is when the current version came
+ * (creation or the last change of the content; the „Nachweis“ prints it). `asOf` is „Stand vom“. `starterKey` marks a
  * starter link (shared/domain/knowledge.ts). Deleted with the facility.
  */
 export const knowledgeEntries = sqliteTable('knowledge_entries', {
@@ -1970,6 +1971,7 @@ export const knowledgeEntries = sqliteTable('knowledge_entries', {
   body: text('body').notNull().default(''),
   needsConfirmation: integer('needs_confirmation', { mode: 'boolean' }).notNull().default(false),
   version: integer('version').notNull().default(1),
+  versionAt: text('version_at').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
   starterKey: text('starter_key'),
   createdAt: text('created_at').notNull(),

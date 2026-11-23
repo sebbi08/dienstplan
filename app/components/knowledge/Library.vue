@@ -21,8 +21,9 @@ import { berlinDay } from '~/utils/printTemplates'
  */
 const t = de.knowledge
 const { data, error, refresh: refreshKnowledge } = await useFetch<KnowledgeDto>('/api/knowledge', { key: 'knowledge' })
-// The count at „Dokumente“ in the menu follows the confirmations (and new entries asking for one).
-const refresh = () => Promise.all([refreshKnowledge(), refreshNuxtData('knowledge-open-count')])
+// The count at „Dokumente“ in the menu follows the confirmations (and new entries asking for one); only an account with a
+// linked employee has one (the layout loads it for those alone).
+const refresh = () => Promise.all([refreshKnowledge(), ...(confirmVia.value === 'account' ? [refreshNuxtData('knowledge-open-count')] : [])])
 const entries = computed(() => data.value?.entries ?? [])
 const categories = computed(() => data.value?.categories ?? [])
 const canManage = computed(() => !!data.value?.canManage)
@@ -84,7 +85,14 @@ async function confirmRead(entry: KnowledgeEntryDto) {
     return
   }
   if (!(await confirm(t.confirmQuestion(entry.title), { confirmLabel: t.confirm, danger: false }))) return
-  await run(() => $fetch<KnowledgeConfirmResultDto>(`/api/knowledge/${entry.id}/confirm`, { method: 'POST', body: {} }), t.confirmedToast)
+  // The version shown: one changed meanwhile is refused (knowledge_entry_changed), and the list is loaded again to read it.
+  const body = { version: entry.version }
+  const done = await run(() => $fetch<KnowledgeConfirmResultDto>(`/api/knowledge/${entry.id}/confirm`, { method: 'POST', body }), t.confirmedToast)
+  if (!done) await refresh()
+}
+function onTabletChanged(message: string) {
+  toast.add({ title: message, color: 'error' })
+  refresh()
 }
 function onTabletConfirmed(result: KnowledgeConfirmResultDto) {
   toast.add({ title: t.confirmedFor(result.name, day(result.confirmedAt)), color: 'success' })
@@ -244,7 +252,7 @@ const presetCategoryId = computed(() => current.value?.category?.id ?? null)
       </section>
     </template>
 
-    <KnowledgeTabletConfirm v-if="confirmVia === 'tablet'" v-model:open="tabletOpen" :entry="tabletEntry" @confirmed="onTabletConfirmed" />
+    <KnowledgeTabletConfirm v-if="confirmVia === 'tablet'" v-model:open="tabletOpen" :entry="tabletEntry" @confirmed="onTabletConfirmed" @changed="onTabletChanged" />
     <template v-if="canManage">
       <KnowledgeEntryDialog
         v-model:open="dialogOpen" :entry="editing" :categories="categories" :can-manage-global="!!data?.canManageGlobal"

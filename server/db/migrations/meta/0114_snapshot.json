@@ -8384,6 +8384,13 @@
           "autoincrement": false,
           "default": 1
         },
+        "version_at": {
+          "name": "version_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",

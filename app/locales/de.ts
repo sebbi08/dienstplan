@@ -1523,7 +1523,7 @@ export const de = {
   /** Einstellungen → Personal → Löschfristen, and the due dates in the archive of the staff page. */
   retention: {
     title: 'Löschfristen',
-    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, Anschrift und Kontakt, Staatsangehörigkeit und Schwerbehinderung, PIN, Zugang, Vertragsdaten, Notfallkontakte, Urlaubsanträge, Lesebestätigungen und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, Lohn und Steuer auch, wenn ein Lohnbüro die Lohnunterlagen aufbewahrt (siehe unten), der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
+    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, Anschrift und Kontakt, Staatsangehörigkeit und Schwerbehinderung, PIN, Zugang, Vertragsdaten, Notfallkontakte, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, Lohn und Steuer auch, wenn ein Lohnbüro die Lohnunterlagen aufbewahrt (siehe unten), der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
     hint: 'Die Fristen sind vorbelegt nach euren Vorgaben. Bitte im Zweifel mit Steuerberatung bzw. Datenschutz klären.',
     providerOnly: 'Die Löschfristen kann nur der Träger ändern.',
     years: 'Jahre',
@@ -1537,7 +1537,7 @@ export const de = {
     },
     periodHelp: {
       timeYears: 'Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit Zusatztagen. Wochenstunden und Aushilfen bleiben so lange, damit Dienstplan und Stundenkonto der Person lesbar bleiben.',
-      assessmentYears: 'Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung), Fortbildungsnachweise und die Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz und Arbeitsrechtliche Maßnahmen.',
+      assessmentYears: 'Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung), Fortbildungsnachweise, die Lesebestätigungen aus „Wissen“ und die Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz und Arbeitsrechtliche Maßnahmen.',
       paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“, die Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt sowie die Unfallanzeigen mit ihren Anhängen. Mindestens und voreingestellt 8 Jahre: So lange sind Buchungsbelege seit 2025 aufzubewahren (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB). Das Lohnkonto (§ 41 EStG) sowie Geschäftsbriefe und sonstige Unterlagen sind 6 Jahre aufzubewahren, Bücher und Jahresabschlüsse 10 Jahre – diese führt die App nicht.',
       pensionYears: 'Nur zur Information: Die App speichert dazu keine Daten.',
       bemYears: 'Ein BEM (Betriebliches Eingliederungsmanagement) mit Gesprächen, Maßnahmen und Notizen darf so viele Jahre nach seinem Ende (abgeschlossen, abgelehnt oder keine Antwort) gelöscht werden – auch bei Mitarbeitern, die noch da sind. Ein laufendes BEM zählt ab dem Austritt. Die Frist steht auch in der Einladung.',
@@ -3330,6 +3330,7 @@ export const de = {
     knowledge_entry_not_movable: 'Einträge des Trägers für alle Einrichtungen stehen nach den eigenen, nach Titel.',
     knowledge_no_employee: 'Bestätigen geht nur mit einem Zugang, der mit einem Mitarbeiter verknüpft ist – oder am Tablet mit deiner PIN.',
     knowledge_confirmation_not_needed: 'Für diesen Eintrag ist keine Bestätigung nötig.',
+    knowledge_entry_changed: 'Der Eintrag wurde inzwischen geändert. Bitte lies ihn noch einmal und bestätige dann.',
   },
   /** „Kontakte“: the facility's address book of external contacts, and the „künftige Schule“ of a child. */
   contacts: {

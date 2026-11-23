@@ -37,6 +37,7 @@ CREATE TABLE `knowledge_entries` (
 	`body` text DEFAULT '' NOT NULL,
 	`needs_confirmation` integer DEFAULT false NOT NULL,
 	`version` integer DEFAULT 1 NOT NULL,
+	`version_at` text NOT NULL,
 	`sort_order` integer DEFAULT 0 NOT NULL,
 	`starter_key` text,
 	`created_at` text NOT NULL,

@@ -41,7 +41,7 @@ const td = 'px-2 py-1.5 align-top'
         <dd>{{ data.facilityName }}</dd>
         <dt />
         <dd>
-          {{ t.version(data.entry.version, day(data.entry.updatedAt)) }}<template v-if="data.entry.asOf"> · {{ de.knowledge.asOf(formatDate(data.entry.asOf)) }}</template>
+          {{ t.version(data.entry.version, day(data.entry.versionAt)) }}<template v-if="data.entry.asOf"> · {{ de.knowledge.asOf(formatDate(data.entry.asOf)) }}</template>
         </dd>
       </dl>
       <table class="w-full text-sm">

@@ -10,7 +10,7 @@ import type { KnowledgeCategoryDto, KnowledgeConfirmationRowDto, KnowledgeEntryD
 const category = (id: number, name: string): KnowledgeCategoryDto => ({ id, name, visibility: 'all', entryCount: 0, ownCount: 0 })
 const entry = (id: number, categoryId: number | null, overrides: Partial<KnowledgeEntryDto> = {}): KnowledgeEntryDto => ({
   id, categoryId, global: categoryId === null, globalCategoryName: null, globalVisibility: null, kind: 'link', title: `Eintrag ${id}`,
-  description: '', asOf: null, url: 'https://example.de', body: '', fileSize: null, needsConfirmation: false, version: 1,
+  description: '', asOf: null, url: 'https://example.de', body: '', fileSize: null, needsConfirmation: false, version: 1, versionAt: '2026-11-23T09:00:00.000Z',
   updatedAt: '2026-11-23T09:00:00.000Z', myConfirmation: null, canEdit: false, ...overrides,
 })
 

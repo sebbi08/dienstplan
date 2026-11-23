@@ -206,8 +206,6 @@ const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
   { table: weekTemplateEntries, column: weekTemplateEntries.employeeId },
   { table: formEditors, column: formEditors.employeeId },
   { table: terminalUnlocks, column: terminalUnlocks.employeeId },
-  // „Gelesen und verstanden“ in „Wissen“: who read what is personal data of the same kind.
-  { table: knowledgeConfirmations, column: knowledgeConfirmations.employeeId },
 ]
 /** References that stay: the child loses its Bezugserzieher, the logs keep the name. */
 const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
@@ -237,7 +235,7 @@ const specialLeaveReasonsOf = (employeeId: number) => and(
  * „Sofort“: birthday, PIN and lock, qualification and share, contract fields, the personnel file's personal and
  * sensitive fields and „befristet bis“ (the row keeps name, short name, group and leaving day), the children with
  * „alleinerziehend“, the reasons of Sonderurlaub (the entries stay), emergency contacts with the consent to show them at the tablet and its log, mandatory appointments, leave requests, notifications, week template rows, form editor
- * grants, the tablet unlock and the read confirmations of „Wissen“. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
+ * grants and the tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
  * Leitung or Mitarbeiter account is deleted, a Träger account only unlinked.
  */
 export function deleteImmediateData(tx: Db, employeeId: number): number {
@@ -311,10 +309,15 @@ const documentsOf = (category: 'assessment' | 'paidOvertime'): EmployeeRows => (
 const ASSESSMENT_ROWS: readonly EmployeeRows[] = [
   { table: staffTalks, column: staffTalks.employeeId },
   { table: employeeTrainings, column: employeeTrainings.employeeId },
+  // „Gelesen und verstanden“ in „Wissen“: proof of instruction (Unterweisung) like the trainings, kept as long.
+  { table: knowledgeConfirmations, column: knowledgeConfirmations.employeeId },
   documentsOf('assessment'),
 ]
 
-/** „Beurteilungen und Zeugnisse“: staff talks with all their forms, the trainings and their folders' documents. */
+/**
+ * „Beurteilungen und Zeugnisse“: staff talks with all their forms, the trainings, the read confirmations of „Wissen“ and
+ * the documents of their folders.
+ */
 export function deleteAssessmentData(tx: Db, employeeId: number): number {
   // The forms are rows of their own (the link rows go with the talk).
   const formIds = tx.select({ id: staffTalkForms.formId }).from(staffTalkForms)

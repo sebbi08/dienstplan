@@ -158,7 +158,7 @@ const ENTRY_COLUMNS = {
   categoryName: knowledgeEntries.categoryName, visibility: knowledgeEntries.visibility, kind: knowledgeEntries.kind,
   title: knowledgeEntries.title, description: knowledgeEntries.description, asOf: knowledgeEntries.asOf,
   fileMime: knowledgeEntries.fileMime, fileSize: knowledgeEntries.fileSize, url: knowledgeEntries.url, body: knowledgeEntries.body,
-  needsConfirmation: knowledgeEntries.needsConfirmation, version: knowledgeEntries.version, sortOrder: knowledgeEntries.sortOrder,
+  needsConfirmation: knowledgeEntries.needsConfirmation, version: knowledgeEntries.version, versionAt: knowledgeEntries.versionAt, sortOrder: knowledgeEntries.sortOrder,
   starterKey: knowledgeEntries.starterKey, createdAt: knowledgeEntries.createdAt, createdBy: knowledgeEntries.createdBy,
   updatedAt: knowledgeEntries.updatedAt, updatedBy: knowledgeEntries.updatedBy,
 }
@@ -260,6 +260,7 @@ export function listKnowledge(db: Db, viewer: KnowledgeViewer): KnowledgeDto {
       fileSize: row.kind === 'file' ? row.fileSize : null,
       needsConfirmation: row.needsConfirmation,
       version: row.version,
+      versionAt: row.versionAt,
       updatedAt: row.updatedAt,
       myConfirmation: person === null ? null : {
         state: confirmState(row.needsConfirmation, row.version, confirmation),
@@ -388,7 +389,7 @@ export function createKnowledgeEntry(
   const at = now.toISOString()
   return db.insert(knowledgeEntries).values({
     ...fields, ...filed, ...files, facilityId: global ? null : actor.facilityId, sortOrder: nextSortOrder(db, filed.categoryId),
-    version: 1, createdAt: at, createdBy: actor.id, updatedAt: at, updatedBy: actor.id,
+    version: 1, versionAt: at, createdAt: at, createdBy: actor.id, updatedAt: at, updatedBy: actor.id,
   }).returning({ id: knowledgeEntries.id }).get().id
 }
 
@@ -419,7 +420,7 @@ export function updateKnowledgeEntry(
   db.update(knowledgeEntries).set({
     ...fields, ...filed, ...files,
     ...(moved ? { sortOrder: nextSortOrder(db, filed.categoryId) } : {}),
-    version: changed ? row.version + 1 : row.version,
+    ...(changed ? { version: row.version + 1, versionAt: now.toISOString() } : {}),
     updatedAt: now.toISOString(), updatedBy: actor.id,
   }).where(eq(knowledgeEntries.id, id)).run()
 }
@@ -456,9 +457,18 @@ export function moveKnowledgeEntry(db: Db, actor: KnowledgeActor, id: number, di
 
 // ---- „Gelesen und verstanden“ ----------------------------------------------
 
+/**
+ * The entry asks for a confirmation (409 knowledge_confirmation_not_needed otherwise) of the very version the reader was
+ * shown: one changed since (a new file, link or text) is 409 knowledge_entry_changed, so nobody confirms a version they
+ * never saw.
+ */
+function assertConfirmable(row: EntryRow, shownVersion: number): void {
+  if (!row.needsConfirmation) throw new ServiceError(409, 'knowledge_confirmation_not_needed')
+  if (shownVersion !== row.version) throw new ServiceError(409, 'knowledge_entry_changed')
+}
+
 /** Records the person's confirmation of the entry's current version (an earlier one is replaced). */
 function recordConfirmation(db: Db, row: EntryRow, employeeId: number, via: 'tablet' | 'account', now: Date): KnowledgeConfirmResultDto {
-  if (!row.needsConfirmation) throw new ServiceError(409, 'knowledge_confirmation_not_needed')
   const confirmedAt = now.toISOString()
   const values = { entryVersion: row.version, confirmedAt, via }
   db.insert(knowledgeConfirmations).values({ entryId: row.id, employeeId, ...values })
@@ -469,25 +479,29 @@ function recordConfirmation(db: Db, row: EntryRow, employeeId: number, via: 'tab
 
 /**
  * „Gelesen und verstanden“ with the own account: for its linked employee (403 knowledge_no_employee without one), of an
- * entry the viewer sees that asks for it (409 knowledge_confirmation_not_needed otherwise).
+ * entry the viewer sees that asks for it, in the version the viewer was shown (see assertConfirmable).
  */
-export function confirmWithAccount(db: Db, viewer: KnowledgeViewer, id: number, now: Date = new Date()): KnowledgeConfirmResultDto {
+export function confirmWithAccount(
+  db: Db, viewer: KnowledgeViewer, id: number, shownVersion: number, now: Date = new Date(),
+): KnowledgeConfirmResultDto {
   const person = accountPerson(viewer)
   if (person === null) throw new ServiceError(403, 'knowledge_no_employee')
   const { row } = loadVisible(db, viewer, id)
+  assertConfirmable(row, shownVersion)
   return recordConfirmation(db, row, person, 'account', now)
 }
 
 /**
  * „Gelesen und verstanden“ at the facility's tablet: a person of its list (404 employee_not_found otherwise, without
  * counting a PIN attempt) confirms for themselves with their PIN (the same attempts and lock as stamping), an entry the
- * tablet shows (visible to all).
+ * tablet shows (visible to all), in the version the tablet showed. Everything but the PIN is checked first, so a stale
+ * page or another person never costs a PIN attempt.
  */
 export function confirmAtTablet(
-  db: Db, terminal: { facilityId: number }, id: number, employeeId: number, pin: string, now: Date = new Date(),
+  db: Db, terminal: { facilityId: number }, id: number, shownVersion: number, employeeId: number, pin: string, now: Date = new Date(),
 ): KnowledgeConfirmResultDto {
   const { row } = loadVisible(db, { role: 'terminal', facilityId: terminal.facilityId }, id)
-  if (!row.needsConfirmation) throw new ServiceError(409, 'knowledge_confirmation_not_needed')
+  assertConfirmable(row, shownVersion)
   if (!terminalStatus(db, terminal.facilityId, now).some(person => person.employeeId === employeeId)) {
     throw new ServiceError(404, 'employee_not_found')
   }
@@ -500,11 +514,12 @@ export function confirmAtTablet(
  * (confirmAtTablet; 400 invalid_input without them), an own account confirms for its linked employee (confirmWithAccount).
  */
 export function confirmKnowledge(
-  db: Db, reader: KnowledgeViewer, id: number, input: { employeeId?: number; pin?: string }, now: Date = new Date(),
+  db: Db, reader: KnowledgeViewer, id: number, input: { version: number; employeeId?: number; pin?: string }, now: Date = new Date(),
 ): KnowledgeConfirmResultDto {
-  if (reader.role !== 'terminal') return confirmWithAccount(db, reader, id, now)
+  // An account always confirms for its own linked employee: a person or PIN it sends is ignored.
+  if (reader.role !== 'terminal') return confirmWithAccount(db, reader, id, input.version, now)
   if (input.employeeId === undefined || input.pin === undefined) throw new ServiceError(400, 'invalid_input')
-  return confirmAtTablet(db, reader, id, input.employeeId, input.pin, now)
+  return confirmAtTablet(db, reader, id, input.version, input.employeeId, input.pin, now)
 }
 
 const STATE_ORDER: Record<KnowledgeConfirmState, number> = { open: 0, outdated: 1, confirmed: 2, none: 3 }
@@ -512,8 +527,10 @@ const STATE_ORDER: Record<KnowledgeConfirmState, number> = { open: 0, outdated: 
 /**
  * Who of the facility confirmed the entry and who not yet (knowledge.manage; an entry the actor sees in the facility,
  * else 404): every employee of the facility employed today who sees it (by the role of their active account, the
- * Mitarbeiter's without one: a category for Leitung and Träger counts only them), plus anyone of the facility who
- * confirmed but left or no longer sees it. Helpers of other facilities and other facilities' staff are not shown.
+ * Mitarbeiter's without one: a category for Leitung and Träger counts only them), plus anyone who confirmed but left,
+ * no longer sees it or is not on the staff: for the facility's own entry also helpers of other facilities who confirmed
+ * it at this tablet (the facility plans them); for an entry for all facilities only the facility's own employees, so no
+ * other facility's names show.
  */
 export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, today: IsoDate = todayIso()): KnowledgeConfirmationsDto {
   assertManager(actor)
@@ -526,7 +543,9 @@ export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, 
     employeeId: knowledgeConfirmations.employeeId, entryVersion: knowledgeConfirmations.entryVersion,
     confirmedAt: knowledgeConfirmations.confirmedAt, via: knowledgeConfirmations.via, name: employees.name,
   }).from(knowledgeConfirmations).innerJoin(employees, eq(employees.id, knowledgeConfirmations.employeeId))
-    .where(and(eq(knowledgeConfirmations.entryId, id), eq(employees.facilityId, actor.facilityId))).all()
+    .where(row.facilityId === null
+      ? and(eq(knowledgeConfirmations.entryId, id), eq(employees.facilityId, actor.facilityId))
+      : eq(knowledgeConfirmations.entryId, id)).all()
   const byEmployee = new Map(confirmations.map(confirmation => [confirmation.employeeId, confirmation]))
   const expected = staff.filter(employee => seesPlacement(roles.get(employee.id) ?? 'observer', placement))
   const expectedIds = new Set(expected.map(employee => employee.id))
@@ -549,7 +568,7 @@ export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, 
   return {
     entry: {
       id: row.id, title: row.title, kind: row.kind, needsConfirmation: row.needsConfirmation, version: row.version,
-      updatedAt: row.updatedAt, asOf: row.asOf, category: placement.name,
+      updatedAt: row.updatedAt, versionAt: row.versionAt, asOf: row.asOf, category: placement.name,
     },
     facilityName: facility?.name ?? '',
     people,
@@ -595,7 +614,7 @@ export function seedKnowledgeStarters(db: Db, facilityId: number, now: Date = ne
     if (category && (!link.states || link.states.includes(facility.state))) {
       db.insert(knowledgeEntries).values({
         facilityId, categoryId: category.id, kind: 'link', title: link.title, description: link.description, url: link.url,
-        starterKey: link.key, sortOrder: nextSortOrder(db, category.id), createdAt: at, updatedAt: at,
+        starterKey: link.key, sortOrder: nextSortOrder(db, category.id), versionAt: at, createdAt: at, updatedAt: at,
       }).run()
     }
     record(link.key)

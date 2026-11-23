@@ -2,15 +2,16 @@
 import { PIN_LENGTH } from '#shared/domain/pin'
 import type { KnowledgeConfirmResultDto, KnowledgeEntryDto, TerminalPersonDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { errorMessage } from '~/utils/errors'
+import { errorCode, errorMessage } from '~/utils/errors'
 
 /**
  * „Gelesen und verstanden“ at the facility's tablet: the person taps their name (the tablet's list, as for stamping) and
- * enters their PIN; the confirmation is theirs. The PIN counts like stamping (the same attempts and lock).
+ * enters their PIN; the confirmation is theirs. The PIN counts like stamping (the same attempts and lock). The version
+ * shown is sent along: an entry changed meanwhile is refused before the PIN is looked at, the dialog closes and the list reloads (changed).
  */
 const props = defineProps<{ entry: KnowledgeEntryDto | null }>()
 const open = defineModel<boolean>('open', { required: true })
-const emit = defineEmits<{ confirmed: [result: KnowledgeConfirmResultDto] }>()
+const emit = defineEmits<{ confirmed: [result: KnowledgeConfirmResultDto]; changed: [message: string] }>()
 
 const t = de.knowledge.tablet
 const people = ref<TerminalPersonDto[]>([])
@@ -47,7 +48,7 @@ watch(pin, async (value) => {
   failure.value = ''
   try {
     const result = await $fetch<KnowledgeConfirmResultDto>(`/api/knowledge/${props.entry.id}/confirm`, {
-      method: 'POST', body: { employeeId: person.value.employeeId, pin: value },
+      method: 'POST', body: { version: props.entry.version, employeeId: person.value.employeeId, pin: value },
     })
     open.value = false
     emit('confirmed', result)
@@ -55,6 +56,11 @@ watch(pin, async (value) => {
   catch (error) {
     failure.value = errorMessage(error)
     pin.value = ''
+    // The entry changed meanwhile: back to the list, which loads it again (and says why).
+    if (errorCode(error) === 'knowledge_entry_changed') {
+      open.value = false
+      emit('changed', failure.value)
+    }
   }
   finally {
     busy.value = false
