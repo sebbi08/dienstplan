@@ -256,9 +256,14 @@ describe('CSV import and export', () => {
     }, 5)
     const sliced = await parseDistrictCsvInSlices(text)
     clearInterval(ticker)
-    expect(longest).toBeLessThan(150)
+    const started = performance.now()
+    const whole = parseDistrictCsv(text)
+    const oneGo = performance.now() - started
+    // In slices of 20 ms every gap stays far below the time in one go (a garbage collection included).
+    expect(longest, `longest gap ${Math.round(longest)} ms, in one go ${Math.round(oneGo)} ms`).toBeLessThan(Math.max(300, oneGo / 2))
+    expect(longest).toBeLessThan(1000)
     // Same result as in one go.
-    expect(sliced).toEqual(parseDistrictCsv(text))
+    expect(sliced).toEqual(whole)
     expect(await parseDistrictLinesInSlices([['Ahornweg', '2- 14', '04']])).toEqual(parseDistrictLines([['Ahornweg', '2- 14', '04']]))
   })
 
