@@ -7,7 +7,7 @@ import type {
 } from '../../shared/types/api'
 import { de } from '../../app/locales/de'
 import {
-  chosenSheet, contactLabel, overviewColumns, overviewSections, triSymbol, type OverviewContext,
+  chosenSheet, contactLabel, isLegacySheetKey, legacySheet, overviewColumns, overviewSections, triSymbol, type OverviewContext,
 } from '../../app/utils/childrenOverview'
 
 /** The default questions as a facility has them (ids 1–14). */
@@ -59,6 +59,20 @@ describe('children overview sheets', () => {
     // A deleted tab (or one of another facility) falls back to the first.
     expect(chosenSheet(sheets, '99', 98)?.id).toBe(7)
     expect(chosenSheet([], '7', 7)).toBeNull()
+  })
+
+  it('leads an old print address (fixed sheet key) to the first tab with that sheet\'s typical column', () => {
+    const sheets: OverviewSheetDto[] = DEFAULT_OVERVIEW_SHEETS.map((sheet, index) => ({
+      id: 100 + index, name: sheet.name, sortOrder: index, columns: sheetRefs(Object.keys(SHEET_INDEX)[index] as Sheet),
+    }))
+    expect(Object.keys(SHEET_INDEX).map(key => legacySheet(sheets, QUESTIONS, key)?.id)).toEqual([100, 101, 102, 103, 104, 105, 106, 107])
+    // A facility that moved the measles proof into its own tab, and one without any WhatsApp column.
+    const own: OverviewSheetDto = { id: 7, name: 'Impfungen', sortOrder: -1, columns: [{ type: 'field', key: 'measlesProof' }] }
+    expect(legacySheet([own, ...sheets], QUESTIONS, 'health')?.id).toBe(7)
+    expect(legacySheet(sheets.filter(sheet => sheet.id !== 101), QUESTIONS, 'messenger')).toBeNull()
+    expect(legacySheet(sheets, QUESTIONS, 'toString')).toBeNull()
+    expect(isLegacySheetKey('phones')).toBe(true)
+    expect(isLegacySheetKey('constructor')).toBe(false)
   })
 
   it('shows yes, no and open as ✓, ✗ and –', () => {

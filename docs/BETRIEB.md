@@ -165,13 +165,17 @@ zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und ne
 Kinder → Einwilligungen & Erlaubnisse* ändert die Leitung (wer die Kinder-Einstellungen ändern darf) Text, Kurzname
 (die Spaltenüberschrift in der Übersicht) und Bereich, legt neue Fragen und Bereiche an, ordnet sie und blendet sie
 aus. Löschen lässt sich nur eine Frage, die noch kein Kind beantwortet hat; sonst nur **ausblenden** – die Antworten
-bleiben als Nachweis und stehen in der Akte unter „ausgeblendete Fragen“ (nur lesen). Die drei Erlaubnisse „Fieber
+bleiben als Nachweis und stehen in der Akte unter „ausgeblendete Fragen“. Dort lässt sich eine Einwilligung noch
+widerrufen („nein“) oder die Antwort löschen („offen“), z. B. wenn Eltern widerrufen (Art. 7 Abs. 3 DSGVO); ein neues
+„ja“ gibt es erst, wenn die Leitung die Frage wieder einblendet. Die drei Erlaubnisse „Fieber
 messen“, „Sonnenschutz auftragen“ und „Pflaster kleben“ standen früher im Abschnitt „Gesundheit“ der Akte; sie sind
 jetzt Fragen im Bereich „Gesundheit“ der Einwilligungen (nach einem Gruppenwechsel also mit „Einwilligungen“ zu
 bestätigen, nicht mehr mit „Gesundheit“). Beim Update bekam jede Einrichtung genau die bisherigen 14 Fragen, und jede
 Antwort (ja / nein) wurde übernommen; neue Einrichtungen beginnen mit denselben Fragen. Zieht ein Kind in eine andere
-Einrichtung um, gehen seine Antworten mit: zur Frage dort mit demselben Ursprung oder demselben Text, sonst wird die
-Frage dort ausgeblendet angelegt, damit die Antwort erhalten bleibt.
+Einrichtung um, gehen seine Antworten mit: zur Frage dort mit demselben Ursprung, solange sie dort noch dasselbe fragt
+(gleicher Text), sonst zur Frage mit demselben Text; gibt es keine, wird die Frage dort ausgeblendet angelegt, damit
+die Antwort erhalten bleibt. Nur die Frage zum Insektenschutz geht immer zur Insektenschutz-Frage der neuen
+Einrichtung, auch wenn sie dort anders heißt.
 
 **Reiter der Übersicht.** Welche Reiter *Kinder → Übersicht* hat und welche Spalten jeder zeigt, legt die Leitung
 unter *Einstellungen → Kinder → Reiter der Übersicht* fest: Reiter anlegen, umbenennen, ordnen, löschen; je Reiter
@@ -183,8 +187,10 @@ nur einen Hinweis.
 
 *Für den Betrieb:* Die alten Spalten der Einwilligungen in der Tabelle `children` (`consent_*`, `may_take_temperature`,
 `may_apply_sunscreen`, `may_apply_plaster`) liest und schreibt die App seit der Migration 0111 nicht mehr; sie bleiben
-nur, damit ein Zurück auf die Vorversion möglich ist (die dann den Stand vom Update zeigt). Sie werden in einer
-späteren Version entfernt.
+nur, damit ein Zurück auf die Vorversion möglich ist (die dann den Stand vom Update zeigt). Nach einem Zurück und
+erneutem Update gelten wieder die Antworten aus der App; Änderungen in der Zwischenzeit (in der Vorversion) gehen
+verloren, weil die Migration 0111 dann schon gelaufen ist und nicht noch einmal kopiert. Die alten Spalten werden in
+einer späteren Version entfernt.
 
 ### Wer sieht was
 

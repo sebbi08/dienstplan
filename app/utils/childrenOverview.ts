@@ -2,7 +2,7 @@
 // columns (consent questions and fixed fields, Einstellungen → Kinder → Reiter der Übersicht); the cells are rendered
 // here. The texts are imported relative so a test can load this file.
 import { callOrder } from '#shared/domain/callOrder'
-import type { OverviewColumnRef, OverviewFieldKey } from '#shared/domain/childConsents'
+import type { DefaultColumnRef, OverviewColumnRef, OverviewFieldKey } from '#shared/domain/childConsents'
 import { parseIsoDate } from '#shared/domain/dates'
 import { formatTime } from '#shared/domain/time'
 import type {
@@ -199,6 +199,30 @@ export function chosenSheet(sheets: readonly OverviewSheetDto[], requested: unkn
     return sheets.find(sheet => sheet.id === id)
   }
   return find(requested) ?? find(remembered) ?? sheets[0] ?? null
+}
+
+/**
+ * The print addresses before the tabs were the facility's named the fixed sheets (`/print/children/overview/privacy`):
+ * each old key with a column typical of that sheet.
+ */
+const LEGACY_SHEETS: Record<string, DefaultColumnRef> = {
+  privacy: { type: 'consent', builtinKey: 'artworkDisplay' }, messenger: { type: 'consent', builtinKey: 'whatsappContact' },
+  health: { type: 'field', key: 'measlesProof' }, pickup: { type: 'field', key: 'pickUp' },
+  guardians: { type: 'field', key: 'guardians' }, emergency: { type: 'field', key: 'emergency' },
+  phones: { type: 'field', key: 'phones' }, meetings: { type: 'field', key: 'lastMeeting' },
+}
+export const isLegacySheetKey = (value: unknown): value is string => typeof value === 'string' && Object.hasOwn(LEGACY_SHEETS, value)
+
+/** The facility's first tab with the typical column of an old sheet key (null: none has it, or no such key). */
+export function legacySheet(
+  sheets: readonly OverviewSheetDto[], questions: readonly ConsentQuestionDto[], key: string,
+): OverviewSheetDto | null {
+  if (!isLegacySheetKey(key)) return null
+  const marker = LEGACY_SHEETS[key]!
+  const matches = (column: OverviewColumnRef) => marker.type === 'field'
+    ? column.type === 'field' && column.key === marker.key
+    : column.type === 'consent' && questions.find(question => question.id === column.questionId)?.builtinKey === marker.builtinKey
+  return sheets.find(sheet => sheet.columns.some(matches)) ?? null
 }
 
 export interface OverviewSection {

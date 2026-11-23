@@ -127,17 +127,19 @@ export function recordQuestions(db: Db, facilityId: number, answers: ConsentAnsw
 
 /**
  * Saves the child's answers to the given questions (null = keine Angabe: the answer is removed); the others stay. Each
- * must be a visible question of the child's facility (404 consent_question_not_found, 400 consent_question_hidden: a
- * hidden question's answer is kept as it is) and named once (400 consent_question_twice). Call in the transaction of
- * the save, after the record was checked.
+ * must be a question of the child's facility (404 consent_question_not_found) named once (400 consent_question_twice).
+ * A hidden question is no longer asked: its answer can still be withdrawn (nein) or cleared, and a stored ja may stay,
+ * but no new ja is given (400 consent_question_hidden). Call in the transaction of the save, after the record was
+ * checked.
  */
 export function saveAnswers(db: Db, facilityId: number, childId: number, input: ConsentAnswerInput[]): void {
   const questions = new Map(questionRows(db, facilityId).map(row => [row.id, row]))
+  const stored = answersOf(db, [childId]).get(childId)!
   const seen = new Set<number>()
   for (const answer of input) {
     const question = questions.get(answer.questionId)
     if (!question) throw new ServiceError(404, 'consent_question_not_found')
-    if (question.hidden) throw new ServiceError(400, 'consent_question_hidden')
+    if (question.hidden && answer.value === true && stored[question.id] !== true) throw new ServiceError(400, 'consent_question_hidden')
     if (seen.has(answer.questionId)) throw new ServiceError(400, 'consent_question_twice')
     seen.add(answer.questionId)
   }
@@ -173,8 +175,10 @@ const folded = (value: string) => value.trim().toLocaleLowerCase('de')
 
 /**
  * A child moves to another facility (in its transaction): each answer goes to the target facility's question with the
- * same key, else the same text (regardless of case); a question the target does not have is created there hidden, in
- * the same area, so the answer stays as proof and shows read-only in the record.
+ * same key while both still ask the same (same text regardless of case), else to its question of the same text; a
+ * question the target does not have is created there hidden, in the same area, so the answer stays as proof and shows
+ * read-only in the record. The question about insect repellent always goes by its key (the attendance list reads it
+ * by key; the target may word it differently but it means the same).
  */
 export function moveAnswers(db: Db, childId: number, targetFacilityId: number): void {
   const answers = db.select().from(childConsentAnswers).where(eq(childConsentAnswers.childId, childId)).all()
@@ -187,12 +191,14 @@ export function moveAnswers(db: Db, childId: number, targetFacilityId: number): 
   for (const answer of answers) {
     const source = sources.get(answer.questionId)!
     if (source.facilityId === targetFacilityId) continue
-    let target = targets.find(row => source.builtinKey !== null && row.builtinKey === source.builtinKey)
+    const sameKey = source.builtinKey === null ? undefined : targets.find(row => row.builtinKey === source.builtinKey)
+    let target = (sameKey && (source.builtinKey === INSECT_REPELLENT_KEY || folded(sameKey.text) === folded(source.text)) ? sameKey : undefined)
       ?? targets.find(row => folded(row.text) === folded(source.text))
     if (!target) {
       target = db.insert(childConsentQuestions).values({
         facilityId: targetFacilityId, text: source.text, short: source.short, area: source.area, sortOrder: nextOrder++,
-        hidden: true, builtinKey: targets.some(row => row.builtinKey === source.builtinKey) ? null : source.builtinKey,
+        // The key once per facility: the target's own question with it asks something else now, so the copy has none.
+        hidden: true, builtinKey: sameKey ? null : source.builtinKey,
       }).returning().get()
       targets.push(target)
     }

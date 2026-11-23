@@ -12,7 +12,6 @@ import {
 } from '../../server/db/schema'
 import { DEFAULT_TEMPLATE_CATEGORIES, ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
-import { DEFAULT_CONSENT_QUESTIONS, DEFAULT_OVERVIEW_SHEETS } from '../../shared/domain/childConsents'
 import { DEFAULT_CONTACT_CATEGORIES } from '../../shared/domain/contacts'
 import { STARTERS } from '../../shared/domain/forms/starters'
 import { addChild, addEmployee, addUser, createTestDb } from '../helpers/fixtures'
@@ -2450,6 +2449,40 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT id FROM contacts').all()).toEqual([{ id: 2 }])
   })
 
+  // What 0111 writes, frozen here (the defaults for new facilities in shared/domain/childConsents.ts may change later):
+  // [builtin key, area, short, text] in their order, and the eight sheets with their columns (consents by key).
+  const MIGRATED_QUESTIONS = [
+    ['artworkDisplay', 'Datenschutz', 'Bastelarbeiten', 'Bastel- und Malarbeiten aufhängen'],
+    ['photosDisplay', 'Datenschutz', 'Fotos aufhängen', 'Einzel- und Gruppenfotos aufhängen'],
+    ['photosForeignPortfolios', 'Datenschutz', 'Fremde Portfolios', 'Fotoerlaubnis für fremde Portfolios'],
+    ['photosInternalEvents', 'Datenschutz', 'Fotos Feste', 'Fotos hausinterner Feste'],
+    ['photosNamesBirthdaysDisplay', 'Datenschutz', 'Fotos, Namen, Geb.', 'Fotos, Namen und Geburtsdaten aufhängen'],
+    ['groupWorkWithNames', 'Datenschutz', 'Gruppenarbeiten', 'Gruppenarbeiten mit Namen ausstellen'],
+    ['whatsappContact', 'Messenger (WhatsApp, Signal)', 'Kontakt WhatsApp', 'Kontaktaufnahme über WhatsApp'],
+    ['whatsappPhotos', 'Messenger (WhatsApp, Signal)', 'Fotos WhatsApp', 'Fotos über WhatsApp versenden'],
+    ['signalPhotos', 'Messenger (WhatsApp, Signal)', 'Fotos Signal', 'Fotos über Signal versenden'],
+    ['whatsappParentGroup', 'Messenger (WhatsApp, Signal)', 'Elterngruppe', 'WhatsApp-Elterngruppe'],
+    ['mayTakeTemperature', 'Gesundheit', 'Fieber', 'Fieber messen'],
+    ['mayApplySunscreen', 'Gesundheit', 'Sonnenschutz', 'Sonnenschutz auftragen'],
+    ['mayApplyPlaster', 'Gesundheit', 'Pflaster', 'Pflaster kleben'],
+    ['insectRepellent', 'Gesundheit', 'Insektenschutz', 'Darf mit Insektenschutz eingesprüht werden'],
+  ] as const
+  const c = (builtinKey: string) => ({ type: 'consent', builtinKey })
+  const f = (key: string) => ({ type: 'field', key })
+  const MIGRATED_SHEETS = [
+    { name: 'Datenschutz', columns: ['artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents', 'photosNamesBirthdaysDisplay', 'groupWorkWithNames'].map(c) },
+    { name: 'Messenger', columns: ['whatsappContact', 'whatsappPhotos', 'signalPhotos', 'whatsappParentGroup'].map(c) },
+    {
+      name: 'Gesundheit',
+      columns: [f('measlesProof'), f('infectionBriefingDate'), f('allergies'), ...['mayTakeTemperature', 'mayApplySunscreen', 'mayApplyPlaster', 'insectRepellent'].map(c)],
+    },
+    { name: 'Abholberechtigte', columns: [f('pickUp')] },
+    { name: 'Sorgeberechtigte', columns: [f('guardians'), f('contactBan')] },
+    { name: 'Anruf-Reihenfolge', columns: [f('emergency')] },
+    { name: 'Telefonnummern', columns: [f('address'), f('phones')] },
+    { name: 'Elterngespräche', columns: [f('lastMeeting'), f('nextMeeting'), f('allMeetings'), f('meetingCount')] },
+  ]
+
   it('0111 makes the fixed consents questions of every facility, copies every answer and adds the eight tabs', () => {
     const { db, sqlite } = databaseAt('0110')
     insertOverviewSample(sqlite)
@@ -2460,9 +2493,8 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     // Every facility (also the one without children) has the 14 questions in the order and with the texts of before.
     const questions = sqlite.prepare('SELECT * FROM child_consent_questions ORDER BY facility_id, sort_order').all() as Record<string, unknown>[]
     expect(questions.map(({ facility_id, builtin_key, area, short, text, sort_order, hidden }) => ({ facility_id, builtin_key, area, short, text, sort_order, hidden })))
-      .toEqual([1, 2, 3].flatMap(facility => DEFAULT_CONSENT_QUESTIONS.map((question, index) => ({
-        facility_id: facility, builtin_key: question.builtinKey, area: question.area, short: question.short, text: question.text,
-        sort_order: index, hidden: 0,
+      .toEqual([1, 2, 3].flatMap(facility => MIGRATED_QUESTIONS.map(([key, area, short, text], index) => ({
+        facility_id: facility, builtin_key: key, area, short, text, sort_order: index, hidden: 0,
       }))))
     const questionOf = (facility: unknown, key: string) =>
       questions.find(question => question.facility_id === facility && question.builtin_key === key)!.id
@@ -2493,7 +2525,7 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
       columns: (JSON.parse(sheet.columns as string) as Record<string, unknown>[]).map(column => column.type === 'field'
         ? column
         : { type: 'consent', builtinKey: questions.find(question => question.id === column.questionId && question.facility_id === sheet.facility_id)?.builtin_key }),
-    }))).toEqual([1, 2, 3].flatMap(facility => DEFAULT_OVERVIEW_SHEETS.map((sheet, index) => ({
+    }))).toEqual([1, 2, 3].flatMap(facility => MIGRATED_SHEETS.map((sheet, index) => ({
       facility, name: sheet.name, sortOrder: index, columns: sheet.columns,
     }))))
 
@@ -2527,9 +2559,9 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     const { db, sqlite } = createDb(':memory:')
     migrateDb(db, MIGRATIONS)
     expect(sqlite.prepare('SELECT facility_id, builtin_key FROM child_consent_questions ORDER BY sort_order').all())
-      .toEqual(DEFAULT_CONSENT_QUESTIONS.map(question => ({ facility_id: 1, builtin_key: question.builtinKey })))
+      .toEqual(MIGRATED_QUESTIONS.map(([key]) => ({ facility_id: 1, builtin_key: key })))
     expect(sqlite.prepare('SELECT name FROM child_overview_sheets ORDER BY sort_order').all().map(row => (row as { name: string }).name))
-      .toEqual(DEFAULT_OVERVIEW_SHEETS.map(sheet => sheet.name))
+      .toEqual(MIGRATED_SHEETS.map(sheet => sheet.name))
     expect(count(sqlite, 'child_consent_answers')).toBe(0)
   })
 

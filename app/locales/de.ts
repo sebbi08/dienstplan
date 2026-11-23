@@ -1282,7 +1282,8 @@ export const de = {
     relations: ['Mutter', 'Vater', 'Oma', 'Opa', 'Tante', 'Onkel', 'Nachbar/in'],
     // The consent block of the record: the facility's own questions (Einstellungen → Kinder), grouped by area.
     consentsHidden: 'ausgeblendete Fragen',
-    consentsHiddenHint: 'Diese Fragen stellt die Einrichtung nicht mehr. Die Antworten bleiben als Nachweis gespeichert.',
+    consentsHiddenHint: 'Diese Fragen stellt die Einrichtung nicht mehr. Die Antworten bleiben als Nachweis gespeichert. Widerrufen („nein“) oder löschen („offen“) geht unter „Bearbeiten“.',
+    consentsHiddenEditHint: 'Ausgeblendete Fragen: Eine Einwilligung lässt sich widerrufen („nein“) oder die Antwort löschen („offen“), ein neues „ja“ gibt es nicht. Dafür blendet die Leitung die Frage unter Einstellungen → Kinder wieder ein.',
     noConsentQuestions: 'Die Einrichtung hat noch keine Fragen angelegt (Einstellungen → Kinder → Einwilligungen & Erlaubnisse).',
     addContact: 'Bezugsperson hinzufügen', birthdaysHint: 'Geburtstage der nächsten 8 Wochen', turns: (n: number) => `wird ${n}`,
     // Small helper texts of the pages (beyond the agreed wording list above).
@@ -1501,7 +1502,7 @@ export const de = {
     hide: 'Ausblenden', show: 'Wieder einblenden', hidden: 'ausgeblendet',
     answers: (n: number) => (n === 1 ? '1 Antwort' : `${n} Antworten`),
     hideInsteadHint: 'Zu dieser Frage gibt es Antworten. Sie bleiben als Nachweis gespeichert, darum lässt sie sich nur ausblenden, nicht löschen.',
-    hiddenHint: 'Ausgeblendete Fragen werden in neuen Akten nicht mehr gestellt. Vorhandene Antworten bleiben sichtbar (nur lesen).',
+    hiddenHint: 'Ausgeblendete Fragen werden in neuen Akten nicht mehr gestellt. Vorhandene Antworten bleiben sichtbar und lassen sich noch widerrufen oder löschen, aber nicht neu mit „ja“ beantworten.',
     confirmDelete: 'Diese Frage löschen? Sie verschwindet auch aus den Reitern der Übersicht.',
     moveUp: 'Nach oben', moveDown: 'Nach unten', areaUp: 'Bereich nach oben', areaDown: 'Bereich nach unten',
     empty: 'Noch keine Fragen.',
@@ -3289,7 +3290,7 @@ export const de = {
     consent_question_short_required: 'Bitte gib einen Kurznamen für die Spalte an (höchstens 40 Zeichen).',
     consent_area_required: 'Bitte wähle einen Bereich oder gib einen neuen an (höchstens 40 Zeichen).',
     consent_question_answered: 'Zu dieser Frage gibt es schon Antworten. Sie bleiben als Nachweis gespeichert – die Frage lässt sich nur ausblenden.',
-    consent_question_hidden: 'Diese Frage ist ausgeblendet. Ihre Antwort lässt sich nicht mehr ändern. Bitte lade die Seite neu.',
+    consent_question_hidden: 'Diese Frage ist ausgeblendet: Hier geht nur noch „nein“ oder „offen“. Für ein neues „ja“ muss die Leitung sie unter Einstellungen → Kinder wieder einblenden.',
     consent_question_twice: 'Eine Frage ist doppelt. Bitte lade die Seite neu.',
     overview_sheet_not_found: 'Diesen Reiter gibt es nicht mehr. Bitte lade die Seite neu.',
     overview_sheet_name_required: 'Bitte gib einen Namen für den Reiter an (höchstens 40 Zeichen).',

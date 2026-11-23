@@ -103,7 +103,7 @@ describe('answers in the child record', () => {
     admin = asChildViewer(addUser(db, 'leitung', 'admin'))
   })
 
-  it('shows the visible questions and a hidden one only with an answer of this child, read-only', () => {
+  it('shows the visible questions and a hidden one only with an answer of this child', () => {
     const child = addChild(db, 1)
     const other = addChild(db, 1, { lastName: 'Andere' })
     updateChildConsents(db, admin, 1, child, answers(db, 1, { photosDisplay: true, signalPhotos: false }), TODAY, NOW)
@@ -118,10 +118,28 @@ describe('answers in the child record', () => {
     expect(record.consents).toEqual({ [photos]: true, [signal]: false })
     // The other child has no answer to the hidden questions: they do not show.
     expect(getChild(db, admin, other, TODAY).consentQuestions.some(question => question.hidden)).toBe(false)
-    // A hidden question's answer stays as it is.
+    // A hidden question gets no new ja.
     expect(errorCode(() => updateChildConsents(db, admin, 1, child, [{ questionId: signal, value: true }], TODAY, NOW))).toBe('consent_question_hidden')
     updateChildConsents(db, admin, 1, child, [{ questionId: added.id, value: true }], TODAY, NOW)
     expect(getChild(db, admin, child, TODAY).consents).toEqual({ [photos]: true, [signal]: false, [added.id]: true })
+  })
+
+  it('lets a hidden question\'s answer be withdrawn (nein) or cleared, and a stored ja stay', () => {
+    const child = addChild(db, 1)
+    updateChildConsents(db, admin, 1, child, answers(db, 1, { photosDisplay: true, signalPhotos: true, whatsappPhotos: false }), TODAY, NOW)
+    const [photos, signal, whatsapp] = (['photosDisplay', 'signalPhotos', 'whatsappPhotos'] as const).map(key => questionId(db, 1, key))
+    for (const id of [photos!, signal!, whatsapp!]) {
+      const question = listConsentQuestions(db, 1).find(entry => entry.id === id)!
+      updateConsentQuestion(db, 1, id, { text: question.text, short: question.short, area: question.area, hidden: true })
+    }
+    // The form sends every shown answer again: the stored ja unchanged, a withdrawal, a cleared answer.
+    updateChildConsents(db, admin, 1, child, [
+      { questionId: photos!, value: true }, { questionId: signal!, value: false }, { questionId: whatsapp!, value: null },
+    ], TODAY, NOW)
+    expect(getChild(db, admin, child, TODAY).consents).toEqual({ [photos!]: true, [signal!]: false })
+    // Once withdrawn, no ja again while it is hidden.
+    expect(errorCode(() => updateChildConsents(db, admin, 1, child, [{ questionId: signal!, value: true }], TODAY, NOW))).toBe('consent_question_hidden')
+    expect(errorCode(() => updateChildConsents(db, admin, 1, child, [{ questionId: whatsapp!, value: true }], TODAY, NOW))).toBe('consent_question_hidden')
   })
 
   it('refuses a question of another facility, an unknown one and one named twice, and saves nothing then', () => {
@@ -145,7 +163,7 @@ describe('answers in the child record', () => {
     expect(getChild(db, admin, child, TODAY).consents).toEqual({})
   })
 
-  it('takes the answers along to another facility: same key or text, else a hidden copy of the question', () => {
+  it('takes the answers along to another facility: same key and text, same text, else a hidden copy of the question', () => {
     const child = addChild(db, 1)
     const own = createConsentQuestion(db, 1, { text: 'Darf schwimmen gehen', short: 'Schwimmen', area: 'Ausflüge' })
     const krippe = addFacility(db, 'Krippe')
@@ -153,8 +171,10 @@ describe('answers in the child record', () => {
     updateConsentQuestion(db, krippe, questionId(db, krippe, 'insectRepellent'), { text: 'Mückenspray', short: 'Mücken', area: 'Gesundheit' })
     const theirs = createConsentQuestion(db, krippe, { text: 'darf SCHWIMMEN gehen', short: 'Baden', area: 'Sport' })
     const hiddenHere = createConsentQuestion(db, 1, { text: 'Darf auf den Hochstand', short: 'Hochstand', area: 'Garten' })
+    // The question with the WhatsApp key asks something else there now: the WhatsApp answer must not land on it.
+    updateConsentQuestion(db, krippe, questionId(db, krippe, 'whatsappContact'), { text: 'Kontaktaufnahme über Signal', short: 'Signal', area: 'Messenger' })
     updateChildConsents(db, admin, 1, child, [
-      ...answers(db, 1, { insectRepellent: false, artworkDisplay: true }),
+      ...answers(db, 1, { insectRepellent: false, artworkDisplay: true, whatsappContact: true }),
       { questionId: own.id, value: true }, { questionId: hiddenHere.id, value: false },
     ], TODAY, NOW)
     moveChildToFacility(db, child, krippe, NOW)
@@ -162,9 +182,15 @@ describe('answers in the child record', () => {
     const record = getChild(db, provider, child, TODAY)
     const copy = listConsentQuestions(db, krippe).find(question => question.text === 'Darf auf den Hochstand')!
     expect(copy).toMatchObject({ hidden: true, area: 'Garten', short: 'Hochstand', answerCount: 1 })
+    const whatsappCopy = listConsentQuestions(db, krippe).find(question => question.text === 'Kontaktaufnahme über WhatsApp')!
+    // A hidden copy without the key (the key stays with the facility's own question).
+    expect(whatsappCopy).toMatchObject({ hidden: true, builtinKey: null, short: 'Kontakt WhatsApp', answerCount: 1 })
     expect(record.consents).toEqual({
+      // Insect repellent goes by its key although the other facility words it differently.
       [questionId(db, krippe, 'insectRepellent')]: false, [questionId(db, krippe, 'artworkDisplay')]: true, [theirs.id]: true, [copy.id]: false,
+      [whatsappCopy.id]: true,
     })
+    expect(record.consents[questionId(db, krippe, 'whatsappContact')]).toBeUndefined()
     // Nothing of the child is left in the old facility's questions.
     expect(listConsentQuestions(db, 1).every(question => question.answerCount === 0)).toBe(true)
   })

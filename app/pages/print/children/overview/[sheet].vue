@@ -2,25 +2,35 @@
 import { todayIso } from '#shared/domain/dates'
 import type { ChildrenOverviewDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { overviewColumns, overviewSections } from '~/utils/childrenOverview'
+import { legacySheet, overviewColumns, overviewSections } from '~/utils/childrenOverview'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 /**
  * One tab of the children overview for printing (Leitung and Träger; the middleware keeps Mitarbeiter away and the
  * tablet never gets here): A4 landscape, head with facility, tab, group or „Alle Gruppen“ and date. The address names
- * the tab by its id; `?group=` as the group filter of the tab (0 = the children without group).
+ * the tab by its id; `?group=` as the group filter of the tab (0 = the children without group). An address of before
+ * (the fixed sheets: `privacy`, `health` …) leads to the facility's first tab with that sheet's typical column.
  */
-definePageMeta({ layout: false, validate: route => typeof route.params.sheet === 'string' && /^\d+$/.test(route.params.sheet) })
+definePageMeta({
+  layout: false,
+  validate: route => typeof route.params.sheet === 'string'
+    && /^(\d+|privacy|messenger|health|pickup|guardians|emergency|phones|meetings)$/.test(route.params.sheet),
+})
 useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 10mm; } @media print { html { font-size: 14px !important; } }' }] })
 
 const route = useRoute()
-const sheetId = Number(route.params.sheet)
+const param = String(route.params.sheet)
+const sheetId = /^\d+$/.test(param) ? Number(param) : null
 const groupParam = typeof route.query.group === 'string' && /^\d+$/.test(route.query.group) ? Number(route.query.group) : null
 const groupFilter = groupParam ?? -1
 
 const { data, error } = await useFetch<ChildrenOverviewDto>('/api/children/overview', { key: 'print-children-overview' })
 const { activeName } = useFacilities()
+if (sheetId === null && data.value) {
+  const target = legacySheet(data.value.sheets, data.value.questions, param)
+  if (target) await navigateTo({ path: `/print/children/overview/${target.id}`, query: route.query }, { replace: true })
+}
 
 const t = de.children.overview
 const sheet = computed(() => data.value?.sheets.find(entry => entry.id === sheetId) ?? null)
