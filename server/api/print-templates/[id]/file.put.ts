@@ -9,7 +9,7 @@ export default defineServiceHandler(async (event) => {
   // Reject before the body is read into memory.
   assertUploadLength(getRequestHeader(event, 'content-length'))
   const { file } = parseUploadParts((await readMultipartFormData(event)) ?? [], noFields)
-  replaceTemplateFile(useDb(), admin, id, file)
+  replaceTemplateFile(useDb(), await withHomeGroup(event, admin), id, file)
   // The replaced file must not linger in the write-ahead log either.
   checkpointWal(useSqlite())
   return { ok: true }

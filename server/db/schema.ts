@@ -1432,7 +1432,30 @@ export const printTemplates = sqliteTable('print_templates', {
   updatedAt: text('updated_at').notNull(),
   /** A PDF form with fields to fill in the app (server/lib/pdfForm.ts, judged when the file is stored); null = not judged yet. */
   fillable: integer('fillable', { mode: 'boolean' }),
+  /**
+   * „Gilt für“ alle Einrichtungen (also later ones): a template of the Träger (`facilityId` null) shown everywhere;
+   * otherwise only in the facilities of print_template_targets (a facility's own template: just that one).
+   */
+  allFacilities: integer('all_facilities', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('print_templates_facility').on(table.facilityId), index('print_templates_category').on(table.categoryId)])
+
+/**
+ * „Gilt für“ of a template, per facility (shared/domain/documentTargets.ts): the facilities it shows in (unless it is for
+ * all facilities; a facility's own template has exactly its facility here) and whether there it is for all groups or only
+ * for the groups chosen in print_template_target_groups (for a template for all facilities a row only limits the groups
+ * of that facility). Gone with the template or the facility.
+ */
+export const printTemplateTargets = sqliteTable('print_template_targets', {
+  templateId: integer('template_id').notNull().references(() => printTemplates.id, { onDelete: 'cascade' }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  allGroups: integer('all_groups', { mode: 'boolean' }).notNull().default(true),
+}, table => [primaryKey({ columns: [table.templateId, table.facilityId] }), index('print_template_targets_facility').on(table.facilityId)])
+
+/** The groups a template is limited to (in facilities whose target row says not all groups); gone with the group. */
+export const printTemplateTargetGroups = sqliteTable('print_template_target_groups', {
+  templateId: integer('template_id').notNull().references(() => printTemplates.id, { onDelete: 'cascade' }),
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+}, table => [primaryKey({ columns: [table.templateId, table.groupId] }), index('print_template_target_groups_group').on(table.groupId)])
 
 /**
  * The order of the templates within a facility's sub-tab of „Dokumente“ → „Vorlagen“ (▲/▼), one row per facility and
@@ -1993,7 +2016,22 @@ export const knowledgeEntries = sqliteTable('knowledge_entries', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  /** „Gilt für“ alle Einrichtungen (also later ones), like print_templates.all_facilities. */
+  allFacilities: integer('all_facilities', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('knowledge_entries_facility').on(table.facilityId), index('knowledge_entries_category').on(table.categoryId)])
+
+/** „Gilt für“ of an entry per facility, like print_template_targets. */
+export const knowledgeEntryTargets = sqliteTable('knowledge_entry_targets', {
+  entryId: integer('entry_id').notNull().references(() => knowledgeEntries.id, { onDelete: 'cascade' }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  allGroups: integer('all_groups', { mode: 'boolean' }).notNull().default(true),
+}, table => [primaryKey({ columns: [table.entryId, table.facilityId] }), index('knowledge_entry_targets_facility').on(table.facilityId)])
+
+/** The groups an entry is limited to, like print_template_target_groups. */
+export const knowledgeEntryTargetGroups = sqliteTable('knowledge_entry_target_groups', {
+  entryId: integer('entry_id').notNull().references(() => knowledgeEntries.id, { onDelete: 'cascade' }),
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+}, table => [primaryKey({ columns: [table.entryId, table.groupId] }), index('knowledge_entry_target_groups_group').on(table.groupId)])
 
 /**
  * „Gelesen und verstanden“: one row per entry and person (the employee – at the tablet the one who entered the PIN,

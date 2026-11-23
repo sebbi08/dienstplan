@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { TEMPLATE_VISIBILITIES, visibleTemplateLevels, type TemplateVisibility } from '#shared/domain/templateCategories'
-import type { CategoryNameDto, PrintTemplateDto, PrintTemplateScope, TemplateCategoryDto } from '#shared/types/api'
+import { matchesSearch } from '#shared/domain/documentTargets'
+import type { CategoryNameDto, DocumentTargetOptionsDto, PrintTemplateDto, TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
+import {
+  emptyTargets, facilitiesLost, targetHints, targetsFormOf, targetsPayload, targetsProblem, type TargetsForm,
+} from '~/utils/documentTargets'
 import { errorMessage } from '~/utils/errors'
 import { moveInList } from '~/utils/consentSettings'
 import { formatDate } from '~/utils/format'
@@ -88,6 +92,30 @@ function onTabKey(event: KeyboardEvent) {
 }
 const tabLabel = (entry: { category: TemplateCategoryDto | null }) => entry.category?.name ?? de.printTemplates.fromProvider
 
+// ---- search --------------------------------------------------------------
+// Title, category and subcategory in every category the viewer sees (umlaut spellings and case aside). While a term is
+// entered, the matches replace the sub-tabs, grouped by „Kategorie › Unterkategorie“ („Vom Träger“ last); clearing it
+// returns to the sub-tab open before.
+const search = ref('')
+const searching = computed(() => search.value.trim() !== '')
+const found = computed(() => templates.value.filter(template =>
+  matchesSearch([template.title, template.category, template.subcategory], search.value)))
+const foundGroups = computed(() => {
+  const groups: { key: string; heading: string; templates: PrintTemplateDto[] }[] = []
+  for (const template of found.value) {
+    const key = template.categoryId === null ? 'provider' : `${template.categoryId}/${template.subcategoryId ?? ''}`
+    let group = groups.find(entry => entry.key === key)
+    if (!group) {
+      group = { key, heading: template.categoryId === null ? de.printTemplates.fromProvider : templatePath(template), templates: [] }
+      groups.push(group)
+    }
+    group.templates.push(template)
+  }
+  return groups
+})
+/** The hints for Leitung and Träger: „nur Kita A, Kita B“, „nur Bären, Füchse“, „keine Gruppe mehr gewählt“. */
+const hintsOf = (template: PrintTemplateDto) => targetHints(template.targets, { only: de.documentTargets.only, noGroup: de.documentTargets.noGroup })
+
 // ---- subcategories: the second row of small tabs -------------------------
 /** The lists of the open sub-tab: the templates directly in the category, then one per subcategory. */
 const groups = computed(() => (current.value ? itemGroups(current.value.category, current.value.subcategories, current.value.templates) : []))
@@ -125,9 +153,9 @@ const file = shallowRef<File | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 /** `subcategoryId` 0 = directly in the category („Allgemein“); `subcategoryName` '' = none (a template for all facilities). */
 const form = reactive<{
-  title: string; categoryId: number | undefined; subcategoryId: number; scope: PrintTemplateScope; categoryName: string
+  title: string; categoryId: number | undefined; subcategoryId: number; targets: TargetsForm; categoryName: string
   subcategoryName: string; visibility: TemplateVisibility
-}>({ title: '', categoryId: undefined, subcategoryId: 0, scope: 'facility', categoryName: '', subcategoryName: '', visibility: 'all' })
+}>({ title: '', categoryId: undefined, subcategoryId: 0, targets: emptyTargets(), categoryName: '', subcategoryName: '', visibility: 'all' })
 const subcategoryChoices = computed(() => subcategoryItems(categories.value, form.categoryId, de.printTemplates.noSubcategory))
 // Another category: a subcategory of the one before no longer fits.
 watch(() => form.categoryId, () => {
@@ -135,13 +163,13 @@ watch(() => form.categoryId, () => {
 })
 /** The title the last chosen file suggested; a title typed by hand is not overwritten by the next file. */
 let suggestedTitle = ''
-/** For all facilities: filed by category name (with the names the facilities use as suggestions) and its visibility. */
-const forAll = computed(() => (editing.value ? editing.value.global : form.scope === 'all'))
-
-const scopeItems = computed(() => [
-  { label: activeName.value ? de.printTemplates.scopeFacility(activeName.value) : de.printTemplates.scopeThisFacility, value: 'facility' },
-  { label: de.printTemplates.scopeAll, value: 'all' },
-])
+/** For all or the chosen facilities (the Träger's): filed by category name (with the names the facilities use as suggestions). */
+const forAll = computed(() => form.targets.scope !== 'facility')
+// What „Gilt für“ offers (the Träger every facility with its groups, everyone else the own facility), loaded with the form.
+const targetOptions = ref<DocumentTargetOptionsDto | null>(null)
+async function loadTargetOptions() {
+  targetOptions.value = await $fetch<DocumentTargetOptionsDto>('/api/print-templates/targets').catch(() => targetOptions.value)
+}
 const visibilityItems = computed(() => TEMPLATE_VISIBILITIES.filter(level => categoryLevels.value.includes(level))
   .map(level => ({ label: de.printTemplates.categories.visibilities[level], value: level })))
 // The category names the facilities use, loaded afresh each time the Träger files a template for all facilities (so a
@@ -184,10 +212,11 @@ function openNew() {
   // (none for „Vom Träger“).
   const visibility = defaultGlobalVisibility(current.value?.category, categoryLevels.value, presetSub)
   Object.assign(form, {
-    title: '', categoryId: preset, subcategoryId: presetSub?.id ?? 0, scope: 'facility', categoryName: presetName,
+    title: '', categoryId: preset, subcategoryId: presetSub?.id ?? 0, targets: emptyTargets(), categoryName: presetName,
     subcategoryName: presetSub?.name ?? '', visibility,
   })
   open.value = true
+  loadTargetOptions()
 }
 
 function openEdit(template: PrintTemplateDto) {
@@ -195,10 +224,11 @@ function openEdit(template: PrintTemplateDto) {
   resetFile()
   Object.assign(form, {
     title: template.title, categoryId: template.categoryId ?? undefined, subcategoryId: template.subcategoryId ?? 0,
-    scope: template.global ? 'all' : 'facility', categoryName: template.globalCategoryName ?? '',
-    subcategoryName: template.globalSubcategoryName ?? '', visibility: template.globalVisibility ?? 'all',
+    targets: targetsFormOf(template.targets), categoryName: template.globalCategoryName ?? template.category,
+    subcategoryName: template.globalSubcategoryName ?? template.subcategory, visibility: template.visibility,
   })
   open.value = true
+  loadTargetOptions()
   if (template.global) loadCategoryNames()
 }
 
@@ -225,12 +255,12 @@ function fileBody(chosen: File): FormData {
 }
 
 /**
- * The category part of the form: a category or subcategory of the facility, or for all facilities the category name,
- * the subcategory name ('' for none) and the visibility.
+ * The category part of the form: a category or subcategory of the facility, or for all or the chosen facilities the
+ * category name and the subcategory name ('' for none).
  */
-function filing(): { categoryId: number } | { categoryName: string; subcategoryName: string; visibility: TemplateVisibility } | null {
+function filing(): { categoryId: number } | { categoryName: string; subcategoryName: string } | null {
   if (forAll.value) {
-    if (form.categoryName.trim() !== '') return { categoryName: form.categoryName, subcategoryName: form.subcategoryName, visibility: form.visibility }
+    if (form.categoryName.trim() !== '') return { categoryName: form.categoryName, subcategoryName: form.subcategoryName }
     toast.add({ title: de.errors.template_category_name_required, color: 'error' })
     return null
   }
@@ -243,24 +273,42 @@ function filing(): { categoryId: number } | { categoryName: string; subcategoryN
 /** The note at a category that not everyone sees. */
 const badgeOf = (visibility: TemplateVisibility) => (visibility === 'all' ? '' : de.printTemplates.visibilityBadge[visibility])
 
+/** „Gilt für“ as it will be sent, after checking what is missing; null (with a message) when something is. */
+function checkedTargets() {
+  const ownFacilityId = targetOptions.value?.facilityId ?? null
+  const problem = targetsProblem(form.targets, targetOptions.value, ownFacilityId)
+  if (problem) {
+    toast.add({ title: problem.kind === 'facility' ? de.documentTargets.pickFacility : de.documentTargets.pickGroup(problem.facility), color: 'error' })
+    return null
+  }
+  return targetsPayload(form.targets, targetOptions.value, ownFacilityId)
+}
+
 async function save() {
   const chosen = file.value
   const fields = filing()
-  if (!fields) return
+  const targets = fields ? checkedTargets() : null
+  if (!fields || !targets) return
   if (editing.value === null) {
     if (!chosen) return void toast.add({ title: de.errors.file_required, color: 'error' })
     if (!checkFile(chosen)) return
     const body = fileBody(chosen)
     body.append('title', form.title)
-    body.append('scope', forAll.value ? 'all' : 'facility')
+    body.append('visibility', form.visibility)
+    body.append('scope', targets.scope)
+    body.append('facilityIds', JSON.stringify(targets.facilityIds))
+    body.append('groupTargets', JSON.stringify(targets.groupTargets))
     for (const [key, value] of Object.entries(fields)) body.append(key, String(value))
     if (await run(() => $fetch<unknown>('/api/print-templates', { method: 'POST', body }), de.common.saved)) open.value = false
     return
   }
   const id = editing.value.id
   if (chosen && !checkFile(chosen)) return
+  // Facilities that lose the template: ask first.
+  const lost = facilitiesLost(editing.value.targets, form.targets, targetOptions.value, targetOptions.value?.facilityId ?? null)
+  if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'die Vorlage')))) return
   const saved = await run(async () => {
-    await $fetch<unknown>(`/api/print-templates/${id}`, { method: 'PUT', body: { title: form.title, ...fields } })
+    await $fetch<unknown>(`/api/print-templates/${id}`, { method: 'PUT', body: { title: form.title, visibility: form.visibility, ...targets, ...fields } })
     if (chosen) await $fetch<unknown>(`/api/print-templates/${id}/file`, { method: 'PUT', body: fileBody(chosen) })
   }, de.common.saved)
   if (saved) open.value = false
@@ -302,7 +350,37 @@ async function remove(template: PrintTemplateDto) {
     <p v-else-if="!tabs.length" class="text-sm text-gray-500">{{ de.printTemplates.none }}</p>
 
     <template v-else>
-      <div role="tablist" :aria-label="de.printTemplates.tabsLabel" class="flex flex-wrap gap-1.5">
+      <UInput v-model="search" icon="i-lucide-search" :placeholder="de.printTemplates.searchPlaceholder" :aria-label="de.printTemplates.search" class="w-full max-w-md" maxlength="100" />
+      <!-- Searching: the matches of every category, grouped by „Kategorie › Unterkategorie“, instead of the sub-tabs. -->
+      <section v-if="searching" class="space-y-3" :aria-label="de.printTemplates.search">
+        <p class="text-sm text-gray-600" role="status">{{ de.printTemplates.searchResults(found.length) }}</p>
+        <p v-if="!found.length" class="rounded-lg bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-200">{{ de.printTemplates.noMatch }}</p>
+        <div v-for="group in foundGroups" :key="group.key" class="rounded-lg bg-white ring-1 ring-gray-200">
+          <h3 class="border-b border-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">{{ group.heading }}</h3>
+          <ul class="divide-y divide-gray-100">
+            <li v-for="template in group.templates" :key="template.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+              <UIcon name="i-lucide-file-text" class="size-5 shrink-0 text-gray-500" aria-hidden="true" />
+              <div class="flex min-w-48 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                <span class="font-medium">{{ template.title }}</span>
+                <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ de.printTemplates.global }}</span>
+                <span v-for="hint in hintsOf(template)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-1">
+                <UButton
+                  :to="templateFileUrl(template.id)" target="_blank" external size="sm" color="neutral" variant="outline"
+                  icon="i-lucide-printer" :label="de.printTemplates.open"
+                />
+                <UButton
+                  v-if="fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
+                  :label="de.pdfFill.fill" @click="startFill(template)"
+                />
+                <UButton v-if="canEdit && template.canEdit" size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+      <div v-if="!searching" role="tablist" :aria-label="de.printTemplates.tabsLabel" class="flex flex-wrap gap-1.5">
         <button
           v-for="entry in tabs" :id="`templates-tab-${entry.key}`" :key="entry.key" type="button" role="tab"
           :aria-selected="tab === entry.key" :tabindex="tab === entry.key ? 0 : -1" aria-controls="templates-tab-panel"
@@ -315,7 +393,7 @@ async function remove(template: PrintTemplateDto) {
       </div>
 
       <section
-        v-if="current" id="templates-tab-panel" role="tabpanel" :aria-labelledby="`templates-tab-${current.key}`"
+        v-if="current && !searching" id="templates-tab-panel" role="tabpanel" :aria-labelledby="`templates-tab-${current.key}`"
         class="rounded-lg bg-white ring-1 ring-gray-200"
       >
         <div
@@ -352,6 +430,8 @@ async function remove(template: PrintTemplateDto) {
                 <span class="font-medium">{{ template.title }}</span>
                 <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ de.printTemplates.global }}</span>
                 <span v-if="!current.category" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ templatePath(template) }}</span>
+                <!-- „Gilt für“, for Leitung and Träger: „nur Kita A“, „nur Bären, Füchse“. -->
+                <span v-for="hint in hintsOf(template)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
               </div>
               <p class="text-xs text-gray-500">
                 {{ de.printTemplates.uploadedAt(formatDate(berlinDay(template.uploadedAt))) }}
@@ -405,9 +485,11 @@ async function remove(template: PrintTemplateDto) {
           <UFormField :label="de.printTemplates.name" :required="editing !== null">
             <UInput v-model="form.title" maxlength="200" class="w-full" :required="editing !== null" />
           </UFormField>
-          <UFormField v-if="canEditGlobal && editing === null" :label="de.printTemplates.scope">
-            <USelect v-model="form.scope" :items="scopeItems" class="w-full" />
-          </UFormField>
+          <!-- „Gilt für“: facilities (the Träger) and groups; afterwards too. -->
+          <DocumentTargetsField
+            v-model="form.targets" :options="targetOptions" :can-global="canEditGlobal" :facility-id="targetOptions?.facilityId ?? null"
+            :facility-name="activeName ?? ''" id-prefix="template-targets"
+          />
           <template v-if="forAll">
             <UFormField :label="de.printTemplates.categoryName" :description="de.printTemplates.categoryNameHint" required>
               <UInput v-model="form.categoryName" maxlength="60" class="w-full" list="template-category-names" required autocomplete="off" />
@@ -420,9 +502,6 @@ async function remove(template: PrintTemplateDto) {
               <datalist id="template-subcategory-names">
                 <option v-for="name in subcategoryNames" :key="name" :value="name" />
               </datalist>
-            </UFormField>
-            <UFormField :label="de.printTemplates.globalVisibility" :description="de.printTemplates.globalVisibilityHint">
-              <USelect v-model="form.visibility" :items="visibilityItems" class="w-full" />
             </UFormField>
           </template>
           <template v-else>
@@ -437,6 +516,12 @@ async function remove(template: PrintTemplateDto) {
               </UFormField>
             </template>
           </template>
+          <UFormField
+            :label="de.printTemplates.visibility"
+            :description="forAll ? de.printTemplates.globalVisibilityHint : de.printTemplates.visibilityHint"
+          >
+            <USelect v-model="form.visibility" :items="visibilityItems" class="w-full" />
+          </UFormField>
           <div class="flex gap-2">
             <UButton type="submit" :label="editing === null ? de.printTemplates.upload : de.common.save" :loading="busy" :disabled="busy" />
             <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />

@@ -2,9 +2,12 @@
 import { KNOWLEDGE_KINDS, KNOWLEDGE_LIMITS, type KnowledgeKind } from '#shared/domain/knowledge'
 import { sameTextAnswer } from '#shared/domain/richText'
 import { TEMPLATE_VISIBILITIES, visibleTemplateLevels, type TemplateVisibility } from '#shared/domain/templateCategories'
-import type { CategoryNameDto, KnowledgeCategoryDto, KnowledgeEntryDto } from '#shared/types/api'
+import type { CategoryNameDto, DocumentTargetOptionsDto, KnowledgeCategoryDto, KnowledgeEntryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
+import {
+  emptyTargets, facilitiesLost, targetsFormOf, targetsPayload, targetsProblem, type TargetsForm,
+} from '~/utils/documentTargets'
 import { filedCategoryId, subcategoryItems, subcategoryNamesFor, topCategories } from '~/utils/subcategories'
 
 /**
@@ -36,18 +39,25 @@ const toast = useToast()
 /** `subcategoryId` 0 = directly in the category („Allgemein“); `subcategoryName` '' = none (an entry for all facilities). */
 interface Form {
   kind: KnowledgeKind; title: string; description: string; asOf: string; url: string; body: string; needsConfirmation: boolean
-  scope: 'facility' | 'all'; categoryId: number | undefined; subcategoryId: number; categoryName: string; subcategoryName: string
+  targets: TargetsForm; categoryId: number | undefined; subcategoryId: number; categoryName: string; subcategoryName: string
   visibility: TemplateVisibility
 }
 const empty = (): Form => ({
-  kind: 'link', title: '', description: '', asOf: '', url: '', body: '', needsConfirmation: false, scope: 'facility',
+  kind: 'link', title: '', description: '', asOf: '', url: '', body: '', needsConfirmation: false, targets: emptyTargets(),
   categoryId: undefined, subcategoryId: 0, categoryName: '', subcategoryName: '', visibility: 'all',
 })
 const form = reactive<Form>(empty())
 const file = shallowRef<File | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 
-const forAll = computed(() => (props.entry ? props.entry.global : form.scope === 'all'))
+/** For all or the chosen facilities (the Träger's): filed by category name. */
+const forAll = computed(() => form.targets.scope !== 'facility')
+const confirm = useConfirm()
+// What „Gilt für“ offers (the Träger every facility with its groups, everyone else the own facility), loaded with the form.
+const targetOptions = ref<DocumentTargetOptionsDto | null>(null)
+async function loadTargetOptions() {
+  targetOptions.value = await $fetch<DocumentTargetOptionsDto>('/api/knowledge/targets').catch(() => targetOptions.value)
+}
 const kindItems = KNOWLEDGE_KINDS.map(kind => ({ label: t.kindLabels[kind], value: kind }))
 const categoryItems = computed(() => topCategories(props.categories).map(category => ({ label: category.name, value: category.id })))
 const subcategoryChoices = computed(() => subcategoryItems(props.categories, form.categoryId, t.noSubcategory))
@@ -55,10 +65,6 @@ const subcategoryChoices = computed(() => subcategoryItems(props.categories, for
 watch(() => form.categoryId, () => {
   if (!subcategoryChoices.value.some(item => item.value === form.subcategoryId)) form.subcategoryId = 0
 })
-const scopeItems = computed(() => [
-  { label: activeName.value ? t.scopeFacility(activeName.value) : t.scopeThisFacility, value: 'facility' },
-  { label: t.scopeAll, value: 'all' },
-])
 const levels = computed(() => (user.value ? visibleTemplateLevels(user.value.role) : []))
 const visibilityItems = computed(() => TEMPLATE_VISIBILITIES.filter(level => levels.value.includes(level))
   .map(level => ({ label: t.categories.visibilities[level], value: level })))
@@ -75,15 +81,19 @@ watch(forAll, (value) => { if (value && open.value) loadCategoryNames() })
 
 watch(open, (isOpen) => {
   if (!isOpen) return
+  loadTargetOptions()
   file.value = null
   if (fileInput.value) fileInput.value.value = ''
   const entry = props.entry
   if (entry) {
     Object.assign(form, {
       kind: entry.kind, title: entry.title, description: entry.description, asOf: entry.asOf ?? '', url: entry.url, body: entry.body,
-      needsConfirmation: entry.needsConfirmation, scope: entry.global ? 'all' : 'facility', categoryId: entry.categoryId ?? undefined,
-      subcategoryId: entry.subcategoryId ?? 0, categoryName: entry.globalCategoryName ?? '',
-      subcategoryName: entry.globalSubcategoryName ?? '', visibility: entry.globalVisibility ?? 'all',
+      needsConfirmation: entry.needsConfirmation, targets: targetsFormOf(entry.targets), categoryId: entry.categoryId ?? undefined,
+      subcategoryId: entry.subcategoryId ?? 0,
+      // Turned into one for several facilities, it is filed by the name of its category now (preselected).
+      categoryName: entry.globalCategoryName ?? props.categories.find(category => category.id === entry.categoryId)?.name ?? '',
+      subcategoryName: entry.globalSubcategoryName ?? props.categories.find(category => category.id === entry.subcategoryId)?.name ?? '',
+      visibility: entry.visibility,
     })
     if (entry.global) loadCategoryNames()
   }
@@ -118,16 +128,23 @@ async function save() {
   if (form.kind === 'file' && !chosen && props.entry?.kind !== 'file') return void toast.add({ title: de.errors.file_required, color: 'error' })
   // Fails early instead of after a long upload; the server checks the size and the real file type again.
   if (chosen && form.kind === 'file' && chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
+  const ownFacilityId = targetOptions.value?.facilityId ?? null
+  const problem = targetsProblem(form.targets, targetOptions.value, ownFacilityId)
+  if (problem) return void toast.add({ title: problem.kind === 'facility' ? de.documentTargets.pickFacility : de.documentTargets.pickGroup(problem.facility), color: 'error' })
+  const targets = targetsPayload(form.targets, targetOptions.value, ownFacilityId)
+  // Facilities that lose the entry: ask first.
+  const lost = props.entry ? facilitiesLost(props.entry.targets, form.targets, targetOptions.value, ownFacilityId) : 0
+  if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'der Eintrag')))) return
   const body = new FormData()
-  // A facility's entry: the subcategory chosen, else the category; for all facilities the names and the visibility.
+  // A facility's entry: the subcategory chosen, else the category; for all or the chosen facilities the names.
   const categoryId = filedCategoryId(form.categoryId, form.subcategoryId)
   const fields: Record<string, string> = {
     kind: form.kind, title: form.title, description: form.description, asOf: form.asOf,
     url: form.kind === 'link' ? form.url : '', body: form.kind === 'text' ? form.body : '',
     needsConfirmation: String(form.needsConfirmation),
-    ...(props.entry ? {} : { scope: forAll.value ? 'all' : 'facility' }),
+    visibility: form.visibility, scope: targets.scope, facilityIds: JSON.stringify(targets.facilityIds), groupTargets: JSON.stringify(targets.groupTargets),
     ...(forAll.value
-      ? { categoryName: form.categoryName, subcategoryName: form.subcategoryName, visibility: form.visibility }
+      ? { categoryName: form.categoryName, subcategoryName: form.subcategoryName }
       : categoryId !== undefined ? { categoryId: String(categoryId) } : {}),
   }
   for (const [key, value] of Object.entries(fields)) body.append(key, value)
@@ -147,9 +164,11 @@ async function save() {
         <UFormField :label="f.kind">
           <URadioGroup v-model="form.kind" :items="kindItems" orientation="horizontal" />
         </UFormField>
-        <UFormField v-if="canManageGlobal && !entry" :label="f.scope">
-          <USelect v-model="form.scope" :items="scopeItems" class="w-full" />
-        </UFormField>
+        <!-- „Gilt für“: facilities (the Träger) and groups; afterwards too. -->
+        <DocumentTargetsField
+          v-model="form.targets" :options="targetOptions" :can-global="canManageGlobal" :facility-id="targetOptions?.facilityId ?? null"
+          :facility-name="activeName ?? ''" id-prefix="knowledge-targets"
+        />
         <template v-if="forAll">
           <UFormField :label="f.categoryName" :description="t.categoryNameHint" required>
             <UInput v-model="form.categoryName" :maxlength="KNOWLEDGE_LIMITS.categoryName" class="w-full" list="knowledge-category-names" required autocomplete="off" />
@@ -162,9 +181,6 @@ async function save() {
             <datalist id="knowledge-subcategory-names">
               <option v-for="name in subcategoryNames" :key="name" :value="name" />
             </datalist>
-          </UFormField>
-          <UFormField :label="f.visibility" :description="t.visibilityHint">
-            <USelect v-model="form.visibility" :items="visibilityItems" class="w-full" />
           </UFormField>
         </template>
         <template v-else>
@@ -179,6 +195,9 @@ async function save() {
             </UFormField>
           </template>
         </template>
+        <UFormField :label="f.visibility" :description="t.visibilityHint">
+          <USelect v-model="form.visibility" :items="visibilityItems" class="w-full" />
+        </UFormField>
 
         <UFormField v-if="form.kind === 'file'" :label="entry?.kind === 'file' ? f.replaceFile : f.file" :required="entry?.kind !== 'file'"
           :description="entry?.kind === 'file' && entry.fileSize ? t.currentFile(formatSize(entry.fileSize)) : undefined"

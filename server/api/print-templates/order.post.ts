@@ -8,6 +8,6 @@ import { orderTemplates } from '../../services/printTemplates'
 export default defineServiceHandler(async (event) => {
   const admin = await requirePermission(event, 'printTemplates.edit')
   const { categoryId, ids } = await readValidatedBody(event, printTemplateOrderSchema.parse)
-  orderTemplates(useDb(), admin, categoryId, ids)
+  orderTemplates(useDb(), await withHomeGroup(event, admin), categoryId, ids)
   return { ok: true }
 })

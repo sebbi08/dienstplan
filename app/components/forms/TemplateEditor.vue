@@ -3,6 +3,7 @@ import {
   FORM_LIMITS, ITEM_KINDS, addItem, addSection, moveItem, moveSection, removeItem, removeSection,
   type FormContent, type FormItem, type FormKind, type FormSubject, type ItemDraft, type ItemKind,
 } from '#shared/domain/forms'
+import { matchesSearch } from '#shared/domain/documentTargets'
 import type { FormTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { moveInList } from '~/utils/consentSettings'
@@ -33,6 +34,18 @@ const subjectItems = (['child', 'employee'] as const).map(value => ({ label: de.
 const itemKindItems = ITEM_KINDS.map(value => ({ label: de.forms.itemKinds[value], value }))
 const activeOf = (kind: FormKind) => (templates.value ?? []).filter(template => template.kind === kind && !template.archived)
 const archivedOf = (kind: FormKind) => (templates.value ?? []).filter(template => template.kind === kind && template.archived)
+
+// The search over the names of every kind (umlaut spellings and case aside): while a term is entered, the matches,
+// grouped by kind, replace the boxes.
+const search = ref('')
+const searching = computed(() => search.value.trim() !== '')
+const found = computed(() => LIST_ORDER
+  .map(listKind => ({
+    kind: listKind,
+    templates: (templates.value ?? []).filter(template => template.kind === listKind && matchesSearch([template.name], search.value)),
+  }))
+  .filter(group => group.templates.length > 0))
+const foundCount = computed(() => found.value.reduce((sum, group) => sum + group.templates.length, 0))
 
 // ---- list ---------------------------------------------------------------
 const newName = reactive<Record<FormKind, string>>({ staff: '', child: '', team: '', accident: '' })
@@ -206,7 +219,35 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
     <!-- The lists: one box per kind (Kinder, Fachkräfte, Team), side by side on wide screens -->
     <template v-if="!draft">
       <p class="text-sm text-gray-600">{{ de.forms.templatesHint }}</p>
-      <div class="grid gap-3 xl:grid-cols-3">
+      <UInput v-model="search" icon="i-lucide-search" :placeholder="de.forms.searchPlaceholder" :aria-label="de.forms.search" class="w-full max-w-md" maxlength="100" />
+      <!-- Searching: the matches of every kind instead of the boxes. -->
+      <section v-if="searching" class="space-y-3" :aria-label="de.forms.search">
+        <p class="text-sm text-gray-600" role="status">{{ de.forms.searchResults(foundCount) }}</p>
+        <p v-if="!foundCount" class="rounded-lg bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-200">{{ de.forms.noMatch }}</p>
+        <div v-for="group in found" :key="group.kind" class="rounded-lg bg-white ring-1 ring-gray-200">
+          <h2 class="border-b border-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 sm:px-4">{{ de.forms.kindGroups[group.kind] }}</h2>
+          <ul class="divide-y divide-gray-100">
+            <li v-for="template in group.templates" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 sm:px-4">
+              <div class="flex min-w-0 flex-1 basis-48 flex-wrap items-center gap-2">
+                <span class="font-medium break-words" :class="template.archived ? 'text-gray-600' : ''">{{ template.name }}</span>
+                <UBadge v-if="template.archived" color="neutral" variant="soft" size="sm" :label="de.forms.archivedBadge" />
+              </div>
+              <div class="flex flex-wrap gap-1">
+                <template v-if="!template.archived">
+                  <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.forms.edit" @click="openEditor(template.id)" />
+                  <UButton
+                    size="sm" color="neutral" variant="ghost" icon="i-lucide-printer" :to="`/admin/print/form-templates/${template.id}`"
+                    target="_blank" :aria-label="`${de.forms.printBlank}: ${template.name}`" :title="de.forms.printBlank"
+                  />
+                </template>
+                <UButton v-else size="sm" color="neutral" variant="outline" icon="i-lucide-archive-restore" :label="de.forms.unarchive" @click="setArchived(template, false)" />
+                <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :aria-label="`${de.forms.copy}: ${template.name}`" :title="de.forms.copy" @click="copy(template)" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+      <div v-if="!searching" class="grid gap-3 xl:grid-cols-3">
         <section
           v-for="listKind in LIST_ORDER" :key="listKind" :aria-labelledby="'kind-' + listKind"
           class="min-w-0 space-y-2 rounded-lg bg-white p-3 ring-1 ring-gray-200 sm:p-4"

@@ -5,6 +5,7 @@ import {
   KNOWLEDGE_LIMITS, KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES, checkedAsOf, checkedKnowledgeUrl,
   comparableKnowledgeName, confirmState, type KnowledgeConfirmState,
 } from '../../shared/domain/knowledge'
+import { groupsAllow, inFacilityScope, seesAllGroups, type Audience, type DocumentScope, type ItemTargets } from '../../shared/domain/documentTargets'
 import { can } from '../../shared/domain/permissions'
 import { isRichText, plainTextToRichText, richTextLength, sanitizeRichText } from '../../shared/domain/richText'
 import { isEmployedOn } from '../../shared/domain/targets'
@@ -22,6 +23,7 @@ import { employees, facilities, knowledgeCategories, knowledgeConfirmations, kno
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
+import { checkedTargets, homeGroupOf, loadTargets, targetNames, targetsDto, targetsInput, targetsOf, writeTargets } from './documentTargets'
 import { loadEmployees } from './queries'
 import { terminalStatus, verifyEmployeePin } from './terminal'
 
@@ -36,8 +38,8 @@ import { terminalStatus, verifyEmployeePin } from './terminal'
  * „Gelesen und verstanden“ is the person's: at the tablet the employee who enters the PIN, with an own account the
  * linked employee. A change of an entry's content (file, link, text) counts its version up and asks again.
  */
-export type KnowledgeViewer = Pick<SessionUser, 'role' | 'permissions' | 'employeeId'> & { facilityId: number }
-export type KnowledgeActor = Pick<SessionUser, 'id' | 'role' | 'permissions' | 'employeeId'> & { facilityId: number }
+export type KnowledgeViewer = Pick<SessionUser, 'role' | 'permissions' | 'employeeId'> & { facilityId: number; homeGroupId?: number | null }
+export type KnowledgeActor = Pick<SessionUser, 'id' | 'role' | 'permissions' | 'employeeId'> & { facilityId: number; homeGroupId?: number | null }
 
 type CategoryRow = typeof knowledgeCategories.$inferSelect
 type EntryRow = Omit<typeof knowledgeEntries.$inferSelect, 'fileData'>
@@ -173,41 +175,58 @@ const ENTRY_COLUMNS = {
   fileMime: knowledgeEntries.fileMime, fileSize: knowledgeEntries.fileSize, url: knowledgeEntries.url, body: knowledgeEntries.body,
   needsConfirmation: knowledgeEntries.needsConfirmation, version: knowledgeEntries.version, versionAt: knowledgeEntries.versionAt, sortOrder: knowledgeEntries.sortOrder,
   starterKey: knowledgeEntries.starterKey, createdAt: knowledgeEntries.createdAt, createdBy: knowledgeEntries.createdBy,
-  updatedAt: knowledgeEntries.updatedAt, updatedBy: knowledgeEntries.updatedBy,
+  updatedAt: knowledgeEntries.updatedAt, updatedBy: knowledgeEntries.updatedBy, allFacilities: knowledgeEntries.allFacilities,
 }
 
-/** The facility's own entries and those for all facilities. */
+/** The facility's own entries and the Träger's (whose „Gilt für“ decides whether they show here). */
 const ofFacility = (facilityId: number) => or(eq(knowledgeEntries.facilityId, facilityId), isNull(knowledgeEntries.facilityId))
 
 /**
  * Where an entry shows in the facility: its category and subcategory there (category null = „Vom Träger“), the name to
- * show („Kategorie › Unterkategorie“; for „Vom Träger“ the names the Träger chose) and the visibilities that apply.
+ * show („Kategorie › Unterkategorie“; for „Vom Träger“ the names the Träger chose), the visibilities that apply and its
+ * „Gilt für“ (for the groups).
  */
-interface Placement { spot: CategorySpot<CategoryRow>; name: string; subName: string; visibility: TemplateVisibility[] }
+interface Placement {
+  facilityId: number
+  spot: CategorySpot<CategoryRow>
+  name: string
+  subName: string
+  visibility: TemplateVisibility[]
+  targets: ItemTargets | undefined
+}
+
+type PlacedRow = Pick<EntryRow, 'id' | 'facilityId' | 'categoryId' | 'categoryName' | 'subcategoryName' | 'visibility'>
 
 /**
- * Places the entries in the facility's categories: a facility's own entry in its category or subcategory; an entry for
- * all facilities in the facility's category of the same name (regardless of case) – there in its subcategory of the
- * subcategory name, else directly in the category –, otherwise under „Vom Träger“. The visibilities that apply: the
- * category's and the subcategory's, for an entry for all facilities its own as well (the strictest one wins).
+ * Places the entries in the facility's categories: a facility's own entry in its category or subcategory; an entry of
+ * the Träger in the facility's category of the same name (regardless of case) – there in its subcategory of the
+ * subcategory name, else directly in the category –, otherwise under „Vom Träger“; an entry not for this facility is
+ * nowhere (null). The visibilities that apply: the category's, the subcategory's and the entry's own (the strictest one
+ * wins).
  */
-function placer(categories: readonly CategoryRow[]):
-(row: Pick<EntryRow, 'facilityId' | 'categoryId' | 'categoryName' | 'subcategoryName' | 'visibility'>) => Placement | null {
+function placer(facilityId: number, categories: readonly CategoryRow[], targets: ReadonlyMap<number, ItemTargets>): (row: PlacedRow) => Placement | null {
   const place = categoryPlacer(categories)
   return (row) => {
     const own = row.facilityId !== null
+    if (own && row.facilityId !== facilityId) return null
+    const itemTargets = targets.get(row.id)
+    if (!own && (!itemTargets || !inFacilityScope(itemTargets, facilityId))) return null
     const spot = own ? place.byId(row.categoryId) : place.byName(row.categoryName, row.subcategoryName)
     if (!spot) return null
     const name = spot.category?.name ?? row.categoryName ?? ''
     const subName = spot.subcategory?.name ?? (spot.category ? '' : row.subcategoryName ?? '')
-    return { spot, name, subName, visibility: [...spotVisibilities(spot), ...(own ? [] : [row.visibility])] }
+    return { facilityId, spot, name, subName, visibility: [...spotVisibilities(spot), row.visibility], targets: itemTargets }
   }
 }
 
-/** Whether someone of the role sees an entry placed so. */
-const seesPlacement = (role: Role, placement: Placement | null) => placement !== null && seesAll(role, placement.visibility)
+/** Whether someone (role and home group) sees an entry placed so: its visibilities and its groups allow them. */
+const seesPlacement = (audience: Audience, placement: Placement | null) => placement !== null
+  && seesAll(audience.role, placement.visibility) && (!placement.targets || groupsAllow(placement.targets, placement.facilityId, audience))
 
-/** An entry for all facilities is the Träger's (knowledge.global); a facility's own needs knowledge.manage. */
+/** The audience of a viewer: their role and home group (none given: none). */
+const audienceOf = (viewer: { role: Role; homeGroupId?: number | null }): Audience => ({ role: viewer.role, homeGroupId: viewer.homeGroupId ?? null })
+
+/** An entry of the Träger is the Träger's (knowledge.global); a facility's own needs knowledge.manage. */
 const mayEdit = (viewer: Pick<SessionUser, 'permissions'>, row: Pick<EntryRow, 'facilityId'>) =>
   row.facilityId === null ? can(viewer.permissions, 'knowledge.global') : manages(viewer)
 
@@ -227,12 +246,14 @@ function compareEntries(a: Placed, b: Placed): number {
     || a.row.title.localeCompare(b.row.title, 'de') || a.row.id - b.row.id
 }
 
-/** The entries of the facility the viewer sees, placed and in order. */
-function visibleEntries(db: Db, viewer: Pick<KnowledgeViewer, 'role' | 'facilityId'>, categories: readonly CategoryRow[]): Placed[] {
-  const place = placer(categories)
-  return db.select(ENTRY_COLUMNS).from(knowledgeEntries).where(ofFacility(viewer.facilityId)).all()
+/** The entries for the facility the viewer sees, placed and in order. */
+function visibleEntries(db: Db, viewer: Pick<KnowledgeViewer, 'role' | 'facilityId' | 'homeGroupId'>, categories: readonly CategoryRow[]): Placed[] {
+  const rows = db.select(ENTRY_COLUMNS).from(knowledgeEntries).where(ofFacility(viewer.facilityId)).all()
+  const place = placer(viewer.facilityId, categories, loadTargets(db, 'knowledge', rows))
+  const audience = audienceOf(viewer)
+  return rows
     .map(row => ({ row, placement: place(row) }))
-    .filter((entry): entry is Placed => seesPlacement(viewer.role, entry.placement))
+    .filter((entry): entry is Placed => seesPlacement(audience, entry.placement))
     .sort(compareEntries)
 }
 
@@ -242,7 +263,8 @@ const accountPerson = (viewer: Pick<KnowledgeViewer, 'role' | 'employeeId'>) => 
 /**
  * „Wissen“ of the viewer's facility: the categories the viewer sees in their order (with the entries they see in them)
  * and those entries, by category, „Vom Träger“ last. With an own account linked to an employee each entry carries that
- * person's confirmation, and `openCount` how many still ask for it.
+ * person's confirmation, and `openCount` how many still ask for it. Leitung, Träger and whoever may change an entry get
+ * its „Gilt für“.
  */
 export function listKnowledge(db: Db, viewer: KnowledgeViewer): KnowledgeDto {
   const all = facilityKnowledgeCategories(db, viewer.facilityId)
@@ -261,8 +283,10 @@ export function listKnowledge(db: Db, viewer: KnowledgeViewer): KnowledgeDto {
     counts.set(shownIn.id, (counts.get(shownIn.id) ?? 0) + 1)
     if (row.facilityId !== null) owns.set(shownIn.id, (owns.get(shownIn.id) ?? 0) + 1)
   }
+  const names = entries.length > 0 ? targetNames(db) : null
   const dtos = entries.map(({ row, placement }): KnowledgeEntryDto => {
     const confirmation = confirmations.get(row.id)
+    const canEdit = mayEdit(viewer, row)
     return {
       id: row.id,
       categoryId: placement.spot.category?.id ?? null,
@@ -286,7 +310,11 @@ export function listKnowledge(db: Db, viewer: KnowledgeViewer): KnowledgeDto {
         state: confirmState(row.needsConfirmation, row.version, confirmation),
         confirmedAt: confirmation?.confirmedAt ?? null,
       },
-      canEdit: mayEdit(viewer, row),
+      canEdit,
+      visibility: row.visibility,
+      targets: (canEdit || seesAllGroups(viewer.role)) && placement.targets && names
+        ? targetsDto(row, placement.targets, viewer.facilityId, names)
+        : null,
     }
   })
   return {
@@ -308,12 +336,18 @@ export function openKnowledgeCount(db: Db, viewer: KnowledgeViewer): number {
   return accountPerson(viewer) === null ? 0 : listKnowledge(db, viewer).openCount
 }
 
-/** An entry of the viewer's facility or for all facilities that the viewer sees (else 404 knowledge_entry_not_found). */
-function loadVisible(db: Db, viewer: Pick<KnowledgeViewer, 'role' | 'facilityId'>, id: number): { row: EntryRow; placement: Placement } {
-  const row = db.select(ENTRY_COLUMNS).from(knowledgeEntries).where(and(eq(knowledgeEntries.id, id), ofFacility(viewer.facilityId))).get()
-  const placement = row ? placer(facilityKnowledgeCategories(db, viewer.facilityId))(row) : null
-  if (!row || !seesPlacement(viewer.role, placement)) throw new ServiceError(404, 'knowledge_entry_not_found')
-  return { row, placement: placement! }
+/** The entry placed in the facility (whoever sees it or not); null when it is not for the facility. */
+function placedEntry(db: Db, facilityId: number, id: number): { row: EntryRow; placement: Placement } | null {
+  const row = db.select(ENTRY_COLUMNS).from(knowledgeEntries).where(and(eq(knowledgeEntries.id, id), ofFacility(facilityId))).get()
+  const placement = row ? placer(facilityId, facilityKnowledgeCategories(db, facilityId), loadTargets(db, 'knowledge', [row]))(row) : null
+  return row && placement ? { row, placement } : null
+}
+
+/** An entry for the viewer's facility that the viewer sees (else 404 knowledge_entry_not_found). */
+function loadVisible(db: Db, viewer: Pick<KnowledgeViewer, 'role' | 'facilityId' | 'homeGroupId'>, id: number): { row: EntryRow; placement: Placement } {
+  const placed = placedEntry(db, viewer.facilityId, id)
+  if (!placed || !seesPlacement(audienceOf(viewer), placed.placement)) throw new ServiceError(404, 'knowledge_entry_not_found')
+  return placed
 }
 
 /** The PDF of a file entry the viewer sees, named after its title (404 knowledge_entry_not_found otherwise). */
@@ -375,17 +409,24 @@ function chosenCategory(db: Db, actor: KnowledgeActor, id: number | undefined): 
 }
 
 /**
- * Where the entry is filed: a category or subcategory of the facility, or for all facilities a category name, a
- * subcategory name (none: directly in the category) and its visibility.
+ * Where the entry is filed: a category or subcategory of the facility (its own entry), or for an entry of the Träger a
+ * category name and a subcategory name (none: directly in the category).
  */
-function filing(db: Db, actor: KnowledgeActor, global: boolean, input: KnowledgeEntryInput, current?: TemplateVisibility) {
-  if (!global) {
-    return { categoryId: chosenCategory(db, actor, input.categoryId), categoryName: null, subcategoryName: null, visibility: 'all' as const }
-  }
-  const visibility = input.visibility ?? current ?? 'all'
-  if (!visibleTemplateLevels(actor.role).includes(visibility)) throw new ServiceError(403, 'forbidden')
+function filing(db: Db, actor: KnowledgeActor, own: boolean, input: KnowledgeEntryInput) {
+  if (own) return { categoryId: chosenCategory(db, actor, input.categoryId), categoryName: null, subcategoryName: null }
   const subcategoryName = (input.subcategoryName ?? '').trim() === '' ? null : checkedCategoryName(input.subcategoryName!)
-  return { categoryId: null, categoryName: checkedCategoryName(input.categoryName ?? ''), subcategoryName, visibility }
+  return { categoryId: null, categoryName: checkedCategoryName(input.categoryName ?? ''), subcategoryName }
+}
+
+/** A visibility the actor sees (403 otherwise: a Leitung cannot make an entry the Träger's alone). */
+function checkedVisibility(actor: KnowledgeActor, visibility: TemplateVisibility): TemplateVisibility {
+  if (!visibleTemplateLevels(actor.role).includes(visibility)) throw new ServiceError(403, 'forbidden')
+  return visibility
+}
+
+/** A scope beyond the own facility is the Träger's (knowledge.global, else 403). */
+function assertScopeAllowed(actor: KnowledgeActor, scope: DocumentScope): void {
+  if (scope !== 'facility' && !can(actor.permissions, 'knowledge.global')) throw new ServiceError(403, 'forbidden')
 }
 
 /** The file columns of a file entry (a new PDF), or none for a link or text. */
@@ -403,23 +444,32 @@ function nextSortOrder(db: Db, categoryId: number | null): number {
 }
 
 /**
- * A new entry of the actor's facility (knowledge.manage), or for all facilities (scope 'all', knowledge.global); a file
- * entry needs its PDF. Returns its id.
+ * A new entry: of the actor's facility (knowledge.manage), or of the Träger for all or the chosen facilities (scope
+ * 'all' / 'selected', knowledge.global); with „Gilt für“ (groups; for the Träger also facilities) and who sees it. A
+ * file entry needs its PDF. Returns its id.
  */
 export function createKnowledgeEntry(
   db: Db, actor: KnowledgeActor, input: KnowledgeEntryInput, file: { data: Buffer } | null, now: Date = new Date(),
 ): number {
   assertManager(actor)
-  const global = input.scope === 'all'
-  if (global && !can(actor.permissions, 'knowledge.global')) throw new ServiceError(403, 'forbidden')
+  const scope = input.scope ?? 'facility'
+  assertScopeAllowed(actor, scope)
+  const own = scope === 'facility'
   const fields = checkedFields(input)
-  const filed = filing(db, actor, global, input)
+  const filed = filing(db, actor, own, input)
+  const visibility = checkedVisibility(actor, input.visibility ?? 'all')
+  const targets = checkedTargets(db, scope, own ? actor.facilityId : null, input)
   const files = fileColumns(input.kind, file)
   const at = now.toISOString()
-  return db.insert(knowledgeEntries).values({
-    ...fields, ...filed, ...files, facilityId: global ? null : actor.facilityId, sortOrder: nextSortOrder(db, filed.categoryId),
-    version: 1, versionAt: at, createdAt: at, createdBy: actor.id, updatedAt: at, updatedBy: actor.id,
-  }).returning({ id: knowledgeEntries.id }).get().id
+  return db.transaction((tx) => {
+    const id = tx.insert(knowledgeEntries).values({
+      ...fields, ...filed, ...files, visibility, allFacilities: targets.allFacilities, facilityId: own ? actor.facilityId : null,
+      sortOrder: nextSortOrder(tx, filed.categoryId), version: 1, versionAt: at, createdAt: at, createdBy: actor.id, updatedAt: at,
+      updatedBy: actor.id,
+    }).returning({ id: knowledgeEntries.id }).get().id
+    writeTargets(tx, 'knowledge', id, targets)
+    return id
+  })
 }
 
 /** An entry the actor sees (else 404 knowledge_entry_not_found) and may change (else 403). */
@@ -431,27 +481,41 @@ function loadEditable(db: Db, actor: KnowledgeActor, id: number): EntryRow {
 }
 
 /**
- * Changes the entry; where it is kept (the facility or all facilities) stays. A new PDF replaces the file (a file entry
- * keeps its PDF without one). A change of the content – another kind, a new file, another link or text – counts the
- * version up, so whoever confirmed an earlier version is asked again; title, description, „Stand vom“ and the category
- * do not. Filed in another category or subcategory, the facility's entry goes to the end there.
+ * Changes the entry. A new PDF replaces the file (a file entry keeps its PDF without one). A change of the content –
+ * another kind, a new file, another link or text – counts the version up, so whoever confirmed an earlier version is
+ * asked again; title, description, „Stand vom“, the category, who sees it and „Gilt für“ do not (confirmations stay).
+ * „Gilt für“: a facility's entry keeps its facility (its groups may change, Leitung too); the Träger may turn it into
+ * one for all or the chosen facilities (filed by name) and back into the active facility's own; without `scope` it
+ * stays as it is. Filed in another category or subcategory, the facility's entry goes to the end there.
  */
 export function updateKnowledgeEntry(
   db: Db, actor: KnowledgeActor, id: number, input: KnowledgeEntryInput, file: { data: Buffer } | null, now: Date = new Date(),
 ): void {
   const row = loadEditable(db, actor, id)
+  const current = targetsInput(row, targetsOf(db, 'knowledge', row))
+  const scope = input.scope ?? current.scope
+  assertScopeAllowed(actor, scope)
+  const own = scope === 'facility'
+  // An own entry stays with its facility; the Träger's becomes the active facility's.
+  const facilityId = own ? row.facilityId ?? actor.facilityId : null
+  if (own && facilityId !== actor.facilityId) throw new ServiceError(403, 'forbidden')
   const fields = checkedFields(input)
-  const filed = filing(db, actor, row.facilityId === null, input, row.visibility)
+  const filed = filing(db, actor, own, input)
+  const visibility = checkedVisibility(actor, input.visibility ?? row.visibility)
+  const targets = checkedTargets(db, scope, facilityId, input.scope === undefined ? { ...current, scope } : input)
   const keepsFile = input.kind === 'file' && row.kind === 'file' && file === null
   const files = keepsFile ? {} : fileColumns(input.kind, file)
   const changed = fields.kind !== row.kind || file !== null || fields.url !== row.url || fields.body !== row.body
   const moved = filed.categoryId !== row.categoryId
-  db.update(knowledgeEntries).set({
-    ...fields, ...filed, ...files,
-    ...(moved ? { sortOrder: nextSortOrder(db, filed.categoryId) } : {}),
-    ...(changed ? { version: row.version + 1, versionAt: now.toISOString() } : {}),
-    updatedAt: now.toISOString(), updatedBy: actor.id,
-  }).where(eq(knowledgeEntries.id, id)).run()
+  db.transaction((tx) => {
+    tx.update(knowledgeEntries).set({
+      ...fields, ...filed, ...files, facilityId, visibility, allFacilities: targets.allFacilities,
+      ...(moved ? { sortOrder: nextSortOrder(tx, filed.categoryId) } : {}),
+      ...(changed ? { version: row.version + 1, versionAt: now.toISOString() } : {}),
+      updatedAt: now.toISOString(), updatedBy: actor.id,
+    }).where(eq(knowledgeEntries.id, id)).run()
+    writeTargets(tx, 'knowledge', id, targets)
+  })
 }
 
 /** Deletes the entry with its confirmations. */
@@ -523,13 +587,13 @@ export function confirmWithAccount(
 /**
  * „Gelesen und verstanden“ at the facility's tablet: a person of its list (404 employee_not_found otherwise, without
  * counting a PIN attempt) confirms for themselves with their PIN (the same attempts and lock as stamping), an entry the
- * tablet shows (visible to all), in the version the tablet showed. Everything but the PIN is checked first, so a stale
- * page or another person never costs a PIN attempt.
+ * tablet shows (visible to all) and that is for the person's home group, in the version the tablet showed. Everything but
+ * the PIN is checked first, so a stale page or another person never costs a PIN attempt.
  */
 export function confirmAtTablet(
   db: Db, terminal: { facilityId: number }, id: number, shownVersion: number, employeeId: number, pin: string, now: Date = new Date(),
 ): KnowledgeConfirmResultDto {
-  const { row } = loadVisible(db, { role: 'terminal', facilityId: terminal.facilityId }, id)
+  const { row } = loadVisible(db, { role: 'terminal', facilityId: terminal.facilityId, homeGroupId: homeGroupOf(db, employeeId) }, id)
   assertConfirmable(row, shownVersion)
   if (!terminalStatus(db, terminal.facilityId, now).some(person => person.employeeId === employeeId)) {
     throw new ServiceError(404, 'employee_not_found')
@@ -556,10 +620,11 @@ const STATE_ORDER: Record<KnowledgeConfirmState, number> = { open: 0, outdated: 
 /**
  * Who of the facility confirmed the entry and who not yet (knowledge.manage; an entry the actor sees in the facility,
  * else 404): every employee of the facility employed today who sees it (by the role of their active account, the
- * Mitarbeiter's without one: a category for Leitung and Träger counts only them), plus anyone who confirmed but left,
- * no longer sees it or is not on the staff: for the facility's own entry also helpers of other facilities who confirmed
- * it at this tablet (the facility plans them); for an entry for all facilities only the facility's own employees, so no
- * other facility's names show.
+ * Mitarbeiter's without one: a category for Leitung and Träger counts only them; an entry limited to groups counts only
+ * those of these groups, and Leitung and Träger), plus anyone who confirmed but left, no longer sees it (also after a
+ * change of „Gilt für“: „nicht mehr erwartet“) or is not on the staff: for the facility's own entry also helpers of
+ * other facilities who confirmed it at this tablet (the facility plans them); for an entry of the Träger only the
+ * facility's own employees, so no other facility's names show.
  */
 export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, today: IsoDate = todayIso()): KnowledgeConfirmationsDto {
   assertManager(actor)
@@ -576,7 +641,10 @@ export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, 
       ? and(eq(knowledgeConfirmations.entryId, id), eq(employees.facilityId, actor.facilityId))
       : eq(knowledgeConfirmations.entryId, id)).all()
   const byEmployee = new Map(confirmations.map(confirmation => [confirmation.employeeId, confirmation]))
-  const expected = staff.filter(employee => seesPlacement(roles.get(employee.id) ?? 'observer', placement))
+  const homeGroups = new Map(ids.length === 0 ? [] : db.select({ id: employees.id, groupId: employees.groupId }).from(employees)
+    .where(inArray(employees.id, ids)).all().map(employee => [employee.id, employee.groupId]))
+  const expected = staff.filter(employee =>
+    seesPlacement({ role: roles.get(employee.id) ?? 'observer', homeGroupId: homeGroups.get(employee.id) ?? null }, placement))
   const expectedIds = new Set(expected.map(employee => employee.id))
   const people: KnowledgeConfirmationRowDto[] = [
     ...expected.map(employee => ({ employeeId: employee.id, name: employee.name })),
@@ -664,10 +732,12 @@ export function seedKnowledgeStarters(db: Db, facilityId: number, now: Date = ne
     const { category, subcategory } = starterSpot(db, facilityId, link.category, link.subcategory)
     const target = subcategory ?? category
     if (target && inState(link.states)) {
-      db.insert(knowledgeEntries).values({
+      const entryId = db.insert(knowledgeEntries).values({
         facilityId, categoryId: target.id, kind: 'link', title: link.title, description: link.description, url: link.url,
         starterKey: link.key, sortOrder: nextSortOrder(db, target.id), versionAt: at, createdAt: at, updatedAt: at,
-      }).run()
+      }).returning({ id: knowledgeEntries.id }).get().id
+      // „Gilt für“: the facility, all groups.
+      writeTargets(db, 'knowledge', entryId, { scope: 'facility', allFacilities: false, rows: [{ facilityId, allGroups: true }], groupIds: [] })
     }
     record(link.key)
   }

@@ -9,5 +9,5 @@ export default defineServiceHandler(async (event) => {
   const reader = await requirePermission(event, 'knowledge.view', { allowTerminal: true, facility: 'active' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const body = await readValidatedBody(event, knowledgeConfirmSchema.parse)
-  return confirmKnowledge(useDb(), reader, id, body)
+  return confirmKnowledge(useDb(), await withHomeGroup(event, reader), id, body)
 })

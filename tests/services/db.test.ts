@@ -1239,10 +1239,12 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('PRAGMA table_info(print_templates)').all()
       .map(column => { const { name, notnull } = column as Record<string, unknown>; return [name, notnull] }))
       // 0063_template_categories adds the category reference (and its index, see there); 0108 makes it optional (none
-      // for the templates of all facilities) and adds their category name and visibility; 0112 whether it is a form; 0115 the subcategory name.
+      // for the templates of all facilities) and adds their category name and visibility; 0112 whether it is a form; 0115 the subcategory name;
+      // 0117 „Gilt für“ alle Einrichtungen.
       .toEqual([
         ['id', 1], ['facility_id', 0], ['title', 1], ['category', 1], ['category_id', 0], ['category_name', 0], ['visibility', 1],
         ['mime_type', 1], ['size', 1], ['data', 1], ['uploaded_by', 0], ['uploaded_at', 1], ['updated_at', 1], ['fillable', 0], ['subcategory_name', 0],
+        ['all_facilities', 1],
       ])
     expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'print_templates' AND name = 'print_templates_facility'`).all())
       .toEqual([{ name: 'print_templates_facility' }])
@@ -2562,6 +2564,46 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     // Gone with the facility, subcategories and all.
     sqlite.exec('DELETE FROM knowledge_entries WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
     expect(sqlite.prepare('SELECT count(*) AS n FROM knowledge_categories WHERE facility_id = 2').get()).toEqual({ n: 0 })
+  })
+
+  it('0117 adds „Gilt für“ (facilities and groups) and keeps who sees what: own items for their facility, the Träger\'s for all, all groups', () => {
+    const { db, sqlite } = databaseAt('0116')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO groups (id, facility_id, name) VALUES (7, 1, 'Bären'), (8, 2, 'Mäuse');
+      INSERT INTO print_templates (id, facility_id, title, category_id, mime_type, size, data, uploaded_at, updated_at) VALUES
+        (1, 1, 'Eigene', (SELECT min(id) FROM template_categories WHERE facility_id = 1), 'application/pdf', 1, x'25', 'a', 'a');
+      INSERT INTO print_templates (id, facility_id, title, category_name, visibility, mime_type, size, data, uploaded_at, updated_at) VALUES
+        (2, NULL, 'Für alle', 'Eltern', 'managers', 'application/pdf', 1, x'25', 'a', 'a');
+      INSERT INTO knowledge_categories (id, facility_id, name) VALUES (5, 2, 'Kinderschutz');
+      INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, version_at, created_at, updated_at) VALUES (1, 2, 5, 'link', 'Eigen', 'a', 'a', 'a');
+      INSERT INTO knowledge_entries (id, facility_id, category_name, kind, title, version_at, created_at, updated_at) VALUES (2, NULL, 'Hygiene', 'text', 'Für alle', 'a', 'a', 'a');
+    `)
+    const before = sqlite.prepare('SELECT id, facility_id, title, category_id, category_name, visibility FROM print_templates ORDER BY id').all()
+    migrateThrough(db, '0117')
+    // Today's behaviour exactly: own → that facility, all groups; the Träger's → all facilities; nothing else changes.
+    expect(sqlite.prepare('SELECT id, facility_id, title, category_id, category_name, visibility FROM print_templates ORDER BY id').all()).toEqual(before)
+    expect(sqlite.prepare('SELECT id, all_facilities FROM print_templates ORDER BY id').all()).toEqual([{ id: 1, all_facilities: 0 }, { id: 2, all_facilities: 1 }])
+    expect(sqlite.prepare('SELECT template_id, facility_id, all_groups FROM print_template_targets').all()).toEqual([{ template_id: 1, facility_id: 1, all_groups: 1 }])
+    expect(sqlite.prepare('SELECT id, all_facilities FROM knowledge_entries ORDER BY id').all()).toEqual([{ id: 1, all_facilities: 0 }, { id: 2, all_facilities: 1 }])
+    expect(sqlite.prepare('SELECT entry_id, facility_id, all_groups FROM knowledge_entry_targets').all()).toEqual([{ entry_id: 1, facility_id: 2, all_groups: 1 }])
+    for (const table of ['print_template_target_groups', 'knowledge_entry_target_groups']) expect(count(sqlite, table), table).toBe(0)
+    // One row per item and facility / group; gone with the item, the facility and the group.
+    sqlite.exec(`
+      INSERT INTO print_template_targets (template_id, facility_id, all_groups) VALUES (2, 2, 0);
+      INSERT INTO print_template_target_groups (template_id, group_id) VALUES (2, 8), (1, 7);
+      INSERT INTO knowledge_entry_target_groups (entry_id, group_id) VALUES (2, 7);
+    `)
+    expect(() => sqlite.exec('INSERT INTO print_template_targets (template_id, facility_id) VALUES (1, 1)')).toThrow(/UNIQUE|PRIMARY/)
+    expect(() => sqlite.exec('INSERT INTO print_template_target_groups (template_id, group_id) VALUES (1, 99)')).toThrow(/FOREIGN KEY/)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    sqlite.exec('DELETE FROM groups WHERE id = 7')
+    expect(sqlite.prepare('SELECT template_id, group_id FROM print_template_target_groups').all()).toEqual([{ template_id: 2, group_id: 8 }])
+    expect(count(sqlite, 'knowledge_entry_target_groups')).toBe(0)
+    sqlite.exec('DELETE FROM print_templates WHERE id = 2')
+    expect(count(sqlite, 'print_template_target_groups')).toBe(0)
+    sqlite.exec('DELETE FROM knowledge_entries WHERE id = 2; DELETE FROM groups WHERE id = 8; DELETE FROM facilities WHERE id = 2')
+    expect(count(sqlite, 'knowledge_entry_targets')).toBe(0)
   })
 
   it('0109 adds the address book with the example categories for every facility and the future school of a child', () => {

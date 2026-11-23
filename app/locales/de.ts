@@ -1486,6 +1486,29 @@ export const de = {
     global: 'alle Einrichtungen', globalHint: 'Vom Träger für alle Einrichtungen – nur der Träger kann sie ändern.',
     uploadedAt: (date: string) => `hochgeladen am ${date}`, updatedAt: (date: string) => `geändert am ${date}`,
     confirmDelete: (title: string) => `Die Vorlage „${title}“ wirklich löschen?`,
+    // The search above the sub-tabs: title, category and subcategory in every category.
+    search: 'Vorlagen suchen', searchPlaceholder: 'Titel oder Kategorie',
+    searchResults: (count: number) => (count === 1 ? '1 Treffer in allen Kategorien' : `${count} Treffer in allen Kategorien`),
+    noMatch: 'Keine Vorlage passt zur Suche.',
+    visibility: 'Wer sieht sie?',
+    visibilityHint: 'Gilt zusätzlich zur Kategorie: Es zählt die engere Einstellung.',
+  },
+  // „Gilt für“ of Vorlagen and „Wissen“: facilities and groups (shared/domain/documentTargets.ts).
+  documentTargets: {
+    title: 'Gilt für', loading: 'Wird geladen …', facilities: 'Einrichtungen',
+    scopeFacility: (name: string) => `nur ${name}`, scopeThisFacility: 'nur diese Einrichtung',
+    scopeAll: 'alle Einrichtungen (auch neue)', scopeSelected: 'ausgewählte Einrichtungen',
+    groups: 'Gruppen', allGroups: 'alle Gruppen', someGroups: 'nur bestimmte Gruppen',
+    groupsOf: (name: string) => `Gruppen in ${name}`, noGroups: 'Diese Einrichtung hat keine Gruppen.',
+    groupsHint: 'Mitarbeitende sehen es nur, wenn ihre Stammgruppe gewählt ist; Leitung und Träger sehen es immer. '
+      + 'Am Tablet zählt die Stammgruppe der Person, die es entsperrt hat.',
+    pickFacility: 'Bitte wähle mindestens eine Einrichtung.',
+    pickGroup: (facility: string) => `Bitte wähle${facility ? ` in ${facility}` : ''} mindestens eine Gruppe oder „alle Gruppen“.`,
+    /** `what`: „die Vorlage“ / „der Eintrag“. */
+    confirmLosing: (count: number, what: string) => `In ${count === 1 ? '1 Einrichtung' : `${count} Einrichtungen`} ist ${what} danach nicht mehr zu sehen. Trotzdem speichern?`,
+    only: (names: string[]) => `nur ${names.join(', ')}`,
+    noGroup: 'keine Gruppe mehr gewählt',
+    nameHint: 'Für mehrere Einrichtungen wird sie nach dem Namen der Kategorie einsortiert (sonst unter „Vom Träger“).',
   },
   parentMeetings: {
     // The kinds of a parent meeting (record section, overview sheet, reminders).
@@ -2523,6 +2546,10 @@ export const de = {
     kinds: { staff: 'Mitarbeitergespräch', child: 'Kind', team: 'Teamsitzung', accident: 'Unfall' },
     itemKinds: { note: 'Hinweis', text: 'Freitext', choices: 'Ankreuzliste', rating: 'Bewertung', milestone: 'Meilenstein', date: 'Datum' },
     templatesTitle: 'Vorlagen für Bögen',
+    // The search over the names of every kind.
+    search: 'Bögen-Vorlagen suchen', searchPlaceholder: 'Name der Vorlage', archivedBadge: 'archiviert',
+    searchResults: (count: number) => (count === 1 ? '1 Treffer' : `${count} Treffer`),
+    noMatch: 'Keine Vorlage passt zur Suche.',
     templatesHint: 'Aus diesen Vorlagen legst du Bögen an, für Mitarbeitergespräche, für die Beobachtungen der Kinder und für Teamsitzungen. Änderungen an einer Vorlage gelten nur für neue Bögen – schon angelegte Bögen bleiben, wie sie sind.',
     kindGroups: { staff: 'Fachkräfte', child: 'Kinder', team: 'Team', accident: 'Unfälle' },
     kindHints: {
@@ -3452,6 +3479,7 @@ export const de = {
     knowledge_category_name_taken: 'Eine Kategorie mit diesem Namen gibt es schon.',
     knowledge_category_not_empty: 'In dieser Kategorie liegen noch Einträge. Verschieb oder lösch sie zuerst.',
     knowledge_category_has_subcategories: 'Diese Kategorie hat noch Unterkategorien. Lösch sie zuerst.',
+    document_targets_invalid: 'Die Auswahl bei „Gilt für“ passt nicht: Bitte wähle mindestens eine Einrichtung und bei eingeschränkten Einrichtungen mindestens eine ihrer Gruppen.',
     knowledge_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung, nicht zu einer anderen Unterkategorie.',
     knowledge_entry_not_movable: 'Einträge des Trägers für alle Einrichtungen stehen nach den eigenen, nach Titel.',
     knowledge_no_employee: 'Bestätigen geht nur mit einem Zugang, der mit einem Mitarbeiter verknüpft ist – oder am Tablet mit deiner PIN.',

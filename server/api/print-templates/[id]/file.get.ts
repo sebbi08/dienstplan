@@ -7,7 +7,7 @@ export default defineServiceHandler(async (event) => {
   // in the active facility; each sees the categories of their level.
   const reader = await requirePermission(event, 'printTemplates.view', { allowTerminal: true, facility: 'active' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  const file = readTemplateFile(useDb(), reader, id)
+  const file = readTemplateFile(useDb(), await withHomeGroup(event, reader), id)
   // Shown in the browser (also at the tablet: a blank form, no child data), which prints it.
   setResponseHeaders(event, documentResponseHeaders(file, false))
   return file.data

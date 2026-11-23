@@ -6,6 +6,7 @@ import {
 import { CHILD_SORTS } from '../shared/domain/childSort'
 import { CONTACT_LIMITS } from '../shared/domain/contacts'
 import { isValidIsoDate } from '../shared/domain/dates'
+import { DOCUMENT_SCOPES } from '../shared/domain/documentTargets'
 import { FORM_LIMITS } from '../shared/domain/forms'
 import { KNOWLEDGE_KINDS, KNOWLEDGE_LIMITS } from '../shared/domain/knowledge'
 import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
@@ -575,15 +576,33 @@ export const employeeDocumentSchema = z.object({
   documentDate: isoDate,
   note: z.string().max(1000).default(''),
 })
-// Print templates: the change of title and category, and the form fields of the upload (multipart, so all text). A
-// facility's template names one of the facility's categories or subcategories (`categoryId`), a template for all
-// facilities the category name, optionally a subcategory name, and its visibility (the service says which one is missing).
+// „Gilt für“ of Vorlagen and „Wissen“ (shared/domain/documentTargets.ts): the facilities chosen and the groups per
+// facility; the service checks that they exist and fit together.
+const targetFacilityIds = z.array(z.number().int().positive()).max(500)
+const targetGroups = z.array(z.object({ facilityId: z.number().int().positive(), groupIds: z.array(z.number().int().positive()).max(200) })).max(500)
+/** A multipart field holding JSON, parsed and then checked with `schema`. */
+const jsonField = <T extends z.ZodType>(schema: T) => z.string().max(100_000).transform((value, ctx) => {
+  try {
+    return JSON.parse(value) as unknown
+  }
+  catch {
+    ctx.addIssue({ code: 'custom', message: 'invalid JSON' })
+    return z.NEVER
+  }
+}).pipe(schema)
+// Print templates: the change of title, category, visibility and „Gilt für“, and the form fields of the upload (multipart,
+// so all text; `facilityIds` and `groupTargets` as JSON). A facility's template names one of the facility's categories
+// or subcategories (`categoryId`), a template of the Träger the category name and optionally a subcategory name (the
+// service says which one is missing). A change without `scope` keeps „Gilt für“.
 export const printTemplateSchema = z.object({
   title: z.string().max(200),
   categoryId: z.number().int().positive().nullish(),
   categoryName: z.string().max(60).nullish(),
   subcategoryName: z.string().max(60).nullish(),
   visibility: z.enum(TEMPLATE_VISIBILITIES).nullish(),
+  scope: z.enum(DOCUMENT_SCOPES).optional(),
+  facilityIds: targetFacilityIds.optional(),
+  groupTargets: targetGroups.optional(),
 })
 export const printTemplateFields = z.object({
   title: z.string().max(200),
@@ -591,7 +610,9 @@ export const printTemplateFields = z.object({
   categoryName: z.string().max(60).optional(),
   subcategoryName: z.string().max(60).optional(),
   visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
-  scope: z.enum(['facility', 'all']).default('facility'),
+  scope: z.enum(DOCUMENT_SCOPES).default('facility'),
+  facilityIds: jsonField(targetFacilityIds).optional(),
+  groupTargets: jsonField(targetGroups).optional(),
 })
 /**
  * The new order of one list of „Vorlagen“: a subcategory of the facility, the templates directly in a category
@@ -931,7 +952,10 @@ export const knowledgeEntryFields = z.object({
   categoryName: z.string().max(KNOWLEDGE_LIMITS.categoryName).optional(),
   subcategoryName: z.string().max(KNOWLEDGE_LIMITS.categoryName).optional(),
   visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
-  scope: z.enum(['facility', 'all']).default('facility'),
+  // Creating: the facility's own unless named; changing: without it „Gilt für“ stays as it is.
+  scope: z.enum(DOCUMENT_SCOPES).optional(),
+  facilityIds: jsonField(targetFacilityIds).optional(),
+  groupTargets: jsonField(targetGroups).optional(),
 })
 // A change keeps where the category sits: a `parentId` there is refused (400).
 export const knowledgeCategoryUpdateSchema = z.object({

@@ -2,6 +2,7 @@
 import type { KnowledgeCategoryDto, KnowledgeConfirmResultDto, KnowledgeDto, KnowledgeEntryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatSize } from '~/utils/children'
+import { targetHints } from '~/utils/documentTargets'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 import {
@@ -91,6 +92,8 @@ const emptyText = computed(() => {
   return current.value?.subcategories.some(sub => subcategoryChip(sub.id) === chip.value) ? t.emptySubcategory : t.emptyCategory
 })
 const categoryName = (entry: KnowledgeEntryDto) => knowledgePlace(categories.value, entry, t.fromProvider)
+/** The hints for Leitung and Träger: „nur Kita A, Kita B“, „nur Bären, Füchse“, „keine Gruppe mehr gewählt“. */
+const hintsOf = (entry: KnowledgeEntryDto) => targetHints(entry.targets, { only: de.documentTargets.only, noGroup: de.documentTargets.noGroup })
 /** The cards shown, each with its list (for ▲/▼); in „Alle“ the first of each list carries the heading. */
 const rows = computed(() => shownLists.value.flatMap(group => group.items.map((entry, index) => ({
   entry, group, heading: headings.value && index === 0,
@@ -232,6 +235,8 @@ const presetSubcategoryId = computed(() => current.value?.subcategories.find(sub
                     <span v-if="searching" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ categoryName(entry) }}</span>
                     <span v-if="entry.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="t.globalHint">{{ t.global }}</span>
                     <span v-if="entry.needsConfirmation" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ t.needsConfirmationBadge }}</span>
+                    <!-- „Gilt für“, for Leitung and Träger: „nur Kita A“, „nur Bären, Füchse“. -->
+                    <span v-for="hint in hintsOf(entry)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
                   </div>
                   <p v-if="entry.description" class="whitespace-pre-line text-gray-700">{{ entry.description }}</p>
                 </div>

@@ -6,6 +6,6 @@ export default defineServiceHandler(async (event) => {
   const editor = await requirePermission(event, 'knowledge.manage', { facility: 'active' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const { direction } = await readValidatedBody(event, moveSchema.parse)
-  moveKnowledgeEntry(useDb(), editor, id, direction)
+  moveKnowledgeEntry(useDb(), await withHomeGroup(event, editor), id, direction)
   return { ok: true }
 })

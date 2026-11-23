@@ -5,5 +5,5 @@ import { confirmationOverview } from '../../../services/knowledge'
 export default defineServiceHandler(async (event) => {
   const manager = await requirePermission(event, 'knowledge.manage', { facility: 'active' })
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  return confirmationOverview(useDb(), manager, id)
+  return confirmationOverview(useDb(), await withHomeGroup(event, manager), id)
 })

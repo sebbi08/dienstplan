@@ -2,6 +2,7 @@ import type { BemMeasureStatus, BemStatus, BemStepKind } from '../domain/bem'
 import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { OverviewColumnRef } from '../domain/childConsents'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
+import type { DocumentScope } from '../domain/documentTargets'
 import type { EveRule } from '../domain/eveRules'
 import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
@@ -739,16 +740,53 @@ export interface ChildDocumentMeta {
   confidential: boolean
 }
 
-/** Where a new print template applies: the facility the uploader works in, or every facility (Träger only). */
-export type PrintTemplateScope = 'facility' | 'all'
+/**
+ * Where a print template applies (shared/domain/documentTargets.ts): the facility the uploader works in, every facility,
+ * or the facilities chosen (both the Träger's only).
+ */
+export type PrintTemplateScope = DocumentScope
+
+/** The groups an item is limited to in one facility (at least one; a facility not named: all groups). */
+export interface DocumentGroupTarget {
+  facilityId: number
+  groupIds: number[]
+}
+
+/**
+ * „Gilt für“ as entered: the scope, for 'selected' the facilities (at least one), and the facilities limited to groups.
+ * Changing an item: without `scope` its „Gilt für“ stays as it is.
+ */
+export interface DocumentTargetsInput {
+  scope?: DocumentScope
+  facilityIds?: number[]
+  groupTargets?: DocumentGroupTarget[]
+}
+
+/** „Gilt für“ of an item for those who maintain it (and the hints in the lists for Leitung and Träger). */
+export interface DocumentTargetsDto {
+  scope: DocumentScope
+  /** 'selected': the facilities chosen; 'facility': the own facility; 'all': none. */
+  facilityIds: number[]
+  facilityNames: string[]
+  groupTargets: DocumentGroupTarget[]
+  /** In the viewer's facility: the names of the groups it is limited to (null = all groups; [] = none left). */
+  groupNames: string[] | null
+}
+
+/** What „Gilt für“ offers the editor: the Träger every facility with its groups, everyone else the own facility. */
+export interface DocumentTargetOptionsDto {
+  /** The editor's (active) facility: a facility's own item is for it. */
+  facilityId: number
+  facilities: { id: number; name: string; groups: { id: number; name: string }[] }[]
+}
 
 /**
  * What the user enters about a print template (the file comes with the upload). A facility's template: one of the
- * facility's categories or subcategories they see (`categoryId`). A template for all facilities (Träger): the name of
- * the category it shows in (each facility's own of that name, else „Vom Träger“), optionally the name of a subcategory
- * there (else directly in the category), and who sees it at least (`visibility`).
+ * facility's categories or subcategories they see (`categoryId`). A template for all or the chosen facilities (Träger):
+ * the name of the category it shows in (each facility's own of that name, else „Vom Träger“), optionally the name of a
+ * subcategory there (else directly in the category). Both: who sees it at least (`visibility`) and „Gilt für“.
  */
-export interface PrintTemplateMeta {
+export interface PrintTemplateMeta extends DocumentTargetsInput {
   title: string
   categoryId?: number | null
   categoryName?: string | null
@@ -817,6 +855,8 @@ export interface PrintTemplateDto {
   globalCategoryName: string | null
   globalSubcategoryName: string | null
   globalVisibility: TemplateVisibility | null
+  /** Who sees it at least (its own setting; its category's applies on top, the stricter one wins). */
+  visibility: TemplateVisibility
   size: number
   uploadedAt: string
   updatedAt: string
@@ -824,6 +864,8 @@ export interface PrintTemplateDto {
   canEdit: boolean
   /** A PDF form with fields to fill in the app („Ausfüllen“). */
   fillable: boolean
+  /** „Gilt für“, for Leitung, Träger and whoever may change it (null for everyone else). */
+  targets: DocumentTargetsDto | null
 }
 
 /** Completeness view: active children against the important document types. */
@@ -4014,6 +4056,10 @@ export interface KnowledgeEntryDto {
   myConfirmation: KnowledgeMyConfirmationDto | null
   /** Whether the viewer may change, move and delete it. */
   canEdit: boolean
+  /** Who sees it at least (its own setting; its category's applies on top, the stricter one wins). */
+  visibility: TemplateVisibility
+  /** „Gilt für“, for Leitung, Träger and whoever may change it (null for everyone else). */
+  targets: DocumentTargetsDto | null
 }
 
 /** „Wissen“ of the viewer's facility: the categories in their order and the entries the viewer sees, in order. */
@@ -4030,8 +4076,12 @@ export interface KnowledgeDto {
   openCount: number
 }
 
-/** The fields of a new or changed entry (sent as multipart form fields, with the PDF as `file` for a file entry). */
-export interface KnowledgeEntryInput {
+/**
+ * The fields of a new or changed entry (sent as multipart form fields, with the PDF as `file` for a file entry;
+ * `facilityIds` and `groupTargets` as JSON). „Gilt für“: without `scope` a change keeps it as it is, a new entry is the
+ * facility's own.
+ */
+export interface KnowledgeEntryInput extends DocumentTargetsInput {
   kind: KnowledgeKind
   title: string
   description: string
@@ -4041,12 +4091,11 @@ export interface KnowledgeEntryInput {
   needsConfirmation: boolean
   /** A facility's entry: one of its categories or subcategories (the viewer sees). */
   categoryId?: number
-  /** An entry for all facilities (Träger): the category name, optionally a subcategory name, and the visibility. */
+  /** An entry of the Träger for all or the chosen facilities: the category name, optionally a subcategory name. */
   categoryName?: string
   subcategoryName?: string
+  /** Who sees it at least (not sent: as it was, 'all' for a new entry). */
   visibility?: TemplateVisibility
-  /** On creating: the facility (default) or all facilities (Träger, knowledge.global). */
-  scope?: 'facility' | 'all'
 }
 
 /** What the editor enters about a category; `parentId` (only when creating) makes it a subcategory of that category. */

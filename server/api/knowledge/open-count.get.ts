@@ -6,5 +6,5 @@ import { openKnowledgeCount } from '../../services/knowledge'
  */
 export default defineServiceHandler(async (event) => {
   const reader = await requirePermission(event, 'knowledge.view', { facility: 'active' })
-  return { count: openKnowledgeCount(useDb(), reader) }
+  return { count: openKnowledgeCount(useDb(), await withHomeGroup(event, reader)) }
 })

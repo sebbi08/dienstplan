@@ -769,6 +769,7 @@ describe('API route permissions', () => {
       || /services\/(printTemplates|templateCategories)'/.test(source(route)))
     expect(touching).toEqual(['print-templates/[id].delete.ts', 'print-templates/[id].put.ts', 'print-templates/[id]/file.get.ts',
       'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts', 'print-templates/order.post.ts',
+      'print-templates/targets.get.ts',
       'template-categories/[id].delete.ts', 'template-categories/[id].put.ts', 'template-categories/[id]/move.post.ts',
       'template-categories/index.get.ts', 'template-categories/index.post.ts', 'template-categories/names.get.ts'])
     const readers = ['print-templates/index.get.ts', 'print-templates/[id]/file.get.ts', 'template-categories/index.get.ts']

@@ -1593,9 +1593,32 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   sind nur **PDF-Dateien bis 10 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
   **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** ist die des geöffneten
   Unterreiters und lässt sich in der Liste ändern; gibt es noch keine, leg zuerst unter **Kategorien verwalten** eine an.
-- **Für wen**: Die **Leitung** lädt Vorlagen für die **eigene Einrichtung** hoch. Der **Träger** wählt beim Hochladen
-  „nur ‹Einrichtung›“ (die oben gewählte) oder **„alle Einrichtungen“**. Jede Einrichtung sieht ihre eigenen Vorlagen und
-  die für alle Einrichtungen; diese sind mit **„alle Einrichtungen“** markiert.
+- **Gilt für** (beim Hochladen und später mit **Bearbeiten**):
+  - **Einrichtungen**: Die **Leitung** lädt Vorlagen für die **eigene Einrichtung** hoch. Der **Träger** wählt „nur
+    ‹Einrichtung›“ (die oben gewählte), **„alle Einrichtungen (auch neue)“** oder **„ausgewählte Einrichtungen“**
+    (Häkchen). Vorlagen des Trägers sind mit **„alle Einrichtungen“** markiert. Bei ausgewählten Einrichtungen steht für
+    Leitung und Träger dazu „nur Kita A, Kita B“.
+  - **Gruppen**: je Einrichtung **„alle Gruppen“** oder **„nur bestimmte Gruppen“** (Häkchen). Die Leitung darf das für
+    Vorlagen ihrer Einrichtung einstellen. Mitarbeitende sehen eine solche Vorlage nur, wenn ihre **Stammgruppe**
+    (die Gruppe im Dienstplan) gewählt ist. Leitung und Träger sehen sie immer, mit dem Hinweis „nur Bären, Füchse“. Das
+    **Tablet** zeigt sie nur, solange es von jemandem aus diesen Gruppen entsperrt ist (gesperrt: nur Vorlagen für alle
+    Gruppen). Aushilfen aus anderen Einrichtungen und Personen ohne Stammgruppe sehen nur Vorlagen für alle Gruppen.
+  - Wird eine gewählte Gruppe gelöscht, fällt sie aus der Auswahl. Ist danach keine Gruppe mehr gewählt, sehen nur
+    noch Leitung und Träger die Vorlage („keine Gruppe mehr gewählt“).
+  - **Ändern**: Der Träger kann eine Vorlage nachträglich anderen Einrichtungen zuordnen. Für mehrere Einrichtungen wird
+    sie nach dem Namen ihrer Kategorie einsortiert (vorbelegt mit der bisherigen); „nur ‹Einrichtung›“ macht sie wieder
+    zur Vorlage der oben gewählten Einrichtung (Kategorie auswählen). Ist sie danach in Einrichtungen nicht mehr zu
+    sehen, fragt die App vorher nach. Wo sie neu dazukommt, steht sie am Ende; Einrichtungen, die sie verlieren, vergessen
+    ihren Platz.
+  - **Wer sieht sie?** lässt sich jetzt bei jeder Vorlage einstellen, auch bei den eigenen der Einrichtung; es gilt
+    zusätzlich das der Kategorie (die engere Einstellung zählt).
+  - **Beim Update** auf diese Version blieb alles, wie es war: eigene Vorlagen gelten für ihre Einrichtung, die des
+    Trägers für alle Einrichtungen, jeweils für alle Gruppen.
+- **Suchen**: Über den Unterreitern sucht ein Suchfeld in Titel, Kategorie und Unterkategorie aller Vorlagen, die du
+  sehen darfst (Groß-/Kleinschreibung egal, „ä“ findet auch „ae“, „ß“ auch „ss“). Solange etwas eingetippt ist, stehen
+  statt der Unterreiter die Treffer da, nach „Kategorie › Unterkategorie“ gruppiert, mit **Öffnen**, **Ausfüllen** und
+  **Bearbeiten**. Leert man das Feld, ist wieder der vorherige Unterreiter offen. Ebenso gibt es im Reiter **Bögen** ein
+  Suchfeld über die Namen aller Vorlagen (nach Art gruppiert, auch die archivierten).
 - **Vorlagen für alle Einrichtungen** (nur der Träger): Statt einer Kategorie gibt der Träger den **Namen** einer
   Kategorie an – aus der Liste der Namen, die die Einrichtungen verwenden, oder frei getippt – und wählt, **wer sie
   sieht**. Jede Einrichtung zeigt die Vorlage in ihrer Kategorie mit diesem Namen (Groß- und Kleinschreibung zählt
@@ -2781,6 +2804,13 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
   **Unterkategorie-Namen**, und eigenem „Wer sieht ihn?“. Jede Einrichtung zeigt den Eintrag in ihrer Unterkategorie mit
   diesem Namen, sonst direkt in der Kategorie mit diesem Namen (unter „Allgemein“), sonst unter **„Vom Träger“**; die
   engste Einstellung gewinnt. Ändern und löschen kann ihn nur der Träger.
+- **Gilt für** und **Wer sieht ihn?** (beim Anlegen und später mit **Bearbeiten**) wie bei den Vorlagen (Abschnitt 19):
+  Einrichtungen (der Träger: „nur ‹Einrichtung›“, alle oder ausgewählte) und je Einrichtung alle oder bestimmte Gruppen
+  (nach der Stammgruppe; am Tablet die Stammgruppe der Person, die es entsperrt hat). Das gilt überall: in der Liste, der
+  Suche, beim Öffnen der PDF, beim Text und bei „Gelesen und verstanden“ (am Tablet zählt die Person, die bestätigt).
+  **Wer hat bestätigt?** erwartet nur noch die Mitarbeitenden, die den Eintrag sehen. Ändert sich „Gilt für“ oder „Wer
+  sieht ihn?“, bleiben die Bestätigungen erhalten und es gibt keine neue Fassung; wer nicht mehr dazugehört, steht mit
+  „nicht mehr angestellt oder sieht den Eintrag nicht mehr“ in der Liste. Die Suche findet „ä“ auch als „ae“ und „ß“ als „ss“.
 
 ### „Gelesen und verstanden“
 

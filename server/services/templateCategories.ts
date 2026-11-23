@@ -1,4 +1,5 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
+import { reachesAudience } from '../../shared/domain/documentTargets'
 import { can } from '../../shared/domain/permissions'
 import {
   categoriesInTreeOrder, categoryNameList, categoryPlacer, foldCategoryName, seesAll, seesCategoryNode, spotVisibilities,
@@ -8,6 +9,7 @@ import type { CategoryNameDto, Role, SessionUser, TemplateCategoryDto, TemplateC
 import type { Db } from '../db/client'
 import { printTemplates, templateCategories } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { loadTargets } from './documentTargets'
 
 /**
  * The categories of the print templates, one list per facility (each facility orders, names and adds its own), with one
@@ -47,11 +49,18 @@ export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategory
     .map(row => [row.id, row.n]))
   const place = categoryPlacer(all)
   const globalCounts = new Map<number, number>()
-  const globals = db.select({ name: printTemplates.categoryName, subcategoryName: printTemplates.subcategoryName, visibility: printTemplates.visibility })
-    .from(printTemplates).where(isNull(printTemplates.facilityId)).all()
+  const globals = db.select({
+    id: printTemplates.id, name: printTemplates.categoryName, subcategoryName: printTemplates.subcategoryName,
+    visibility: printTemplates.visibility, allFacilities: printTemplates.allFacilities,
+  }).from(printTemplates).where(isNull(printTemplates.facilityId)).all()
+  // Only those for this facility („Gilt für“) whose groups allow the viewer.
+  const targets = loadTargets(db, 'template', globals)
+  const audience = { role: viewer.role, homeGroupId: null }
   for (const global of globals) {
     const spot = place.byName(global.name, global.subcategoryName)
     const shownIn = spot.subcategory ?? spot.category
+    const itemTargets = targets.get(global.id)
+    if (!itemTargets || !reachesAudience(itemTargets, viewer.facilityId, audience)) continue
     if (shownIn && seesAll(viewer.role, [global.visibility, ...spotVisibilities(spot)])) {
       globalCounts.set(shownIn.id, (globalCounts.get(shownIn.id) ?? 0) + 1)
     }

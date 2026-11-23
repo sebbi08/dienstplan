@@ -1,4 +1,5 @@
 import { normalizedWebsite } from './contacts'
+import { matchesSearch } from './documentTargets'
 import { isValidIsoDate } from './dates'
 import { richTextToPlain } from './richText'
 import type { GermanState } from './states'
@@ -42,12 +43,12 @@ export interface SearchableKnowledge {
   body: string
 }
 
-/** Whether the entry matches every word of the search (regardless of case; an empty search matches all). */
+/**
+ * Whether the entry matches every word of the search (regardless of case and umlaut spelling, „ae“ for „ä“; an empty
+ * search matches all), as the search of the Vorlagen.
+ */
 export function knowledgeMatches(entry: SearchableKnowledge, query: string): boolean {
-  const words = comparableKnowledgeName(query).split(/\s+/).filter(Boolean)
-  if (words.length === 0) return true
-  const text = comparableKnowledgeName([entry.title, entry.description, entry.body ? richTextToPlain(entry.body) : ''].join(' '))
-  return words.every(word => text.includes(word))
+  return matchesSearch([entry.title, entry.description, entry.body ? richTextToPlain(entry.body) : ''], query)
 }
 
 /**
