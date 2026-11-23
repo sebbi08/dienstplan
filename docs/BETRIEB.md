@@ -140,8 +140,19 @@ Ein anderer Admin kann unter *Benutzer* das Passwort zurücksetzen. Gibt es kein
 
 Die Kinderakten (Stammdaten, Notizen, Kontakte usw.) und alle hochgeladenen Dokumente liegen in der
 Datenbank des Dienstplans (im Docker-Betrieb die Datei `/data/app.db`). Erlaubt sind PDF-, JPG- und
-PNG-Dateien bis 10 MB pro Dokument. Es gibt keinen separaten Ordner mit Dokumenten: Wer die
+PNG-Dateien bis 30 MB pro Dokument. Es gibt keinen separaten Ordner mit Dokumenten: Wer die
 Datenbank hat, hat alles.
+
+**Größe hochgeladener Dateien (30 MB, seit 23.11.2026; vorher 10 MB):** Das gilt für jede hochgeladene Datei – Kinder- und
+Personalakte, Vorlagen, Wissen, Dokumente des Gesundheitsamts, Attest der Wiederzulassung, Anhänge der Unfallanzeigen,
+Kassenbelege und ausgefüllte PDFs (nur die Straßenliste der Schulbezirke: 10 MB). Die App prüft die Größe schon beim
+Auswählen („Die Datei ist zu groß (31,2 MB). Erlaubt sind höchstens 30 MB.“), der Server noch einmal, bevor er die
+Datei annimmt. Er liest eine Hochladung genau einmal in den Speicher: eine 30-MB-Datei belegt etwa 30 MB, nicht ein
+Vielfaches (wichtig für den Container mit 1024 MB). Große Dateien machen die Datenbank und damit **jede Sicherung**
+größer: zehn Dokumente à 30 MB sind 300 MB mehr in `app.db`, in jeder Sicherung unter `/data/backups` und im Download
+„Datensicherung“ – bitte den freien Speicherplatz des Servers im Blick behalten. Beim Speichern wächst kurz auch die
+Datei `app.db-wal` um die Größe der Datei. Gelöschte Dokumente werden überschrieben (secure_delete); der Platz in der
+Datenbank wird wiederverwendet, die Datei selbst wird aber nicht kleiner.
 
 **Dokumentart „Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)“:** Vor der ersten Aufnahme in eine Kita weisen die
 Eltern schriftlich nach, dass sie zeitnah ärztlich zum Impfschutz des Kindes beraten wurden; fehlt der Nachweis,
@@ -1040,7 +1051,7 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   Sozialversicherungsnummer (12 Zeichen mit Prüfziffer) und die Steuerklasse (1–6); ein falscher Wert lässt sich nicht
   speichern, der Hinweis steht am Feld. Ein leeres Feld ist immer erlaubt. Die Werte werden erst geladen, wenn du den
   Reiter **Vertrag & Lohn** öffnest.
-- **Dokumente:** Je Fach ein Abschnitt mit **„Hochladen“**: PDF, JPG oder PNG bis 10 MB, dazu Titel, Datum und eine
+- **Dokumente:** Je Fach ein Abschnitt mit **„Hochladen“**: PDF, JPG oder PNG bis 30 MB, dazu Titel, Datum und eine
   freiwillige Notiz. Je Dokument: Titel antippen oder ↗ öffnet es in einem neuen Tab, ⤓ lädt es herunter, der Stift
   ändert Titel, Datum, Notiz oder das Fach (zur Auswahl stehen nur Fächer, für die du das Recht hast), der Papierkorb
   löscht es nach einer Rückfrage. Gelöschte Dateien sind sofort aus der Datenbank entfernt (ältere Sicherungen enthalten
@@ -1590,7 +1601,7 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   Die Vorlagen in einer Kategorie sieht nur, wer die Kategorie sieht; Unterreiter für Kategorien, die man nicht sieht,
   erscheinen gar nicht. Kategorien, die nicht alle sehen, sind markiert („nur Leitung und Träger“ bzw. „nur Träger“).
 - **Hochladen**: Leitung und Träger öffnen **Dokumente** → **Vorlagen** und tippen auf **Vorlage hochladen**. Erlaubt
-  sind nur **PDF-Dateien bis 10 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
+  sind nur **PDF-Dateien bis 30 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
   **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** ist die des geöffneten
   Unterreiters und lässt sich in der Liste ändern; gibt es noch keine, leg zuerst unter **Kategorien verwalten** eine an.
 - **Gilt für** (beim Hochladen und später mit **Bearbeiten**):
@@ -1697,7 +1708,7 @@ du außerdem überall **Text**, ein **Häkchen**, ein **Kreuz** und eine **Unter
   - **bei einer Person** in der Personalakte (Reiter **Nachweise** → **Dokumente**) in einem **Fach**, das du nutzen
     darfst, mit Datum und Bezeichnung wie oben.
   Text, Häkchen, Kreuz und Unterschrift werden als normale PDF-Anmerkungen gespeichert, die jedes PDF-Programm anzeigt
-  und druckt. Wäre die Datei größer als **10 MB**, sagt die App das und speichert nicht.
+  und druckt. Wäre die Datei größer als **30 MB**, sagt die App das und speichert nicht.
 - **Schließen** mit noch nicht gespeicherten Eingaben fragt vorher nach; ebenso, wenn du die Seite verlässt.
 - **Die Vorlage selbst ändert sich nie.** Die Eingaben bleiben nur auf dem Gerät, bis du speicherst.
 - **Bearbeiten**: Jedes gespeicherte PDF in der Kinderakte bzw. Personalakte hat den Knopf **Bearbeiten**. Es öffnet
@@ -1713,7 +1724,7 @@ du außerdem überall **Text**, ein **Häkchen**, ein **Kreuz** und eine **Unter
 - **Am Tablet** geht das nur bei Kindern und nur, wenn das Tablet mit einer PIN entsperrt ist, deren Person Dokumente in
   Kinderakten hochladen darf (in der Kinderakte: **Aus Vorlage ausfüllen** und **Bearbeiten**). Personalakten gibt es
   am Tablet nicht. Unter **Vorlagen** auf der Startseite (ohne PIN) gibt es deshalb kein **Ausfüllen**.
-- Es gelten dieselben Regeln wie beim Hochladen: nur PDF, höchstens **10 MB**, nur in der eigenen Einrichtung.
+- Es gelten dieselben Regeln wie beim Hochladen: nur PDF, höchstens **30 MB**, nur in der eigenen Einrichtung.
 - **Unterschrift**: Eine so gezeichnete Unterschrift ist eine **einfache elektronische Signatur** – keine
   qualifizierte elektronische Signatur. Wo das Gesetz die Schriftform verlangt (z. B. Kündigung eines
   Arbeitsverhältnisses, Befristung eines Arbeitsvertrags, Arbeitszeugnis), reicht sie nicht; dann bitte auf Papier
@@ -2430,7 +2441,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Einnahmen und Ausgaben (nach dem Löschen rücken die übrigen nach). Am Handy steht jeder Eintrag als Karte da.
 - **Einnahme / Ausgabe:** Datum (im gezeigten Monat, nicht in der Zukunft), Betrag mit Komma oder Punkt (z. B. 12,50) und
   Verwendungszweck; beim Tippen schlägt die App frühere Texte vor. **Beleg** freiwillig: **Foto aufnehmen** (Handy) oder
-  **Datei wählen** (JPG, PNG oder PDF, höchstens 10 MB). „Beleg ansehen“ öffnet ihn in einem neuen Fenster.
+  **Datei wählen** (JPG, PNG oder PDF, höchstens 30 MB). „Beleg ansehen“ öffnet ihn in einem neuen Fenster.
 - **Umbuchen:** von dieser Kasse an eine andere aktive Kasse der Einrichtung. Die App trägt die Ausgabe hier und die
   Einnahme dort ein; Ändern und Löschen gilt immer für beide.
 - **Kassenbestand negativ:** rutscht eine **Barkasse** an einem Tag unter 0 €, erscheint ein roter Hinweis und die
@@ -2789,7 +2800,7 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
 
 ### Einträge
 
-- **PDF**: nur PDF-Dateien bis 10 MB (die App prüft, ob es wirklich ein PDF ist); **Öffnen** zeigt es in einem neuen Tab.
+- **PDF**: nur PDF-Dateien bis 30 MB (die App prüft, ob es wirklich ein PDF ist); **Öffnen** zeigt es in einem neuen Tab.
 - **Link**: nur Adressen mit http:// oder https:// (ohne wird https:// vorangestellt; andere Arten wie „javascript:“ sind
   nicht erlaubt). Der Link öffnet sich in einem neuen Tab.
 - **Text**: höchstens 4000 Zeichen; **Lesen** klappt ihn auf. Beim Speichern bleibt nur die erlaubte Formatierung übrig.
@@ -2868,7 +2879,8 @@ Bezirk ordnen und drucken.
   kann außerdem eine **Liste für alle Einrichtungen** hinterlegen (Recht „Einstellungen anderer Einrichtungen“); sie gilt
   für jede Einrichtung ohne eigene Liste. Die Leitung sieht die Liste des Trägers und kann sie herunterladen.
 - **Hochladen:** PDF mit Text (z. B. die Liste der Stadtverwaltung) oder CSV (Semikolon oder Komma, UTF-8 oder
-  Windows-Zeichensatz). Eine **Excel-Datei** bitte zuerst als CSV speichern. Höchstens 10 MB und 20 000 Zeilen. Eine
+  Windows-Zeichensatz). Eine **Excel-Datei** bitte zuerst als CSV speichern. Höchstens 10 MB (weniger als die 30 MB anderer Dateien: so bleibt das Lesen einer PDF im Speicher des
+  Leseprozesses) und 20 000 Zeilen. Eine
   gescannte PDF ohne Text lässt sich nicht lesen.
 - **CSV-Spalten** (erste Zeile): `Straße; von; bis; Seite; Bezirk; Schule; Prüfen; Hinweis` – so sieht auch der
   Download aus. Es geht auch kürzer: `Straße; Hausnummer; Bezirk` mit Hausnummern wie `2-14` oder `1-3 A`. „Seite“ ist

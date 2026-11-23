@@ -67,7 +67,7 @@ describe('child documents', () => {
       expect(readDocumentFile(db, admin, 1, id, TODAY).fileName).toMatch(/\.png$/)
     })
 
-    it('accepts exactly 10 MB and rejects one byte more with document_too_large', () => {
+    it('accepts exactly 30 MB and rejects one byte more with document_too_large', () => {
       const exact = Buffer.alloc(MAX_DOCUMENT_BYTES, 0x41)
       pdf().copy(exact)
       expect(upload({}, exact)).toBeGreaterThan(0)

@@ -1,4 +1,4 @@
-import { assertUploadLength, parseUploadParts } from '../../../lib/documentHttp'
+import { assertUploadLength, parseUploadParts, readUploadParts } from '../../../lib/documentHttp'
 import { attachmentFields, formIdParams } from '../../../schemas'
 import { addChildAccidentAttachment } from '../../../services/accidents'
 
@@ -8,6 +8,6 @@ export default defineServiceHandler(async (event) => {
   const { formId } = await getValidatedRouterParams(event, formIdParams.parse)
   // Reject before the body is read into memory.
   assertUploadLength(getRequestHeader(event, 'content-length'))
-  const { file } = parseUploadParts((await readMultipartFormData(event)) ?? [], attachmentFields)
+  const { file } = parseUploadParts(await readUploadParts(event), attachmentFields)
   return { id: addChildAccidentAttachment(useDb(), viewer, formId, file) }
 })

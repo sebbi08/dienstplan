@@ -5,6 +5,7 @@ import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
 import { draftFromList, draftFromUpload, rowIssues, type DistrictDraft } from '~/utils/schoolDistricts'
+import { uploadSizeError } from '~/utils/uploads'
 
 /**
  * Schulbezirke (settings → Kinder): the facility's own street list (Leitung and Träger) and the Träger's list for all
@@ -51,7 +52,7 @@ async function onFile(event: Event) {
   input.value = ''
   if (!file) return
   if (file.size > SCHOOL_DISTRICT_LIMITS.maxBytes) {
-    toast.add({ title: de.errors.document_too_large, color: 'error' })
+    toast.add({ title: uploadSizeError(file.size, SCHOOL_DISTRICT_LIMITS.maxBytes)!, color: 'error' })
     return
   }
   const scope = uploadScope

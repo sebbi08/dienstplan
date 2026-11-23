@@ -1,6 +1,8 @@
+import { randomBytes } from 'node:crypto'
 import { deflateSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
-import { fillableFile, hasFormFields } from '../../server/lib/pdfForm'
+import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
+import { fillableFile, hasFormFields, SCAN_LIMITS } from '../../server/lib/pdfForm'
 import { compressedFillablePdf, fillablePdf, plainPdf, signatureOnlyPdf } from '../helpers/fillablePdf'
 
 const header = Buffer.from('%PDF-1.7\n', 'latin1')
@@ -52,6 +54,21 @@ describe('fillable PDF detection', () => {
     expect(fillableFile(fillablePdf(), 'image/png')).toBe(false)
   })
 
+  it('judges a benign 25 MB PDF (a form plus a large image) quickly, with the fields before or after the image', () => {
+    const image = Buffer.concat([
+      Buffer.from('20 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 26214400 >>\nstream\n', 'latin1'),
+      randomBytes(25 * 1024 * 1024), Buffer.from('\nendstream\nendobj\n', 'latin1'),
+    ])
+    for (const base of [fillablePdf(), compressedFillablePdf()]) {
+      for (const pdf of [Buffer.concat([base.subarray(0, 9), image, base.subarray(9)]), Buffer.concat([base, image])]) {
+        expect(pdf.length).toBeLessThanOrEqual(MAX_DOCUMENT_BYTES)
+        const { answer, ms } = timed(pdf)
+        expect(answer).toBe(true)
+        expect(ms).toBeLessThan(SCAN_LIMITS.budgetMs)
+      }
+    }
+  })
+
   describe('hostile files finish fast and count as not fillable', () => {
     it('a long run of digits', () => {
       const { answer, ms } = timed(Buffer.concat([header, Buffer.alloc(2 * 1024 * 1024, '7')]))
@@ -66,16 +83,17 @@ describe('fillable PDF detection', () => {
       expect(names.ms).toBeLessThan(500)
     })
 
+    // The time limit is 500 ms (SCAN_LIMITS, tuned for 30 MB uploads); a stop by the clock may take a little longer.
     it('a file full of `obj` before an object stream name stops within the time limit', () => {
       const { answer, ms } = timed(Buffer.concat([header, Buffer.from('obj '.repeat(2_500_000), 'latin1'),
         Buffer.from('/Type /ObjStm /Length 1 stream\nx', 'latin1')]))
       expect(answer).toBe(false)
-      expect(ms).toBeLessThan(450)
+      expect(ms).toBeLessThan(700)
     })
 
-    it('many object streams (more than may be looked at)', () => {
+    it('many object streams (more than the 1000 that may be looked at)', () => {
       const small = Buffer.from('1 0 << /A 1 >>\n', 'latin1')
-      const many = Buffer.concat([header, ...Array.from({ length: 600 }, (_, index) => objectStream(index + 1, small)),
+      const many = Buffer.concat([header, ...Array.from({ length: 1100 }, (_, index) => objectStream(index + 1, small)),
         // The fields would only come after all of them.
         objectStream(9999, Buffer.from('9 0 << /AcroForm << >> /FT /Tx >>', 'latin1'))])
       const { answer, ms } = timed(many)

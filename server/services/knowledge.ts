@@ -360,7 +360,7 @@ export function readKnowledgeFile(db: Db, viewer: KnowledgeViewer, id: number): 
 
 // ---- entries ---------------------------------------------------------------
 
-/** The PDF of a file entry: at most 10 MB (413 document_too_large) and a PDF by its first bytes (400 knowledge_file_type_invalid). */
+/** The PDF of a file entry: at most 30 MB (413 document_too_large) and a PDF by its first bytes (400 knowledge_file_type_invalid). */
 const checkedPdf = (data: Buffer) => checkedDocumentFile(data, ['application/pdf'], 'knowledge_file_type_invalid')
 
 /**

@@ -3,6 +3,7 @@ import { MAX_ACCIDENT_ATTACHMENTS } from '#shared/domain/accidents'
 import type { AccidentAttachmentDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
+import { uploadSizeError } from '~/utils/uploads'
 import { formatDateTime } from '~/utils/format'
 
 /**
@@ -37,7 +38,7 @@ async function upload(event: Event) {
   input.value = ''
   if (!chosen) return
   // Fail early instead of after a long upload; the server checks the size and the real type again.
-  if (chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
+  if (chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: uploadSizeError(chosen.size)!, color: 'error' })
   const body = new FormData()
   body.append('file', chosen)
   await run(() => $fetch<{ id: number }>(`${props.formBase}/${props.formId}/attachments`, { method: 'POST', body }), a.attachmentSaved)

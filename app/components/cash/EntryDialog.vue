@@ -5,6 +5,7 @@ import type { CashBoxDto, CashBoxInfoDto, CashMonthRowDto } from '#shared/types/
 import { de } from '~/locales/de'
 import { centsInput } from '~/utils/cash'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
+import { uploadSizeError } from '~/utils/uploads'
 
 /**
  * A new income or expense (`mode` in/out), a new transfer (`mode` transfer), or the clicked row to change or delete
@@ -95,7 +96,7 @@ function pick(event: Event) {
   input.value = ''
   if (!chosen) return
   // Fail early instead of after a long upload; the server checks the size and the real file type again.
-  if (chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
+  if (chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: uploadSizeError(chosen.size)!, color: 'error' })
   receiptFile.value = chosen
   removeReceipt.value = false
 }

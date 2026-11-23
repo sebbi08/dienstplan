@@ -1,4 +1,4 @@
-import { assertUploadLength, parseUploadParts } from '../../../lib/documentHttp'
+import { assertUploadLength, parseUploadParts, readUploadParts } from '../../../lib/documentHttp'
 import { employeeDocumentSchema, idParams } from '../../../schemas'
 import { uploadEmployeeDocument } from '../../../services/employeeDocuments'
 
@@ -8,6 +8,6 @@ export default defineServiceHandler(async (event) => {
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   // Reject before the body is read into memory.
   assertUploadLength(getRequestHeader(event, 'content-length'))
-  const { file, fields } = parseUploadParts((await readMultipartFormData(event)) ?? [], employeeDocumentSchema)
+  const { file, fields } = parseUploadParts(await readUploadParts(event), employeeDocumentSchema)
   return { id: uploadEmployeeDocument(useDb(), actor, actor.facilityId, id, fields, file) }
 })

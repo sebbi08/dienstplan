@@ -4,6 +4,7 @@ import type { IsoDate } from '#shared/domain/types'
 import type { AttendanceChildDto, IfsgDocumentDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
+import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import { formatDate } from '~/utils/format'
 import { ifsgDayText, ifsgEarliestText } from '~/utils/ifsg'
 
@@ -63,7 +64,7 @@ watch(open, async (value) => {
 
 /** The chosen file and the photo feed the same upload; the other input is emptied so only one of them counts. */
 function onFile(event: Event, camera = false) {
-  file.value = (event.target as HTMLInputElement).files?.[0] ?? null
+  file.value = pickedFile(event, toast)
   fromCamera.value = camera && file.value !== null
   const other = camera ? fileInput.value : cameraInput.value
   if (other && file.value) other.value = ''
@@ -72,7 +73,7 @@ function onFile(event: Event, camera = false) {
 async function save() {
   const current = info.value
   if (!current || !valid.value) return
-  if (file.value && file.value.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
+  if (file.value && file.value.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: uploadSizeError(file.value.size)!, color: 'error' })
   let confirmEarly = false
   if (current.earliest !== null && form.readmittedOn < current.earliest) {
     const source = current.source === 'local' ? s.readmit.earlySourceLocal(current.healthOffice.name) : s.readmit.earlySourceRki

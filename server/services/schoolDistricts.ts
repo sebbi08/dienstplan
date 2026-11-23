@@ -44,12 +44,12 @@ function effectiveList(db: Db, facilityId: number): ListRow | null {
 const PDF_MAGIC = Buffer.from('%PDF-')
 
 /**
- * Reads an uploaded CSV or PDF into rows for the preview (413 document_too_large over 10 MB, 400
+ * Reads an uploaded CSV or PDF into rows for the preview (413 school_district_file_too_large over 10 MB, 400
  * school_district_file_type for anything else, e.g. an Excel file, 422 school_district_no_rows when nothing was found).
  * A PDF is read in a worker with time and memory limits (server/lib/pdfText.ts).
  */
 export async function parseSchoolDistrictFile(file: { data: Buffer; filename: string }): Promise<SchoolDistrictParseDto> {
-  if (file.data.length > L.maxBytes) throw new ServiceError(413, 'document_too_large')
+  if (file.data.length > L.maxBytes) throw new ServiceError(413, 'school_district_file_too_large')
   let result: DistrictParseResult
   const head = file.data.subarray(0, 1024)
   if (head.includes(PDF_MAGIC)) {

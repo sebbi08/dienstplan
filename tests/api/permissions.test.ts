@@ -312,7 +312,7 @@ describe('API route permissions', () => {
       expect(fixture[route], route).toEqual(['provider'])
     }
     // The upload's size is checked before its body is read.
-    expect(source('school-districts/parse.post.ts')).toMatch(/assertUploadLength\([\s\S]*readMultipartFormData/)
+    expect(source('school-districts/parse.post.ts')).toMatch(/assertUploadLength\([\s\S]*readUploadParts\(/)
   })
 
   it('opens the mandatory appointments to managers only, apart from the read-only own view', () => {

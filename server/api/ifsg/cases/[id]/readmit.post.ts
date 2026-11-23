@@ -1,4 +1,4 @@
-import { assertUploadLength } from '../../../../lib/documentHttp'
+import { assertUploadLength, readUploadParts } from '../../../../lib/documentHttp'
 import { ServiceError } from '../../../../lib/errors'
 import { idParams, ifsgReadmitFields } from '../../../../schemas'
 import { readmitIfsgCase } from '../../../../services/ifsg'
@@ -12,7 +12,7 @@ export default defineServiceHandler(async (event) => {
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   // Reject before the body is read into memory.
   assertUploadLength(getRequestHeader(event, 'content-length'))
-  const parts = (await readMultipartFormData(event)) ?? []
+  const parts = await readUploadParts(event)
   const file = parts.find(part => part.name === 'file' && part.filename !== undefined && part.data.length > 0)
   const fields = ifsgReadmitFields.safeParse(Object.fromEntries(parts
     .filter(part => part.filename === undefined && part.name !== undefined)

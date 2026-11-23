@@ -23,7 +23,12 @@ export interface ScanLimits {
   budgetMs: number
 }
 
-export const SCAN_LIMITS: ScanLimits = { perStream: 4 * 1024 * 1024, total: 32 * 1024 * 1024, maxStreams: 500, budgetMs: 300 }
+/**
+ * Tuned for uploads up to 30 MB: a benign 25 MB PDF (a form plus a large image) scans in about 25–55 ms, so 500 ms leaves
+ * room for slow hardware; object streams that hold forms are a few KB, so 4 MB each and 64 MB together (inflated one at
+ * a time, never held together) stay bounded however large the file.
+ */
+export const SCAN_LIMITS: ScanLimits = { perStream: 4 * 1024 * 1024, total: 64 * 1024 * 1024, maxStreams: 1000, budgetMs: 500 }
 
 /** How far the dictionary of an object stream may reach before and after its /Type entry. */
 const DICTIONARY_REACH = 4096

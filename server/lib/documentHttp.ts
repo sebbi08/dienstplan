@@ -1,3 +1,5 @@
+import type { IncomingMessage } from 'node:http'
+import type { H3Event } from 'h3'
 import type { z } from 'zod'
 import type { ChildDocumentMeta } from '../../shared/types/api'
 import { childDocumentFields } from '../schemas'
@@ -9,18 +11,99 @@ const MULTIPART_OVERHEAD = 64 * 1024
 
 /**
  * Vets the `Content-Length` header of an upload before the body is read into memory: a missing or non-numeric header
- * is 411 length_required, a body larger than the biggest document plus the form overhead 413 document_too_large.
+ * is 411 length_required, a body larger than the biggest file (`maxBytes`, by default the 30 MB of every document) plus
+ * the form overhead 413 `tooLargeCode`.
  */
-export function assertUploadLength(header: string | undefined): void {
+export function assertUploadLength(header: string | undefined, maxBytes = MAX_DOCUMENT_BYTES, tooLargeCode = 'document_too_large'): void {
   if (header === undefined || !/^\d+$/.test(header.trim())) throw new ServiceError(411, 'length_required')
-  if (Number(header) > MAX_DOCUMENT_BYTES + MULTIPART_OVERHEAD) throw new ServiceError(413, 'document_too_large')
+  if (Number(header) > maxBytes + MULTIPART_OVERHEAD) throw new ServiceError(413, tooLargeCode)
 }
 
 /** A part of a multipart body (the shape h3's `readMultipartFormData` returns). */
 export interface UploadPart {
   name?: string
   filename?: string
+  type?: string
   data: Buffer
+}
+
+/** At most this many parts are read from one form; header blocks longer than 16 KB end the reading. */
+const MAX_PARTS = 100
+const MAX_PART_HEADERS = 16 * 1024
+
+/** A parameter of the Content-Disposition header (quoted or not), decoded like browsers send it (UTF-8 bytes). */
+function dispositionParameter(headers: string, name: string): string | undefined {
+  const match = new RegExp(`;\\s*${name}=(?:"([^"]*)"|([^;\\r\\n]*))`, 'i').exec(headers)
+  const value = match ? (match[1] ?? match[2] ?? '').trim() : undefined
+  return value === undefined ? undefined : Buffer.from(value, 'latin1').toString('utf8')
+}
+
+/**
+ * The parts of a multipart/form-data body, found with Buffer.indexOf (linear) and handed out as views into the body –
+ * the file is never copied. (h3's own parser collects the bytes one by one in a JS array, which for a 30 MB file costs
+ * several hundred MB and seconds.)
+ */
+export function parseMultipart(body: Buffer, boundary: string): UploadPart[] {
+  const delimiter = Buffer.from(`--${boundary}`, 'latin1')
+  const next = Buffer.from(`\r\n--${boundary}`, 'latin1')
+  const parts: UploadPart[] = []
+  let at = body.indexOf(delimiter)
+  while (at >= 0 && parts.length < MAX_PARTS) {
+    let start = at + delimiter.length
+    if (body[start] === 0x2D && body[start + 1] === 0x2D) break
+    if (body[start] === 0x0D && body[start + 1] === 0x0A) start += 2
+    const headerEnd = body.indexOf('\r\n\r\n', start, 'latin1')
+    if (headerEnd < 0 || headerEnd - start > MAX_PART_HEADERS) break
+    const end = body.indexOf(next, headerEnd + 4)
+    if (end < 0) break
+    const headers = body.toString('latin1', start, headerEnd)
+    const disposition = /^content-disposition:(.*)$/im.exec(headers)?.[1] ?? ''
+    const type = /^content-type:\s*(.*)$/im.exec(headers)?.[1]?.trim()
+    parts.push({
+      name: dispositionParameter(disposition, 'name'), filename: dispositionParameter(disposition, 'filename'),
+      ...(type ? { type } : {}), data: body.subarray(headerEnd + 4, end),
+    })
+    at = end + 2
+  }
+  return parts
+}
+
+/** The body of a request read once into a buffer of the announced size; more bytes than announced: 413 `tooLargeCode`. */
+function readBodyOnce(request: IncomingMessage, length: number, tooLargeCode: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const body = Buffer.allocUnsafe(length)
+    let filled = 0
+    request.on('data', (chunk: Buffer) => {
+      if (filled + chunk.length > length) {
+        request.removeAllListeners('data')
+        request.resume()
+        reject(new ServiceError(413, tooLargeCode))
+        return
+      }
+      chunk.copy(body, filled)
+      filled += chunk.length
+    })
+    request.on('end', () => resolve(body.subarray(0, filled)))
+    request.on('error', reject)
+  })
+}
+
+/**
+ * The parts of an upload form: Content-Length checked first (411/413, see assertUploadLength), the body read once into
+ * one buffer of that size, the parts views into it. So a 30 MB upload costs about 30 MB of memory, not a multiple.
+ */
+export function readUploadParts(event: Pick<H3Event, 'node'>, maxBytes = MAX_DOCUMENT_BYTES, tooLargeCode = 'document_too_large'): Promise<UploadPart[]> {
+  return readUploadPartsFrom(event.node.req, maxBytes, tooLargeCode)
+}
+
+/** readUploadParts on the plain Node request (tests drive it with a stream). */
+export async function readUploadPartsFrom(request: IncomingMessage, maxBytes = MAX_DOCUMENT_BYTES, tooLargeCode = 'document_too_large'): Promise<UploadPart[]> {
+  const header = request.headers['content-length']
+  assertUploadLength(header, maxBytes, tooLargeCode)
+  const boundary = /boundary=(?:"([^"]+)"|([^;\s]+))/i.exec(request.headers['content-type'] ?? '')
+  if (!boundary) throw new ServiceError(400, 'file_required')
+  const body = await readBodyOnce(request, Number(header), tooLargeCode)
+  return parseMultipart(body, boundary[1] ?? boundary[2]!)
 }
 
 /**

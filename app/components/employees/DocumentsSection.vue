@@ -4,6 +4,7 @@ import { EMPLOYEE_DOCUMENT_FOLDERS, type EmployeeDocumentFolder } from '#shared/
 import type { EmployeeDocumentDto, EmployeeDocumentMeta, EmployeeDocumentsDto, PrintTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
+import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
 import type { FillTarget } from '~/utils/pdfFill'
@@ -12,7 +13,7 @@ import { employeeDocumentUrl } from '~/utils/personnel'
 /**
  * „Dokumente“ of the personnel file (tab „Nachweise“): one section per folder the viewer may use (the server answers with exactly
  * those), each with its documents (open in a new tab, download, change, delete) and „Hochladen“. Like the child
- * documents: PDF, JPG or PNG up to 10 MB. Loaded in the browser once the tab is opened.
+ * documents: PDF, JPG or PNG up to 30 MB. Loaded in the browser once the tab is opened.
  */
 const props = defineProps<{ employeeId: number; employeeName: string; active: boolean }>()
 const t = de.personnel.documents
@@ -51,7 +52,7 @@ function openEdit(document: EmployeeDocumentDto) {
   open.value = true
 }
 function onFile(event: Event) {
-  file.value = (event.target as HTMLInputElement).files?.[0] ?? null
+  file.value = pickedFile(event, toast)
 }
 
 async function save() {
@@ -59,7 +60,7 @@ async function save() {
     const chosen = file.value
     if (!chosen) return void toast.add({ title: de.errors.file_required, color: 'error' })
     // Fail early instead of after a long upload; the server checks the size and the real file type again.
-    if (chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
+    if (chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: uploadSizeError(chosen.size)!, color: 'error' })
     const body = new FormData()
     body.append('file', chosen)
     body.append('folder', form.folder)

@@ -59,6 +59,8 @@ export const de = {
     dateFrom: (min: string) => `Bitte ein Datum ab ${min} eingeben`,
     dateUntil: (max: string) => `Bitte ein Datum bis ${max} eingeben`,
     dateBetween: (min: string, max: string) => `Bitte ein Datum zwischen ${min} und ${max} eingeben`,
+    // Checked as soon as a file is chosen (the server checks the same before it reads the upload).
+    fileTooLarge: (size: string, max: number) => `Die Datei ist zu groß (${size} MB). Erlaubt sind höchstens ${max} MB.`,
   },
   nav: {
     plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', myRequirements: 'Meine Termine', myTalks: 'Meine Gespräche', myAccidents: 'Meine Unfälle', employees: 'Mitarbeiter',
@@ -878,9 +880,9 @@ export const de = {
     // „Dokumente“ in the tab „Nachweise“: only the folders the viewer may use.
     documents: {
       heading: 'Dokumente',
-      hint: 'Du siehst nur die Fächer, für die du das Recht hast. Erlaubt sind PDF, JPG und PNG bis 10 MB.',
+      hint: 'Du siehst nur die Fächer, für die du das Recht hast. Erlaubt sind PDF, JPG und PNG bis 30 MB.',
       upload: 'Hochladen', uploadTo: (folder: string) => `Dokument hochladen: ${folder}`, edit: 'Dokument bearbeiten',
-      file: 'Datei (PDF, JPG oder PNG, höchstens 10 MB)', folder: 'Fach', title: 'Titel', date: 'Datum', note: 'Notiz (freiwillig)',
+      file: 'Datei (PDF, JPG oder PNG, höchstens 30 MB)', folder: 'Fach', title: 'Titel', date: 'Datum', note: 'Notiz (freiwillig)',
       none: 'Noch keine Dokumente in diesem Fach.', untitled: 'Dokument',
       open: 'Ansehen', download: 'Herunterladen', confirmDelete: (title: string) => `Dokument „${title}“ wirklich löschen?`,
       uploadedBy: (by: string, at: string) => `hochgeladen von ${by} am ${at}`, unknownUploader: 'gelöschtes Konto',
@@ -1347,7 +1349,7 @@ export const de = {
     },
   },
   childDocuments: {
-    upload: 'Dokument hochladen', file: 'Datei (PDF, JPG oder PNG, höchstens 10 MB)', type: 'Art', title: 'Bezeichnung', date: 'Datum',
+    upload: 'Dokument hochladen', file: 'Datei (PDF, JPG oder PNG, höchstens 30 MB)', type: 'Art', title: 'Bezeichnung', date: 'Datum',
     visibility: 'Sichtbarkeit', all: 'alle Mitarbeiter', confidential: 'vertraulich', uploadedBy: (by: string, at: string) => `hochgeladen von ${by} am ${at}`,
     open: 'Öffnen', download: 'Herunterladen', missing: 'fehlt', onlyMissing: 'nur Kinder mit fehlenden Dokumenten', confirmDelete: 'Dokument wirklich löschen?',
     // Small helper texts of the pages (beyond the agreed wording list above).
@@ -1403,7 +1405,7 @@ export const de = {
       remove: 'Löschen', textBox: 'Text', textPlaceholder: 'Text eingeben …', mark: 'Zeichen oder Unterschrift', resize: 'Größe ändern',
       page: (number: number) => `Seite ${number}`,
     },
-    tooLarge: 'Das ausgefüllte PDF ist größer als 10 MB und kann deshalb nicht gespeichert werden.',
+    tooLarge: 'Das ausgefüllte PDF ist größer als 30 MB und kann deshalb nicht gespeichert werden.',
     // pdf.js's editors did not start (e.g. after an update of pdf.js): the fields still work.
     toolsUnavailable: 'Zusatzwerkzeuge nicht verfügbar – Felder ausfüllen geht weiter. Drucken und Speichern auch.',
     signatureFailed: 'Die Unterschrift konnte nicht eingefügt werden. Bitte noch einmal.',
@@ -1429,7 +1431,7 @@ export const de = {
     intro: 'Leere Formulare zum Ausdrucken. „Öffnen“ zeigt das PDF in einem neuen Tab, dort kannst du es drucken.',
     none: 'Es gibt noch keine Vorlagen.',
     upload: 'Vorlage hochladen', edit: 'Vorlage bearbeiten', open: 'Öffnen',
-    file: 'Datei (nur PDF, höchstens 10 MB)', replaceFile: 'Datei ersetzen (freiwillig, nur PDF)',
+    file: 'Datei (nur PDF, höchstens 30 MB)', replaceFile: 'Datei ersetzen (freiwillig, nur PDF)',
     name: 'Titel', category: 'Kategorie', categoryPlaceholder: 'Kategorie auswählen',
     noCategory: 'Es gibt noch keine Kategorie. Leg unter „Kategorien verwalten“ zuerst eine an.',
     manageCategories: 'Kategorien verwalten',
@@ -2741,7 +2743,7 @@ export const de = {
     readOnlyArchived: 'Die Akte ist archiviert – der Bogen ist nur noch zum Lesen.',
     readOnlyBadge: 'nur lesen',
     legalHint: 'Anzuzeigen bei mehr als 3 Kalendertagen Arbeitsunfähigkeit – innerhalb von 3 Tagen nach Kenntnis an den Unfallversicherungsträger; die versicherte Person kann eine Kopie verlangen.',
-    attachments: 'Anhänge', attachmentsHint: 'Fotos oder PDF (JPG, PNG, PDF; höchstens 10 MB).', attachmentsNone: 'Noch keine Anhänge.',
+    attachments: 'Anhänge', attachmentsHint: 'Fotos oder PDF (JPG, PNG, PDF; höchstens 30 MB).', attachmentsNone: 'Noch keine Anhänge.',
     attach: 'Datei anhängen', takePhoto: 'Foto aufnehmen', attachmentSaved: 'Anhang gespeichert',
     attachmentDeleteConfirm: (name: string) => `Anhang „${name}“ löschen?`,
     attachmentView: 'Ansehen', attachmentOpen: 'Öffnen', attachmentDownload: 'Herunterladen', attachmentDelete: 'Anhang löschen',
@@ -3263,7 +3265,8 @@ export const de = {
     document_type_in_use: 'Zu dieser Dokumentart gibt es noch Dokumente. Bitte lösche oder ändere sie zuerst.',
     required_needs_important: 'Eine Pflicht-Dokumentart muss auch als wichtig markiert sein.',
     document_type_invalid: 'Es sind nur PDF-, JPEG- und PNG-Dateien erlaubt.',
-    document_too_large: 'Die Datei ist größer als 10 MB.',
+    document_too_large: 'Die Datei ist zu groß. Erlaubt sind höchstens 30 MB.',
+    school_district_file_too_large: 'Die Datei ist zu groß. Für die Straßenliste sind höchstens 10 MB erlaubt.',
     file_required: 'Bitte eine Datei auswählen.',
     print_template_type_invalid: 'Als Vorlage sind nur PDF-Dateien erlaubt.',
     print_template_not_found: 'Diese Vorlage gibt es nicht (mehr).',
@@ -3566,8 +3569,8 @@ export const de = {
     whoConfirmed: 'Wer hat bestätigt?',
     fields: {
       kind: 'Art', title: 'Titel', description: 'Beschreibung (freiwillig)', asOf: 'Stand vom (freiwillig)', url: 'Link',
-      body: 'Text', file: 'PDF-Datei (höchstens 10 MB)', replaceFile: 'Neue PDF-Datei (freiwillig)', category: 'Kategorie',
       categoryName: 'Kategorie (Name)', visibility: 'Wer sieht ihn?', scope: 'Gilt für',
+      body: 'Text', file: 'PDF-Datei (höchstens 30 MB)', replaceFile: 'Neue PDF-Datei (freiwillig)', category: 'Kategorie',
       subcategory: 'Unterkategorie', subcategoryName: 'Unterkategorie (Name, freiwillig)',
       needsConfirmation: '„Gelesen und verstanden“ erforderlich',
     },

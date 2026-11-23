@@ -1981,7 +1981,7 @@ export const knowledgeCategories = sqliteTable('knowledge_categories', {
 ])
 
 /**
- * An entry of „Wissen“: a PDF (`fileData`, PDF only, at most 10 MB), a link (`url`, http/https only) or a short
+ * An entry of „Wissen“: a PDF (`fileData`, PDF only, at most 30 MB), a link (`url`, http/https only) or a short
  * formatted text (`body`, sanitized like the free-text answers), of one facility or for all facilities (`facilityId`
  * null, the Träger's: no category row but a `categoryName` – shown in each facility's category of that name, otherwise
  * under „Vom Träger“ – and its own `visibility`, the stricter one wins; a facility's entry leaves it 'all').

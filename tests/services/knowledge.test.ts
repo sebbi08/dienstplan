@@ -175,11 +175,14 @@ describe('„Wissen“ (knowledge library)', () => {
       expect(listKnowledge(db, staff).entries[0]).toMatchObject({ id, asOf: '2026-09-01', description: 'Stand der Hygiene' })
     })
 
-    it('stores PDFs only, up to 10 MB, judged by their first bytes', () => {
+    it('stores PDFs only, up to 30 MB, judged by their first bytes', () => {
       const hygiene = categoryId('Hygiene & Gesundheit')
       const file = (data: Buffer) => () => createKnowledgeEntry(db, leitung, { ...link(hygiene), kind: 'file', url: '' }, { data }, NOW)
       expect(errorCode(file(PNG))).toBe('knowledge_file_type_invalid')
-      expect(errorCode(file(Buffer.concat([PDF, Buffer.alloc(10 * 1024 * 1024)])))).toBe('document_too_large')
+      const limit = 30 * 1024 * 1024
+      expect(errorCode(file(Buffer.concat([PDF, Buffer.alloc(limit + 1 - PDF.length)])))).toBe('document_too_large')
+      expect(file(Buffer.concat([PDF, Buffer.alloc(limit - PDF.length)]))()).toBeGreaterThan(0)
+      db.delete(knowledgeEntries).run()
       expect(errorCode(() => createKnowledgeEntry(db, leitung, { ...link(hygiene), kind: 'file' }, null, NOW))).toBe('file_required')
       const id = file(PDF)()
       const entry = listKnowledge(db, staff).entries[0]!

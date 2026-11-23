@@ -1,9 +1,15 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import type { IncomingMessage } from 'node:http'
+import { join } from 'node:path'
+import { Readable } from 'node:stream'
 import { describe, expect, it } from 'vitest'
 import {
-  assertUploadLength, documentDownload, documentResponseHeaders, parseUploadForm, parseUploadParts, type UploadPart,
+  assertUploadLength, documentDownload, documentResponseHeaders, parseMultipart, parseUploadForm, parseUploadParts, readUploadPartsFrom,
+  type UploadPart,
 } from '../../server/lib/documentHttp'
 import { noFields, printTemplateFields } from '../../server/schemas'
 import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
+import { MAX_UPLOAD_BYTES } from '../../shared/domain/uploads'
 import { errorCode } from '../helpers/fixtures'
 
 const LIMIT = MAX_DOCUMENT_BYTES + 64 * 1024
@@ -65,6 +71,85 @@ describe('assertUploadLength', () => {
     for (const header of [undefined, '', 'abc', '-5', '12.5', '1e9']) {
       expect(errorCode(() => assertUploadLength(header)), String(header)).toBe('length_required')
     }
+  })
+
+  it('is 30 MB for every document, and takes a lower limit with its own code (the street list)', () => {
+    expect(MAX_DOCUMENT_BYTES).toBe(MAX_UPLOAD_BYTES)
+    expect(MAX_UPLOAD_BYTES).toBe(30 * 1024 * 1024)
+    const ten = 10 * 1024 * 1024
+    expect(() => assertUploadLength(String(ten + 64 * 1024), ten, 'school_district_file_too_large')).not.toThrow()
+    expect(errorCode(() => assertUploadLength(String(ten + 64 * 1024 + 1), ten, 'school_district_file_too_large'))).toBe('school_district_file_too_large')
+  })
+})
+
+/** A multipart body as a browser sends it: fields and one file. */
+function multipartBody(boundary: string, file: Buffer, filename = 'Vertrag.pdf', fields: Record<string, string> = {}): Buffer {
+  return Buffer.concat([
+    ...Object.entries(fields).map(([name, value]) => Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`, 'utf8')),
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: application/pdf\r\n\r\n`, 'utf8'),
+    file,
+    Buffer.from(`\r\n--${boundary}--\r\n`, 'latin1'),
+  ])
+}
+
+/** A request stream with the headers of a multipart upload of `body` (the length can be announced differently). */
+function request(body: Buffer, boundary: string, announced = body.length): IncomingMessage {
+  const stream = Readable.from((function* () {
+    for (let at = 0; at < body.length; at += 64 * 1024) yield body.subarray(at, at + 64 * 1024)
+  })()) as unknown as IncomingMessage
+  stream.headers = { 'content-length': String(announced), 'content-type': `multipart/form-data; boundary=${boundary}` }
+  return stream
+}
+
+describe('reading an upload body', () => {
+  const boundary = '----WebKitFormBoundaryAbC123'
+
+  it('finds fields and the file, decodes UTF-8 names and keeps the bytes exact', () => {
+    const file = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from('\r\n--not the boundary\r\n'), Buffer.alloc(1000, 0xFF)])
+    const parts = parseMultipart(multipartBody(boundary, file, 'Einverständnis Müller.pdf', { title: 'Grüße', typeId: '3' }), boundary)
+    expect(parts.map(part => [part.name, part.filename, part.type])).toEqual([
+      ['title', undefined, undefined], ['typeId', undefined, undefined], ['file', 'Einverständnis Müller.pdf', 'application/pdf'],
+    ])
+    expect(parts[0]!.data.toString('utf8')).toBe('Grüße')
+    expect(parts[2]!.data.equals(file)).toBe(true)
+    // A body without the boundary, or cut off before the closing boundary, has no (further) parts.
+    expect(parseMultipart(Buffer.from('nothing'), boundary)).toEqual([])
+    expect(parseMultipart(multipartBody(boundary, file).subarray(0, 300), boundary)).toEqual([])
+  })
+
+  it('reads a 30 MB upload once: the file is a view into the one body buffer, fast', async () => {
+    const file = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(MAX_DOCUMENT_BYTES - 9, 0x41)])
+    const body = multipartBody(boundary, file)
+    const started = performance.now()
+    const parts = await readUploadPartsFrom(request(body, boundary))
+    expect(performance.now() - started).toBeLessThan(1000)
+    const { file: read } = parseUploadParts(parts, noFields)
+    expect(read.data.length).toBe(MAX_DOCUMENT_BYTES)
+    // No copy: the file shares the memory of the request body.
+    expect(read.data.buffer.byteLength).toBeLessThan(MAX_DOCUMENT_BYTES + 64 * 1024)
+    expect(parts.every(part => part.data.buffer === read.data.buffer)).toBe(true)
+  })
+
+  it('refuses a body larger than announced or announced too large, before keeping it', async () => {
+    const body = multipartBody(boundary, Buffer.from('%PDF-1.7\nsmall'))
+    await expect(readUploadPartsFrom(request(body, boundary, body.length - 5))).rejects.toMatchObject({ code: 'document_too_large' })
+    await expect(readUploadPartsFrom(request(body, boundary, LIMIT + 1))).rejects.toMatchObject({ code: 'document_too_large' })
+    const missing = request(body, boundary)
+    missing.headers = { 'content-type': missing.headers['content-type'] }
+    await expect(readUploadPartsFrom(missing)).rejects.toMatchObject({ code: 'length_required' })
+    const noBoundary = request(body, boundary)
+    noBoundary.headers['content-type'] = 'multipart/form-data'
+    await expect(readUploadPartsFrom(noBoundary)).rejects.toMatchObject({ code: 'file_required' })
+  })
+
+  it('is the only way the upload routes read their body, always after the length check', () => {
+    const api = join(process.cwd(), 'server', 'api')
+    const files = (readdirSync(api, { recursive: true }) as string[]).filter(file => file.endsWith('.ts'))
+      .map(file => ({ file, code: readFileSync(join(api, file), 'utf8') }))
+    const uploads = files.filter(({ code }) => code.includes('readUploadParts('))
+    expect(uploads.length).toBeGreaterThanOrEqual(14)
+    for (const { file, code } of files) expect(code, file).not.toContain('readMultipartFormData')
+    for (const { file, code } of uploads) expect(code.indexOf('assertUploadLength('), file).toBeLessThan(code.indexOf('readUploadParts(event'))
   })
 })
 

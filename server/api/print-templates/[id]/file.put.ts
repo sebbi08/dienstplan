@@ -1,5 +1,5 @@
 import { checkpointWal } from '../../../db/client'
-import { assertUploadLength, parseUploadParts } from '../../../lib/documentHttp'
+import { assertUploadLength, parseUploadParts, readUploadParts } from '../../../lib/documentHttp'
 import { idParams, noFields } from '../../../schemas'
 import { replaceTemplateFile } from '../../../services/printTemplates'
 
@@ -8,7 +8,7 @@ export default defineServiceHandler(async (event) => {
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   // Reject before the body is read into memory.
   assertUploadLength(getRequestHeader(event, 'content-length'))
-  const { file } = parseUploadParts((await readMultipartFormData(event)) ?? [], noFields)
+  const { file } = parseUploadParts(await readUploadParts(event), noFields)
   replaceTemplateFile(useDb(), await withHomeGroup(event, admin), id, file)
   // The replaced file must not linger in the write-ahead log either.
   checkpointWal(useSqlite())

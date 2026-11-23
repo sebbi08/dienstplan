@@ -341,7 +341,7 @@ function attachmentName(original: string, mime: DocumentMime): string {
   return base === '' ? `Anhang.${DOCUMENT_EXTENSIONS[mime]}` : base.slice(-MAX_FILE_NAME)
 }
 
-/** A new attachment (JPG, PNG, PDF, at most 10 MB, judged by the bytes); 409 accident_attachments_full at 20. */
+/** A new attachment (JPG, PNG, PDF, at most 30 MB, judged by the bytes); 409 accident_attachments_full at 20. */
 function addAttachment(db: Db, access: Access, file: { data: Buffer; filename: string }, now: Date): number {
   assertEdit(access)
   const mimeType = checkedDocumentFile(file.data)

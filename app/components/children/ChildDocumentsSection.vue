@@ -3,6 +3,7 @@ import { todayIso } from '#shared/domain/dates'
 import type { ChildDocumentDto, ChildRecordDto, DocumentTypeDto, PrintTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, documentFileUrl, formatSize } from '~/utils/children'
+import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import { formatDate, formatDateTime } from '~/utils/format'
 import type { FillTarget } from '~/utils/pdfFill'
 
@@ -77,7 +78,7 @@ function onType(typeId: number) {
 
 /** The chosen file and the photo feed the same upload; the other input is emptied so only one of them counts. */
 function onFile(event: Event, camera = false) {
-  file.value = (event.target as HTMLInputElement).files?.[0] ?? null
+  file.value = pickedFile(event, toast)
   fromCamera.value = camera && file.value !== null
   const other = camera ? fileInput.value : cameraInput.value
   if (other && file.value) other.value = ''
@@ -88,7 +89,7 @@ async function save() {
     const chosen = file.value
     if (!chosen) return void toast.add({ title: de.errors.file_required, color: 'error' })
     // Fail early instead of after a long upload; the server checks the size and the real file type again.
-    if (chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
+    if (chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: uploadSizeError(chosen.size)!, color: 'error' })
     const body = new FormData()
     body.append('file', chosen)
     body.append('typeId', String(form.typeId))

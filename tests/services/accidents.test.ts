@@ -180,7 +180,7 @@ describe('accident reports about a child', () => {
     expect(getChildAccident(db, annaTablet, id, NOW).answers).toEqual({ n: 'Lena Kurz', b: '2022-03-04', g: 'Bären' })
   })
 
-  it('attachments: JPG/PNG/PDF up to 10 MB by whoever may change the report; read by whoever reads it', () => {
+  it('attachments: JPG/PNG/PDF up to 30 MB by whoever may change the report; read by whoever reads it', () => {
     const id = createChildAccident(db, annaTablet, kid, { templateId: childTemplate, ...header }, NOW)
     const photo = addChildAccidentAttachment(db, annaTablet, id, { data: PNG, filename: 'C:\\fotos\\knie.png' }, NOW)
     addChildAccidentAttachment(db, leitung, id, { data: PDF, filename: 'Arztbrief.pdf' }, NOW)
@@ -191,6 +191,8 @@ describe('accident reports about a child', () => {
     const big = Buffer.alloc(MAX_DOCUMENT_BYTES + 1)
     PNG.copy(big)
     expect(failure(() => addChildAccidentAttachment(db, annaTablet, id, { data: big, filename: 'gross.png' }, NOW))).toBe('413 document_too_large')
+    // Exactly the limit is fine.
+    expect(addChildAccidentAttachment(db, annaTablet, id, { data: big.subarray(0, MAX_DOCUMENT_BYTES), filename: 'genau.png' }, NOW)).toBeGreaterThan(0)
     // Berta reads Anna's report but may not change it.
     expect(failure(() => addChildAccidentAttachment(db, bertaTablet, id, { data: PNG, filename: 'x.png' }, NOW))).toBe('403 forbidden')
     expect(readChildAccidentAttachment(db, bertaTablet, photo, NOW)).toMatchObject({ mimeType: 'image/png', fileName: 'knie.png' })

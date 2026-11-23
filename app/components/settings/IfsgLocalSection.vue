@@ -3,6 +3,7 @@ import { IFSG_ANCHORS, IFSG_PROOFS, type IfsgAnchor, type IfsgProof } from '#sha
 import type { IfsgDocumentDto, IfsgLocalRuleInput, IfsgLocalRulesDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
+import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import { errorCode } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 import { ifsgDifferenceTexts, ifsgRulesText } from '~/utils/ifsg'
@@ -46,7 +47,7 @@ const viewing = ref<IfsgDocumentDto | null>(null)
 async function upload() {
   const file = fileInput.value?.files?.[0]
   if (!file) return void toast.add({ title: de.errors.file_required, color: 'error' })
-  if (file.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
+  if (file.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: uploadSizeError(file.size)!, color: 'error' })
   const body = new FormData()
   body.append('file', file)
   body.append('title', documentTitle.value)
@@ -146,7 +147,7 @@ const officeName = computed(() => data.value?.healthOffice.name ?? '')
       <form class="flex flex-wrap items-end gap-2" @submit.prevent="upload">
         <UFormField :label="l.documentTitle"><UInput v-model="documentTitle" maxlength="200" class="w-64" /></UFormField>
         <input
-          ref="fileInput" type="file" accept="application/pdf,image/jpeg,image/png" :aria-label="l.upload"
+          ref="fileInput" type="file" accept="application/pdf,image/jpeg,image/png" :aria-label="l.upload" @change="pickedFile($event, toast)"
           class="block text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm hover:file:bg-gray-200"
         >
         <UButton type="submit" color="neutral" variant="outline" icon="i-lucide-upload" :label="l.upload" :disabled="busy" />

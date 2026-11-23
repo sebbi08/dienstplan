@@ -4,6 +4,7 @@ import { matchesSearch } from '#shared/domain/documentTargets'
 import type { CategoryNameDto, DocumentTargetOptionsDto, PrintTemplateDto, TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
+import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import {
   emptyTargets, facilitiesLost, targetHints, targetsFormOf, targetsPayload, targetsProblem, type TargetsForm,
 } from '~/utils/documentTargets'
@@ -233,7 +234,7 @@ function openEdit(template: PrintTemplateDto) {
 }
 
 function onFile(event: Event) {
-  file.value = (event.target as HTMLInputElement).files?.[0] ?? null
+  file.value = pickedFile(event, toast)
   if (!file.value || editing.value !== null) return
   if (form.title.trim() === '' || form.title === suggestedTitle) form.title = titleFromFileName(file.value.name)
   suggestedTitle = form.title
@@ -242,7 +243,7 @@ function onFile(event: Event) {
 /** Fails early instead of after a long upload; the server checks the size and the real file type again. */
 function checkFile(chosen: File): boolean {
   if (chosen.size > MAX_DOCUMENT_BYTES) {
-    toast.add({ title: de.errors.document_too_large, color: 'error' })
+    toast.add({ title: uploadSizeError(chosen.size)!, color: 'error' })
     return false
   }
   return true

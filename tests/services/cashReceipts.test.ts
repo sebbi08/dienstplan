@@ -70,6 +70,9 @@ describe('cash receipts', () => {
     pdf.copy(big)
     expect(errorCode(() => attach(id, big))).toBe('document_too_large')
     expect(receiptCount()).toBe(0)
+    // Exactly the limit (30 MB) is fine.
+    attach(id, big.subarray(0, MAX_DOCUMENT_BYTES))
+    expect(receiptCount()).toBe(1)
   })
 
   it('puts a transfer\'s receipt on both rows and deletes it with the transfer', () => {

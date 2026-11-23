@@ -1,7 +1,8 @@
+import { MAX_UPLOAD_BYTES } from '../../shared/domain/uploads'
 import { ServiceError } from './errors'
 
-/** Largest document accepted for a child's record (and for a print template). */
-export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+/** Largest document accepted for any upload (30 MB, shared/domain/uploads.ts). */
+export const MAX_DOCUMENT_BYTES = MAX_UPLOAD_BYTES
 
 export type DocumentMime = 'application/pdf' | 'image/jpeg' | 'image/png'
 

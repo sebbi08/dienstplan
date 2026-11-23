@@ -5,6 +5,7 @@ import { TEMPLATE_VISIBILITIES, visibleTemplateLevels, type TemplateVisibility }
 import type { CategoryNameDto, DocumentTargetOptionsDto, KnowledgeCategoryDto, KnowledgeEntryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
+import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import {
   emptyTargets, facilitiesLost, targetsFormOf, targetsPayload, targetsProblem, type TargetsForm,
 } from '~/utils/documentTargets'
@@ -109,7 +110,7 @@ watch(open, (isOpen) => {
 }, { immediate: true })
 
 function onFile(event: Event) {
-  file.value = (event.target as HTMLInputElement).files?.[0] ?? null
+  file.value = pickedFile(event, toast)
   if (file.value && form.title.trim() === '') form.title = file.value.name.replace(/\.[^.]*$/, '').trim().slice(0, KNOWLEDGE_LIMITS.title)
 }
 
@@ -127,9 +128,9 @@ async function save() {
   const chosen = file.value
   if (form.kind === 'file' && !chosen && props.entry?.kind !== 'file') return void toast.add({ title: de.errors.file_required, color: 'error' })
   // Fails early instead of after a long upload; the server checks the size and the real file type again.
-  if (chosen && form.kind === 'file' && chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
   const ownFacilityId = targetOptions.value?.facilityId ?? null
   const problem = targetsProblem(form.targets, targetOptions.value, ownFacilityId)
+  if (chosen && form.kind === 'file' && chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: uploadSizeError(chosen.size)!, color: 'error' })
   if (problem) return void toast.add({ title: problem.kind === 'facility' ? de.documentTargets.pickFacility : de.documentTargets.pickGroup(problem.facility), color: 'error' })
   const targets = targetsPayload(form.targets, targetOptions.value, ownFacilityId)
   // Facilities that lose the entry: ask first.

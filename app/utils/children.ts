@@ -1,5 +1,6 @@
 import { ageOn } from '#shared/domain/children'
 import type { IsoDate } from '#shared/domain/types'
+import { MAX_UPLOAD_BYTES } from '#shared/domain/uploads'
 import type { ChildContactDto, SectionStamp } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
@@ -28,8 +29,8 @@ export function stampText(stamp: SectionStamp): string | null {
 /** An empty date field means "no date". */
 export const orNull = (value: string): string | null => (value === '' ? null : value)
 
-/** The upload limit of a document (the server enforces the same). */
-export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+/** The upload limit of a document (30 MB, shared/domain/uploads.ts; the server enforces the same). */
+export const MAX_DOCUMENT_BYTES = MAX_UPLOAD_BYTES
 
 /** Where the file of a document is served; `download` asks for an attachment instead of showing it. */
 export const documentFileUrl = (id: number, download = false): string => `/api/child-documents/${id}/file${download ? '?download=1' : ''}`

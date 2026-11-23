@@ -94,7 +94,7 @@ describe('school district lists (Schulbezirke)', () => {
       // An Excel file (a zip) is no CSV: save it as CSV first.
       expect(await code(parseSchoolDistrictFile({ data: Buffer.from('PK\u0003\u0004xl/workbook.xml'), filename: 'liste.xlsx' }))).toBe('school_district_file_type')
       expect(await code(parseSchoolDistrictFile({ data: Buffer.from('nur Text ohne Zeilen'), filename: 'liste.csv' }))).toBe('school_district_no_rows')
-      expect(await code(parseSchoolDistrictFile({ data: Buffer.alloc(10 * 1024 * 1024 + 1), filename: 'gross.csv' }))).toBe('document_too_large')
+      expect(await code(parseSchoolDistrictFile({ data: Buffer.alloc(10 * 1024 * 1024 + 1), filename: 'gross.csv' }))).toBe('school_district_file_too_large')
       expect(await code(parseSchoolDistrictFile({ data: textPdf([[]]), filename: 'scan.pdf' }))).toBe('pdf_no_text')
       expect(await code(parseSchoolDistrictFile({ data: Buffer.from('%PDF-1.7\n1 0 obj << /Type /Catalog >> garbage'), filename: 'kaputt.pdf' }))).toBe('pdf_unreadable')
     }, 30_000)

@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
 import type { Db } from '../../server/db/client'
 import { childAttendanceDays, childDocuments, childIfsgCases, documentTypes } from '../../server/db/schema'
 import type { ChildActor } from '../../server/lib/childViewer'
@@ -165,7 +166,10 @@ describe('§ 34 IfSG cases', () => {
       expect(rowOf(lena).ifsg?.requireAttest).toBe(true)
       expect(errorCode(() => readmit(id))).toBe('ifsg_attest_required')
       expect(errorCode(() => readmit(id, {}, { data: Buffer.from('not a pdf') }))).toBe('document_type_invalid')
-      readmit(id, {}, { data: PDF })
+      // The attest may have up to 30 MB, not one byte more.
+      const big = Buffer.concat([PDF, Buffer.alloc(MAX_DOCUMENT_BYTES + 1 - PDF.length)])
+      expect(errorCode(() => readmit(id, {}, { data: big }))).toBe('document_too_large')
+      readmit(id, {}, { data: big.subarray(0, MAX_DOCUMENT_BYTES) })
       const stored = db.select().from(childDocuments).get()!
       expect(stored).toMatchObject({ childId: lena, title: 'Wiederzulassung (§ 34 IfSG)', confidential: true, documentDate: TODAY, mimeType: 'application/pdf' })
       expect(db.select().from(documentTypes).where(eq(documentTypes.id, stored.documentTypeId)).get()?.name).toBe('Ärztliches Attest')
