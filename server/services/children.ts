@@ -4,11 +4,10 @@ import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { computedSchoolStart, type SchoolCutoff } from '../../shared/domain/schoolStart'
 import type { IsoDate } from '../../shared/domain/types'
-import {
-  CONSENT_KEYS,
-  type ArchivedChildDto, type BirthdayDto, type ChildConsents, type ChildHealthInput, type ChildListItemDto, type ChildMasterInput,
-  type ChildMasterUpdateInput, type ChildRecordDto, type ChildrenOverviewDto, type ConsentKey, type GroupAccess, type OpenChildDto,
-  type OverviewContactDto, type PlannedChildDto, type PlannedChildrenDto, type ReviewSection, type SectionStamp,
+import type {
+  ArchivedChildDto, BirthdayDto, ChildHealthInput, ChildListItemDto, ChildMasterInput, ChildMasterUpdateInput, ChildRecordDto,
+  ChildrenOverviewDto, ConsentAnswerInput, GroupAccess, OpenChildDto, OverviewContactDto, PlannedChildDto, PlannedChildrenDto,
+  ReviewSection, SectionStamp,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { careTypes, childContacts, childDocuments, children, documentTypes, employees, users } from '../db/schema'
@@ -22,8 +21,10 @@ import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
 import { assertCareType } from './careTypes'
 import { accidentHoldOf, childAccidentDays, childRecordPurgeDate } from './childAccidentRetention'
+import { answersOf, consentQuestionsOf, moveAnswers, recordQuestions, saveAnswers } from './childConsents'
 import { listContacts } from './childContacts'
-import { checkedFutureSchool, schoolNameOf, schoolStaysOnMove } from './contacts'
+import { listOverviewSheets } from './childOverviewSheets'
+import { checkedFutureSchool, schoolNameOf, schoolNames, schoolStaysOnMove } from './contacts'
 import { listDocuments } from './childDocuments'
 import {
   changeGroupDirectly, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup, registerLeaving, settleDue,
@@ -37,9 +38,6 @@ import { meetingsOf, overviewMeetingsOf } from './parentMeetings'
 import { moveChildForms } from './childForms'
 import { developmentDocOf } from './reminders'
 import { guardAgainstLeaving, leavesAtNextRun, schoolCutoffOf } from './schoolChildren'
-
-type ConsentColumn = `consent${Capitalize<ConsentKey>}`
-const consentColumn = (key: ConsentKey) => `consent${key[0]!.toUpperCase()}${key.slice(1)}` as ConsentColumn
 
 const byName = (a: { lastName: string; firstName: string }, b: { lastName: string; firstName: string }) =>
   a.lastName.localeCompare(b.lastName, 'de') || a.firstName.localeCompare(b.firstName, 'de')
@@ -160,13 +158,7 @@ function healthOf(row: ChildRow): ChildHealthInput {
   return {
     measlesProof: row.measlesProof, measlesProofDate: row.measlesProofDate,
     infectionBriefingDate: row.infectionBriefingDate, allergies: row.allergies,
-    mayTakeTemperature: row.mayTakeTemperature, mayApplySunscreen: row.mayApplySunscreen,
-    mayApplyPlaster: row.mayApplyPlaster,
   }
-}
-
-function consentsOf(row: ChildRow): ChildConsents {
-  return Object.fromEntries(CONSENT_KEYS.map(key => [key, row[consentColumn(key)]])) as ChildConsents
 }
 
 /**
@@ -192,6 +184,7 @@ export function getChild(
   const keyEducatorName = row.keyEducatorId === null ? null
     : staffOf(db, viewer.facilityId, today).find(person => person.id === row.keyEducatorId)?.name ?? null
   const canEdit = can(viewer.permissions, 'children.edit') && status !== 'archived' && groupRightOf(viewer, row.groupId, 'children.edit') === 'write'
+  const consents = answersOf(db, [row.id]).get(row.id)!
   return {
     id: row.id,
     status,
@@ -202,7 +195,8 @@ export function getChild(
     keyEducatorName,
     futureSchoolName: schoolNameOf(db, row.futureSchoolContactId),
     health: healthOf(row),
-    consents: consentsOf(row),
+    consentQuestions: recordQuestions(db, viewer.facilityId, consents),
+    consents,
     contacts: listContacts(db, row.id),
     stamps: {
       master: stampOf(row.masterUpdatedAt, row.masterUpdatedBy),
@@ -387,15 +381,21 @@ export function updateChildHealth(
     .where(eq(children.id, id)).run()
 }
 
+/**
+ * Saves the answers to the given consent questions of the facility (null = keine Angabe); the other answers stay. Only
+ * visible questions can be answered (see `saveAnswers`); the write rules are those of every change of the record.
+ */
 export function updateChildConsents(
-  db: Db, actor: ChildActor, facilityId: number, id: number, input: ChildConsents, today: IsoDate,
+  db: Db, actor: ChildActor, facilityId: number, id: number, input: ConsentAnswerInput[], today: IsoDate,
   now: Date = new Date(),
 ): void {
   loadEditableChild(db, actor, facilityId, id, today, now)
   settleDue(db, id, today, now)
-  const columns = Object.fromEntries(CONSENT_KEYS.map(key => [consentColumn(key), input[key]]))
-  db.update(children).set({ ...columns, ...clearedReviews('consents'), ...sectionStamp('consents', actor.id, now) })
-    .where(eq(children.id, id)).run()
+  db.transaction((tx) => {
+    saveAnswers(tx, facilityId, id, input)
+    tx.update(children).set({ ...clearedReviews('consents'), ...sectionStamp('consents', actor.id, now) })
+      .where(eq(children.id, id)).run()
+  })
 }
 
 /**
@@ -468,10 +468,12 @@ export function listBirthdays(db: Db, facilityId: number, today: IsoDate, groups
 
 /**
  * The values of the Excel-like overview tables for the facility's active children whose group the viewer sees, in the
- * order of the child list: consents, health fields, address and the contacts in the record's order (without their
- * internal note) and the parent meetings newest first (date, start, kind, planned at `now`; never the confidential
- * note, not even for Leitung and Träger). Contacts and meetings of children the viewer does not see are never read.
- * `groups` are the listed children's groups in the groups' order, children without group last (`{ id: null, name: '' }`).
+ * order of the child list: the answers to the facility's consent questions, health fields, birth date, address, future
+ * school and the contacts in the record's order (without their internal note) and the parent meetings newest first
+ * (date, start, kind, planned at `now`; never the confidential note, not even for Leitung and Träger). Contacts,
+ * answers and meetings of children the viewer does not see are never read. `groups` are the listed children's groups in
+ * the groups' order, children without group last (`{ id: null, name: '' }`); `sheets` the facility's tabs and
+ * `questions` all its consent questions (hidden ones included, a tab may still show them).
  */
 export function childrenOverview(db: Db, viewer: ChildViewer, today: IsoDate, now: Date = new Date()): ChildrenOverviewDto {
   const { facilityId } = viewer
@@ -491,6 +493,8 @@ export function childrenOverview(db: Db, viewer: ChildViewer, today: IsoDate, no
     }
   }
   const meetingsOfChild = overviewMeetingsOf(db, ids, now)
+  const answers = answersOf(db, ids)
+  const schools = schoolNames(db, rows.map(row => row.futureSchoolContactId))
   const listed = new Set(rows.map(row => row.groupId))
   const groups: ChildrenOverviewDto['groups'] = listGroups(db, facilityId)
     .filter(group => listed.has(group.id)).map(group => ({ id: group.id, name: group.name }))
@@ -502,12 +506,16 @@ export function childrenOverview(db: Db, viewer: ChildViewer, today: IsoDate, no
       lastName: row.lastName,
       firstName: row.firstName,
       groupId: row.groupId,
+      birthDate: row.birthDate,
       address: row.address,
-      consents: consentsOf(row),
+      school: row.futureSchoolContactId === null ? '' : schools.get(row.futureSchoolContactId) ?? '',
+      consents: answers.get(row.id)!,
       ...healthOf(row),
       contacts: contactsOf.get(row.id)!,
       meetings: meetingsOfChild.get(row.id)!,
     })),
+    sheets: listOverviewSheets(db, facilityId),
+    questions: consentQuestionsOf(db, facilityId),
   }
 }
 
@@ -603,7 +611,8 @@ const OTHER_DOCUMENT_TYPE = 'Sonstiges'
 const sameName = (a: string, b: string) => a.localeCompare(b, 'de', { sensitivity: 'accent' }) === 0
 
 /**
- * The Träger moves a record to another facility with its contacts and documents. Group and care type belong to the old
+ * The Träger moves a record to another facility with its contacts, documents and consent answers (each to the new
+ * facility's question of the same key or text, else to a hidden copy of the question there, see `moveAnswers`). Group and care type belong to the old
  * facility and are cleared, and so is the Bezugserzieher (an employee of the old facility), and the notes' educator and
  * author links to employees (their names stay, `detachNoteEmployees`); every document gets the
  * like-named document type of the new facility, otherwise its "Sonstiges" (created with the default flags when missing).
@@ -648,6 +657,7 @@ export function moveChildToFacility(db: Db, childId: number, targetFacilityId: n
     }
     endGroupHistory(tx, childId, today, now)
     moveChildForms(tx, childId, targetFacilityId)
+    moveAnswers(tx, childId, targetFacilityId)
     detachNoteEmployees(tx, childId)
     // A school of the old facility's address book stays behind; one for all facilities goes along.
     const school = schoolStaysOnMove(tx, childId) ? {} : { futureSchoolContactId: null }

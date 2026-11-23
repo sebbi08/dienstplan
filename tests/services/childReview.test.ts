@@ -11,7 +11,7 @@ import {
 } from '../../server/services/children'
 import type { ChildActor } from '../../server/lib/childViewer'
 import {
-  CONSENT_KEYS, KEEP_SECTIONS, type ChildConsents, type ChildContactInput, type ChildHealthInput, type ChildMasterInput,
+  KEEP_SECTIONS, type ConsentAnswerInput, type ChildContactInput, type ChildHealthInput, type ChildMasterInput,
   type GroupChangeInput, type KeepSection,
 } from '../../shared/types/api'
 import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, documentTypeId, errorCode } from '../helpers/fixtures'
@@ -37,9 +37,9 @@ const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput 
 })
 const HEALTH: ChildHealthInput = {
   measlesProof: true, measlesProofDate: '2025-05-01', infectionBriefingDate: null, allergies: '',
-  mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null,
 }
-const CONSENTS = Object.fromEntries(CONSENT_KEYS.map(key => [key, true])) as ChildConsents
+/** Saving the consents without a change still confirms them. */
+const CONSENTS: ConsentAnswerInput[] = []
 const pdf = () => Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from('content')])
 
 describe('review markers after group changes', () => {

@@ -17,7 +17,6 @@ const NOW = new Date('2026-10-06T06:00:00Z')
 const pdf = () => Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from('content')])
 const HEALTH: ChildHealthInput = {
   measlesProof: true, measlesProofDate: null, infectionBriefingDate: null, allergies: '',
-  mayTakeTemperature: false, mayApplySunscreen: false, mayApplyPlaster: false,
 }
 
 describe('the child viewer', () => {

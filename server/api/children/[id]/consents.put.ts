@@ -6,6 +6,6 @@ export default defineServiceHandler(async (event) => {
   const actor = await requireChildPermission(event, 'children.edit')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const body = await readValidatedBody(event, childConsentsSchema.parse)
-  updateChildConsents(useDb(), actor, actor.facilityId, id, body, todayIso())
+  updateChildConsents(useDb(), actor, actor.facilityId, id, body.answers, todayIso())
   return { ok: true }
 })

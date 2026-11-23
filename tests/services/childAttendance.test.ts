@@ -14,7 +14,8 @@ import {
 } from '../../server/services/childAttendance'
 import { addContact } from '../../server/services/childContacts'
 import { planGroupChange } from '../../server/services/childGroupChanges'
-import { deleteChild } from '../../server/services/children'
+import { updateConsentQuestion } from '../../server/services/childConsents'
+import { deleteChild, updateChildConsents } from '../../server/services/children'
 import { setReadAccess } from '../../server/services/groupReadAccess'
 import { addMeal, cancelMealVersion, changeMeal, listMeals, removeMeal } from '../../server/services/meals'
 import { setTabletSettings } from '../../server/services/tabletSettings'
@@ -25,6 +26,7 @@ import type { AttendancePickupChoice, ChildContactInput, SessionUser } from '../
 import {
   addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode,
 } from '../helpers/fixtures'
+import { answers, questionId } from '../helpers/consents'
 
 /** A moment in Berlin: summer time until the end of October, winter time in November to February. */
 const berlin = (date: string, time: string) =>
@@ -371,14 +373,20 @@ describe('child attendance', () => {
       expect(rowOf(lena, TODAY, berlin(TODAY, '13:15')).pickupOverdue).toBe(true)
     })
 
-    it('shows the insect repellent consent of the record: open, yes or no', () => {
+    it('shows the insect repellent consent of the record: open, yes or no, also renamed or hidden', () => {
       const ben = addChild(db, 1, { lastName: 'Bauer', firstName: 'Ben' })
       const cleo = addChild(db, 1, { lastName: 'Christ', firstName: 'Cleo' })
-      db.update(children).set({ consentInsectRepellent: true }).where(eq(children.id, ben)).run()
-      db.update(children).set({ consentInsectRepellent: false }).where(eq(children.id, cleo)).run()
+      updateChildConsents(db, leitung, 1, ben, answers(db, 1, { insectRepellent: true }), TODAY, NOW)
+      updateChildConsents(db, leitung, 1, cleo, answers(db, 1, { insectRepellent: false, mayApplySunscreen: true }), TODAY, NOW)
       expect(rowOf(lena).insectRepellent).toBeNull()
       expect(rowOf(ben).insectRepellent).toBe(true)
       expect(rowOf(cleo).insectRepellent).toBe(false)
+      // The facility renames and hides the question: its „nein“ still shows (found by its key).
+      updateConsentQuestion(db, 1, questionId(db, 1, 'insectRepellent'), { text: 'Mückenspray', short: 'Mücken', area: 'Gesundheit', hidden: true })
+      expect(rowOf(cleo).insectRepellent).toBe(false)
+      // The old column is no longer read.
+      db.update(children).set({ consentInsectRepellent: false }).where(eq(children.id, lena)).run()
+      expect(rowOf(lena).insectRepellent).toBeNull()
     })
 
     it('counts yesterday with the meals of yesterday after a change from today on, with its ticks', () => {

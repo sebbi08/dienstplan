@@ -1,5 +1,8 @@
 import { z } from 'zod'
 import { BEM_ANSWERS, BEM_LIMITS, BEM_MEASURE_STATUSES, BEM_STEP_KINDS } from '../shared/domain/bem'
+import {
+  CONSENT_AREA_MAX, CONSENT_SHORT_MAX, CONSENT_TEXT_MAX, OVERVIEW_FIELD_KEYS, SHEET_COLUMNS_MAX, SHEET_NAME_MAX,
+} from '../shared/domain/childConsents'
 import { CHILD_SORTS } from '../shared/domain/childSort'
 import { CONTACT_LIMITS } from '../shared/domain/contacts'
 import { isValidIsoDate } from '../shared/domain/dates'
@@ -12,7 +15,7 @@ import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { TEMPLATE_VISIBILITIES } from '../shared/domain/templateCategories'
 import { JOB_KEYS } from '../shared/domain/tvoed'
 import { TEMPLATE_INFO_MAX } from '../shared/domain/weekTemplates'
-import { COLOR_KEYS, CONSENT_KEYS, EVE_LEAVE_OPTIONS, REVIEW_SECTIONS, type ConsentKey, type MeetingKind } from '../shared/types/api'
+import { COLOR_KEYS, EVE_LEAVE_OPTIONS, REVIEW_SECTIONS, type MeetingKind } from '../shared/types/api'
 
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidIsoDate)
 export const minutes = z.number().int().min(0).max(1440)
@@ -509,13 +512,28 @@ export const childHealthSchema = z.object({
   measlesProofDate: optionalDate,
   infectionBriefingDate: optionalDate,
   allergies: z.string().max(2000),
-  mayTakeTemperature: triState,
-  mayApplySunscreen: triState,
-  mayApplyPlaster: triState,
 })
-export const childConsentsSchema = z.object(
-  Object.fromEntries(CONSENT_KEYS.map(key => [key, triState])) as Record<ConsentKey, typeof triState>,
-)
+/** The answers to the facility's consent questions as saved from the record (null = keine Angabe). */
+export const childConsentsSchema = z.object({
+  answers: z.array(z.object({ questionId: z.number().int().positive(), value: triState })).max(500),
+})
+/** A consent question of the facility (the lengths are checked trimmed in the service). */
+export const consentQuestionSchema = z.object({
+  text: z.string().max(CONSENT_TEXT_MAX + 50),
+  short: z.string().max(CONSENT_SHORT_MAX + 50),
+  area: z.string().max(CONSENT_AREA_MAX + 50),
+  hidden: z.boolean().optional(),
+})
+/** A tab of the children overview: its name and the columns in order. */
+export const overviewSheetSchema = z.object({
+  name: z.string().max(SHEET_NAME_MAX + 50),
+  columns: z.array(z.discriminatedUnion('type', [
+    z.object({ type: z.literal('consent'), questionId: z.number().int().positive() }),
+    z.object({ type: z.literal('field'), key: z.enum(OVERVIEW_FIELD_KEYS) }),
+  ])).max(SHEET_COLUMNS_MAX),
+})
+/** The new order of a facility's whole list (questions, tabs). */
+export const idOrderSchema = z.object({ ids: z.array(z.number().int().positive()).max(500) })
 export const childContactSchema = z.object({
   name: z.string().max(100),
   relation: z.string().max(100),

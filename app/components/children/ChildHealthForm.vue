@@ -4,7 +4,7 @@ import { de } from '~/locales/de'
 import { orNull } from '~/utils/children'
 import { formatDate } from '~/utils/format'
 
-/** Health (Gesundheit): measles proof, infection briefing, allergies and what the staff may do. */
+/** Health (Gesundheit): measles proof, infection briefing and allergies (what the staff may do are consent questions now). */
 /** `reload` re-reads the record; the busy flag stays on until it is done, so the next action works on fresh data. */
 const props = defineProps<{ child: ChildRecordDto; reload: () => Promise<unknown> }>()
 const { busy, run } = useBusyAction(() => props.reload())
@@ -31,11 +31,6 @@ function cancel() {
 }
 
 const f = de.children.fields
-const permissions = [
-  { key: 'mayTakeTemperature', label: f.mayTakeTemperature },
-  { key: 'mayApplySunscreen', label: f.mayApplySunscreen },
-  { key: 'mayApplyPlaster', label: f.mayApplyPlaster },
-] as const
 </script>
 
 <template>
@@ -58,10 +53,6 @@ const permissions = [
         <dt class="text-xs text-gray-500">{{ f.allergiesText }}</dt>
         <dd class="whitespace-pre-line">{{ child.health.allergies || de.children.noValue }}</dd>
       </div>
-      <div v-for="permission in permissions" :key="permission.key">
-        <dt class="text-xs text-gray-500">{{ permission.label }}</dt>
-        <dd><ChildrenTriStateSelect :model-value="child.health[permission.key]" readonly /></dd>
-      </div>
     </dl>
 
     <template #edit>
@@ -70,9 +61,6 @@ const permissions = [
         <UFormField :label="f.measlesProofDate"><DateTextInput :label="f.measlesProofDate" v-model="form.measlesProofDate" class="w-full" /></UFormField>
         <UFormField :label="f.infectionBriefingDate"><DateTextInput :label="f.infectionBriefingDate" v-model="form.infectionBriefingDate" class="w-full" /></UFormField>
         <UFormField :label="f.allergiesText" class="sm:col-span-2"><UTextarea v-model="form.allergies" :rows="3" maxlength="2000" class="w-full" /></UFormField>
-        <UFormField v-for="permission in permissions" :key="permission.key" :label="permission.label">
-          <ChildrenTriStateSelect v-model="form[permission.key]" :label="permission.label" />
-        </UFormField>
         <div class="flex gap-2 sm:col-span-2">
           <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" />
           <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="cancel" />

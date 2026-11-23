@@ -155,11 +155,36 @@ IfSG; Stand 19.11.2026.
 
 Die Einwilligungen in der Akte (ja / nein / offen) sind in Blöcke geteilt: **„Datenschutz“**, **„Messenger
 (WhatsApp, Signal)“** mit „Kontaktaufnahme über WhatsApp“, „Fotos über WhatsApp versenden“, **„Fotos über Signal
-versenden“** und „WhatsApp-Elterngruppe“, und **„Gesundheit“** mit **„Darf mit Insektenschutz eingesprüht
-werden“**. Bei „nein“ zum Insektenschutz steht in der Anwesenheitsliste (und im Ausdruck) „kein
-Insektenschutz“. Die neuen Punkte sind bei allen Kindern zunächst offen und zählen in der Liste „Offen“ wie die
-anderen. Früher gab es „Fotos über WhatsApp versenden“ zweimal (auch unter Datenschutz); die beiden Werte wurden
+versenden“** und „WhatsApp-Elterngruppe“, und **„Gesundheit“** mit „Fieber messen“, „Sonnenschutz auftragen“,
+„Pflaster kleben“ und **„Darf mit Insektenschutz eingesprüht werden“**. Bei „nein“ zum Insektenschutz steht in der
+Anwesenheitsliste (und im Ausdruck) „kein Insektenschutz“ – auch wenn die Einrichtung die Frage umbenennt oder
+ausblendet. Früher gab es „Fotos über WhatsApp versenden“ zweimal (auch unter Datenschutz); die beiden Werte wurden
 zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und nein, gilt **nein**.
+
+**Eigene Fragen je Einrichtung.** Die Fragen sind seit diesem Update Sache der Einrichtung: Unter *Einstellungen →
+Kinder → Einwilligungen & Erlaubnisse* ändert die Leitung (wer die Kinder-Einstellungen ändern darf) Text, Kurzname
+(die Spaltenüberschrift in der Übersicht) und Bereich, legt neue Fragen und Bereiche an, ordnet sie und blendet sie
+aus. Löschen lässt sich nur eine Frage, die noch kein Kind beantwortet hat; sonst nur **ausblenden** – die Antworten
+bleiben als Nachweis und stehen in der Akte unter „ausgeblendete Fragen“ (nur lesen). Die drei Erlaubnisse „Fieber
+messen“, „Sonnenschutz auftragen“ und „Pflaster kleben“ standen früher im Abschnitt „Gesundheit“ der Akte; sie sind
+jetzt Fragen im Bereich „Gesundheit“ der Einwilligungen (nach einem Gruppenwechsel also mit „Einwilligungen“ zu
+bestätigen, nicht mehr mit „Gesundheit“). Beim Update bekam jede Einrichtung genau die bisherigen 14 Fragen, und jede
+Antwort (ja / nein) wurde übernommen; neue Einrichtungen beginnen mit denselben Fragen. Zieht ein Kind in eine andere
+Einrichtung um, gehen seine Antworten mit: zur Frage dort mit demselben Ursprung oder demselben Text, sonst wird die
+Frage dort ausgeblendet angelegt, damit die Antwort erhalten bleibt.
+
+**Reiter der Übersicht.** Welche Reiter *Kinder → Übersicht* hat und welche Spalten jeder zeigt, legt die Leitung
+unter *Einstellungen → Kinder → Reiter der Übersicht* fest: Reiter anlegen, umbenennen, ordnen, löschen; je Reiter
+Spalten aus den Fragen (nach Bereich) und den festen Feldern der Akte wählen und ordnen (Geburtsdatum, Gruppe,
+Adresse, künftige Schule, Masernnachweis, Belehrung, Allergien, Abholberechtigte, Sorgeberechtigte, Kontaktverbote,
+Anruf-Reihenfolge, Telefonnummern, Elterngespräche). Nach dem Update hat jede Einrichtung die bisherigen acht Reiter
+mit denselben Spalten – die Übersicht sieht aus wie vorher. Löscht eine Einrichtung alle Reiter, zeigt die Übersicht
+nur einen Hinweis.
+
+*Für den Betrieb:* Die alten Spalten der Einwilligungen in der Tabelle `children` (`consent_*`, `may_take_temperature`,
+`may_apply_sunscreen`, `may_apply_plaster`) liest und schreibt die App seit der Migration 0111 nicht mehr; sie bleiben
+nur, damit ein Zurück auf die Vorversion möglich ist (die dann den Stand vom Update zeigt). Sie werden in einer
+späteren Version entfernt.
 
 ### Wer sieht was
 

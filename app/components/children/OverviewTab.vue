@@ -1,17 +1,40 @@
 <script setup lang="ts">
 import type { ChildrenOverviewDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { OVERVIEW_SHEETS, type OverviewSheet, overviewColumns, overviewSections } from '~/utils/childrenOverview'
+import { chosenSheet, overviewColumns, overviewSections } from '~/utils/childrenOverview'
 import { errorMessage } from '~/utils/errors'
+import { areaPath, sectionAnchor } from '~/utils/settingsAreas'
 
-/** The Excel-like tables of all children the person sees (the server sends only those), one sub-tab per sheet. */
+/**
+ * The Excel-like tables of all children the person sees (the server sends only those), one sub-tab per tab of the
+ * facility (Einstellungen → Kinder → Reiter der Übersicht). `?sheet=<id>` opens a tab, otherwise the one this device
+ * showed last, otherwise the first.
+ */
 const { data, error } = useFetch<ChildrenOverviewDto>('/api/children/overview', { key: 'children-overview' })
 // Printing is for Leitung and Träger in the office; the tablet has no print buttons.
 const { rights, onTablet } = useChildRights()
 const canPrint = computed(() => !onTablet.value && !!rights.value?.isManager)
+// Whoever may change the children settings gets the way there when the facility has no tabs.
+const { can } = useCan()
+const canConfigure = computed(() => !onTablet.value && can('settings.facility'))
+const settingsLink = `${areaPath('children')}#${sectionAnchor('overview-sheets')}`
 
 const t = de.children.overview
-const sheet = ref<OverviewSheet>('privacy')
+const MEMORY_KEY = 'children-overview-sheet'
+const route = useRoute()
+const remembered = ref<string | null>(null)
+const selected = ref<number | null>(null)
+onMounted(() => {
+  try { remembered.value = localStorage.getItem(MEMORY_KEY) } catch { /* nothing remembered */ }
+})
+const sheet = computed(() => {
+  const sheets = data.value?.sheets ?? []
+  return chosenSheet(sheets, selected.value ?? route.query.sheet, remembered.value)
+})
+function selectSheet(id: number) {
+  selected.value = id
+  try { localStorage.setItem(MEMORY_KEY, String(id)) } catch { /* not remembered */ }
+}
 /** -1 = all groups, 0 = no group, otherwise the group id (as in the list). */
 const groupFilter = ref(-1)
 
@@ -22,19 +45,25 @@ const groupItems = computed(() => [
 // Offering the filter and the group headings only makes sense when at least one child has a group.
 const showGroups = computed(() => (data.value?.children ?? []).some(child => child.groupId !== null))
 const sections = computed(() => (data.value ? overviewSections(data.value, groupFilter.value) : []))
-const columns = computed(() => overviewColumns(sheet.value, sections.value.flatMap(section => section.rows)))
-const printUrl = computed(() => `/print/children/overview/${sheet.value}${groupFilter.value === -1 ? '' : `?group=${groupFilter.value}`}`)
+const columns = computed(() => (data.value && sheet.value
+  ? overviewColumns(sheet.value.columns, sections.value.flatMap(section => section.rows), { questions: data.value.questions, groups: data.value.groups })
+  : []))
+const printUrl = computed(() => `/print/children/overview/${sheet.value?.id}${groupFilter.value === -1 ? '' : `?group=${groupFilter.value}`}`)
 </script>
 
 <template>
   <p v-if="error" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorMessage(error) }}</p>
-  <div v-else-if="data" class="space-y-3">
+  <div v-else-if="data && !sheet" class="space-y-2 rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">
+    <p>{{ canConfigure ? t.noSheets : t.noSheetsStaff }}</p>
+    <UButton v-if="canConfigure" size="sm" variant="outline" icon="i-lucide-settings" :label="t.toSettings" :to="settingsLink" />
+  </div>
+  <div v-else-if="data && sheet" class="space-y-3">
     <div class="flex flex-wrap items-center gap-2">
-      <div class="inline-flex flex-wrap rounded-lg bg-white p-0.5 ring-1 ring-gray-200" role="group">
+      <div class="inline-flex flex-wrap rounded-lg bg-white p-0.5 ring-1 ring-gray-200" role="group" :aria-label="t.sheetsLabel">
         <UButton
-          v-for="entry in OVERVIEW_SHEETS" :key="entry" size="lg" :aria-pressed="sheet === entry"
-          :variant="sheet === entry ? 'solid' : 'ghost'" :color="sheet === entry ? 'primary' : 'neutral'"
-          :label="t.sheets[entry]" @click="sheet = entry"
+          v-for="entry in data.sheets" :key="entry.id" size="lg" :aria-pressed="sheet.id === entry.id"
+          :variant="sheet.id === entry.id ? 'solid' : 'ghost'" :color="sheet.id === entry.id ? 'primary' : 'neutral'"
+          :label="entry.name" @click="selectSheet(entry.id)"
         />
       </div>
       <USelect v-if="showGroups" v-model="groupFilter" size="lg" :items="groupItems" class="w-48" :aria-label="de.children.fields.group" />

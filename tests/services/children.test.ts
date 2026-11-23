@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { CONSENT_KEYS } from '../../shared/types/api'
+import { DEFAULT_CONSENT_QUESTIONS } from '../../shared/domain/childConsents'
 import type { ChildMasterInput, ChildContactInput } from '../../shared/types/api'
 import type { Db } from '../../server/db/client'
 import { createCareType } from '../../server/services/careTypes'
@@ -10,6 +10,7 @@ import {
   childSchoolCutoff, createChild, getChild, listBirthdays, listChildren, updateChildConsents, updateChildHealth, updateChildMaster,
 } from '../../server/services/children'
 import type { ChildActor } from '../../server/lib/childViewer'
+import { answers, questionId } from '../helpers/consents'
 import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-09'
@@ -102,13 +103,14 @@ describe('child records', () => {
       expect(record).toMatchObject({
         id, status: 'active', leftOn: null, purgeOn: null, canEdit: true, documents: [],
         master: { lastName: 'Meier', firstName: 'Lena', groupId: group, careTypeId: careType.id },
-        health: { measlesProof: null, allergies: '', mayApplyPlaster: null },
+        health: { measlesProof: null, allergies: '' },
         contacts: [],
       })
       expect(record.stamps.master).toEqual({ updatedAt: NOW.toISOString(), updatedBy: 'leitung' })
       expect(record.stamps.health).toEqual({ updatedAt: null, updatedBy: null })
-      expect(Object.keys(record.consents)).toEqual([...CONSENT_KEYS])
-      expect(Object.values(record.consents).every(value => value === null)).toBe(true)
+      // The facility's questions in their order, nothing answered yet.
+      expect(record.consentQuestions.map(question => question.builtinKey)).toEqual(DEFAULT_CONSENT_QUESTIONS.map(question => question.builtinKey))
+      expect(record.consents).toEqual({})
     })
 
     it('rejects blank names, a birth date in the future, bad dates and foreign groups or care types', () => {
@@ -132,32 +134,28 @@ describe('child records', () => {
       updateChildMaster(db, editor, 1, id, master({ firstName: 'Lea', address: 'Weg 1' }), TODAY, later)
       updateChildHealth(db, editor, 1, id, {
         measlesProof: true, measlesProofDate: '2025-05-01', infectionBriefingDate: '2025-06-01', allergies: 'Nüsse',
-        mayTakeTemperature: true, mayApplySunscreen: false, mayApplyPlaster: null,
       }, TODAY, later)
-      const consents = Object.fromEntries(CONSENT_KEYS.map((key, index) => [key, index % 3 === 0 ? true : index % 3 === 1 ? false : null]))
-      updateChildConsents(db, editor, 1, id, consents as never, TODAY, later)
+      updateChildConsents(db, editor, 1, id, answers(db, 1, { artworkDisplay: true, photosDisplay: false, mayTakeTemperature: true, mayApplyPlaster: null }), TODAY, later)
       const record = getChild(db, admin, id, TODAY)
       expect(record.master).toMatchObject({ firstName: 'Lea', address: 'Weg 1' })
       expect(record.health).toEqual({
         measlesProof: true, measlesProofDate: '2025-05-01', infectionBriefingDate: '2025-06-01', allergies: 'Nüsse',
-        mayTakeTemperature: true, mayApplySunscreen: false, mayApplyPlaster: null,
       })
-      expect(record.consents).toEqual(consents)
+      expect(record.consents).toEqual({
+        [questionId(db, 1, 'artworkDisplay')]: true, [questionId(db, 1, 'photosDisplay')]: false, [questionId(db, 1, 'mayTakeTemperature')]: true,
+      })
       for (const section of ['master', 'health', 'consents'] as const) {
         expect(record.stamps[section]).toEqual({ updatedAt: later.toISOString(), updatedBy: 'frau-k' })
       }
       expect(record.stamps.contacts).toEqual({ updatedAt: null, updatedBy: null })
     })
 
-    it('stores the Signal photo and insect repellent consents; the WhatsApp photo duplicate is gone', () => {
-      expect(CONSENT_KEYS).toEqual(expect.arrayContaining(['signalPhotos', 'insectRepellent', 'whatsappPhotos']))
-      expect(CONSENT_KEYS).not.toContain('photosWhatsapp')
+    it('changes only the answers it is given; keine Angabe removes one', () => {
       const id = createChild(db, admin, 1, master(), NOW)
-      const consents = Object.fromEntries(CONSENT_KEYS.map(key => [key, null])) as Record<string, boolean | null>
-      consents.signalPhotos = true
-      consents.insectRepellent = false
-      updateChildConsents(db, admin, 1, id, consents as never, TODAY, NOW)
-      expect(getChild(db, admin, id, TODAY).consents).toMatchObject({ signalPhotos: true, insectRepellent: false, whatsappPhotos: null })
+      updateChildConsents(db, admin, 1, id, answers(db, 1, { signalPhotos: true, insectRepellent: false, whatsappPhotos: true }), TODAY, NOW)
+      updateChildConsents(db, admin, 1, id, answers(db, 1, { whatsappPhotos: null, signalPhotos: false }), TODAY, NOW)
+      expect(getChild(db, admin, id, TODAY).consents)
+        .toEqual({ [questionId(db, 1, 'signalPhotos')]: false, [questionId(db, 1, 'insectRepellent')]: false })
     })
 
     it('validates updates like creation', () => {
@@ -167,7 +165,6 @@ describe('child records', () => {
         .toBe('birth_date_in_future')
       expect(errorCode(() => updateChildHealth(db, admin, 1, id, {
         measlesProof: null, measlesProofDate: '31.12.2025', infectionBriefingDate: null, allergies: '',
-        mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null,
       }, TODAY, NOW))).toBe('invalid_date')
     })
 
@@ -179,7 +176,6 @@ describe('child records', () => {
       expect(errorCode(() => updateChildMaster(db, admin, 1, foreign, master(), TODAY, NOW))).toBe('child_not_found')
       expect(errorCode(() => updateChildHealth(db, admin, 1, foreign, {
         measlesProof: null, measlesProofDate: null, infectionBriefingDate: null, allergies: '',
-        mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null,
       }, TODAY, NOW))).toBe('child_not_found')
     })
 
@@ -196,9 +192,8 @@ describe('child records', () => {
       const editor = asChildViewer({ ...addUser(db, 'editor', 'observer', addEmployee(db, 'Editor')), canEditChildren: true })
       const health = {
         measlesProof: null, measlesProofDate: null, infectionBriefingDate: null, allergies: '',
-        mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null,
       }
-      const consents = Object.fromEntries(CONSENT_KEYS.map(key => [key, null])) as never
+      const consents = answers(db, 1, { artworkDisplay: true })
       expect(errorCode(() => updateChildMaster(db, admin, 1, id, master(), TODAY, NOW))).toBe('child_archived')
       expect(errorCode(() => updateChildHealth(db, admin, 1, id, health, TODAY, NOW))).toBe('child_archived')
       expect(errorCode(() => updateChildConsents(db, admin, 1, id, consents, TODAY, NOW))).toBe('child_archived')

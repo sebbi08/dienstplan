@@ -1,0 +1,1779 @@
+{
+ "1": {
+  "children": [
+   "Amsel, Mia",
+   "Zebra, Ben",
+   "Biber, Cleo",
+   "Dachs, Emil"
+  ],
+  "sheets": [
+   {
+    "name": "Datenschutz",
+    "columns": [
+     {
+      "label": "Bastelarbeiten",
+      "title": "Bastel- und Malarbeiten aufhängen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos aufhängen",
+      "title": "Einzel- und Gruppenfotos aufhängen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fremde Portfolios",
+      "title": "Fotoerlaubnis für fremde Portfolios",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos Feste",
+      "title": "Fotos hausinterner Feste",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos, Namen, Geb.",
+      "title": "Fotos, Namen und Geburtsdaten aufhängen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Gruppenarbeiten",
+      "title": "Gruppenarbeiten mit Namen ausstellen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Messenger",
+    "columns": [
+     {
+      "label": "Kontakt WhatsApp",
+      "title": "Kontaktaufnahme über WhatsApp",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos WhatsApp",
+      "title": "Fotos über WhatsApp versenden",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos Signal",
+      "title": "Fotos über Signal versenden",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Elterngruppe",
+      "title": "WhatsApp-Elterngruppe",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Gesundheit",
+    "columns": [
+     {
+      "label": "Masern",
+      "title": "Masernnachweis (mit Datum)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": "12.03.2024"
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Belehrung",
+      "title": "Belehrung Infektionsschutz (Datum)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "01.09.2026"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       },
+       {
+        "kind": "text",
+        "text": "01.09.2026"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       }
+      ]
+     },
+     {
+      "label": "Allergien",
+      "title": "Allergien und Unverträglichkeiten",
+      "wide": true,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "Erdnüsse\nKiwi"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       },
+       {
+        "kind": "text",
+        "text": ""
+       },
+       {
+        "kind": "text",
+        "text": "Laktose"
+       }
+      ]
+     },
+     {
+      "label": "Fieber",
+      "title": "Fieber messen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Sonnenschutz",
+      "title": "Sonnenschutz auftragen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Pflaster",
+      "title": "Pflaster kleben",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Insektenschutz",
+      "title": "Darf mit Insektenschutz eingesprüht werden",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Abholberechtigte",
+    "columns": [
+     {
+      "label": "Abholberechtigte",
+      "title": "Alle Bezugspersonen, die das Kind abholen dürfen (ohne Kontaktverbot)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Opa Otto (Opa)",
+          "details": [],
+          "danger": false
+         },
+         {
+          "text": "Max Amsel (Vater)",
+          "details": [],
+          "danger": false
+         },
+         {
+          "text": "Anna Amsel (Mutter)",
+          "details": [],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Erika Zebra (Oma)",
+          "details": [],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Nora Biber (Mutter)",
+          "details": [],
+          "danger": false
+         },
+         {
+          "text": "Nachbarin Holz (Nachbar/in)",
+          "details": [],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Sorgeberechtigte",
+    "columns": [
+     {
+      "label": "Sorgeberechtigte",
+      "title": "Sorgeberechtigte Bezugspersonen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Max Amsel (Vater)",
+          "details": [],
+          "danger": false
+         },
+         {
+          "text": "Anna Amsel (Mutter)",
+          "details": [],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Nora Biber (Mutter)",
+          "details": [],
+          "danger": false
+         },
+         {
+          "text": "Tim Biber (Vater) – Kontaktverbot",
+          "details": [],
+          "danger": true
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     },
+     {
+      "label": "Kontaktverbot",
+      "title": "Bezugspersonen mit Kontaktverbot und Hinweis",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Peter Fremd",
+          "details": [
+           "Beschluss Familiengericht"
+          ],
+          "danger": true
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Tim Biber",
+          "details": [
+           "nur mit Begleitung"
+          ],
+          "danger": true
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Anruf-Reihenfolge",
+    "columns": [
+     {
+      "label": "1.",
+      "title": "1. in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Anna Amsel (Mutter)",
+          "details": [
+           "mobil 0170 1"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Erika Zebra (Oma)",
+          "details": [
+           "privat 0911 1"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Nora Biber (Mutter)",
+          "details": [
+           "mobil 0170 3"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     },
+     {
+      "label": "2.",
+      "title": "2. in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Max Amsel (Vater)",
+          "details": [
+           "privat 0711 1",
+           "Arbeit 0711 9"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Nachbarin Holz (Nachbar/in)",
+          "details": [
+           "privat 0911 7"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     },
+     {
+      "label": "3.",
+      "title": "3. in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Opa Otto (Opa)",
+          "details": [
+           "mobil 0171 2"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Telefonnummern",
+    "columns": [
+     {
+      "label": "Adresse",
+      "title": "Adresse",
+      "wide": true,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "Hauptstr. 1\n12345 Musterstadt"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       },
+       {
+        "kind": "text",
+        "text": "Bahnhofstr. 7"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       }
+      ]
+     },
+     {
+      "label": "Kontakt 1",
+      "title": "Kontakt 1 in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, Kontaktverbote am Ende), mit Telefon privat / mobil / Arbeit",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Anna Amsel (Mutter)",
+          "details": [
+           "mobil 0170 1"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Erika Zebra (Oma)",
+          "details": [
+           "privat 0911 1"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Nora Biber (Mutter)",
+          "details": [
+           "mobil 0170 3"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     },
+     {
+      "label": "Kontakt 2",
+      "title": "Kontakt 2 in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, Kontaktverbote am Ende), mit Telefon privat / mobil / Arbeit",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Max Amsel (Vater)",
+          "details": [
+           "privat 0711 1",
+           "Arbeit 0711 9"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Nachbarin Holz (Nachbar/in)",
+          "details": [
+           "privat 0911 7"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     },
+     {
+      "label": "Kontakt 3",
+      "title": "Kontakt 3 in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, Kontaktverbote am Ende), mit Telefon privat / mobil / Arbeit",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Opa Otto (Opa)",
+          "details": [
+           "mobil 0171 2"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Tim Biber (Vater) – Kontaktverbot",
+          "details": [
+           "Arbeit 0911 4"
+          ],
+          "danger": true
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     },
+     {
+      "label": "Kontakt 4",
+      "title": "Kontakt 4 in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, Kontaktverbote am Ende), mit Telefon privat / mobil / Arbeit",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Peter Fremd – Kontaktverbot",
+          "details": [
+           "mobil 0160 5"
+          ],
+          "danger": true
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Elterngespräche",
+    "columns": [
+     {
+      "label": "Letztes Gespräch",
+      "title": "Letztes Elterngespräch (Datum, Art)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "01.09.2026 Eingewöhnung"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       },
+       {
+        "kind": "text",
+        "text": ""
+       },
+       {
+        "kind": "text",
+        "text": ""
+       }
+      ]
+     },
+     {
+      "label": "Nächstes geplant",
+      "title": "Nächstes geplantes Elterngespräch (Datum, Uhrzeit, Art)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "12.11.2026 15:00 Entwicklungsgespräch"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       },
+       {
+        "kind": "text",
+        "text": "19.10.2026 14:00 Sonstiges"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       }
+      ]
+     },
+     {
+      "label": "Alle Gespräche",
+      "title": "Alle Elterngespräche, neueste zuerst",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "12.11.26 Entwicklungsgespräch",
+          "details": [],
+          "danger": false
+         },
+         {
+          "text": "01.09.26 Eingewöhnung",
+          "details": [],
+          "danger": false
+         },
+         {
+          "text": "04.03.26 Entwicklungsgespräch",
+          "details": [],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "19.10.26 Sonstiges",
+          "details": [],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     },
+     {
+      "label": "Anzahl",
+      "title": "Anzahl der Elterngespräche",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "3"
+       },
+       {
+        "kind": "text",
+        "text": "0"
+       },
+       {
+        "kind": "text",
+        "text": "1"
+       },
+       {
+        "kind": "text",
+        "text": "0"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "2": {
+  "children": [
+   "Krause, Lina",
+   "Otter, Paul"
+  ],
+  "sheets": [
+   {
+    "name": "Datenschutz",
+    "columns": [
+     {
+      "label": "Bastelarbeiten",
+      "title": "Bastel- und Malarbeiten aufhängen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos aufhängen",
+      "title": "Einzel- und Gruppenfotos aufhängen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fremde Portfolios",
+      "title": "Fotoerlaubnis für fremde Portfolios",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos Feste",
+      "title": "Fotos hausinterner Feste",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos, Namen, Geb.",
+      "title": "Fotos, Namen und Geburtsdaten aufhängen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Gruppenarbeiten",
+      "title": "Gruppenarbeiten mit Namen ausstellen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Messenger",
+    "columns": [
+     {
+      "label": "Kontakt WhatsApp",
+      "title": "Kontaktaufnahme über WhatsApp",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos WhatsApp",
+      "title": "Fotos über WhatsApp versenden",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Fotos Signal",
+      "title": "Fotos über Signal versenden",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Elterngruppe",
+      "title": "WhatsApp-Elterngruppe",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Gesundheit",
+    "columns": [
+     {
+      "label": "Masern",
+      "title": "Masernnachweis (mit Datum)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": "12.03.2024"
+       }
+      ]
+     },
+     {
+      "label": "Belehrung",
+      "title": "Belehrung Infektionsschutz (Datum)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "01.09.2026"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       }
+      ]
+     },
+     {
+      "label": "Allergien",
+      "title": "Allergien und Unverträglichkeiten",
+      "wide": true,
+      "cells": [
+       {
+        "kind": "text",
+        "text": ""
+       },
+       {
+        "kind": "text",
+        "text": ""
+       }
+      ]
+     },
+     {
+      "label": "Fieber",
+      "title": "Fieber messen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Sonnenschutz",
+      "title": "Sonnenschutz auftragen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": false,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Pflaster",
+      "title": "Pflaster kleben",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     },
+     {
+      "label": "Insektenschutz",
+      "title": "Darf mit Insektenschutz eingesprüht werden",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "tri",
+        "value": true,
+        "date": ""
+       },
+       {
+        "kind": "tri",
+        "value": null,
+        "date": ""
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Abholberechtigte",
+    "columns": [
+     {
+      "label": "Abholberechtigte",
+      "title": "Alle Bezugspersonen, die das Kind abholen dürfen (ohne Kontaktverbot)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Sara Krause (Mutter)",
+          "details": [],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Sorgeberechtigte",
+    "columns": [
+     {
+      "label": "Sorgeberechtigte",
+      "title": "Sorgeberechtigte Bezugspersonen",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Sara Krause (Mutter)",
+          "details": [],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     },
+     {
+      "label": "Kontaktverbot",
+      "title": "Bezugspersonen mit Kontaktverbot und Hinweis",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": []
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Anruf-Reihenfolge",
+    "columns": [
+     {
+      "label": "1.",
+      "title": "1. in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Sara Krause (Mutter)",
+          "details": [
+           "mobil 0151 1"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Telefonnummern",
+    "columns": [
+     {
+      "label": "Adresse",
+      "title": "Adresse",
+      "wide": true,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "Am Bach 3"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       }
+      ]
+     },
+     {
+      "label": "Kontakt 1",
+      "title": "Kontakt 1 in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, Kontaktverbote am Ende), mit Telefon privat / mobil / Arbeit",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "Sara Krause (Mutter)",
+          "details": [
+           "mobil 0151 1"
+          ],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Elterngespräche",
+    "columns": [
+     {
+      "label": "Letztes Gespräch",
+      "title": "Letztes Elterngespräch (Datum, Art)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "01.12.2025 Entwicklungsgespräch"
+       },
+       {
+        "kind": "text",
+        "text": ""
+       }
+      ]
+     },
+     {
+      "label": "Nächstes geplant",
+      "title": "Nächstes geplantes Elterngespräch (Datum, Uhrzeit, Art)",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "text",
+        "text": ""
+       },
+       {
+        "kind": "text",
+        "text": ""
+       }
+      ]
+     },
+     {
+      "label": "Alle Gespräche",
+      "title": "Alle Elterngespräche, neueste zuerst",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "lines",
+        "lines": [
+         {
+          "text": "01.12.25 Entwicklungsgespräch",
+          "details": [],
+          "danger": false
+         }
+        ]
+       },
+       {
+        "kind": "lines",
+        "lines": []
+       }
+      ]
+     },
+     {
+      "label": "Anzahl",
+      "title": "Anzahl der Elterngespräche",
+      "wide": false,
+      "cells": [
+       {
+        "kind": "text",
+        "text": "1"
+       },
+       {
+        "kind": "text",
+        "text": "0"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "3": {
+  "children": [],
+  "sheets": [
+   {
+    "name": "Datenschutz",
+    "columns": [
+     {
+      "label": "Bastelarbeiten",
+      "title": "Bastel- und Malarbeiten aufhängen",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Fotos aufhängen",
+      "title": "Einzel- und Gruppenfotos aufhängen",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Fremde Portfolios",
+      "title": "Fotoerlaubnis für fremde Portfolios",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Fotos Feste",
+      "title": "Fotos hausinterner Feste",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Fotos, Namen, Geb.",
+      "title": "Fotos, Namen und Geburtsdaten aufhängen",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Gruppenarbeiten",
+      "title": "Gruppenarbeiten mit Namen ausstellen",
+      "wide": false,
+      "cells": []
+     }
+    ]
+   },
+   {
+    "name": "Messenger",
+    "columns": [
+     {
+      "label": "Kontakt WhatsApp",
+      "title": "Kontaktaufnahme über WhatsApp",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Fotos WhatsApp",
+      "title": "Fotos über WhatsApp versenden",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Fotos Signal",
+      "title": "Fotos über Signal versenden",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Elterngruppe",
+      "title": "WhatsApp-Elterngruppe",
+      "wide": false,
+      "cells": []
+     }
+    ]
+   },
+   {
+    "name": "Gesundheit",
+    "columns": [
+     {
+      "label": "Masern",
+      "title": "Masernnachweis (mit Datum)",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Belehrung",
+      "title": "Belehrung Infektionsschutz (Datum)",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Allergien",
+      "title": "Allergien und Unverträglichkeiten",
+      "wide": true,
+      "cells": []
+     },
+     {
+      "label": "Fieber",
+      "title": "Fieber messen",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Sonnenschutz",
+      "title": "Sonnenschutz auftragen",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Pflaster",
+      "title": "Pflaster kleben",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Insektenschutz",
+      "title": "Darf mit Insektenschutz eingesprüht werden",
+      "wide": false,
+      "cells": []
+     }
+    ]
+   },
+   {
+    "name": "Abholberechtigte",
+    "columns": [
+     {
+      "label": "Abholberechtigte",
+      "title": "Alle Bezugspersonen, die das Kind abholen dürfen (ohne Kontaktverbot)",
+      "wide": false,
+      "cells": []
+     }
+    ]
+   },
+   {
+    "name": "Sorgeberechtigte",
+    "columns": [
+     {
+      "label": "Sorgeberechtigte",
+      "title": "Sorgeberechtigte Bezugspersonen",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Kontaktverbot",
+      "title": "Bezugspersonen mit Kontaktverbot und Hinweis",
+      "wide": false,
+      "cells": []
+     }
+    ]
+   },
+   {
+    "name": "Anruf-Reihenfolge",
+    "columns": [
+     {
+      "label": "1.",
+      "title": "1. in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“)",
+      "wide": false,
+      "cells": []
+     }
+    ]
+   },
+   {
+    "name": "Telefonnummern",
+    "columns": [
+     {
+      "label": "Adresse",
+      "title": "Adresse",
+      "wide": true,
+      "cells": []
+     },
+     {
+      "label": "Kontakt 1",
+      "title": "Kontakt 1 in der Anruf-Reihenfolge (zuerst die Eltern, dann nach „Anrufen als Nr.“, Kontaktverbote am Ende), mit Telefon privat / mobil / Arbeit",
+      "wide": false,
+      "cells": []
+     }
+    ]
+   },
+   {
+    "name": "Elterngespräche",
+    "columns": [
+     {
+      "label": "Letztes Gespräch",
+      "title": "Letztes Elterngespräch (Datum, Art)",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Nächstes geplant",
+      "title": "Nächstes geplantes Elterngespräch (Datum, Uhrzeit, Art)",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Alle Gespräche",
+      "title": "Alle Elterngespräche, neueste zuerst",
+      "wide": false,
+      "cells": []
+     },
+     {
+      "label": "Anzahl",
+      "title": "Anzahl der Elterngespräche",
+      "wide": false,
+      "cells": []
+     }
+    ]
+   }
+  ]
+ }
+}

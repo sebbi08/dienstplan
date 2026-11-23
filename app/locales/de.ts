@@ -1277,18 +1277,13 @@ export const de = {
       name: 'Name', relation: 'Beziehung', phoneHome: 'Telefon privat', phoneMobile: 'Telefon mobil', phoneWork: 'Telefon Arbeit',
       isGuardian: 'sorgeberechtigt', mayPickUp: 'darf abholen', emergencyRank: 'Anrufen als Nr.', contactBanNote: 'Hinweis zum Kontaktverbot',
       measlesProof: 'Masernnachweis', measlesProofDate: 'Datum Masernnachweis', infectionBriefingDate: 'Belehrung Infektionsschutz',
-      allergiesText: 'Allergien und Unverträglichkeiten', mayTakeTemperature: 'Fieber messen', mayApplySunscreen: 'Sonnenschutz auftragen', mayApplyPlaster: 'Pflaster kleben',
+      allergiesText: 'Allergien und Unverträglichkeiten',
     },
     relations: ['Mutter', 'Vater', 'Oma', 'Opa', 'Tante', 'Onkel', 'Nachbar/in'],
-    consents: {
-      artworkDisplay: 'Bastel- und Malarbeiten aufhängen', photosDisplay: 'Einzel- und Gruppenfotos aufhängen',
-      photosForeignPortfolios: 'Fotoerlaubnis für fremde Portfolios', photosInternalEvents: 'Fotos hausinterner Feste',
-      photosNamesBirthdaysDisplay: 'Fotos, Namen und Geburtsdaten aufhängen',
-      groupWorkWithNames: 'Gruppenarbeiten mit Namen ausstellen', whatsappContact: 'Kontaktaufnahme über WhatsApp',
-      whatsappPhotos: 'Fotos über WhatsApp versenden', signalPhotos: 'Fotos über Signal versenden',
-      whatsappParentGroup: 'WhatsApp-Elterngruppe', insectRepellent: 'Darf mit Insektenschutz eingesprüht werden',
-    },
-    consentGroups: { privacy: 'Datenschutz', messenger: 'Messenger (WhatsApp, Signal)', health: 'Gesundheit' },
+    // The consent block of the record: the facility's own questions (Einstellungen → Kinder), grouped by area.
+    consentsHidden: 'ausgeblendete Fragen',
+    consentsHiddenHint: 'Diese Fragen stellt die Einrichtung nicht mehr. Die Antworten bleiben als Nachweis gespeichert.',
+    noConsentQuestions: 'Die Einrichtung hat noch keine Fragen angelegt (Einstellungen → Kinder → Einwilligungen & Erlaubnisse).',
     addContact: 'Bezugsperson hinzufügen', birthdaysHint: 'Geburtstage der nächsten 8 Wochen', turns: (n: number) => `wird ${n}`,
     // Small helper texts of the pages (beyond the agreed wording list above).
     empty: 'Keine Kinder gefunden.', noBirthdays: 'In den nächsten 8 Wochen hat kein Kind Geburtstag.',
@@ -1302,18 +1297,27 @@ export const de = {
     noSelection: 'keine Angabe', noValue: '–',
     // The Excel-like overview tables: short column heads, the full text as hint on the head.
     overview: {
-      sheets: {
-        privacy: 'Datenschutz', messenger: 'Messenger', health: 'Gesundheit', pickup: 'Abholberechtigte',
-        guardians: 'Sorgeberechtigte', emergency: 'Anruf-Reihenfolge', phones: 'Telefonnummern', meetings: 'Elterngespräche',
-      },
+      // The tabs come from the facility (Einstellungen → Kinder → Reiter der Übersicht).
+      sheetsLabel: 'Reiter',
+      noSheets: 'Noch keine Reiter – unter Einstellungen → Kinder anlegen.',
+      noSheetsStaff: 'Noch keine Reiter. Die Leitung legt sie in den Einstellungen an.',
+      toSettings: 'Zu den Einstellungen',
       short: {
-        artworkDisplay: 'Bastelarbeiten', photosDisplay: 'Fotos aufhängen', photosForeignPortfolios: 'Fremde Portfolios',
-        photosInternalEvents: 'Fotos Feste', photosNamesBirthdaysDisplay: 'Fotos, Namen, Geb.', groupWorkWithNames: 'Gruppenarbeiten',
-        whatsappContact: 'Kontakt WhatsApp', whatsappPhotos: 'Fotos WhatsApp', signalPhotos: 'Fotos Signal', whatsappParentGroup: 'Elterngruppe',
-        measlesProof: 'Masern', infectionBriefingDate: 'Belehrung', allergies: 'Allergien', mayTakeTemperature: 'Fieber',
-        mayApplySunscreen: 'Sonnenschutz', mayApplyPlaster: 'Pflaster', insectRepellent: 'Insektenschutz',
+        measlesProof: 'Masern', infectionBriefingDate: 'Belehrung', allergies: 'Allergien',
         pickUp: 'Abholberechtigte', guardians: 'Sorgeberechtigte', contactBan: 'Kontaktverbot', address: 'Adresse',
+        birthday: 'Geburtstag', group: 'Gruppe', school: 'Schule',
         lastMeeting: 'Letztes Gespräch', nextMeeting: 'Nächstes geplant', allMeetings: 'Alle Gespräche', meetingCount: 'Anzahl',
+      },
+      birthdayTitle: 'Geburtsdatum', groupTitle: 'Gruppe', schoolTitle: 'Künftige Schule (aus den Kontakten)',
+      // The fixed fields a tab can show, as offered in the settings (one column each; the call order and the phone
+      // numbers one column per contact).
+      fields: {
+        birthday: 'Geburtsdatum', group: 'Gruppe', address: 'Adresse', school: 'Künftige Schule',
+        measlesProof: 'Masernnachweis (mit Datum)', infectionBriefingDate: 'Belehrung Infektionsschutz', allergies: 'Allergien',
+        pickUp: 'Abholberechtigte', guardians: 'Sorgeberechtigte', contactBan: 'Kontaktverbote',
+        emergency: 'Anruf-Reihenfolge (eine Spalte je Kontakt)', phones: 'Telefonnummern (eine Spalte je Kontakt)',
+        lastMeeting: 'Letztes Elterngespräch', nextMeeting: 'Nächstes geplantes Elterngespräch', allMeetings: 'Alle Elterngespräche',
+        meetingCount: 'Anzahl der Elterngespräche',
       },
       lastMeetingTitle: 'Letztes Elterngespräch (Datum, Art)',
       nextMeetingTitle: 'Nächstes geplantes Elterngespräch (Datum, Uhrzeit, Art)',
@@ -1484,6 +1488,31 @@ export const de = {
     confirmDeleteType: 'Wirklich löschen?',
     daysPerWeek: 'Tage pro Woche',
     daysPerWeekHint: '„Tage pro Woche“ zählt für den Personalschlüssel: Wochenstunden des Kindes = Zeitfenster × Tage.',
+  },
+  /** Einstellungen → Kinder → Einwilligungen & Erlaubnisse: the facility's consent questions. */
+  consentSettings: {
+    title: 'Einwilligungen & Erlaubnisse',
+    intro: 'Die Fragen, die in jeder Kinderakte mit ja / nein / offen beantwortet werden, nach Bereichen. Der Kurzname ist die Spaltenüberschrift in der Übersicht.',
+    text: 'Frage', short: 'Kurzname', area: 'Bereich', newArea: 'Neuer Bereich …', newAreaName: 'Name des neuen Bereichs',
+    add: 'Frage hinzufügen', addTitle: 'Neue Frage', editTitle: 'Frage bearbeiten',
+    hide: 'Ausblenden', show: 'Wieder einblenden', hidden: 'ausgeblendet',
+    answers: (n: number) => (n === 1 ? '1 Antwort' : `${n} Antworten`),
+    hideInsteadHint: 'Zu dieser Frage gibt es Antworten. Sie bleiben als Nachweis gespeichert, darum lässt sie sich nur ausblenden, nicht löschen.',
+    hiddenHint: 'Ausgeblendete Fragen werden in neuen Akten nicht mehr gestellt. Vorhandene Antworten bleiben sichtbar (nur lesen).',
+    confirmDelete: 'Diese Frage löschen? Sie verschwindet auch aus den Reitern der Übersicht.',
+    moveUp: 'Nach oben', moveDown: 'Nach unten', areaUp: 'Bereich nach oben', areaDown: 'Bereich nach unten',
+    empty: 'Noch keine Fragen.',
+  },
+  /** Einstellungen → Kinder → Reiter der Übersicht: the tabs of Kinder → Übersicht and their columns. */
+  sheetSettings: {
+    title: 'Reiter der Übersicht',
+    intro: 'Welche Reiter die Übersicht unter Kinder hat und welche Spalten jeder zeigt. Der Name des Kindes steht immer vorn.',
+    name: 'Name', add: 'Reiter hinzufügen', newName: 'Neuer Reiter', columns: 'Spalten', noColumns: 'Noch keine Spalten.',
+    addColumn: 'Spalte hinzufügen', chooseColumn: 'Spalte wählen …', fieldsGroup: 'Felder der Akte',
+    removeColumn: 'Spalte entfernen', moveLeft: 'Nach vorn', moveRight: 'Nach hinten', moveUp: 'Reiter nach oben', moveDown: 'Reiter nach unten',
+    hiddenQuestion: 'ausgeblendete Frage – die Spalte zeigt die vorhandenen Antworten',
+    confirmDelete: (name: string) => `Den Reiter „${name}“ löschen? Die Angaben in den Kinderakten bleiben.`,
+    empty: 'Noch keine Reiter. Ohne Reiter zeigt die Übersicht nur einen Hinweis.',
   },
   /** Einstellungen → Personal → Löschfristen, and the due dates in the archive of the staff page. */
   retention: {
@@ -3252,6 +3281,19 @@ export const de = {
     contact_category_name_taken: 'Eine Kategorie mit diesem Namen gibt es schon.',
     contact_category_not_empty: 'In dieser Kategorie liegen noch Kontakte. Verschieb oder lösch sie zuerst.',
     future_school_invalid: 'Bitte wähle eine Schule aus den Kontakten (eine Kategorie mit „Schule“ im Namen).',
+    consent_question_not_found: 'Diese Frage gibt es nicht mehr. Bitte lade die Seite neu.',
+    consent_question_text_required: 'Bitte gib die Frage an (höchstens 300 Zeichen).',
+    consent_question_short_required: 'Bitte gib einen Kurznamen für die Spalte an (höchstens 40 Zeichen).',
+    consent_area_required: 'Bitte wähle einen Bereich oder gib einen neuen an (höchstens 40 Zeichen).',
+    consent_question_answered: 'Zu dieser Frage gibt es schon Antworten. Sie bleiben als Nachweis gespeichert – die Frage lässt sich nur ausblenden.',
+    consent_question_hidden: 'Diese Frage ist ausgeblendet. Ihre Antwort lässt sich nicht mehr ändern. Bitte lade die Seite neu.',
+    consent_question_twice: 'Eine Frage ist doppelt. Bitte lade die Seite neu.',
+    overview_sheet_not_found: 'Diesen Reiter gibt es nicht mehr. Bitte lade die Seite neu.',
+    overview_sheet_name_required: 'Bitte gib einen Namen für den Reiter an (höchstens 40 Zeichen).',
+    overview_sheet_name_taken: 'Einen Reiter mit diesem Namen gibt es schon.',
+    overview_column_unknown: 'Eine Spalte gibt es nicht (mehr). Bitte lade die Seite neu.',
+    overview_column_twice: 'Eine Spalte ist doppelt.',
+    overview_too_many_columns: 'Zu viele Spalten für einen Reiter.',
   },
   /** „Kontakte“: the facility's address book of external contacts, and the „künftige Schule“ of a child. */
   contacts: {

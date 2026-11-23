@@ -1,13 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CONSENT_KEYS, type ChildConsents, type ChildrenOverviewRowDto, type OverviewContactDto, type OverviewMeetingDto,
+  DEFAULT_CONSENT_QUESTIONS, DEFAULT_OVERVIEW_SHEETS, type BuiltinConsentKey, type OverviewColumnRef,
+} from '../../shared/domain/childConsents'
+import type {
+  ChildrenOverviewRowDto, ConsentAnswers, ConsentQuestionDto, OverviewContactDto, OverviewMeetingDto, OverviewSheetDto,
 } from '../../shared/types/api'
 import { de } from '../../app/locales/de'
 import {
-  OVERVIEW_SHEETS, contactLabel, isOverviewSheet, overviewColumns, overviewSections, triSymbol,
+  chosenSheet, contactLabel, overviewColumns, overviewSections, triSymbol, type OverviewContext,
 } from '../../app/utils/childrenOverview'
 
-const openConsents = Object.fromEntries(CONSENT_KEYS.map(key => [key, null])) as ChildConsents
+/** The default questions as a facility has them (ids 1–14). */
+const QUESTIONS: ConsentQuestionDto[] = DEFAULT_CONSENT_QUESTIONS.map((question, index) => ({
+  ...question, id: index + 1, sortOrder: index, hidden: false,
+}))
+const idOf = (key: BuiltinConsentKey) => QUESTIONS.find(question => question.builtinKey === key)!.id
+const keyOf = (id: number) => QUESTIONS.find(question => question.id === id)!.builtinKey!
+/** Answers by key, as the server sends them by question id. */
+const consentsOf = (values: Partial<Record<BuiltinConsentKey, boolean>>): ConsentAnswers =>
+  Object.fromEntries(Object.entries(values).map(([key, value]) => [idOf(key as BuiltinConsentKey), value]))
+
+/** The default tabs by their former sheet key. */
+const SHEET_INDEX = { privacy: 0, messenger: 1, health: 2, pickup: 3, guardians: 4, emergency: 5, phones: 6, meetings: 7 } as const
+type Sheet = keyof typeof SHEET_INDEX
+const sheetRefs = (sheet: Sheet): OverviewColumnRef[] => DEFAULT_OVERVIEW_SHEETS[SHEET_INDEX[sheet]]!.columns
+  .map(column => column.type === 'field' ? column : { type: 'consent', questionId: idOf(column.builtinKey) })
+const CONTEXT: OverviewContext = { questions: QUESTIONS, groups: [{ id: 4, name: 'Igel' }, { id: null, name: '' }] }
+/** The columns of a default tab; a question's column key shown as its key (`q3` → `photosForeignPortfolios`). */
+const columnsOf = (sheet: Sheet, rows: ChildrenOverviewRowDto[]) => overviewColumns(sheetRefs(sheet), rows, CONTEXT)
+  .map(column => /^q\d+$/.test(column.key) ? { ...column, key: keyOf(Number(column.key.slice(1))) } : column)
 
 const contact = (name: string, values: Partial<OverviewContactDto> = {}): OverviewContactDto => ({
   name, relation: '', phoneHome: '', phoneMobile: '', phoneWork: '', isGuardian: false, mayPickUp: false,
@@ -15,24 +36,29 @@ const contact = (name: string, values: Partial<OverviewContactDto> = {}): Overvi
 })
 
 const child = (values: Partial<ChildrenOverviewRowDto> = {}): ChildrenOverviewRowDto => ({
-  id: 1, lastName: 'Muster', firstName: 'Mia', groupId: null, address: '', consents: openConsents,
-  measlesProof: null, measlesProofDate: null, infectionBriefingDate: null, allergies: '',
-  mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null, contacts: [], meetings: [], ...values,
+  id: 1, lastName: 'Muster', firstName: 'Mia', groupId: null, birthDate: '2022-03-15', address: '', school: '', consents: {},
+  measlesProof: null, measlesProofDate: null, infectionBriefingDate: null, allergies: '', contacts: [], meetings: [], ...values,
 })
 
-const keys = (sheet: typeof OVERVIEW_SHEETS[number], rows: ChildrenOverviewRowDto[] = [child()]) =>
-  overviewColumns(sheet, rows).map(column => column.key)
+const keys = (sheet: Sheet, rows: ChildrenOverviewRowDto[] = [child()]) => columnsOf(sheet, rows).map(column => column.key)
 
 describe('children overview sheets', () => {
-  it('has the seven sheets of the Excel list in their order, then the parent meetings, with their labels', () => {
-    expect(OVERVIEW_SHEETS).toEqual(['privacy', 'messenger', 'health', 'pickup', 'guardians', 'emergency', 'phones', 'meetings'])
-    expect(OVERVIEW_SHEETS.map(sheet => de.children.overview.sheets[sheet])).toEqual([
+  it('starts every facility with the seven tabs of the Excel list in their order, then the parent meetings', () => {
+    expect(DEFAULT_OVERVIEW_SHEETS.map(sheet => sheet.name)).toEqual([
       'Datenschutz', 'Messenger', 'Gesundheit', 'Abholberechtigte', 'Sorgeberechtigte', 'Anruf-Reihenfolge', 'Telefonnummern',
       'Elterngespräche',
     ])
-    expect(isOverviewSheet('meetings')).toBe(true)
-    expect(isOverviewSheet('phones')).toBe(true)
-    expect(isOverviewSheet('archive')).toBe(false)
+  })
+
+  it('opens the tab asked for, else the one shown last, else the first; none without tabs', () => {
+    const sheets = [{ id: 7, name: 'A' }, { id: 9, name: 'B' }, { id: 12, name: 'C' }]
+      .map((sheet, sortOrder) => ({ ...sheet, sortOrder, columns: [] })) as OverviewSheetDto[]
+    expect(chosenSheet(sheets, '9', 12)?.id).toBe(9)
+    expect(chosenSheet(sheets, undefined, 12)?.id).toBe(12)
+    expect(chosenSheet(sheets, 'abc', '12')?.id).toBe(12)
+    // A deleted tab (or one of another facility) falls back to the first.
+    expect(chosenSheet(sheets, '99', 98)?.id).toBe(7)
+    expect(chosenSheet([], '7', 7)).toBeNull()
   })
 
   it('shows yes, no and open as ✓, ✗ and –', () => {
@@ -42,11 +68,11 @@ describe('children overview sheets', () => {
 
 describe('children overview columns', () => {
   it('lists the six privacy consents in the order of the spec, short label with the full text as title', () => {
-    const columns = overviewColumns('privacy', [child()])
+    const columns = columnsOf('privacy', [child()])
     expect(columns.map(column => column.key)).toEqual([
       'artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents', 'photosNamesBirthdaysDisplay', 'groupWorkWithNames',
     ])
-    expect(columns[0]!.title).toBe(de.children.consents.artworkDisplay)
+    expect(columns[0]!.title).toBe('Bastel- und Malarbeiten aufhängen')
     for (const column of columns) expect(column.label.length).toBeLessThanOrEqual(column.title.length)
   })
 
@@ -55,8 +81,8 @@ describe('children overview columns', () => {
   })
 
   it('shows the consents as yes, no or open', () => {
-    const row = child({ consents: { ...openConsents, whatsappContact: true, whatsappPhotos: false } })
-    expect(overviewColumns('messenger', [row]).map(column => column.cell(row))).toEqual([
+    const row = child({ consents: consentsOf({ whatsappContact: true, whatsappPhotos: false }) })
+    expect(columnsOf('messenger', [row]).map(column => column.cell(row))).toEqual([
       { kind: 'tri', value: true, date: '' },
       { kind: 'tri', value: false, date: '' },
       { kind: 'tri', value: null, date: '' },
@@ -67,9 +93,9 @@ describe('children overview columns', () => {
   it('lists the health columns in order: measles with date, briefing date, allergies, the permissions and insect repellent', () => {
     const row = child({
       measlesProof: true, measlesProofDate: '2024-03-12', infectionBriefingDate: '2026-09-01', allergies: 'Erdnüsse\nKiwi',
-      mayTakeTemperature: false, mayApplySunscreen: true, consents: { ...openConsents, insectRepellent: false },
+      consents: consentsOf({ mayTakeTemperature: false, mayApplySunscreen: true, insectRepellent: false }),
     })
-    const columns = overviewColumns('health', [row])
+    const columns = columnsOf('health', [row])
     expect(columns.map(column => column.key)).toEqual([
       'measlesProof', 'infectionBriefingDate', 'allergies', 'mayTakeTemperature', 'mayApplySunscreen', 'mayApplyPlaster', 'insectRepellent',
     ])
@@ -82,12 +108,12 @@ describe('children overview columns', () => {
       { kind: 'tri', value: null, date: '' },
       { kind: 'tri', value: false, date: '' },
     ])
-    expect(columns[6]!.title).toBe(de.children.consents.insectRepellent)
+    expect(columns[6]!.title).toBe('Darf mit Insektenschutz eingesprüht werden')
   })
 
   it('leaves empty health fields empty', () => {
     const row = child()
-    const [measles, briefing, allergies] = overviewColumns('health', [row]).map(column => column.cell(row))
+    const [measles, briefing, allergies] = columnsOf('health', [row]).map(column => column.cell(row))
     expect(measles).toEqual({ kind: 'tri', value: null, date: '' })
     expect(briefing).toEqual({ kind: 'text', text: '' })
     expect(allergies).toEqual({ kind: 'text', text: '' })
@@ -107,7 +133,7 @@ describe('children overview columns', () => {
         contact('Tim Tante', { relation: 'Tante' }),
       ],
     })
-    const columns = overviewColumns('pickup', [row])
+    const columns = columnsOf('pickup', [row])
     expect(columns.map(column => column.key)).toEqual(['pickUp'])
     expect(columns[0]!.cell(row)).toEqual({
       kind: 'lines',
@@ -126,7 +152,7 @@ describe('children overview columns', () => {
         contact('Erika Muster', { relation: 'Oma' }),
       ],
     })
-    const columns = overviewColumns('guardians', [row])
+    const columns = columnsOf('guardians', [row])
     expect(columns.map(column => column.key)).toEqual(['guardians', 'contactBan'])
     expect(columns.map(column => column.cell(row))).toEqual([
       {
@@ -150,7 +176,7 @@ describe('children overview columns', () => {
       ],
     })
     const second = child({ id: 2, contacts: [contact('Paul Paten', { emergencyRank: 3 })] })
-    const columns = overviewColumns('emergency', [first, second])
+    const columns = columnsOf('emergency', [first, second])
     expect(columns.map(column => column.label)).toEqual(['1.', '2.', '3.'])
     expect(columns.map(column => column.cell(first))).toEqual([
       { kind: 'lines', lines: [{ text: 'Anna Muster (Mutter)', details: ['privat 0711 1', 'Arbeit 0711 9'], danger: false }] },
@@ -172,7 +198,7 @@ describe('children overview columns', () => {
         contact('Max Muster', { relation: 'Vater' }),
       ],
     })
-    const columns = overviewColumns('phones', [row, child({ id: 2 })])
+    const columns = columnsOf('phones', [row, child({ id: 2 })])
     expect(columns.map(column => column.key)).toEqual(['address', 'contact1', 'contact2'])
     expect(columns.map(column => column.cell(row))).toEqual([
       { kind: 'text', text: 'Hauptstr. 1\n70173 Stuttgart' },
@@ -190,7 +216,7 @@ describe('children overview columns', () => {
         contact('Anna Muster', { relation: 'Mutter', isGuardian: true, emergencyRank: 1 }),
       ],
     })
-    expect(overviewColumns('phones', [row]).slice(1).map(column => column.cell(row))).toEqual(
+    expect(columnsOf('phones', [row]).slice(1).map(column => column.cell(row))).toEqual(
       ['Anna Muster (Mutter)', 'Max Muster (Vater)', 'Erika Muster (Oma)', 'Nora Nachbar']
         .map(text => ({ kind: 'lines', lines: [{ text, details: [], danger: false }] })),
     )
@@ -203,7 +229,7 @@ describe('children overview columns', () => {
         contact('Anna Muster', { relation: 'Mutter', phoneHome: '0711 1' }),
       ],
     })
-    const columns = overviewColumns('phones', [row])
+    const columns = columnsOf('phones', [row])
     expect(columns.map(column => column.key)).toEqual(['address', 'contact1', 'contact2'])
     expect(columns.map(column => column.cell(row)).slice(1)).toEqual([
       { kind: 'lines', lines: [{ text: 'Anna Muster (Mutter)', details: ['privat 0711 1'], danger: false }] },
@@ -218,7 +244,7 @@ describe('children overview columns', () => {
         contact('Erika Muster', { relation: 'Oma', emergencyRank: 2 }),
       ],
     })
-    const columns = overviewColumns('emergency', [row])
+    const columns = columnsOf('emergency', [row])
     expect(columns.map(column => column.cell(row))).toEqual([
       { kind: 'lines', lines: [{ text: 'Erika Muster (Oma)', details: [], danger: false }] },
     ])
@@ -230,12 +256,41 @@ describe('children overview columns', () => {
   })
 })
 
+describe('children overview columns from the facility\'s configuration', () => {
+  it('shows birthday, group and future school as fields', () => {
+    const row = child({ groupId: 4, birthDate: '2021-07-03', school: 'Grundschule am Park, Mannheim' })
+    const columns = overviewColumns(
+      [{ type: 'field', key: 'birthday' }, { type: 'field', key: 'group' }, { type: 'field', key: 'school' }], [row], CONTEXT,
+    )
+    expect(columns.map(column => [column.key, column.label, column.cell(row)])).toEqual([
+      ['birthday', 'Geburtstag', { kind: 'text', text: '03.07.2021' }],
+      ['group', 'Gruppe', { kind: 'text', text: 'Igel' }],
+      ['school', 'Schule', { kind: 'text', text: 'Grundschule am Park, Mannheim' }],
+    ])
+    expect(columns[1]!.cell(child())).toEqual({ kind: 'text', text: de.children.noGroup })
+  })
+
+  it('takes a question\'s current short name and text, in the tab\'s order, and leaves out one the facility no longer has', () => {
+    const own: ConsentQuestionDto = { id: 50, text: 'Darf schwimmen gehen', short: 'Schwimmen', area: 'Ausflüge', sortOrder: 20, hidden: true, builtinKey: null }
+    const row = child({ consents: { 50: true } })
+    const columns = overviewColumns(
+      [{ type: 'consent', questionId: 50 }, { type: 'consent', questionId: 99 }, { type: 'field', key: 'allergies' }],
+      [row], { ...CONTEXT, questions: [...QUESTIONS, own] },
+    )
+    expect(columns.map(column => [column.key, column.label, column.title])).toEqual([
+      ['q50', 'Schwimmen', 'Darf schwimmen gehen'], ['allergies', 'Allergien', 'Allergien und Unverträglichkeiten'],
+    ])
+    expect(columns[0]!.cell(row)).toEqual({ kind: 'tri', value: true, date: '' })
+    expect(columns[0]!.cell(child())).toEqual({ kind: 'tri', value: null, date: '' })
+  })
+})
+
 describe('children overview parent meetings', () => {
   const meeting = (date: string, start: number, kind: OverviewMeetingDto['kind'], planned = false): OverviewMeetingDto =>
     ({ date, start, kind, planned })
 
   it('has the columns last meeting, next planned, all meetings and count', () => {
-    const columns = overviewColumns('meetings', [child()])
+    const columns = columnsOf('meetings', [child()])
     expect(columns.map(column => column.key)).toEqual(['lastMeeting', 'nextMeeting', 'allMeetings', 'meetingCount'])
     expect(columns.map(column => column.label)).toEqual(['Letztes Gespräch', 'Nächstes geplant', 'Alle Gespräche', 'Anzahl'])
   })
@@ -250,7 +305,7 @@ describe('children overview parent meetings', () => {
         meeting('2025-09-15', 480, 'other'),
       ],
     })
-    expect(overviewColumns('meetings', [row]).map(column => column.cell(row))).toEqual([
+    expect(columnsOf('meetings', [row]).map(column => column.cell(row))).toEqual([
       { kind: 'text', text: '01.10.2026 Eingewöhnung' },
       { kind: 'text', text: '02.11.2026 14:30 Entwicklungsgespräch' },
       {
@@ -270,7 +325,7 @@ describe('children overview parent meetings', () => {
     const plannedOnly = child({ meetings: [meeting('2026-12-01', 9 * 60, 'development', true)] })
     const heldOnly = child({ id: 2, meetings: [meeting('2026-10-01', 9 * 60, 'other')] })
     const none = child({ id: 3 })
-    const columns = overviewColumns('meetings', [plannedOnly, heldOnly, none])
+    const columns = columnsOf('meetings', [plannedOnly, heldOnly, none])
     const [last, next] = columns
     expect(last!.cell(plannedOnly)).toEqual({ kind: 'text', text: '' })
     expect(next!.cell(plannedOnly)).toEqual({ kind: 'text', text: '01.12.2026 9:00 Entwicklungsgespräch' })

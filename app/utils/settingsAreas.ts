@@ -130,6 +130,14 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['Dokument', 'Dokumente', 'Betreuungsvertrag', 'vertraulich', 'Unterlagen'],
     },
     {
+      key: 'consent-questions', title: de.consentSettings.title, replaces: [],
+      keywords: ['Einwilligung', 'Einwilligungen', 'Erlaubnis', 'Erlaubnisse', 'Datenschutz', 'Fotos', 'WhatsApp', 'Messenger', 'Insektenschutz', 'Sonnenschutz', 'Fieber', 'Frage'],
+    },
+    {
+      key: 'overview-sheets', title: de.sheetSettings.title, replaces: [],
+      keywords: ['Übersicht', 'Reiter', 'Spalten', 'Tabelle', 'Liste', 'Excel', 'Kinderübersicht'],
+    },
+    {
       key: 'school-children', title: de.schoolChildren.title, replaces: ['school-children'],
       keywords: ['Stichtag', 'Einschulung', 'Schulstart', 'Schule', 'automatisch abmelden', 'Hort'],
     },

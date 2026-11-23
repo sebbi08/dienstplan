@@ -51,6 +51,8 @@ watch(() => route.hash, scrollToTarget)
       <SettingsTimeTrackingSection v-else-if="section.key === 'time-tracking'" />
       <SettingsCareTypesSection v-else-if="section.key === 'care-types'" />
       <SettingsDocumentTypesSection v-else-if="section.key === 'document-types'" />
+      <SettingsConsentQuestionsSection v-else-if="section.key === 'consent-questions'" />
+      <SettingsOverviewSheetsSection v-else-if="section.key === 'overview-sheets'" />
       <SettingsSchoolChildrenSection v-else-if="section.key === 'school-children'" />
       <SettingsAttendanceSection v-else-if="section.key === 'attendance'" />
       <SettingsIfsgSection v-else-if="section.key === 'ifsg'" />

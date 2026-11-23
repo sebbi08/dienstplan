@@ -26,6 +26,7 @@ import {
 import { loadChild, type ChildRow } from '../lib/childRecord'
 import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
+import { insectRepellentOf } from './childConsents'
 import { groupHistories } from './childGroupChanges'
 import { childOrder } from './childSort'
 import { activeGroupMerges } from './groupMerges'
@@ -250,6 +251,7 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
   const inGroup = childOrder(db, facilityId)
   // Open § 34 IfSG cases: the block for everybody, the disease only for whoever may know it.
   const ifsg = attendanceIfsg(db, viewer, rows, date)
+  const insectRepellent = insectRepellentOf(db, facilityId, ids)
 
   const list = rows.map((row) => {
     const groupId = groupOnDay(histories.get(row.id) ?? [], date)
@@ -296,8 +298,8 @@ export function getAttendanceDay(db: Db, viewer: ChildViewer, date: IsoDate, now
         const manual = day ? ticks.get(`${day.id}|${meal.mealId}`) ?? null : null
         return [meal.mealId, { counted: countsForMeal(meal.time, spans, plannedPickup, manual), manual: manual !== null }]
       })),
-      // From the record: null while the consent is still open.
-      insectRepellent: row.consentInsectRepellent,
+      // From the record: null while the consent is still open (or the facility has no such question any more).
+      insectRepellent: insectRepellent.get(row.id) ?? null,
       announcements: ownAnnouncements.map(announcement => ({
         id: announcement.id, name: announcement.name, announcedBy: announcement.announcedBy,
       })),

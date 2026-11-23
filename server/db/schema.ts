@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
+import type { OverviewColumnRef } from '../../shared/domain/childConsents'
 import type { RightsRole } from '../../shared/domain/permissionBundles'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../../shared/domain/personnel'
 import type { GermanState } from '../../shared/domain/states'
@@ -889,10 +890,12 @@ export const children = sqliteTable('children', {
   measlesProofDate: text('measles_proof_date'),
   infectionBriefingDate: text('infection_briefing_date'),
   allergies: text('allergies').notNull().default(''),
+  // Since 0111 these three and the consents below are questions of the facility (child_consent_answers): the columns
+  // are no longer read or written and stay only for a rollback (docs/BETRIEB.md: drop them in a later release).
   mayTakeTemperature: integer('may_take_temperature', { mode: 'boolean' }),
   mayApplySunscreen: integer('may_apply_sunscreen', { mode: 'boolean' }),
   mayApplyPlaster: integer('may_apply_plaster', { mode: 'boolean' }),
-  // Consents (Einwilligungen)
+  // Consents (Einwilligungen), unused since 0111 (see above)
   consentArtworkDisplay: integer('consent_artwork_display', { mode: 'boolean' }),
   consentPhotosDisplay: integer('consent_photos_display', { mode: 'boolean' }),
   consentPhotosForeignPortfolios: integer('consent_photos_foreign_portfolios', { mode: 'boolean' }),
@@ -927,6 +930,49 @@ export const children = sqliteTable('children', {
   index('children_facility').on(table.facilityId),
   index('children_group').on(table.groupId),
 ])
+
+/**
+ * A consent question (Einwilligung / Erlaubnis) of the facility, asked in every child's record with ja / nein / keine
+ * Angabe: the full `text` (1–300), the `short` column head of the overview (1–40) and a free `area` (Datenschutz,
+ * Messenger, Gesundheit or the facility's own), ordered by `sortOrder` (areas in the order of their first question).
+ * A hidden question is no longer asked; its answers stay as proof. `builtinKey` marks the questions that were fixed
+ * columns of `children` before 0111 (shared/domain/childConsents.ts; the attendance list reads the insect repellent by it).
+ */
+export const childConsentQuestions = sqliteTable('child_consent_questions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  short: text('short').notNull(),
+  area: text('area').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false),
+  builtinKey: text('builtin_key'),
+}, table => [
+  index('child_consent_questions_facility').on(table.facilityId),
+  uniqueIndex('child_consent_questions_facility_builtin').on(table.facilityId, table.builtinKey),
+])
+
+/** A child's answer to a consent question: only ja (true) or nein (false) are stored; no row = keine Angabe. */
+export const childConsentAnswers = sqliteTable('child_consent_answers', {
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  questionId: integer('question_id').notNull().references(() => childConsentQuestions.id, { onDelete: 'cascade' }),
+  value: integer('value', { mode: 'boolean' }).notNull(),
+}, table => [
+  primaryKey({ columns: [table.childId, table.questionId] }),
+  index('child_consent_answers_question').on(table.questionId),
+])
+
+/**
+ * A tab of the children overview (Kinder → Übersicht) of the facility: its name (1–40), its place and its columns in
+ * order, each a consent question of the facility or a fixed field (OverviewColumnRef, shared/domain/childConsents.ts).
+ */
+export const childOverviewSheets = sqliteTable('child_overview_sheets', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  columns: text('columns', { mode: 'json' }).$type<OverviewColumnRef[]>().notNull().default(sql`'[]'`),
+}, table => [index('child_overview_sheets_facility').on(table.facilityId)])
 
 /**
  * A child's group history: "in group `groupId` from `fromDate` on". Every child has exactly one start entry

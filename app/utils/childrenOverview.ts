@@ -1,17 +1,14 @@
-// The columns of the Excel-like overview tables ("Übersicht" under "Kinder"). The texts are imported relative so a
-// test can load this file.
+// The columns of the Excel-like overview tables ("Übersicht" under "Kinder"): each tab of the facility lists its
+// columns (consent questions and fixed fields, Einstellungen → Kinder → Reiter der Übersicht); the cells are rendered
+// here. The texts are imported relative so a test can load this file.
 import { callOrder } from '#shared/domain/callOrder'
+import type { OverviewColumnRef, OverviewFieldKey } from '#shared/domain/childConsents'
 import { parseIsoDate } from '#shared/domain/dates'
 import { formatTime } from '#shared/domain/time'
 import type {
-  ChildrenOverviewDto, ChildrenOverviewRowDto, ConsentKey, OverviewContactDto, OverviewMeetingDto, TriState,
+  ChildrenOverviewDto, ChildrenOverviewRowDto, ConsentQuestionDto, OverviewContactDto, OverviewMeetingDto, OverviewSheetDto, TriState,
 } from '#shared/types/api'
 import { de } from '../locales/de'
-
-/** The sub-tabs, in the order of the sheets of the Excel list, then the parent meetings. */
-export const OVERVIEW_SHEETS = ['privacy', 'messenger', 'health', 'pickup', 'guardians', 'emergency', 'phones', 'meetings'] as const
-export type OverviewSheet = typeof OVERVIEW_SHEETS[number]
-export const isOverviewSheet = (value: unknown): value is OverviewSheet => (OVERVIEW_SHEETS as readonly unknown[]).includes(value)
 
 /** A person in a cell: the name line, small lines below it (phone numbers, the note of a contact ban), red when banned. */
 export interface OverviewLine {
@@ -85,8 +82,9 @@ const lines = (list: OverviewLine[]): OverviewCell => ({ kind: 'lines', lines: l
 const tri = (value: TriState, date = ''): OverviewCell => ({ kind: 'tri', value, date })
 const text = (value: string): OverviewCell => ({ kind: 'text', text: value })
 
-const consent = (key: ConsentKey): OverviewColumn => ({
-  key, label: t.short[key], title: de.children.consents[key], cell: row => tri(row.consents[key]),
+/** A consent question: its short name on the head, the full question as hint, ja / nein / offen in the cells. */
+const consent = (question: ConsentQuestionDto): OverviewColumn => ({
+  key: `q${question.id}`, label: question.short, title: question.text, cell: row => tri(row.consents[question.id] ?? null),
 })
 
 /** The sheet "Anruf-Reihenfolge": as the "Wichtig" box – parents first, then the others with a number, no bans. */
@@ -100,43 +98,51 @@ const phoneContacts = (row: ChildrenOverviewRowDto): OverviewContactDto[] => cal
 const columnCount = (rows: ChildrenOverviewRowDto[], count: (row: ChildrenOverviewRowDto) => number): number =>
   Math.max(1, ...rows.map(count))
 
-/**
- * The columns of a sheet after the child's name, in the order of the spec. The emergency and phone sheets have one
- * column per contact, as many as the most of the given children have, both in call order (parents first, see
- * `callOrder`).
- */
-export function overviewColumns(sheet: OverviewSheet, rows: ChildrenOverviewRowDto[]): OverviewColumn[] {
-  switch (sheet) {
-    case 'privacy':
-      return (['artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents', 'photosNamesBirthdaysDisplay', 'groupWorkWithNames'] as const)
-        .map(consent)
-    case 'messenger':
-      return (['whatsappContact', 'whatsappPhotos', 'signalPhotos', 'whatsappParentGroup'] as const).map(consent)
-    case 'health':
-      return [
-        { key: 'measlesProof', label: t.short.measlesProof, title: t.measlesTitle, cell: row => tri(row.measlesProof, dateText(row.measlesProofDate)) },
-        { key: 'infectionBriefingDate', label: t.short.infectionBriefingDate, title: t.infectionBriefingTitle, cell: row => text(dateText(row.infectionBriefingDate)) },
-        { key: 'allergies', label: t.short.allergies, title: de.children.fields.allergiesText, cell: row => text(row.allergies), wide: true },
-        { key: 'mayTakeTemperature', label: t.short.mayTakeTemperature, title: de.children.fields.mayTakeTemperature, cell: row => tri(row.mayTakeTemperature) },
-        { key: 'mayApplySunscreen', label: t.short.mayApplySunscreen, title: de.children.fields.mayApplySunscreen, cell: row => tri(row.mayApplySunscreen) },
-        { key: 'mayApplyPlaster', label: t.short.mayApplyPlaster, title: de.children.fields.mayApplyPlaster, cell: row => tri(row.mayApplyPlaster) },
-        consent('insectRepellent'),
-      ]
-    case 'pickup':
+/** What the cells need beyond the row: the facility's questions and the listed groups (for the group's name). */
+export interface OverviewContext {
+  questions: readonly ConsentQuestionDto[]
+  groups: ChildrenOverviewDto['groups']
+}
+
+const meetingText = (meeting: OverviewMeetingDto | undefined, withTime: boolean) =>
+  meeting ? [dateText(meeting.date), ...(withTime ? [formatTime(meeting.start)] : []), kindText(meeting)].join(' ') : ''
+
+/** The column(s) of a fixed field; the call order and the phone numbers expand to one column per contact. */
+function fieldColumns(key: OverviewFieldKey, rows: ChildrenOverviewRowDto[], context: OverviewContext): OverviewColumn[] {
+  switch (key) {
+    case 'birthday':
+      return [{ key, label: t.short.birthday, title: t.birthdayTitle, cell: row => text(dateText(row.birthDate)) }]
+    case 'group': {
+      const names = new Map(context.groups.map(group => [group.id, group.name]))
       return [{
-        key: 'pickUp', label: t.short.pickUp, title: t.pickUpTitle,
+        key, label: t.short.group, title: t.groupTitle,
+        cell: row => text(row.groupId === null ? de.children.noGroup : names.get(row.groupId) ?? ''),
+      }]
+    }
+    case 'address':
+      return [{ key, label: t.short.address, title: de.children.fields.address, cell: row => text(row.address), wide: true }]
+    case 'school':
+      return [{ key, label: t.short.school, title: t.schoolTitle, cell: row => text(row.school), wide: true }]
+    case 'measlesProof':
+      return [{ key, label: t.short.measlesProof, title: t.measlesTitle, cell: row => tri(row.measlesProof, dateText(row.measlesProofDate)) }]
+    case 'infectionBriefingDate':
+      return [{ key, label: t.short.infectionBriefingDate, title: t.infectionBriefingTitle, cell: row => text(dateText(row.infectionBriefingDate)) }]
+    case 'allergies':
+      return [{ key, label: t.short.allergies, title: de.children.fields.allergiesText, cell: row => text(row.allergies), wide: true }]
+    case 'pickUp':
+      return [{
+        key, label: t.short.pickUp, title: t.pickUpTitle,
         cell: row => lines(row.contacts.filter(contact => contact.mayPickUp && !contact.contactBan).map(contact => person(contact))),
       }]
     case 'guardians':
-      return [
-        { key: 'guardians', label: t.short.guardians, title: t.guardiansTitle, cell: row => lines(row.contacts.filter(contact => contact.isGuardian).map(contact => person(contact))) },
-        {
-          key: 'contactBan', label: t.short.contactBan, title: t.contactBanTitle,
-          cell: row => lines(row.contacts.filter(contact => contact.contactBan).map(contact => ({
-            text: contact.name, details: contact.contactBanNote.trim() ? [contact.contactBanNote.trim()] : [], danger: true,
-          }))),
-        },
-      ]
+      return [{ key, label: t.short.guardians, title: t.guardiansTitle, cell: row => lines(row.contacts.filter(contact => contact.isGuardian).map(contact => person(contact))) }]
+    case 'contactBan':
+      return [{
+        key, label: t.short.contactBan, title: t.contactBanTitle,
+        cell: row => lines(row.contacts.filter(contact => contact.contactBan).map(contact => ({
+          text: contact.name, details: contact.contactBanNote.trim() ? [contact.contactBanNote.trim()] : [], danger: true,
+        }))),
+      }]
     case 'emergency':
       return Array.from({ length: columnCount(rows, row => emergencyContacts(row).length) }, (_, index) => ({
         key: `emergency${index + 1}`, label: t.emergencyShort(index + 1), title: t.emergencyTitle(index + 1),
@@ -146,39 +152,53 @@ export function overviewColumns(sheet: OverviewSheet, rows: ChildrenOverviewRowD
         },
       }))
     case 'phones':
-      return [
-        { key: 'address', label: t.short.address, title: de.children.fields.address, cell: row => text(row.address), wide: true },
-        ...Array.from({ length: columnCount(rows, row => phoneContacts(row).length) }, (_, index) => ({
-          key: `contact${index + 1}`, label: t.contactShort(index + 1), title: t.contactTitle(index + 1),
-          cell: (row: ChildrenOverviewRowDto) => {
-            const contact = phoneContacts(row)[index]
-            return lines(contact ? [person(contact, phoneLines(contact))] : [])
-          },
-        })),
-      ]
-    case 'meetings':
-      return [
-        {
-          key: 'lastMeeting', label: t.short.lastMeeting, title: t.lastMeetingTitle,
-          cell: (row) => {
-            const meeting = lastMeeting(row)
-            return text(meeting ? `${dateText(meeting.date)} ${kindText(meeting)}` : '')
-          },
+      return Array.from({ length: columnCount(rows, row => phoneContacts(row).length) }, (_, index) => ({
+        key: `contact${index + 1}`, label: t.contactShort(index + 1), title: t.contactTitle(index + 1),
+        cell: (row: ChildrenOverviewRowDto) => {
+          const contact = phoneContacts(row)[index]
+          return lines(contact ? [person(contact, phoneLines(contact))] : [])
         },
-        {
-          key: 'nextMeeting', label: t.short.nextMeeting, title: t.nextMeetingTitle,
-          cell: (row) => {
-            const meeting = nextMeeting(row)
-            return text(meeting ? `${dateText(meeting.date)} ${formatTime(meeting.start)} ${kindText(meeting)}` : '')
-          },
-        },
-        {
-          key: 'allMeetings', label: t.short.allMeetings, title: t.allMeetingsTitle,
-          cell: row => lines(row.meetings.map(meeting => ({ text: `${shortDateText(meeting.date)} ${kindText(meeting)}`, details: [], danger: false }))),
-        },
-        { key: 'meetingCount', label: t.short.meetingCount, title: t.meetingCountTitle, cell: row => text(String(row.meetings.length)) },
-      ]
+      }))
+    case 'lastMeeting':
+      return [{ key, label: t.short.lastMeeting, title: t.lastMeetingTitle, cell: row => text(meetingText(lastMeeting(row), false)) }]
+    case 'nextMeeting':
+      return [{ key, label: t.short.nextMeeting, title: t.nextMeetingTitle, cell: row => text(meetingText(nextMeeting(row), true)) }]
+    case 'allMeetings':
+      return [{
+        key, label: t.short.allMeetings, title: t.allMeetingsTitle,
+        cell: row => lines(row.meetings.map(meeting => ({ text: `${shortDateText(meeting.date)} ${kindText(meeting)}`, details: [], danger: false }))),
+      }]
+    case 'meetingCount':
+      return [{ key, label: t.short.meetingCount, title: t.meetingCountTitle, cell: row => text(String(row.meetings.length)) }]
   }
+}
+
+/**
+ * The columns of a tab after the child's name, in the tab's order. The emergency and phone fields have one column per
+ * contact, as many as the most of the given children have, both in call order (parents first, see `callOrder`). A
+ * question the facility no longer has is left out.
+ */
+export function overviewColumns(
+  columns: readonly OverviewColumnRef[], rows: ChildrenOverviewRowDto[], context: OverviewContext,
+): OverviewColumn[] {
+  const questions = new Map(context.questions.map(question => [question.id, question]))
+  return columns.flatMap((column) => {
+    if (column.type === 'field') return fieldColumns(column.key, rows, context)
+    const question = questions.get(column.questionId)
+    return question ? [consent(question)] : []
+  })
+}
+
+/**
+ * The tab to show: the one asked for (address), else the one this device showed last, else the first; null without
+ * tabs. Ids that are not (or no longer) the facility's tabs are passed over.
+ */
+export function chosenSheet(sheets: readonly OverviewSheetDto[], requested: unknown, remembered: unknown): OverviewSheetDto | null {
+  const find = (value: unknown) => {
+    const id = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value
+    return sheets.find(sheet => sheet.id === id)
+  }
+  return find(requested) ?? find(remembered) ?? sheets[0] ?? null
 }
 
 export interface OverviewSection {

@@ -1,5 +1,6 @@
 import type { BemMeasureStatus, BemStatus, BemStepKind } from '../domain/bem'
 import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
+import type { OverviewColumnRef } from '../domain/childConsents'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { EveRule } from '../domain/eveRules'
 import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
@@ -39,12 +40,6 @@ export const GROUP_COLORS = ['amber', 'orange', 'rose', 'fuchsia', 'violet', 'br
 export type GroupColor = typeof GROUP_COLORS[number]
 export const isGroupColor = (value: string): value is GroupColor => (GROUP_COLORS as readonly string[]).includes(value)
 
-/** The consents (Einwilligungen) in a child's record; each matches a `consent_*` column of `children`. */
-export const CONSENT_KEYS = [
-  'artworkDisplay', 'photosDisplay', 'photosForeignPortfolios', 'photosInternalEvents',
-  'photosNamesBirthdaysDisplay', 'groupWorkWithNames', 'whatsappContact', 'whatsappPhotos', 'signalPhotos', 'whatsappParentGroup', 'insectRepellent',
-] as const
-export type ConsentKey = typeof CONSENT_KEYS[number]
 /** An answer that may still be open: yes, no or not answered (null). */
 export type TriState = boolean | null
 
@@ -202,12 +197,57 @@ export interface ChildHealthInput {
   measlesProofDate: IsoDate | null
   infectionBriefingDate: IsoDate | null
   allergies: string
-  mayTakeTemperature: TriState
-  mayApplySunscreen: TriState
-  mayApplyPlaster: TriState
 }
 
-export type ChildConsents = Record<ConsentKey, TriState>
+/**
+ * A consent question of the facility (Einwilligungen & Erlaubnisse, Einstellungen → Kinder): the full `text`, the
+ * `short` column head of the overview and its free `area`. A hidden one is no longer asked; its answers stay.
+ * `builtinKey`: one of the questions that were fixed fields before (shared/domain/childConsents.ts), else null.
+ */
+export interface ConsentQuestionDto {
+  id: number
+  text: string
+  short: string
+  area: string
+  sortOrder: number
+  hidden: boolean
+  builtinKey: string | null
+}
+
+/** In the settings: with the number of children who answered it (a question with answers cannot be deleted). */
+export interface ConsentQuestionSettingsDto extends ConsentQuestionDto {
+  answerCount: number
+}
+
+/** A new or changed question; `hidden` left out = shown. */
+export interface ConsentQuestionInput {
+  text: string
+  short: string
+  area: string
+  hidden?: boolean
+}
+
+/** A child's answers by question id: ja (true) or nein (false); a question without entry has keine Angabe. */
+export type ConsentAnswers = Record<number, boolean>
+
+/** One answer as saved from the record: null = keine Angabe. */
+export interface ConsentAnswerInput {
+  questionId: number
+  value: TriState
+}
+
+/** A tab of the children overview with its columns in order (consent questions of the facility and fixed fields). */
+export interface OverviewSheetDto {
+  id: number
+  name: string
+  sortOrder: number
+  columns: OverviewColumnRef[]
+}
+
+export interface OverviewSheetInput {
+  name: string
+  columns: OverviewColumnRef[]
+}
 
 /** A contact person (Bezugsperson) of a child. */
 export interface ChildContactInput {
@@ -624,7 +664,12 @@ export interface ChildRecordDto {
   /** The „künftige Schule“ as shown (organisation and city; null together with master.futureSchoolContactId). */
   futureSchoolName: string | null
   health: ChildHealthInput
-  consents: ChildConsents
+  /**
+   * The facility's questions the record shows: the visible ones and the hidden ones this child has an answer to (shown
+   * read-only), in their order.
+   */
+  consentQuestions: ConsentQuestionDto[]
+  consents: ConsentAnswers
   contacts: ChildContactDto[]
   stamps: Record<'master' | 'contacts' | 'health' | 'consents', SectionStamp>
   leftOn: IsoDate | null
@@ -798,15 +843,16 @@ export interface ChildrenOverviewRowDto {
   lastName: string
   firstName: string
   groupId: number | null
+  birthDate: IsoDate
   address: string
-  consents: ChildConsents
+  /** The „künftige Schule“ as shown in the record ('' without one). */
+  school: string
+  /** The answers to every question of the facility (hidden ones included: a tab may still show them). */
+  consents: ConsentAnswers
   measlesProof: boolean | null
   measlesProofDate: IsoDate | null
   infectionBriefingDate: IsoDate | null
   allergies: string
-  mayTakeTemperature: boolean | null
-  mayApplySunscreen: boolean | null
-  mayApplyPlaster: boolean | null
   /** In the record's order. */
   contacts: OverviewContactDto[]
   /** The child's parent meetings, newest first (as in the record), without the confidential note. */
@@ -827,6 +873,10 @@ export interface ChildrenOverviewDto {
   groups: { id: number | null; name: string }[]
   /** In the order of the child list. */
   children: ChildrenOverviewRowDto[]
+  /** The facility's tabs in their order (none: the page says where to add them). */
+  sheets: OverviewSheetDto[]
+  /** Every question of the facility, hidden ones included, in their order. */
+  questions: ConsentQuestionDto[]
 }
 
 /** An archived child in the archive list; the record may be deleted from `purgeOn` on (by the Träger, by hand). */

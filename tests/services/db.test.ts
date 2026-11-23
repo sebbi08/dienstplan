@@ -12,9 +12,11 @@ import {
 } from '../../server/db/schema'
 import { DEFAULT_TEMPLATE_CATEGORIES, ensureInitialAdmin, resetAdminFromEnv, seedDefaults } from '../../server/db/seed'
 import { verifyPassword } from '../../server/lib/password'
+import { DEFAULT_CONSENT_QUESTIONS, DEFAULT_OVERVIEW_SHEETS } from '../../shared/domain/childConsents'
 import { DEFAULT_CONTACT_CATEGORIES } from '../../shared/domain/contacts'
 import { STARTERS } from '../../shared/domain/forms/starters'
 import { addChild, addEmployee, addUser, createTestDb } from '../helpers/fixtures'
+import { CONSENT_COLUMN_OF, insertOverviewSample } from '../helpers/overviewSample'
 
 describe('database setup', () => {
   it('seeds templates, codes and coverage rules once', () => {
@@ -2426,6 +2428,89 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     `)
     expect(sqlite.prepare('SELECT DISTINCT facility_id FROM contact_categories').all()).toEqual([{ facility_id: 1 }])
     expect(sqlite.prepare('SELECT id FROM contacts').all()).toEqual([{ id: 2 }])
+  })
+
+  it('0111 makes the fixed consents questions of every facility, copies every answer and adds the eight tabs', () => {
+    const { db, sqlite } = databaseAt('0110')
+    insertOverviewSample(sqlite)
+    const before = sqlite.prepare('SELECT * FROM children ORDER BY id').all() as Record<string, unknown>[]
+    // Only through 0111, so a later migration of these tables does not change the result.
+    migrateThrough(db, '0111')
+
+    // Every facility (also the one without children) has the 14 questions in the order and with the texts of before.
+    const questions = sqlite.prepare('SELECT * FROM child_consent_questions ORDER BY facility_id, sort_order').all() as Record<string, unknown>[]
+    expect(questions.map(({ facility_id, builtin_key, area, short, text, sort_order, hidden }) => ({ facility_id, builtin_key, area, short, text, sort_order, hidden })))
+      .toEqual([1, 2, 3].flatMap(facility => DEFAULT_CONSENT_QUESTIONS.map((question, index) => ({
+        facility_id: facility, builtin_key: question.builtinKey, area: question.area, short: question.short, text: question.text,
+        sort_order: index, hidden: 0,
+      }))))
+    const questionOf = (facility: unknown, key: string) =>
+      questions.find(question => question.facility_id === facility && question.builtin_key === key)!.id
+
+    // Each yes and no became an answer to the question of the child's own facility; an open one none.
+    const expected: { child_id: unknown; question_id: unknown; value: unknown }[] = []
+    for (const child of before) {
+      for (const [key, column] of Object.entries(CONSENT_COLUMN_OF)) {
+        if (child[column] !== null) expected.push({ child_id: child.id, question_id: questionOf(child.facility_id, key), value: child[column] })
+      }
+    }
+    const answers = sqlite.prepare('SELECT child_id, question_id, value FROM child_consent_answers').all()
+    const order = (rows: unknown[]) => [...rows as { child_id: number; question_id: number }[]]
+      .sort((a, b) => a.child_id - b.child_id || a.question_id - b.question_id)
+    expect(order(answers)).toEqual(order(expected))
+    expect(expected.filter(answer => answer.value === 1).length).toBeGreaterThan(10)
+    expect(expected.filter(answer => answer.value === 0).length).toBeGreaterThan(10)
+    // The archived child's yes and the planned child's no moved as well (the record keeps them).
+    expect(answers).toContainEqual({ child_id: 15, question_id: questionOf(1, 'artworkDisplay'), value: 1 })
+    expect(answers).toContainEqual({ child_id: 16, question_id: questionOf(1, 'artworkDisplay'), value: 0 })
+    // The old columns stay as they were (a rollback to the previous version still finds them).
+    expect(sqlite.prepare('SELECT * FROM children ORDER BY id').all()).toEqual(before)
+
+    // Eight tabs per facility, with the columns of the former fixed sheets (questions of the own facility).
+    const sheets = sqlite.prepare('SELECT * FROM child_overview_sheets ORDER BY facility_id, sort_order').all() as Record<string, unknown>[]
+    expect(sheets.map(sheet => ({
+      facility: sheet.facility_id, name: sheet.name, sortOrder: sheet.sort_order,
+      columns: (JSON.parse(sheet.columns as string) as Record<string, unknown>[]).map(column => column.type === 'field'
+        ? column
+        : { type: 'consent', builtinKey: questions.find(question => question.id === column.questionId && question.facility_id === sheet.facility_id)?.builtin_key }),
+    }))).toEqual([1, 2, 3].flatMap(facility => DEFAULT_OVERVIEW_SHEETS.map((sheet, index) => ({
+      facility, name: sheet.name, sortOrder: index, columns: sheet.columns,
+    }))))
+
+    const fks = (table: string) => sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all()
+      .map(fk => { const { table: to, from, on_delete } = fk as Record<string, string>; return { to, from, on_delete } })
+    expect(fks('child_consent_questions')).toEqual([{ to: 'facilities', from: 'facility_id', on_delete: 'CASCADE' }])
+    expect(fks('child_consent_answers')).toEqual(expect.arrayContaining([
+      { to: 'children', from: 'child_id', on_delete: 'CASCADE' },
+      { to: 'child_consent_questions', from: 'question_id', on_delete: 'CASCADE' },
+    ]))
+    expect(fks('child_overview_sheets')).toEqual([{ to: 'facilities', from: 'facility_id', on_delete: 'CASCADE' }])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    // One answer per child and question; a builtin key once per facility.
+    expect(() => sqlite.exec(`INSERT INTO child_consent_answers (child_id, question_id, value) VALUES (11, ${questionOf(1, 'artworkDisplay')}, 1)`))
+      .toThrow(/UNIQUE|PRIMARY KEY/)
+    expect(() => sqlite.exec(`INSERT INTO child_consent_questions (facility_id, text, short, area, builtin_key) VALUES (1, 'x', 'x', 'x', 'signalPhotos')`))
+      .toThrow(/UNIQUE/)
+    // The answers go with their child and with their question; questions and tabs with their facility.
+    const ofChild11 = count(sqlite, 'child_consent_answers') - expected.filter(answer => answer.child_id !== 11).length
+    expect(ofChild11).toBeGreaterThan(0)
+    sqlite.exec('DELETE FROM child_contacts WHERE child_id = 11; DELETE FROM child_parent_meetings WHERE child_id = 11; DELETE FROM children WHERE id = 11')
+    expect(count(sqlite, 'child_consent_answers')).toBe(expected.length - ofChild11)
+    sqlite.exec(`DELETE FROM child_consent_questions WHERE id = ${questionOf(2, 'whatsappContact')}`)
+    expect(sqlite.prepare(`SELECT count(*) AS n FROM child_consent_answers WHERE question_id = ${questionOf(2, 'whatsappContact')}`).get()).toEqual({ n: 0 })
+    sqlite.exec('DELETE FROM facilities WHERE id = 3')
+    expect(sqlite.prepare('SELECT DISTINCT facility_id FROM child_consent_questions ORDER BY facility_id').all()).toEqual([{ facility_id: 1 }, { facility_id: 2 }])
+    expect(sqlite.prepare('SELECT DISTINCT facility_id FROM child_overview_sheets ORDER BY facility_id').all()).toEqual([{ facility_id: 1 }, { facility_id: 2 }])
+  })
+
+  it('0111 gives a new database the default questions and tabs, without answers', () => {
+    const { db, sqlite } = createDb(':memory:')
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT facility_id, builtin_key FROM child_consent_questions ORDER BY sort_order').all())
+      .toEqual(DEFAULT_CONSENT_QUESTIONS.map(question => ({ facility_id: 1, builtin_key: question.builtinKey })))
+    expect(sqlite.prepare('SELECT name FROM child_overview_sheets ORDER BY sort_order').all().map(row => (row as { name: string }).name))
+      .toEqual(DEFAULT_OVERVIEW_SHEETS.map(sheet => sheet.name))
+    expect(count(sqlite, 'child_consent_answers')).toBe(0)
   })
 
   it('checks foreign keys only when migrations ran, and names the broken tables in German', () => {

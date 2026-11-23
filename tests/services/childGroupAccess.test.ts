@@ -151,7 +151,7 @@ describe('child records by group rights', () => {
   const writes = (id: number): Record<string, () => unknown> => ({
     master: () => updateChildMaster(db, viewer(), 1, id, recordOf(id).master, TODAY, NOW),
     health: () => updateChildHealth(db, viewer(), 1, id, recordOf(id).health, TODAY, NOW),
-    consents: () => updateChildConsents(db, viewer(), 1, id, recordOf(id).consents, TODAY, NOW),
+    consents: () => updateChildConsents(db, viewer(), 1, id, [], TODAY, NOW),
     confirm: () => confirmSection(db, viewer(), 1, id, 'contacts', TODAY, NOW),
     reorderContacts: () => reorderContacts(db, viewer(), 1, id, [contactOf[id]!], TODAY, NOW),
     updateContact: () => updateContact(db, viewer(), 1, contactOf[id]!, contact({ name: 'Anders' }), TODAY, NOW),

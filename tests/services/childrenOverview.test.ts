@@ -11,7 +11,9 @@ import { setReadAccess } from '../../server/services/groupReadAccess'
 import { setTabletSettings } from '../../server/services/tabletSettings'
 import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
-import { CONSENT_KEYS, type ChildConsents, type ChildContactInput, type ParentMeetingInput, type SessionUser } from '../../shared/types/api'
+import { DEFAULT_OVERVIEW_SHEETS } from '../../shared/domain/childConsents'
+import type { ChildContactInput, ParentMeetingInput, SessionUser } from '../../shared/types/api'
+import { answers, questionId } from '../helpers/consents'
 import { addChild, addEmployee, addFacility, addGroup, addUser, allowChildEditing, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-10-19'
@@ -24,7 +26,6 @@ const contact = (overrides: Partial<ChildContactInput> = {}): ChildContactInput 
 const meeting = (overrides: Partial<ParentMeetingInput> = {}): ParentMeetingInput => ({
   date: '2026-09-01', start: 600, end: 660, kind: 'development', participants: 'Mutter', ...overrides,
 })
-const openConsents = (): ChildConsents => Object.fromEntries(CONSENT_KEYS.map(key => [key, null])) as ChildConsents
 
 describe('children overview', () => {
   let db: Db
@@ -145,29 +146,45 @@ describe('children overview', () => {
     expect(pickUp).toEqual(['Otto Muster'])
   })
 
-  it('copies the consents, the health fields and the address', () => {
-    const consents = { ...openConsents(), artworkDisplay: true, whatsappPhotos: false, signalPhotos: true, insectRepellent: false }
-    updateChildConsents(db, admin, 1, kidB, consents, TODAY, NOW)
+  it('copies the answers, the health fields, birth date and the address', () => {
+    updateChildConsents(db, admin, 1, kidB, answers(db, 1, {
+      artworkDisplay: true, whatsappPhotos: false, signalPhotos: true, insectRepellent: false, mayTakeTemperature: true,
+    }), TODAY, NOW)
     updateChildHealth(db, admin, 1, kidB, {
       measlesProof: true, measlesProofDate: '2025-08-01', infectionBriefingDate: '2025-09-02', allergies: 'Nüsse, Laktose',
-      mayTakeTemperature: true, mayApplySunscreen: false, mayApplyPlaster: null,
     }, TODAY, NOW)
     db.update(children).set({ address: 'Hauptstr. 1, 90402 Nürnberg' }).where(eq(children.id, kidB)).run()
     const row = childrenOverview(db, admin, TODAY).children.find(item => item.id === kidB)!
+    const q = (key: Parameters<typeof questionId>[2]) => questionId(db, 1, key)
     expect(row).toEqual({
-      id: kidB, lastName: 'Biber', firstName: 'Kind', groupId: b, address: 'Hauptstr. 1, 90402 Nürnberg', consents,
+      id: kidB, lastName: 'Biber', firstName: 'Kind', groupId: b, birthDate: '2022-03-15', address: 'Hauptstr. 1, 90402 Nürnberg',
+      school: '',
+      consents: { [q('artworkDisplay')]: true, [q('whatsappPhotos')]: false, [q('signalPhotos')]: true, [q('insectRepellent')]: false, [q('mayTakeTemperature')]: true },
       measlesProof: true, measlesProofDate: '2025-08-01', infectionBriefingDate: '2025-09-02', allergies: 'Nüsse, Laktose',
-      mayTakeTemperature: true, mayApplySunscreen: false, mayApplyPlaster: null, contacts: [], meetings: [],
+      contacts: [], meetings: [],
     })
   })
 
-  it('gives a child without contacts and health data empty values and open consents', () => {
+  it('gives a child without contacts and health data empty values and no answers', () => {
     const row = childrenOverview(db, admin, TODAY).children.find(item => item.id === kidNone)!
     expect(row).toEqual({
-      id: kidNone, lastName: 'Dachs', firstName: 'Kind', groupId: null, address: '', consents: openConsents(),
-      measlesProof: null, measlesProofDate: null, infectionBriefingDate: null, allergies: '',
-      mayTakeTemperature: null, mayApplySunscreen: null, mayApplyPlaster: null, contacts: [], meetings: [],
+      id: kidNone, lastName: 'Dachs', firstName: 'Kind', groupId: null, birthDate: '2022-03-15', address: '', school: '', consents: {},
+      measlesProof: null, measlesProofDate: null, infectionBriefingDate: null, allergies: '', contacts: [], meetings: [],
     })
+  })
+
+  it('brings the facility\'s tabs and all its questions (hidden ones too), the answers only of the children shown', () => {
+    updateChildConsents(db, admin, 1, kidC, answers(db, 1, { whatsappContact: true }), TODAY, NOW)
+    updateChildConsents(db, admin, 1, kidA, answers(db, 1, { whatsappContact: false }), TODAY, NOW)
+    const overview = childrenOverview(db, staff(), TODAY)
+    expect(overview.sheets.map(sheet => sheet.name)).toEqual(DEFAULT_OVERVIEW_SHEETS.map(sheet => sheet.name))
+    expect(overview.questions).toHaveLength(14)
+    expect(overview.children.find(row => row.id === kidA)!.consents).toEqual({ [questionId(db, 1, 'whatsappContact')]: false })
+    // Group C's child is not listed, so neither is its answer.
+    expect(overview.children.flatMap(row => Object.values(row.consents))).toEqual([false])
+    // Another facility's tabs and questions stay there.
+    const other = addFacility(db, 'Andere Kita')
+    expect(childrenOverview(db, admin, TODAY).questions.every(question => question.id !== questionId(db, other, 'whatsappContact'))).toBe(true)
   })
 
   describe('parent meetings', () => {
@@ -210,6 +227,6 @@ describe('children overview', () => {
   it('is empty for a facility without active children', () => {
     const krippe = addFacility(db, 'Krippe')
     addGroup(db, krippe, 'Igel')
-    expect(childrenOverview(db, { ...admin, facilityId: krippe }, TODAY)).toEqual({ groups: [], children: [] })
+    expect(childrenOverview(db, { ...admin, facilityId: krippe }, TODAY)).toMatchObject({ groups: [], children: [] })
   })
 })
