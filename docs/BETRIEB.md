@@ -1575,6 +1575,43 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   ohne Kategorie kamen unter „Sonstiges“. Gab es noch keine Vorlagen, begann die App mit „Eltern“, „Gesundheit“ und
   „Personal“.
 
+### Formulare in der App ausfüllen
+
+Manche PDF-Vorlagen haben **Formularfelder** (Textfelder, Kästchen zum Ankreuzen, Auswahllisten) – z. B. eine
+Einverständniserklärung oder die Unfallanzeige der Unfallkasse. Solche Vorlagen erkennt die App von selbst und zeigt
+neben **Öffnen** den Knopf **Ausfüllen**. Vorlagen ohne Felder (z. B. ein eingescanntes Blatt) haben ihn nicht.
+
+- **Für wen**: Nach **Ausfüllen** wählst du **für ein Kind** oder **für eine Person aus dem Team** und suchst das Kind
+  bzw. die Person in der Liste (Name eintippen). Angeboten wird nur, wohin du auch Dokumente hochladen darfst: Kinder,
+  deren Akte du ändern darfst (wie beim Hochladen eines Dokuments), und Personen, deren Personalakte du siehst und in
+  deren Fächer du Dokumente ablegen darfst. Wer beides nicht darf, sieht den Knopf **Ausfüllen** nicht.
+- **Ausfüllen**: Das Formular erscheint groß auf dem Bildschirm, die Felder lassen sich antippen und ausfüllen. Oben
+  wechselst du die **Seite** (Pfeile) und machst die Ansicht **größer oder kleiner** (Lupen; die Prozentzahl stellt
+  wieder auf die volle Breite) – praktisch am Handy und am Tablet.
+- **Drucken** druckt das Formular mit den Eingaben, **ohne** es zu speichern.
+- **Speichern** legt das ausgefüllte Formular als neues Dokument ab:
+  - **bei einem Kind** in der Kinderakte unter **Dokumente**. Du wählst die **Art** (vorgeschlagen: die Art mit dem
+    Namen der Vorlage, sonst „Sonstiges“), das **Datum** (heute) und die **Bezeichnung** (vorgeschlagen: Titel der
+    Vorlage und Datum, z. B. „Einverständnis Ausflug 20.11.2026“). **Vertraulich** ist es, wenn die Art das so vorsieht;
+    das lässt sich ändern.
+  - **bei einer Person** in der Personalakte (Reiter **Nachweise** → **Dokumente**) in einem **Fach**, das du nutzen
+    darfst, mit Datum und Bezeichnung wie oben.
+- **Schließen** mit noch nicht gespeicherten Eingaben fragt vorher nach; ebenso, wenn du die Seite verlässt.
+- **Die Vorlage selbst ändert sich nie.** Die Eingaben bleiben nur auf dem Gerät, bis du speicherst.
+- **Weiter ausfüllen**: Ein gespeichertes Formular, das noch Felder hat, zeigt in der Kinderakte bzw. Personalakte den
+  Knopf **Weiter ausfüllen**. Es öffnet sich mit den bisherigen Eingaben; **Speichern** ersetzt dann die Datei dieses
+  Dokuments. Art, Bezeichnung, Datum (und das Fach) bleiben, „hochgeladen von … am …“ zeigt danach, wer zuletzt
+  gespeichert hat. Das darf, wer das Dokument auch ändern darf.
+- **Aus Vorlage ausfüllen**: In der Kinderakte (Dokumente) und in der Personalakte (Nachweise → Dokumente) gibt es
+  außerdem den Knopf **Aus Vorlage ausfüllen**. Er zeigt die Vorlagen der Einrichtung mit Feldern, die du sehen darfst;
+  Kind bzw. Person sind schon gewählt.
+- **Am Tablet** geht das nur bei Kindern und nur, wenn das Tablet mit einer PIN entsperrt ist, deren Person Dokumente in
+  Kinderakten hochladen darf (in der Kinderakte: **Aus Vorlage ausfüllen** und **Weiter ausfüllen**). Personalakten
+  gibt es am Tablet nicht. Unter **Vorlagen** auf der Startseite (ohne PIN) gibt es deshalb kein **Ausfüllen**.
+- Es gelten dieselben Regeln wie beim Hochladen: nur PDF, höchstens **10 MB**, nur in der eigenen Einrichtung.
+- Felder mit Rechenformeln oder Prüfungen (Skripte im PDF) rechnet die App nicht aus; solche Felder füllst du von Hand.
+  Ist ein PDF verschlüsselt, erkennt die App die Felder unter Umständen nicht; dann fehlt **Ausfüllen**.
+
 ## 20. Personalschlüssel
 
 Die App rechnet je Gruppe und für die ganze Einrichtung aus, wie viel pädagogisches Personal nach den Vorgaben des
