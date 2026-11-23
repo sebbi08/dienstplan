@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildDistrictIndex, decodeCsvBytes, districtCsv, guessAsOf, matchAddress, normalizeDistrictCode, overlappingRows,
-  parseAddress, parseDistrictCsv, parseDistrictLines, pdfLines, rowContains, streetKey, type DistrictRow,
+  buildDistrictIndex, decodeCsvBytes, districtCsv, guessAsOf, looksTruncated, matchAddress, normalizeDistrictCode, overlappingRows,
+  parseAddress, parseDistrictCsv, parseDistrictLines, pdfLines, rowContains, streetKey, validDistrictCode, type DistrictRow,
 } from '../../shared/domain/schoolDistricts'
 
 /** A row with the defaults of a clean source line. */
@@ -205,6 +205,40 @@ describe('CSV import and export', () => {
     expect(back.legend).toEqual([{ code: '02', name: 'Südstadtschule' }, { code: '04', name: 'Hirschackerschule' }])
   })
 
+  it('reads long lines in linear time and reports them instead of matching', () => {
+    const line = `a${' 1'.repeat(16_000)} !`
+    let started = performance.now()
+    const text = parseDistrictLines([[line]])
+    expect(performance.now() - started).toBeLessThan(50)
+    expect(text).toMatchObject({ rows: [], skippedCount: 1 })
+    expect(text.skipped[0]!.length).toBeLessThan(130)
+    // A 10 MB file without line breaks, with and without separators.
+    for (const big of ['Ahornweg 2- 14 04 '.repeat(580_000), `Straße;Hausnummer;Bezirk\n${'x;'.repeat(5_000_000)}`]) {
+      started = performance.now()
+      const result = parseDistrictCsv(big)
+      expect(performance.now() - started).toBeLessThan(3000)
+      expect(result.rows).toEqual([])
+      expect(result.skippedCount).toBe(1)
+    }
+  })
+
+  it('keeps district codes to letters, digits, space, dot, hyphen and slash, and never writes a formula', () => {
+    const result = parseDistrictCsv('Straße;Hausnummer;Bezirk\nAhornweg;2-14;=1+1\nBirkenweg;1-9;@SUM(A1)\nEichenweg;1-9;N-1/2\nUlmenweg;1-9;-2\n')
+    expect(result.rows.map(entry => [entry.street, entry.district])).toEqual([['Eichenweg', 'N-1/2']])
+    expect(result.skippedCount).toBe(3)
+    expect(validDistrictCode('02')).toBe(true)
+    expect(validDistrictCode('NORD 2')).toBe(true)
+    for (const code of ['=1+1', '+A1', '-2', '@X', 'A;B', 'ELF ZEICHEN']) expect(validDistrictCode(code), code).toBe(false)
+    // Written defensively all the same.
+    expect(districtCsv([row('Weg', 1, 3, '-2')], [])).toContain(";'-2;")
+  })
+
+  it('finds the header below a title line', () => {
+    const result = parseDistrictCsv('Schulbezirke der Stadt, Stand 2021\n\nStraße;von;bis;Seite;Bezirk;Schule;Prüfen;Hinweis\nAhornweg;2;14;gerade;04;Hirschackerschule;;\n')
+    expect(result.rows).toEqual([row('Ahornweg', 2, 14, '04')])
+    expect(result.legend).toEqual([{ code: '04', name: 'Hirschackerschule' }])
+  })
+
   it('guesses the „Stand“ from a year in the file name', () => {
     expect(guessAsOf('schulbezirke-2021.pdf')).toBe('2021')
     expect(guessAsOf('Schulbezirke.csv')).toBe('')
@@ -219,6 +253,13 @@ describe('overlaps', () => {
       row('Marktplatz', null, null, '02'), row('Marktplatz', 4, 4, '01'),
     ]
     expect([...overlappingRows(rows)].sort()).toEqual([0, 1, 6, 7])
+  })
+
+  it('looks at the suffixes where two ranges touch', () => {
+    expect(overlappingRows([row('Weg', 1, 3, '02', { toSuffix: 'a' }), row('Weg', 3, 9, '03', { fromSuffix: 'b' })]).size).toBe(0)
+    expect(overlappingRows([row('Weg', 1, 3, '02', { toSuffix: 'b' }), row('Weg', 3, 9, '03', { fromSuffix: 'b' })]).size).toBe(2)
+    // „bis 3“ takes every 3x, so it meets „ab 3b“.
+    expect(overlappingRows([row('Weg', 1, 3, '02'), row('Weg', 3, 9, '03', { fromSuffix: 'b' })]).size).toBe(2)
   })
 })
 
@@ -280,8 +321,34 @@ describe('matching an address', () => {
     // Two truncated names that both fit: nothing is guessed.
     const two = buildDistrictIndex([row('Clementine-Bassermann-St', 1, 27, '02'), row('Clementine-Bassermann-Str', 1, 27, '03')])
     expect(matchAddress(two, 'Clementine-Bassermann-Straße 5')).toEqual({ kind: 'match', code: '03' })
-    const prefixes = buildDistrictIndex([row('Clementine-Bassermann-St', 1, 27, '02'), row('Clementine-Basserm', 1, 27, '03')])
+    const prefixes = buildDistrictIndex([row('Clementine-Bassermann-St', 1, 27, '02'), row('Clementine-Bassermann-Stra', 1, 27, '03')])
     expect(matchAddress(prefixes, 'Clementine-Bassermann-Straße 5')).toEqual({ kind: 'none' })
+  })
+
+  it('takes only names that look cut off as a beginning, never a complete name', () => {
+    expect(looksTruncated('Clementine-Bassermann-St')).toBe(true)
+    expect(looksTruncated('Friedrichsfelder Landstr')).toBe(true)
+    expect(looksTruncated('Hockenheimer Landstraße')).toBe(false)
+    expect(looksTruncated('Am Alten Rathaus')).toBe(false)
+    expect(looksTruncated('Brühler Sträßchen')).toBe(false)
+    expect(looksTruncated('Konrad-Adenauer-Platz')).toBe(false)
+    const rathaus = buildDistrictIndex([row('Am Alten Rathaus', 1, 9, '01'), row('Clementine-Bassermann-St', 1, 27, '02')])
+    expect(matchAddress(rathaus, 'Am Alten Rathausplatz 3')).toEqual({ kind: 'none' })
+    expect(matchAddress(rathaus, 'Clementine-Bassermann-Straße 3')).toEqual({ kind: 'match', code: '02' })
+  })
+
+  it('reads an address typed on one line with postcode and town', () => {
+    expect(parseAddress('Ahornweg 12 68723 Musterstadt')).toEqual({ street: 'Ahornweg', no: 12, suffix: '' })
+    expect(parseAddress('Ahornweg 12a · 68723 Musterstadt')).toEqual({ street: 'Ahornweg', no: 12, suffix: 'a' })
+    expect(parseAddress('Ahornweg 12 in 68723 Musterstadt')).toEqual({ street: 'Ahornweg', no: 12, suffix: '' })
+    expect(parseAddress('Ahornweg 12 D-68723 Musterstadt')).toEqual({ street: 'Ahornweg', no: 12, suffix: '' })
+    expect(matchAddress(index, 'Ahornweg 12 68723 Musterstadt')).toEqual({ kind: 'match', code: '04' })
+    // Outside the listed range: not in the list, not a confident district by the street alone.
+    expect(matchAddress(index, 'Ahornweg 40 68723 Musterstadt')).toEqual({ kind: 'none' })
+    const short = buildDistrictIndex([row('Am Rain', 1, 9, '03')])
+    expect(matchAddress(short, 'Am Rain 5 68723 Musterstadt')).toEqual({ kind: 'match', code: '03' })
+    // Digits that are no house number: the prefix rule is not tried.
+    expect(matchAddress(index, 'Clementine-Bassermann-Straße 5 Haus 2 Etage 3')).toEqual({ kind: 'none' })
   })
 
   it('uses every row of the street without a house number', () => {

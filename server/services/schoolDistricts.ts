@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import {
-  decodeCsvBytes, guessAsOf, matchAddress, normalizeDistrictCode, parseDistrictCsv, parseDistrictLines, pdfLines, streetKey,
+  decodeCsvBytes, guessAsOf, looksTruncated, matchAddress, normalizeDistrictCode, parseDistrictCsv, parseDistrictLines, pdfLines,
+  streetKey, validDistrictCode,
   SCHOOL_DISTRICT_LIMITS, type DistrictFlag, type DistrictLookup, type DistrictParseResult, type DistrictRow, type IndexRow,
 } from '../../shared/domain/schoolDistricts'
 import { isSchoolCategory } from '../../shared/domain/contacts'
@@ -127,7 +128,7 @@ function checkedRow(row: DistrictRow, index: number): DistrictRow & { streetKey:
   const district = normalizeDistrictCode(row.district)
   const fromSuffix = row.fromSuffix.toLowerCase()
   const toSuffix = row.toSuffix.toLowerCase()
-  if (key === '' || district === '' || district.length > L.maxCode) throw rowError(index)
+  if (key === '' || !validDistrictCode(district)) throw rowError(index)
   if (!/^[a-z]?$/.test(fromSuffix) || !/^[a-z]?$/.test(toSuffix)) throw rowError(index)
   if ((row.fromNo === null) !== (row.toNo === null)) throw rowError(index)
   if (row.fromNo !== null && row.toNo !== null) {
@@ -218,7 +219,7 @@ export interface DistrictChild { address: string; futureSchoolContactId: number 
 /**
  * The matcher for children of the facility, against the list that applies (own, else the Träger's); null when there is
  * no list or the child has no address. Rows are fetched per street key through the index and kept for the next child;
- * the list of all keys is read only when a street is not in the list as written (for truncated names).
+ * the keys of truncated-looking streets are read only when a street is not in the list as written.
  */
 export function schoolDistrictMatcher(db: Db, facilityId: number): (child: DistrictChild) => SchoolDistrictMatchDto | null {
   const list = effectiveList(db, facilityId)
@@ -238,9 +239,9 @@ export function schoolDistrictMatcher(db: Db, facilityId: number): (child: Distr
       }
       return rows
     },
-    keys: () => {
-      keys ??= db.selectDistinct({ key: schoolDistrictRows.streetKey }).from(schoolDistrictRows)
-        .where(eq(schoolDistrictRows.listId, list.id)).all().map(row => row.key)
+    truncatedKeys: () => {
+      keys ??= [...new Set(db.selectDistinct({ key: schoolDistrictRows.streetKey, street: schoolDistrictRows.street }).from(schoolDistrictRows)
+        .where(eq(schoolDistrictRows.listId, list.id)).all().filter(row => looksTruncated(row.street)).map(row => row.key))]
       return keys
     },
   }

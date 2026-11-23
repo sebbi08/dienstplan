@@ -1,3 +1,5 @@
+import { deflateSync } from 'node:zlib'
+
 /** A text item placed on a page: left edge and baseline in PDF points (origin bottom left). */
 export interface PdfText { text: string; x: number; y: number }
 
@@ -40,6 +42,34 @@ export function textPdf(pages: readonly (readonly PdfText[])[]): Buffer {
   for (let id = 1; id < objects.length; id++) body += `${String(offsets[id]).padStart(10, '0')} 00000 n \n`
   body += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
   return Buffer.from(body, 'latin1')
+}
+
+/**
+ * A decompression bomb: one page whose content stream (a line of text followed by `megabytes` of spaces) is Flate
+ * compressed to about a thousandth of that.
+ */
+export function flateBombPdf(megabytes: number): Buffer {
+  const content = Buffer.concat([Buffer.from('BT /F1 12 Tf 10 10 Td (Ahornweg 2- 14 04) Tj ET\n'), Buffer.alloc(megabytes * 1024 * 1024, 0x20)])
+  const deflated = deflateSync(content, { level: 9 })
+  const objects: Buffer[] = [
+    Buffer.from('<< /Type /Catalog /Pages 2 0 R >>'),
+    Buffer.from('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
+    Buffer.from('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>'),
+    Buffer.concat([Buffer.from(`<< /Length ${deflated.length} /Filter /FlateDecode >>\nstream\n`), deflated, Buffer.from('\nendstream')]),
+    Buffer.from('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),
+  ]
+  const parts: Buffer[] = [Buffer.from('%PDF-1.7\n')]
+  const offsets: number[] = []
+  let length = parts[0]!.length
+  objects.forEach((object, index) => {
+    offsets.push(length)
+    const part = Buffer.concat([Buffer.from(`${index + 1} 0 obj\n`), object, Buffer.from('\nendobj\n')])
+    parts.push(part)
+    length += part.length
+  })
+  parts.push(Buffer.from(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}`
+    + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${length}\n%%EOF\n`))
+  return Buffer.concat(parts)
 }
 
 /** The street list as a PDF: the three columns at the x positions of the real list, one row every 15 points. */

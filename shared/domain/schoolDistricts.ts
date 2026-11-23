@@ -67,9 +67,15 @@ export function streetKey(street: string): string {
 /** A district code as stored: trimmed, upper case; a number with two digits at least („1“, „01“, Excel’s „2“ → „01“, „02“). */
 export function normalizeDistrictCode(code: string): string {
   const trimmed = code.trim().toUpperCase()
-  if (/^\d+$/.test(trimmed)) return String(Number(trimmed)).padStart(2, '0')
+  if (/^\d{1,10}$/.test(trimmed)) return String(Number(trimmed)).padStart(2, '0')
   return trimmed
 }
+
+/**
+ * Whether a (normalised) code may be stored: letters, digits, space, dot, hyphen and slash, starting with a letter or
+ * digit, at most 10 characters – so no code can start a spreadsheet formula (= + - @).
+ */
+export const validDistrictCode = (code: string) => /^[0-9A-ZÄÖÜ][0-9A-ZÄÖÜ ./-]{0,9}$/.test(code)
 
 const sideOf = (from: number, to: number): DistrictSide =>
   from % 2 !== to % 2 ? 'all' : from % 2 === 1 ? 'odd' : 'even'
@@ -78,12 +84,33 @@ const sideOf = (from: number, to: number): DistrictSide =>
 
 /** House numbers of a row: „2- 14“, „4 - 20“, „1- 3 A“, „20“; what follows the range is kept as `rest`. */
 const NUMBERS = /^(\d{1,4})\s*([a-z](?![a-z]))?\s*(?:[-–—]\s*(\d{1,4})\s*([a-z](?![a-z]))?)?(.*)$/i
-/** A whole line of text: street, house numbers (plus stray numbers), district code at the end. */
-const LINE = /^(.*?[a-zäöüß].*?)\s+(\d{1,4}\s*(?:[a-z](?![a-zäöüß]))?\s*(?:[-–—]\s*\d{1,4}(?:\s*[a-z](?![a-zäöüß]))?)?(?:\s+\d{1,4})*)\s+([0-9a-z]{1,4})$/i
 /** A legend line: „1 Zeyherschule“, „01 = Südstadtschule“, „3: Nordstadtschule“. */
 const LEGEND = /^(\d{1,3})\s*[-–:.)=]?\s+([a-zäöüß][^\d]{2,})$/i
+/** Real lines are far shorter; anything longer is reported as not recognised before any pattern looks at it. */
+const MAX_LINE = 300
 
 const collapse = (text: string) => text.replace(/\s+/g, ' ').trim()
+
+/** A token that belongs to the house numbers: „2“, „2-“, „-“, „-14“, „2-14“, „3a“, „A“. */
+const NUMBER_TOKEN = /^(?:\d{1,4}[a-z]?(?:[-–—](?:\d{1,4}[a-z]?)?)?|[-–—](?:\d{1,4}[a-z]?)?|[a-z])$/i
+
+/**
+ * A whole line of text split into street, house numbers (with stray numbers) and the district code at the end, in one
+ * pass over its words (no backtracking): the code is the last word, the numbers the run of number words before it
+ * (starting at the first one that begins with a digit), the street the rest, which must hold a letter.
+ */
+function splitLine(text: string): [string, string, string] | null {
+  const words = text.split(' ')
+  if (words.length < 3) return null
+  const code = words[words.length - 1]!
+  if (!/^[0-9a-z]{1,4}$/i.test(code)) return null
+  let start = words.length - 1
+  while (start > 1 && NUMBER_TOKEN.test(words[start - 1]!)) start--
+  while (start < words.length - 1 && !/^\d/.test(words[start]!)) start++
+  if (start >= words.length - 1) return null
+  const street = words.slice(0, start).join(' ')
+  return /[a-zäöüß]/i.test(street) ? [street, words.slice(start, -1).join(' '), code] : null
+}
 
 interface Numbers { fromNo: number; fromSuffix: string; toNo: number; toSuffix: string; flags: DistrictFlag[] }
 
@@ -108,7 +135,7 @@ function readNumbers(cell: string): Numbers | null {
 function rowOf(street: string, numbersCell: string, district: string): DistrictRow | null {
   const name = collapse(street)
   const code = normalizeDistrictCode(district)
-  if (!/[a-zäöüß]/i.test(name) || code === '') return null
+  if (!/[a-zäöüß]/i.test(name) || !validDistrictCode(code)) return null
   if (collapse(numbersCell) === '') {
     return { street: name, fromNo: null, fromSuffix: '', toNo: null, toSuffix: '', side: 'all', district: code, flags: [], note: '' }
   }
@@ -162,6 +189,12 @@ class Collector {
 
 /** One line of cells: three cells are street, numbers, district; anything else is read as one line of text. */
 function readLine(cells: readonly string[], into: Collector): void {
+  let length = cells.length
+  for (const cell of cells) length += cell.length
+  if (length > MAX_LINE) {
+    into.skip(`${cells.join(' ').slice(0, 120)} …`)
+    return
+  }
   const trimmed = cells.map(collapse)
   const text = collapse(trimmed.join(' '))
   if (text === '' || !/\d/.test(text)) return
@@ -177,8 +210,8 @@ function readLine(cells: readonly string[], into: Collector): void {
       return
     }
   }
-  const match = LINE.exec(text)
-  const row = match ? rowOf(match[1]!, match[2]!, match[3]!) : null
+  const parts = splitLine(text)
+  const row = parts ? rowOf(...parts) : null
   if (row) into.add(row)
   else into.skip(text)
 }
@@ -240,52 +273,83 @@ export function decodeCsvBytes(bytes: Uint8Array): string {
   return text.startsWith(BOM) ? text.slice(1) : text
 }
 
-/** The separator of the first line: the most frequent of ; , and tab outside quotes (; when none). */
+/**
+ * The separator: the most frequent of ; , and tab outside quotes in the first five non-empty lines (the first 64 KB;
+ * ; when none), so a title line with a comma above a semicolon header does not decide it.
+ */
 function separatorOf(text: string): string {
-  const first = text.split(/\r?\n/).find(line => line.trim() !== '') ?? ''
-  const unquoted = first.replace(/"[^"]*"/g, '')
+  const lines = text.slice(0, 65_536).split(/\r?\n/).filter(line => line.trim() !== '').slice(0, 5)
+  const unquoted = lines.join('\n').replace(/"[^"\n]*"/g, '')
   const counts = [';', ',', '\t'].map(sep => ({ sep, count: unquoted.split(sep).length - 1 }))
   const best = counts.sort((a, b) => b.count - a.count)[0]!
   return best.count > 0 ? best.sep : ';'
 }
 
-/** The records of a CSV text (quotes with "" inside, separators and line breaks inside quotes). */
+/** Cells kept per record; a record with more is no row anyway (it is then reported as not recognised). */
+const MAX_CELLS = 1000
+
+/**
+ * The records of a CSV text (quotes with "" inside, separators and line breaks inside quotes), read by slices between
+ * separators, so a 10 MB file takes one pass.
+ */
 function csvRecords(text: string, sep: string): string[][] {
   const records: string[][] = []
+  const length = text.length
+  const endOfField = (from: number) => {
+    let at = from
+    while (at < length) {
+      const char = text.charCodeAt(at)
+      if (char === 10 || char === 13 || text[at] === sep) break
+      at++
+    }
+    return at
+  }
   let record: string[] = []
-  let field = ''
-  let quoted = false
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i]!
-    if (quoted) {
-      if (char === '"' && text[i + 1] === '"') {
-        field += '"'
-        i++
+  let i = 0
+  while (i < length) {
+    let field: string
+    if (text[i] === '"') {
+      field = ''
+      let from = i + 1
+      for (;;) {
+        const quote = text.indexOf('"', from)
+        if (quote < 0) {
+          field += text.slice(from)
+          i = length
+          break
+        }
+        field += text.slice(from, quote)
+        if (text[quote + 1] === '"') {
+          field += '"'
+          from = quote + 2
+        }
+        else {
+          i = quote + 1
+          break
+        }
       }
-      else if (char === '"') quoted = false
-      else field += char
+      const end = endOfField(i)
+      field += text.slice(i, end)
+      i = end
     }
-    else if (char === '"' && field.trim() === '') {
-      quoted = true
-      field = ''
+    else {
+      const end = endOfField(i)
+      field = text.slice(i, end)
+      i = end
     }
-    else if (char === sep) {
-      record.push(field)
-      field = ''
+    if (record.length < MAX_CELLS) record.push(field)
+    if (i < length && text[i] === sep) {
+      i++
+      if (i === length && record.length < MAX_CELLS) record.push('')
+      continue
     }
-    else if (char === '\n' || char === '\r') {
-      if (char === '\r' && text[i + 1] === '\n') i++
-      record.push(field)
-      records.push(record)
-      record = []
-      field = ''
-    }
-    else field += char
-  }
-  if (field !== '' || record.length > 0) {
-    record.push(field)
+    // A line break (CRLF, LF or CR) or the end of the text ends the record.
+    if (text.charCodeAt(i) === 13 && text.charCodeAt(i + 1) === 10) i++
+    i++
     records.push(record)
+    record = []
   }
+  if (record.length > 0) records.push(record)
   return records.filter(cells => cells.some(cell => cell.trim() !== ''))
 }
 
@@ -326,6 +390,12 @@ const plain = (cell: string | undefined) => collapse((cell ?? '').replace(/^'(?=
 
 /** A row from a CSV record with a header. */
 function csvRow(cells: readonly string[], columns: Map<Column, number>, into: Collector): void {
+  let length = cells.length
+  for (const value of cells) length += value.length
+  if (length > MAX_LINE * 2) {
+    into.skip(`${cells.join(' | ').slice(0, 120)} …`)
+    return
+  }
   const cell = (column: Column) => plain(columns.has(column) ? cells[columns.get(column)!] : '')
   const numbers = columns.has('numbers')
     ? cell('numbers')
@@ -348,12 +418,21 @@ function csvRow(cells: readonly string[], columns: Map<Column, number>, into: Co
   into.name(row.district, cell('school'))
 }
 
-/** Reads a CSV text: with a header by its columns, without one each record like a line of text. */
+/**
+ * Reads a CSV text: with a header (in one of the first five records; title lines above it are left out) by its
+ * columns, without one each record like a line of text.
+ */
 export function parseDistrictCsv(text: string): DistrictParseResult {
   const records = csvRecords(text, separatorOf(text))
   const into = new Collector()
-  const columns = records.length ? headerColumns(records[0]!) : null
-  for (const cells of columns ? records.slice(1) : records) {
+  let headerAt = -1
+  let columns: Map<Column, number> | null = null
+  for (let index = 0; index < Math.min(5, records.length) && !columns; index++) {
+    // A header line is short; a long record is no header (and not worth comparing).
+    if (records[index]!.length <= 30 && records[index]!.every(cell => cell.length <= 60)) columns = headerColumns(records[index]!)
+    if (columns) headerAt = index
+  }
+  for (const cells of columns ? records.slice(headerAt + 1) : records) {
     if (columns) csvRow(cells, columns, into)
     else readLine(cells.length === 3 ? cells.map(plain) : [cells.map(plain).join(' ')], into)
   }
@@ -379,7 +458,7 @@ export function districtCsv(rows: readonly DistrictRow[], names: readonly Distri
     ['Straße', 'von', 'bis', 'Seite', 'Bezirk', 'Schule', 'Prüfen', 'Hinweis'],
     ...rows.map(row => [
       csvText(row.street), houseNumberText(row.fromNo, row.fromSuffix), houseNumberText(row.toNo, row.toSuffix),
-      SIDE_LABEL[row.side], row.district, csvText(nameOf.get(row.district) ?? ''), row.flags.length ? 'ja' : '', csvText(row.note),
+      SIDE_LABEL[row.side], csvText(row.district), csvText(nameOf.get(row.district) ?? ''), row.flags.length ? 'ja' : '', csvText(row.note),
     ]),
   ]
   return `${BOM}${lines.map(line => line.map(csvField).join(';')).join('\r\n')}\r\n`
@@ -404,14 +483,19 @@ export function rowContains(row: Pick<DistrictRow, 'fromNo' | 'fromSuffix' | 'to
   return true
 }
 
-type RangeRow = Pick<DistrictRow, 'fromNo' | 'toNo' | 'side'>
+type RangeRow = Pick<DistrictRow, 'fromNo' | 'fromSuffix' | 'toNo' | 'toSuffix' | 'side'>
 
-/** Whether two rows of one street share a house number (by numbers and side; suffixes are not looked at). */
+/** A range end as one comparable value: the number, then the suffix („bis 3“ takes every 3x, so its end is 3 + all). */
+const point = (no: number, suffix: string, end: boolean) => no * 64 + (suffix === '' ? (end ? 63 : 0) : suffix.charCodeAt(0) - 96)
+
+/** Whether two rows of one street share a house number (by numbers, suffixes at the borders, and side). */
 function rangesMeet(a: RangeRow, b: RangeRow): boolean {
   if (a.fromNo === null || a.toNo === null || b.fromNo === null || b.toNo === null) return true
-  const low = Math.max(a.fromNo, b.fromNo)
-  const high = Math.min(a.toNo, b.toNo)
-  if (low > high) return false
+  const lowPoint = Math.max(point(a.fromNo, a.fromSuffix, false), point(b.fromNo, b.fromSuffix, false))
+  const highPoint = Math.min(point(a.toNo, a.toSuffix, true), point(b.toNo, b.toSuffix, true))
+  if (lowPoint > highPoint) return false
+  const low = Math.floor(lowPoint / 64)
+  const high = Math.floor(highPoint / 64)
   const side = a.side === 'all' ? b.side : b.side === 'all' || b.side === a.side ? a.side : null
   if (side === null) return false
   if (side === 'all') return true
@@ -420,7 +504,7 @@ function rangesMeet(a: RangeRow, b: RangeRow): boolean {
 }
 
 /** The indexes of the rows that share a house number of their street with a row of another district. */
-export function overlappingRows(rows: readonly Pick<DistrictRow, 'street' | 'fromNo' | 'toNo' | 'side' | 'district'>[]): Set<number> {
+export function overlappingRows(rows: readonly Pick<DistrictRow, 'street' | 'fromNo' | 'fromSuffix' | 'toNo' | 'toSuffix' | 'side' | 'district'>[]): Set<number> {
   const byStreet = new Map<string, number[]>()
   rows.forEach((row, index) => {
     const key = streetKey(row.street)
@@ -448,11 +532,20 @@ export function overlappingRows(rows: readonly Pick<DistrictRow, 'street' | 'fro
 export interface ParsedAddress { street: string; no: number | null; suffix: string }
 
 const POSTCODE_LINE = /^(?:D-)?\d{5}(?:\s|$)/i
+/** A postcode with the town after it, also within the line („Ahornweg 12 68723 Musterstadt“). */
+const POSTCODE_TAIL = /(?:^|\s)(?:D-)?\d{5}(?:\s.*)?$/i
 const ADDRESS_LINE = /^(.*[a-zäöüß.].*?)\s*(\d{1,4})\s*([a-z](?![a-zäöüß]))?(?:\s*[-–/]\s*\d{1,4}\s*[a-z]?)?\s*$/i
 
-/** Street and house number of an address field („Ahornweg 12a\n68723 Musterstadt“); null when it holds no street. */
+/** A part of the address without a postcode and town at its end, and without what separated them („·“, „in“). */
+const withoutTown = (part: string) => part.slice(0, 200).replace(POSTCODE_TAIL, '').replace(/[\s·•|/:–-]+$/, '').replace(/\s+(?:in|bei)$/i, '').trim()
+
+/**
+ * Street and house number of an address field („Ahornweg 12a\n68723 Musterstadt“, also on one line); null when it holds
+ * no street.
+ */
 export function parseAddress(address: string): ParsedAddress | null {
-  const parts = address.split(/[\r\n,;]+/).map(collapse).filter(part => part !== '' && !POSTCODE_LINE.test(part))
+  const parts = address.split(/[\r\n,;]+/).map(collapse).filter(part => part !== '' && !POSTCODE_LINE.test(part)).map(withoutTown)
+    .filter(part => part !== '')
   for (const part of parts) {
     const match = ADDRESS_LINE.exec(part)
     if (match) return { street: match[1]!.trim(), no: Number(match[2]), suffix: (match[3] ?? '').toLowerCase() }
@@ -466,33 +559,62 @@ export type IndexRow = Pick<DistrictRow, 'fromNo' | 'fromSuffix' | 'toNo' | 'toS
 
 /**
  * Where the rows of a street key come from: all at once (`buildDistrictIndex`), or looked up one key at a time in the
- * database (the server's matcher), with the list of all keys only for the prefix rule.
+ * database (the server's matcher), with the keys of the truncated-looking streets only for the prefix rule.
  */
 export interface DistrictLookup {
   rowsOf: (key: string) => readonly IndexRow[]
-  keys: () => readonly string[]
+  /** The keys of the list's streets that look truncated (`looksTruncated`). */
+  truncatedKeys: () => readonly string[]
+}
+
+/** Endings of a complete street name (as in the key): a name ending like this is not cut off. */
+const COMPLETE_ENDINGS = [
+  'strasse', 'weg', 'platz', 'ring', 'allee', 'gasse', 'pfad', 'anlage', 'hof', 'ufer', 'steige', 'steig', 'stieg', 'damm',
+  'markt', 'park', 'garten', 'gaerten', 'berg', 'feld', 'wald', 'graben', 'bruecke', 'tor', 'grund', 'hoehe', 'winkel',
+  'zeile', 'chaussee', 'promenade', 'kai', 'rain', 'aue', 'acker', 'aecker', 'wiese', 'wiesen', 'buckel', 'gewann', 'sand',
+  'siedlung', 'viertel', 'bogen', 'kamp', 'ried', 'eck', 'ecke', 'blick', 'heide', 'busch', 'holz', 'tal', 'hang', 'brunnen',
+  'bach', 'muehle', 'schloss', 'rondell', 'chen',
+]
+
+/**
+ * Whether a street of the list looks cut off by its source (the column width of the city's list): it ends in an
+ * abbreviation of „Straße“ („…-St“, „…Str“, „…Landst“), or it is long (22+ characters) without a complete street ending.
+ * Only such names are matched as the beginning of a longer address name („Clementine-Bassermann-St“); „Am Alten
+ * Rathaus“ never stands for „Am Alten Rathausplatz“.
+ */
+export function looksTruncated(street: string): boolean {
+  const name = collapse(street)
+  if (/(?:[\s.-](?:st|str|stra|stras|straß)|landstr?)\.?$/i.test(name)) return true
+  const key = streetKey(name)
+  return name.length >= 22 && !COMPLETE_ENDINGS.some(ending => key.endsWith(ending))
 }
 
 /** A lookup over rows held in memory. */
 export function buildDistrictIndex(rows: readonly (IndexRow & { street: string })[]): DistrictLookup {
   const byKey = new Map<string, IndexRow[]>()
+  const truncated = new Set<string>()
   for (const row of rows) {
     const key = streetKey(row.street)
     const list = byKey.get(key) ?? []
     list.push(row)
     byKey.set(key, list)
+    if (looksTruncated(row.street)) truncated.add(key)
   }
-  const keys = [...byKey.keys()]
-  return { rowsOf: key => byKey.get(key) ?? [], keys: () => keys }
+  const keys = [...truncated]
+  return { rowsOf: key => byKey.get(key) ?? [], truncatedKeys: () => keys }
 }
 
-/** A truncated name of the list („Clementine-Bassermann-St“) is only tried as a prefix with at least this many letters. */
+/** A truncated name of the list is only tried as a prefix with at least this many letters. */
 const MIN_PREFIX = 8
 
-/** The street key of the list the address key stands for: itself, else the one list key it starts with. */
+/**
+ * The street key of the list the address key stands for: itself, else the one truncated list key it starts with –
+ * never for an address key with digits in it (something in the address was not read as the house number).
+ */
 function listKeyFor(lookup: DistrictLookup, key: string): string | null {
   if (lookup.rowsOf(key).length > 0) return key
-  const prefixes = lookup.keys().filter(candidate => candidate.length >= MIN_PREFIX && candidate.length < key.length && key.startsWith(candidate))
+  if (/\d/.test(key)) return null
+  const prefixes = lookup.truncatedKeys().filter(candidate => candidate.length >= MIN_PREFIX && candidate.length < key.length && key.startsWith(candidate))
   return prefixes.length === 1 ? prefixes[0]! : null
 }
 

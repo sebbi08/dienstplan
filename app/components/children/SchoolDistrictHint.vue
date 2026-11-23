@@ -26,7 +26,7 @@ function adopt() {
 <template>
   <div class="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-sky-50 p-2 text-sm text-sky-950 ring-1 ring-sky-200">
     <UIcon name="i-lucide-school" class="size-4 shrink-0" aria-hidden="true" />
-    <span class="text-xs text-sky-800">{{ t.label }}:</span>
+    <span v-if="match.status !== 'match'" class="text-xs text-sky-800">{{ t.label }}:</span>
     <span class="font-medium">{{ shown.text }}</span>
     <span class="text-xs text-sky-800">{{ shown.source }}</span>
     <UButton

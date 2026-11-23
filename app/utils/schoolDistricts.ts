@@ -1,5 +1,5 @@
 import {
-  houseNumberText, normalizeDistrictCode, overlappingRows, streetKey, type DistrictFlag, type DistrictLegendEntry, type DistrictRow,
+  houseNumberText, normalizeDistrictCode, overlappingRows, streetKey, validDistrictCode, type DistrictFlag, type DistrictLegendEntry, type DistrictRow,
 } from '#shared/domain/schoolDistricts'
 import type {
   SchoolDistrictListDto, SchoolDistrictListInput, SchoolDistrictMatchDto, SchoolDistrictParseDto,
@@ -18,7 +18,7 @@ export function numbersLabel(row: Pick<DistrictRow, 'fromNo' | 'fromSuffix' | 't
 
 /** What is wrong with a row before saving (the server's checks), null when it is fine. */
 export function rowInvalid(row: DistrictRow): boolean {
-  if (streetKey(row.street) === '' || normalizeDistrictCode(row.district) === '') return true
+  if (streetKey(row.street) === '' || !validDistrictCode(normalizeDistrictCode(row.district))) return true
   if (!/^[a-z]?$/i.test(row.fromSuffix) || !/^[a-z]?$/i.test(row.toSuffix)) return true
   if ((row.fromNo === null) !== (row.toNo === null)) return true
   if (row.fromNo === null || row.toNo === null) return row.fromSuffix !== '' || row.toSuffix !== ''

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { children, schoolDistrictLists, schoolDistrictRows } from '../../server/db/schema'
 import { ServiceError } from '../../server/lib/errors'
-import { pdfTextItems } from '../../server/lib/pdfText'
+import { PDF_TEXT_LIMITS, pdfTextItems, type PdfTextLimits } from '../../server/lib/pdfText'
 import { adoptDistrictSchool, createChild, getChild, updateChildMaster } from '../../server/services/children'
 import { createContact, deleteContact, listContacts } from '../../server/services/contacts'
 import { upcomingSchoolChildren } from '../../server/services/occupancy'
@@ -14,7 +14,7 @@ import {
 import type { DistrictRow } from '../../shared/domain/schoolDistricts'
 import type { ChildMasterInput, ContactInput, Role, SchoolDistrictListInput } from '../../shared/types/api'
 import { addFacility, addUser, asChildViewer, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
-import { streetListPdf, textPdf } from '../helpers/textPdf'
+import { flateBombPdf, streetListPdf, textPdf } from '../helpers/textPdf'
 
 const NOW = new Date('2027-04-01T09:00:00.000Z')
 const TODAY = '2027-04-01'
@@ -99,11 +99,38 @@ describe('school district lists (Schulbezirke)', () => {
       expect(await code(parseSchoolDistrictFile({ data: Buffer.from('%PDF-1.7\n1 0 obj << /Type /Catalog >> garbage'), filename: 'kaputt.pdf' }))).toBe('pdf_unreadable')
     }, 30_000)
 
-    it('stops a PDF that takes too long or has too many pages, without blocking the server', async () => {
+    it('stops a PDF that takes too long or has too many pages or items, in a process of its own', async () => {
       const pdf = streetListPdf(LINES, 2)
-      await expect(pdfTextItems(pdf, { timeoutMs: 1, maxPages: 100, maxItems: 1000, heapMb: 64 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'time' } })
-      await expect(pdfTextItems(pdf, { timeoutMs: 20_000, maxPages: 2, maxItems: 1000, heapMb: 64 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'pages' } })
-      await expect(pdfTextItems(pdf, { timeoutMs: 20_000, maxPages: 100, maxItems: 5, heapMb: 64 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'items' } })
+      const limits = (change: Partial<PdfTextLimits>) => ({ ...PDF_TEXT_LIMITS, ...change })
+      await expect(pdfTextItems(pdf, limits({ timeoutMs: 1 }))).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'time' } })
+      await expect(pdfTextItems(pdf, limits({ maxPages: 2 }))).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'pages' } })
+      await expect(pdfTextItems(pdf, limits({ maxItems: 5 }))).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'items' } })
+      await expect(pdfTextItems(pdf, limits({ maxChars: 20 }))).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'items' } })
+    }, 60_000)
+
+    it('refuses a decompression bomb before pdf.js reads it, and kills a reader that grows too big', async () => {
+      const bomb = flateBombPdf(64)
+      expect(bomb.length).toBeLessThan(200_000)
+      const before = process.memoryUsage.rss()
+      const started = Date.now()
+      await expect(pdfTextItems(bomb, { ...PDF_TEXT_LIMITS, inflateMb: 16 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
+      expect(Date.now() - started).toBeLessThan(10_000)
+      // With the pre-check out of the way, the memory watchdog stops pdf.js decoding the 64 MB in the other process.
+      await expect(pdfTextItems(bomb, { ...PDF_TEXT_LIMITS, inflateMb: 1024, rssMb: 100 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'memory' } })
+      // The server process itself never held the inflated data.
+      expect(process.memoryUsage.rss() - before).toBeLessThan(64 * 1024 * 1024)
+      // With the default limits a bomb beyond 128 MB is refused through the upload as well.
+      await expect(parseSchoolDistrictFile({ data: flateBombPdf(160), filename: 'bombe.pdf' }))
+        .rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
+    }, 60_000)
+
+    it('reads one PDF at a time', async () => {
+      const pdf = streetListPdf(LINES)
+      const first = pdfTextItems(pdf)
+      await expect(pdfTextItems(pdf)).rejects.toMatchObject({ code: 'pdf_busy' })
+      await expect(first).resolves.toHaveLength(1)
+      // Afterwards the next one is read again.
+      await expect(pdfTextItems(pdf)).resolves.toHaveLength(1)
     }, 60_000)
   })
 

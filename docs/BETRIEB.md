@@ -2887,19 +2887,29 @@ Bezirk ordnen und drucken.
   auch als „künftige Schule“ wählbar sind; für die Liste des Trägers: die Schulen des Trägers für alle Einrichtungen.
 - **Speichern** ersetzt die gespeicherte Liste vollständig (mit Rückfrage), mit Name und **Stand** (z. B. „2021“ oder
   „01.09.2021“). **Als CSV herunterladen** liefert die gespeicherte Liste im Format, das das Hochladen wieder liest.
-- **Sicherheit:** Hochgeladene Dateien gelten als nicht vertrauenswürdig. Eine PDF wird in einem eigenen Hintergrund-Thread
-  mit Zeit- (20 Sekunden) und Speichergrenze gelesen, ohne Skripte, Schriften oder Formulare; was länger braucht oder
-  mehr als 300 Seiten hat, wird abgelehnt. Die hochgeladene Datei selbst wird nicht gespeichert.
+- **Sicherheit:** Hochgeladene Dateien gelten als nicht vertrauenswürdig. Eine PDF wird in einem **eigenen Node-Prozess**
+  gelesen (ohne Skripte, Schriften oder Formulare), nie im Server selbst: Vorab werden alle komprimierten Bereiche mit
+  einer Obergrenze entpackt (zusammen höchstens 128 MB – eine „Zip-Bombe“ wird so sofort abgelehnt); danach beendet der
+  Server den Leseprozess, sobald er mehr als 512 MB Speicher belegt, länger als 20 Sekunden braucht oder nicht mehr
+  antwortet; mehr als 300 Seiten werden abgelehnt. Es wird immer nur **eine PDF gleichzeitig** gelesen (sonst: „Bitte
+  gleich noch einmal versuchen“). Zeilen über 300 Zeichen gelten als „nicht erkannt“. Die hochgeladene Datei selbst wird
+  nicht gespeichert. Der Server muss als `node .output/server/index.mjs` gestartet werden (wie im Docker-Image), sonst
+  findet er pdf.js nicht und meldet das im Log.
+- **Bezirk-Nummern** dürfen nur Buchstaben, Ziffern, Leerzeichen, Punkt, Bindestrich und Schrägstrich enthalten (höchstens
+  10 Zeichen); Zeilen mit anderen Bezirken gelten beim Hochladen als „nicht erkannt“.
 
 ### In der Kinderakte
 
-- Unter den Stammdaten steht **„Schulbezirk laut Liste: Schulbezirk 02 – Südstadtschule (laut Liste, Stand 2021)“**.
+- Unter den Stammdaten steht **„Schulbezirk 02 – Südstadtschule (laut Liste, Stand 2021)“**.
   Das wird bei jedem Öffnen aus der Adresse berechnet (nicht gespeichert): Ändert sich die Adresse oder die Liste, ändert
   sich die Anzeige. Das Freitextfeld „Schulbezirk“ der Stammdaten bleibt daneben unverändert.
 - Gelesen wird die erste Zeile der Adresse mit Hausnummer (Straße, Nummer, Buchstabe wie „12a“ oder „3 A“); Zeilen mit
-  Postleitzahl werden übersprungen. Verglichen wird ohne Groß-/Kleinschreibung, „ß“ = „ss“, „ä“ = „ae“ usw.,
-  „Str.“/„Str“/„Strasse“ = „Straße“, Bindestriche und Leerzeichen zählen nicht. Abgeschnittene Namen der Liste (z. B.
-  „Clementine-Bassermann-St“) passen als Anfang, wenn nur ein Name der Liste so anfängt. „bis 14“ schließt 14a ein,
+  Postleitzahl werden übersprungen, Postleitzahl und Ort in derselben Zeile („Ahornweg 12 68723 Stadt“) abgeschnitten.
+  Verglichen wird ohne Groß-/Kleinschreibung, „ß“ = „ss“, „ä“ = „ae“ usw., „Str.“/„Str“/„Strasse“ = „Straße“,
+  Bindestriche und Leerzeichen zählen nicht. Abgeschnittene Namen der Liste (z. B. „Clementine-Bassermann-St“: endet
+  auf „-St“/„Str“ oder ist sehr lang ohne „-straße“, „-weg“ usw. am Ende) passen als Anfang, wenn nur ein solcher Name
+  so anfängt – ein vollständiger Name wie „Am Alten Rathaus“ steht nie für „Am Alten Rathausplatz“, und eine Adresse mit
+  weiteren Zahlen (die nicht als Hausnummer gelesen wurden) wird nie so zugeordnet. „bis 14“ schließt 14a ein,
   „bis 3 A“ schließt 3a ein, aber nicht 3b.
 - **„Adresse nicht in der Liste“:** Straße oder Hausnummer kommt nicht vor (oder die Adresse liegt in einer anderen
   Stadt – die Liste kennt keine Postleitzahl). **„nicht eindeutig: 01, 03 – bitte von Hand wählen“:** mehrere Zeilen
