@@ -45,6 +45,22 @@ describe('accountRights', () => {
     expect(accountRights(db, anna).permissions.has('children.edit')).toBe(false)
   })
 
+  it('gives „Bögen der eigenen Gruppe“ to the Mitarbeiter of an existing installation without a migration', () => {
+    // Role settings saved before the switch existed: only the bundles that differed from the defaults of then.
+    db.insert(roleBundles).values([
+      { role: 'observer', bundle: 'childrenView', enabled: true, scope: 'facility' },
+      { role: 'observer', bundle: 'templatesView', enabled: false, scope: null },
+      { role: 'group_lead', bundle: 'notesWrite', enabled: false, scope: null },
+    ]).run()
+    for (const role of ['observer', 'group_lead'] as const) expect(rolePermissions(db, role).has('childForms.group'), role).toBe(true)
+    expect(accountPermissions(db, anna).has('childForms.group')).toBe(true)
+    // The Träger switches it off for the role, or for one person.
+    saveBundleOverride(db, berta.id, 'formsGroup', 'revoke')
+    expect(accountPermissions(db, berta).has('childForms.group')).toBe(false)
+    saveRoleBundle(db, 'observer', 'formsGroup', false)
+    expect(accountPermissions(db, anna).has('childForms.group')).toBe(false)
+  })
+
   it('ignores unknown bundles in the database', () => {
     db.insert(roleBundles).values({ role: 'observer', bundle: 'rights.manage', enabled: true, scope: null }).run()
     db.insert(userBundleOverrides).values({ userId: anna.id, bundle: 'settingsStaffing', effect: 'grant', scope: null }).run()
@@ -68,7 +84,7 @@ describe('accountRights', () => {
     expect(rolePermissions(db, 'admin').has('employees.contractView')).toBe(false)
     saveRoleBundle(db, 'admin', 'contractView', true)
     expect(rolePermissions(db, 'admin').has('employees.contractView')).toBe(true)
-    expect(rolePermissions(db, 'provider').size).toBe(71)
+    expect(rolePermissions(db, 'provider').size).toBe(72)
   })
 
   it('stores one row per role and bundle and per account and bundle', () => {

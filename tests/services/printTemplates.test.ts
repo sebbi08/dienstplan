@@ -78,7 +78,6 @@ describe('print templates', () => {
       expect(listTemplates(db, seer('admin', 1))).toEqual([{
         id, title: 'Elternbrief', categoryId: cat.Eltern, category: 'Eltern', global: false, globalCategoryName: null,
         globalVisibility: null, size: pdf().length, uploadedAt: NOW.toISOString(), updatedAt: NOW.toISOString(), canEdit: true,
-        fillable: false,
       }])
       const row = db.select().from(printTemplates).get()!
       expect(row).toMatchObject({ facilityId: 1, mimeType: 'application/pdf', uploadedBy: leitung.id, categoryId: cat.Eltern, category: '' })

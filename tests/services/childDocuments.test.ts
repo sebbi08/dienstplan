@@ -113,7 +113,7 @@ describe('child documents', () => {
       expect(list[1]).toEqual({
         id: older, typeId: contractType, typeName: 'Betreuungsvertrag', title: 'Alt', documentDate: '2026-01-01',
         confidential: false, mimeType: 'application/pdf', size: pdf().length, uploadedBy: 'leitung',
-        uploadedAt: NOW.toISOString(), canOpen: true, fillable: false,
+        uploadedAt: NOW.toISOString(), canOpen: true,
       })
       expect(Object.keys(list[0]!)).not.toContain('data')
     })

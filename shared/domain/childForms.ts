@@ -11,6 +11,11 @@ export interface ChildFormViewer {
   employeeId: number | null
   /** Whether the viewer may see this child at all (group visibility). */
   canSeeChild: boolean
+  /**
+   * Whether the child belongs to one of the viewer's own groups today: a group the viewer keeps the attendance of (as
+   * for accident reports; every group for staff without a home group and helpers, and a child without group).
+   */
+  ownGroup: boolean
 }
 
 export interface ChildFormChild {
@@ -21,12 +26,23 @@ function isKeyEducator(viewer: ChildFormViewer, child: ChildFormChild): boolean 
   return viewer.employeeId !== null && viewer.employeeId === child.keyEducatorId
 }
 
+/** With childForms.group the forms of a child of the own group, at the tablet and with the own account. */
+function groupEditor(viewer: ChildFormViewer): boolean {
+  return viewer.ownGroup && can(viewer.permissions, 'childForms.group')
+}
+
+/** Off the tablet only an account with children.ownAccount reaches child data. */
+function reachesChild(viewer: ChildFormViewer): boolean {
+  return viewer.canSeeChild && (viewer.onTablet || can(viewer.permissions, 'children.ownAccount'))
+}
+
 /**
  * Right of a viewer on one child observation form (or, with `form` null, on the child's forms in general).
  * `editors` are the employee ids unlocked for that one form. Whoever has childForms.edit (Träger, Leitung) edits
- * everywhere; at the tablet the key educator and the employees unlocked for the form edit (per-object rules next to
- * the catalog), everyone else who sees the child reads. Accounts without children.ownAccount never reach child data
- * outside the tablet.
+ * everywhere; with childForms.group (Mitarbeiter by default) the forms of a child of the own group, at the tablet and
+ * with the own account; at the tablet also the key educator and the employees unlocked for the form (per-object rules
+ * next to the catalog); everyone else who sees the child reads. Accounts without children.ownAccount never reach child
+ * data outside the tablet.
  */
 export function childFormRight(
   viewer: ChildFormViewer,
@@ -36,17 +52,23 @@ export function childFormRight(
 ): ChildFormRight {
   if (!viewer.canSeeChild) return 'none'
   if (can(viewer.permissions, 'childForms.edit')) return 'edit'
-  if (!viewer.onTablet) return 'none'
+  if (!reachesChild(viewer)) return 'none'
+  if (groupEditor(viewer)) return 'edit'
+  if (!viewer.onTablet) return 'read'
   if (isKeyEducator(viewer, child)) return 'edit'
   if (form && viewer.employeeId !== null && editors.has(viewer.employeeId)) return 'edit'
   return 'read'
 }
 
-/** Whoever has childForms.edit, or the key educator at the tablet, may start a form for the child. */
+/**
+ * Whoever has childForms.edit, with childForms.group whoever works in the child's group (tablet and own account), or
+ * the key educator at the tablet may start a form for the child.
+ */
 export function canCreateChildForm(viewer: ChildFormViewer, child: ChildFormChild): boolean {
   if (!viewer.canSeeChild) return false
   if (can(viewer.permissions, 'childForms.edit')) return true
-  return viewer.onTablet && isKeyEducator(viewer, child)
+  if (!reachesChild(viewer)) return false
+  return groupEditor(viewer) || (viewer.onTablet && isKeyEducator(viewer, child))
 }
 
 /** Unlocking or revoking editors and deleting a form: childForms.manage (Träger, Leitung). */

@@ -100,7 +100,7 @@ describe('rights page draft', () => {
       { id: 'childrenView', enabled: true, scope: 'facility' },
     ])
     expect(changedBundles(switchOff(stored, 'childrenView').draft, stored)).toEqual([
-      { id: 'childrenView', enabled: false }, { id: 'childrenAttendance', enabled: false },
+      { id: 'childrenView', enabled: false }, { id: 'childrenAttendance', enabled: false }, { id: 'formsGroup', enabled: false },
     ])
   })
 

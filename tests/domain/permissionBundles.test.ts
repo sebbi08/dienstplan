@@ -35,6 +35,7 @@ const SPEC_TABLE: Record<BundleId, PermissionKey[]> = {
   childrenEdit: ['children.edit'],
   childrenManage: ['children.manage', 'children.planned'],
   childrenOwnAccount: ['children.ownAccount'],
+  formsGroup: ['childForms.group'],
   formsFill: ['childForms.edit'],
   formsManage: ['childForms.manage', 'formTemplates.manage'],
   accidentsManage: ['accidents.manage'],
@@ -211,6 +212,26 @@ describe('defaults (RF1, domain level)', () => {
         expect(sorted(flaggedPermissions(role, flags)), `${role} ${JSON.stringify(flags)}`).toEqual(sorted(before))
       }
     }
+  })
+
+  it('switch on „Bögen der eigenen Gruppe“ for every role; a role stored before the switch existed takes it by default', () => {
+    for (const role of RIGHTS_ROLES) {
+      expect(BUNDLE_DEFAULTS[role], role).toContain('formsGroup')
+      expect(effectivePermissions({ role }).has('childForms.group'), role).toBe(true)
+    }
+    expect(byId.get('formsGroup')!.requires).toEqual(['childrenView'])
+    // Settings saved earlier store only what differed from the Grundeinstellung of then; none mentions the new switch.
+    const earlier = [
+      { bundle: 'childrenView', enabled: true, scope: 'facility' as const }, { bundle: 'templatesView', enabled: false, scope: null },
+      { bundle: 'notesWrite', enabled: true, scope: 'group' as const },
+    ]
+    expect(roleBundleMap('observer', earlier).has('formsGroup')).toBe(true)
+    expect(effectivePermissions({ role: 'observer', roleBundles: earlier }).has('childForms.group')).toBe(true)
+    // Switched off for the role, or without „Kinder ansehen“, it is gone.
+    expect(effectivePermissions({ role: 'observer', roleBundles: [{ bundle: 'formsGroup', enabled: false, scope: null }] })
+      .has('childForms.group')).toBe(false)
+    expect(effectivePermissions({ role: 'observer', roleBundles: [{ bundle: 'childrenView', enabled: false, scope: null }] })
+      .has('childForms.group')).toBe(false)
   })
 
   it('give the Träger every key and the tablet role none, whatever is stored', () => {

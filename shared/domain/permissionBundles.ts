@@ -42,7 +42,7 @@ export const BUNDLE_IDS = [
   'employeesView', 'employeesEdit', 'contractView', 'contractEdit', 'employeesDelete', 'talksManage',
   'personal', 'payrollSensitive', 'docsQualifications', 'docsOther',
   'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
-  'formsFill', 'formsManage', 'accidentsManage',
+  'formsGroup', 'formsFill', 'formsManage', 'accidentsManage',
   'teamMeetingsWrite', 'teamMeetingsRelease',
   'notesWrite',
   'contactsManage',
@@ -125,7 +125,8 @@ const SPECS: readonly Spec[] = [
     ['children.manage', 'children.planned']),
   bundle('childrenOwnAccount', 'children', 'auch mit eigenem Zugang (nicht nur am Tablet)', ['children.ownAccount']),
 
-  bundle('formsFill', 'forms', 'ausfüllen', ['childForms.edit']),
+  bundle('formsGroup', 'forms', 'eigene Gruppe anlegen und ausfüllen (auch Entwicklungsgespräche)', ['childForms.group']),
+  bundle('formsFill', 'forms', 'alle anlegen und ausfüllen', ['childForms.edit']),
   bundle('formsManage', 'forms', 'verwalten (Vorlagen, Freigaben)', ['childForms.manage', 'formTemplates.manage']),
   bundle('accidentsManage', 'forms', 'Unfälle verwalten (Übersicht, Unfallanzeigen der Mitarbeiter)', ['accidents.manage']),
 
@@ -241,7 +242,7 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
     'employeesView', 'employeesEdit', 'employeesDelete', 'talksManage',
     'personal', 'docsQualifications',
     'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
-    'formsFill', 'formsManage', 'accidentsManage',
+    'formsGroup', 'formsFill', 'formsManage', 'accidentsManage',
     'teamMeetingsWrite', 'teamMeetingsRelease', 'notesWrite',
     'contactsManage',
     'cashBook', 'cashClose',
@@ -252,12 +253,15 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
   observer: [
     'planView', 'leaveRequest', 'timeOwn', 'teamMeetingsWrite', 'calendarView', 'childrenView', 'childrenAttendance',
     'templatesView',
+    // Since 2026-11-20: the forms of the own group's children. A role whose settings were stored before has no row for
+    // the switch, so it takes this default (no migration).
+    'formsGroup',
   ],
   // Teil 3: the Mitarbeiter's switches plus „eintragen und Akten ändern“ (own group, `DEFAULT_SCOPE`) and „auch mit
   // eigenem Zugang“, so the Gruppenleitung works with the own group's records at the office too („Kinder“ in the menu).
   group_lead: [
     'planView', 'leaveRequest', 'timeOwn', 'teamMeetingsWrite', 'calendarView', 'childrenView', 'childrenAttendance',
-    'childrenEdit', 'childrenOwnAccount', 'templatesView', 'notesWrite',
+    'childrenEdit', 'childrenOwnAccount', 'templatesView', 'notesWrite', 'formsGroup',
   ],
 }
 

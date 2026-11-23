@@ -166,10 +166,10 @@ zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und ne
 | Rolle | Kinderakten |
 |---|---|
 | Träger und Leitung | sehen alles in ihrer (gewählten) Einrichtung: alle Kinder, auch vertrauliche Dokumente. Nur sie dürfen ein Kind abmelden, das Archiv sehen und eine Vormerkung löschen. Eine **archivierte** Akte löscht nur der Träger (siehe „Löschen nach der Aufbewahrungsfrist“). Das gilt im Büro und am Tablet. |
-| Mitarbeiter | sehen die Kinder **nur am Tablet der eigenen Einrichtung**, und dort nur lesend: alle aktiven Kinder, Vormerkungen und künftige Vertragskinder nur, wenn die Schalter (siehe unten) an sind. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. Mit dem eigenen Konto (Handy, privater PC) sehen sie keine Kinder. |
+| Mitarbeiter | sehen die Kinder **nur am Tablet der eigenen Einrichtung**, und dort nur lesend: alle aktiven Kinder, Vormerkungen und künftige Vertragskinder nur, wenn die Schalter (siehe unten) an sind. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. Mit dem eigenen Konto (Handy, privater PC) sehen sie keine Kinder. Beobachtungsbögen und Entwicklungsgespräche der Kinder ihrer Gruppe legen sie am Tablet an und füllen sie aus (Abschnitt 25). |
 | Mitarbeiter mit dem Recht „eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“) | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
 | Gruppenleitung | darf in der Grundeinstellung dasselbe wie ein Mitarbeiter mit „eintragen und Akten ändern“ (eigene Gruppe) – und das auch **mit dem eigenen Konto** im Büro, nicht nur am Tablet. Vormerkungen und künftige Vertragskinder sieht sie wie am Tablet nur, wenn die Tablet-Schalter an sind (außer der Träger gibt ihr „Kinder: verwalten“). Siehe Abschnitt 26. |
-| Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, und nur lesend. |
+| Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, und nur lesend. Wie bei Anwesenheit und Unfallberichten zählen für sie alle Gruppen als eigene: Beobachtungsbögen füllen sie mit den Rechten der Rolle Mitarbeiter aus (Abschnitt 25). |
 
 Das Recht „eintragen und Akten ändern“ gibt die Leitung oder der Träger bei der Person (*Mitarbeiter → Name → Zugang*,
 oder *Benutzer* → „Rechte“). Es gilt am Tablet der Einrichtung. Was die Rollen sonst dürfen, stellt der Träger unter
@@ -1575,43 +1575,6 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   ohne Kategorie kamen unter „Sonstiges“. Gab es noch keine Vorlagen, begann die App mit „Eltern“, „Gesundheit“ und
   „Personal“.
 
-### Formulare in der App ausfüllen
-
-Manche PDF-Vorlagen haben **Formularfelder** (Textfelder, Kästchen zum Ankreuzen, Auswahllisten) – z. B. eine
-Einverständniserklärung oder die Unfallanzeige der Unfallkasse. Solche Vorlagen erkennt die App von selbst und zeigt
-neben **Öffnen** den Knopf **Ausfüllen**. Vorlagen ohne Felder (z. B. ein eingescanntes Blatt) haben ihn nicht.
-
-- **Für wen**: Nach **Ausfüllen** wählst du **für ein Kind** oder **für eine Person aus dem Team** und suchst das Kind
-  bzw. die Person in der Liste (Name eintippen). Angeboten wird nur, wohin du auch Dokumente hochladen darfst: Kinder,
-  deren Akte du ändern darfst (wie beim Hochladen eines Dokuments), und Personen, deren Personalakte du siehst und in
-  deren Fächer du Dokumente ablegen darfst. Wer beides nicht darf, sieht den Knopf **Ausfüllen** nicht.
-- **Ausfüllen**: Das Formular erscheint groß auf dem Bildschirm, die Felder lassen sich antippen und ausfüllen. Oben
-  wechselst du die **Seite** (Pfeile) und machst die Ansicht **größer oder kleiner** (Lupen; die Prozentzahl stellt
-  wieder auf die volle Breite) – praktisch am Handy und am Tablet.
-- **Drucken** druckt das Formular mit den Eingaben, **ohne** es zu speichern.
-- **Speichern** legt das ausgefüllte Formular als neues Dokument ab:
-  - **bei einem Kind** in der Kinderakte unter **Dokumente**. Du wählst die **Art** (vorgeschlagen: die Art mit dem
-    Namen der Vorlage, sonst „Sonstiges“), das **Datum** (heute) und die **Bezeichnung** (vorgeschlagen: Titel der
-    Vorlage und Datum, z. B. „Einverständnis Ausflug 20.11.2026“). **Vertraulich** ist es, wenn die Art das so vorsieht;
-    das lässt sich ändern.
-  - **bei einer Person** in der Personalakte (Reiter **Nachweise** → **Dokumente**) in einem **Fach**, das du nutzen
-    darfst, mit Datum und Bezeichnung wie oben.
-- **Schließen** mit noch nicht gespeicherten Eingaben fragt vorher nach; ebenso, wenn du die Seite verlässt.
-- **Die Vorlage selbst ändert sich nie.** Die Eingaben bleiben nur auf dem Gerät, bis du speicherst.
-- **Weiter ausfüllen**: Ein gespeichertes Formular, das noch Felder hat, zeigt in der Kinderakte bzw. Personalakte den
-  Knopf **Weiter ausfüllen**. Es öffnet sich mit den bisherigen Eingaben; **Speichern** ersetzt dann die Datei dieses
-  Dokuments. Art, Bezeichnung, Datum (und das Fach) bleiben, „hochgeladen von … am …“ zeigt danach, wer zuletzt
-  gespeichert hat. Das darf, wer das Dokument auch ändern darf.
-- **Aus Vorlage ausfüllen**: In der Kinderakte (Dokumente) und in der Personalakte (Nachweise → Dokumente) gibt es
-  außerdem den Knopf **Aus Vorlage ausfüllen**. Er zeigt die Vorlagen der Einrichtung mit Feldern, die du sehen darfst;
-  Kind bzw. Person sind schon gewählt.
-- **Am Tablet** geht das nur bei Kindern und nur, wenn das Tablet mit einer PIN entsperrt ist, deren Person Dokumente in
-  Kinderakten hochladen darf (in der Kinderakte: **Aus Vorlage ausfüllen** und **Weiter ausfüllen**). Personalakten
-  gibt es am Tablet nicht. Unter **Vorlagen** auf der Startseite (ohne PIN) gibt es deshalb kein **Ausfüllen**.
-- Es gelten dieselben Regeln wie beim Hochladen: nur PDF, höchstens **10 MB**, nur in der eigenen Einrichtung.
-- Felder mit Rechenformeln oder Prüfungen (Skripte im PDF) rechnet die App nicht aus; solche Felder füllst du von Hand.
-  Ist ein PDF verschlüsselt, erkennt die App die Felder unter Umständen nicht; dann fehlt **Ausfüllen**.
-
 ## 20. Personalschlüssel
 
 Die App rechnet je Gruppe und für die ganze Einrichtung aus, wie viel pädagogisches Personal nach den Vorgaben des
@@ -2365,10 +2328,23 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 - **Anlegen:** **Bogen anlegen** – Vorlage, Datum, Uhrzeit (freiwillig) und Teilnehmer. Beim Elterngespräch gibt es
   **Bogen ausfüllen**: Datum, Uhrzeit und Teilnehmer kommen aus dem Gespräch, danach steht dort **Bogen öffnen**. Ein
   Elterngespräch hat höchstens einen Bogen; wird das Gespräch gelöscht, bleibt der Bogen.
-- **Wer darf was:** Lesen kann jeder, der die Akte sieht. **Anlegen und ändern** können Leitung und Träger und am
-  Tablet der **Bezugserzieher** des Kindes. Andere Mitarbeiter sehen den Bogen nur zum Lesen, bis Leitung oder Träger
-  sie über **Mitarbeiter freischalten** für genau diesen Bogen freischalten (zurücknehmbar). Wechselt der
-  Bezugserzieher, wechselt das Recht sofort mit. **Löschen** (mit Rückfrage) können nur Leitung und Träger.
+- **Wer darf was:** Lesen kann jeder, der die Akte sieht. **Anlegen und ändern** können
+  - Leitung und Träger bei jedem Kind;
+  - die **Mitarbeitenden der Gruppe des Kindes** (Schalter „Bögen: eigene Gruppe anlegen und ausfüllen (auch
+    Entwicklungsgespräche)“, in der Grundeinstellung bei Mitarbeiter, Gruppenleitung und Leitung an): alle Bögen eines
+    Kindes ihrer Gruppe, auch den Bogen zu einem Elterngespräch – am Tablet nach dem Aufschließen und, wer „Kinder: auch
+    mit eigenem Zugang“ hat (z. B. die Gruppenleitung), auch im Büro. „Eigene Gruppe“ heißt dasselbe wie bei den
+    Unfallberichten und im Gruppenbuch: die Gruppe, in der die Person die Anwesenheit führt (Umfang von „Anwesenheit und
+    Gruppenbuch“). Wer keine Stammgruppe hat und Aushilfen aus anderen Einrichtungen am Tablet zählen wie dort für alle
+    Gruppen; ein Kind ohne Gruppe ebenso. Maßgeblich ist die Gruppe des Kindes am heutigen Tag (ein fälliger
+    Gruppenwechsel zählt sofort);
+  - am Tablet der **Bezugserzieher** des Kindes, auch in einer anderen Gruppe.
+
+  Mitarbeitende anderer Gruppen sehen den Bogen nur zum Lesen, bis Leitung oder Träger sie über **Mitarbeiter
+  freischalten** für genau diesen Bogen freischalten (zurücknehmbar, gilt am Tablet). Wechselt der Bezugserzieher, wechselt
+  das Recht sofort mit. Schaltet der Träger den Schalter für eine Rolle aus, gilt für sie wieder nur Bezugserzieher und
+  Freischaltung. **Löschen** (mit Rückfrage) und **Mitarbeiter freischalten** können nur Leitung und Träger. Im Archiv
+  wird nichts mehr geändert.
 - **Speichern:** Kopffelder und Antworten werden zusammen mit **Speichern** übernommen. Mit ungespeicherten Änderungen
   fragt die App, bevor der Bogen geschlossen oder die Akte verlassen wird; am Tablet fragt **Sperren** ebenfalls, und
   kurz bevor sich das Tablet von selbst sperrt, erscheint ein Hinweis – tippen und speichern, sonst gehen die
@@ -2458,6 +2434,12 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 
 ### Geänderte Grundeinstellung
 
+- Die Mitarbeitenden legen **Beobachtungsbögen und Entwicklungsgespräche der Kinder ihrer Gruppe** an und füllen sie aus
+  (Schalter „Bögen: eigene Gruppe anlegen und ausfüllen (auch Entwicklungsgespräche)“, an bei Mitarbeiter,
+  Gruppenleitung und Leitung; Abschnitt 25). Bestehende Installationen bekommen ihn ohne weiteres Zutun: Gespeichert
+  werden nur die Schalter, die von der Grundeinstellung abweichen, also gilt für den neuen Schalter die Grundeinstellung
+  („an“), bis der Träger ihn ausschaltet. Der bisherige Schalter heißt jetzt „Bögen: alle anlegen und ausfüllen“.
+  Unfallberichte bleiben, wie sie sind: Einen Unfallbericht schreibt, wer die Anwesenheit des Kindes führt (eigene Gruppe).
 - Die Leitung darf abgeschlossene **Kassenmonate wieder öffnen** (Schalter „Monate abschließen und wieder öffnen“).
 - Ob die Leitung die **Vertragsangaben** sieht, ist jetzt der Schalter „Vertragsangaben ansehen“ der Leitung (der
   frühere Schalter auf der Seite *Mitarbeiter* ist weg; die bisherige Einstellung wurde übernommen).

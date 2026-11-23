@@ -663,21 +663,6 @@ export interface ChildDocumentDto {
   uploadedAt: string
   /** False for a confidential document the viewer may not open (the file route answers 404). */
   canOpen: boolean
-  /** A PDF that still has form fields („Weiter ausfüllen“); false when the viewer may not open it. */
-  fillable: boolean
-}
-
-/**
- * A child the viewer may add documents to (not archived, not hidden from them, a group they may write in): the
- * targets of „Ausfüllen“ → „für ein Kind“.
- */
-export interface ChildDocumentTargetDto {
-  id: number
-  firstName: string
-  lastName: string
-  groupName: string | null
-  /** Waitlist or a contract that has not started yet. */
-  planned: boolean
 }
 
 /** What the user enters about a document (the file comes with the upload). */
@@ -744,8 +729,6 @@ export interface PrintTemplateDto {
   updatedAt: string
   /** Whether the viewer may rename, replace and delete it. */
   canEdit: boolean
-  /** A PDF form with fields to fill in the app („Ausfüllen“). */
-  fillable: boolean
 }
 
 /** Completeness view: active children against the important document types. */
@@ -1455,8 +1438,6 @@ export interface EmployeeDocumentDto extends EmployeeDocumentMeta {
   /** Username of the uploader; null if the account is gone. */
   uploadedBy: string | null
   uploadedAt: string
-  /** A PDF that still has form fields („Weiter ausfüllen“). */
-  fillable: boolean
 }
 
 /**

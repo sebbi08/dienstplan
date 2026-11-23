@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import type { ChildDocumentDto, ChildRecordDto, DocumentTypeDto, PrintTemplateDto } from '#shared/types/api'
+import type { ChildDocumentDto, ChildRecordDto, DocumentTypeDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, documentFileUrl, formatSize } from '~/utils/children'
 import { formatDate, formatDateTime } from '~/utils/format'
-import type { FillTarget } from '~/utils/pdfFill'
 
 /** Documents of a child: upload (PDF, JPG, PNG), open, download, change and delete. Confidential ones are locked for some viewers. */
 /** `reload` re-reads the record; the busy flag stays on until it is done, so the next action works on fresh data. */
@@ -23,28 +22,6 @@ const viewing = ref<{ id: number; title: string; mimeType: string } | null>(null
 function view(document: ChildDocumentDto) {
   viewing.value = { id: document.id, title: document.title || document.typeName, mimeType: document.mimeType }
 }
-
-// Filling PDF forms: „Aus Vorlage ausfüllen“ (the facility's fillable templates the viewer sees) into a new document,
-// „Weiter ausfüllen“ of a document that still has form fields (replaces its file). Same rights as uploading and changing.
-const { can } = useCan()
-const mayFill = computed(() => props.child.canEdit && (onTablet.value || can('printTemplates.view')))
-const { data: templateList } = useFetch<PrintTemplateDto[]>('/api/print-templates', {
-  key: 'fill-templates', server: false, lazy: true, default: () => [], immediate: mayFill.value,
-})
-const fillableTemplates = computed(() => (mayFill.value ? (templateList.value ?? []).filter(template => template.fillable) : []))
-const fillTarget = computed<FillTarget>(() => ({ kind: 'child', id: props.child.id, name: `${props.child.master.firstName} ${props.child.master.lastName}` }))
-const fromTemplateOpen = ref(false)
-const refilling = ref<ChildDocumentDto | null>(null)
-const refillOpen = ref(false)
-function refill(document: ChildDocumentDto) {
-  refilling.value = document
-  refillOpen.value = true
-}
-function onRefillOpen(value: boolean) {
-  if (!value) refilling.value = null
-}
-// The saved copy shows in the list once the record is read again.
-const afterFill = () => props.reload()
 
 const open = ref(false)
 /** null = a new upload, otherwise the document being changed. */
@@ -113,10 +90,6 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
 <template>
   <ChildrenChildSection :title="de.children.sections.documents" :can-edit="false">
     <template v-if="child.canEdit" #actions>
-      <UButton
-        v-if="fillableTemplates.length" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil-line"
-        :label="de.pdfFill.fromTemplate" @click="fromTemplateOpen = true"
-      />
       <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-upload" :label="de.childDocuments.upload" @click="openNew" />
     </template>
 
@@ -147,10 +120,6 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
             <a :href="documentFileUrl(document.id, true)" :class="iconLink" :aria-label="de.childDocuments.download" :title="de.childDocuments.download"><UIcon name="i-lucide-download" class="size-4" /></a>
           </template>
           <template v-if="child.canEdit && document.canOpen">
-            <UButton
-              v-if="document.fillable" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil-line" :label="de.pdfFill.fillMore"
-              :disabled="busy" @click="refill(document)"
-            />
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="busy" @click="openEdit(document)" />
             <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(document)" />
           </template>
@@ -158,11 +127,6 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
       </li>
     </ul>
 
-    <PdfFillStart v-if="child.canEdit" v-model:open="fromTemplateOpen" :target="fillTarget" :templates="fillableTemplates" @saved="afterFill" />
-    <PdfFillDialog
-      v-if="refilling" v-model:open="refillOpen" :source="{ url: documentFileUrl(refilling.id), title: refilling.title || refilling.typeName }"
-      :replace="{ kind: 'child', documentId: refilling.id }" @saved="afterFill" @update:open="onRefillOpen"
-    />
     <ChildrenDocumentViewer v-if="viewing" :open="true" :document-id="viewing.id" :title="viewing.title" :mime-type="viewing.mimeType" @update:open="viewing = null" />
 
     <UModal v-model:open="open" :title="editingId === null ? de.childDocuments.upload : de.childDocuments.edit">

@@ -10,7 +10,8 @@ import { formatDate } from '~/utils/format'
  * „Gespräch eintragen“, „Ändern“ and delete. The confidential note is shown and sent only by Leitung and Träger: for
  * everyone else the form leaves the field out entirely, so the server keeps the stored note on a change.
  * `reload` re-reads the record; the busy flag stays on until it is done.
- * Per meeting „Bogen ausfüllen“ (whoever may start an observation form: managers, the key educator at the tablet)
+ * Per meeting „Bogen ausfüllen“ (whoever may start an observation form: managers, the staff of the child's group,
+ * the key educator at the tablet)
  * starts its observation form with the meeting's date, time and participants; once there is one, „Bogen öffnen“
  * opens it in „Beobachtungen“.
  */

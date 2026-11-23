@@ -14,9 +14,10 @@ import type {
 import type { Db } from '../db/client'
 import { childParentMeetings, employees, facilities, formEditors, forms, groups } from '../db/schema'
 import { assertGroupRight, loadChild, type ChildRow } from '../lib/childRecord'
-import type { ChildViewer } from '../lib/childViewer'
+import { groupRightOf, type ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { detachAccidentAuthors } from './accidents'
+import { settleDue } from './childGroupChanges'
 import { listTemplates, loadTemplate, withFormErrors } from './formTemplates'
 
 export const CHILD_FORM_LIMITS = { participants: 300 } as const
@@ -30,27 +31,40 @@ interface VisibleChild { row: ChildRow; archived: boolean }
 /**
  * The facility's child under the viewer's visibility, as the record itself (see `getChild`): an archived record only
  * for managers, nothing the tablet hides from the viewer, no group the viewer does not see (all 404 child_not_found).
+ * Before a write (`settle`) the child's due group changes are applied (as for every record write, see
+ * `loadEditableChild`), so the group of today decides whether the child is of the viewer's own group.
  */
-function loadVisibleChild(db: Db, viewer: ChildViewer, childId: number, now: Date): VisibleChild {
+function loadVisibleChild(db: Db, viewer: ChildViewer, childId: number, now: Date, settle = false): VisibleChild {
   const today = nowInBerlin(now).date
   const row = loadChild(db, viewer.facilityId, childId)
   const archived = childStatus(row, today) === 'archived'
   if (archived && !can(viewer.permissions, 'children.manage')) throw new ServiceError(404, 'child_not_found')
   if (hiddenFromViewer(row, viewer.visibility, today)) throw new ServiceError(404, 'child_not_found')
   assertGroupRight(viewer, row.groupId, 'read')
-  return { row, archived }
+  if (!settle || archived) return { row, archived }
+  settleDue(db, childId, today, now)
+  const settled = loadChild(db, viewer.facilityId, childId)
+  assertGroupRight(viewer, settled.groupId, 'read')
+  return { row: settled, archived }
 }
 
 /** A child form of the viewer's facility (404 form_not_found otherwise) with its child as the viewer sees it. */
-function loadForm(db: Db, viewer: ChildViewer, formId: number, now: Date): { form: ChildForm; child: VisibleChild } {
+function loadForm(db: Db, viewer: ChildViewer, formId: number, now: Date, settle = false): { form: ChildForm; child: VisibleChild } {
   const form = db.select().from(forms)
     .where(and(eq(forms.id, formId), eq(forms.facilityId, viewer.facilityId), eq(forms.kind, 'child'))).get()
   if (!form || form.childId === null) throw new ServiceError(404, 'form_not_found')
-  return { form: form as ChildForm, child: loadVisibleChild(db, viewer, form.childId, now) }
+  return { form: form as ChildForm, child: loadVisibleChild(db, viewer, form.childId, now, settle) }
 }
 
-const asRightViewer = (viewer: ChildViewer): ChildFormViewer =>
-  ({ permissions: viewer.permissions, onTablet: viewer.onTablet, employeeId: viewer.employeeId, canSeeChild: true })
+/**
+ * The viewer as the form rules see it, for this child. The own group is the one of accident reports and the group book:
+ * a group where the viewer keeps the attendance (scope of „Anwesenheit und Gruppenbuch“; no home group, helpers and a
+ * child without group: every group).
+ */
+const asRightViewer = (viewer: ChildViewer, child: VisibleChild): ChildFormViewer => ({
+  permissions: viewer.permissions, onTablet: viewer.onTablet, employeeId: viewer.employeeId, canSeeChild: true,
+  ownGroup: groupRightOf(viewer, child.row.groupId, 'children.attendance') === 'write',
+})
 
 /** The employees unlocked for each of these forms. */
 function editorsOf(db: Db, formIds: number[]): Map<number, Set<number>> {
@@ -65,7 +79,7 @@ function editorsOf(db: Db, formIds: number[]): Map<number, Set<number>> {
 
 /** The viewer's right on one form of the child; an archived record is only read (it cannot be changed any more). */
 function rightOn(viewer: ChildViewer, child: VisibleChild, formId: number, editors: ReadonlySet<number>): ChildFormRight {
-  const right = childFormRight(asRightViewer(viewer), { keyEducatorId: child.row.keyEducatorId }, { id: formId }, editors)
+  const right = childFormRight(asRightViewer(viewer, child), { keyEducatorId: child.row.keyEducatorId }, { id: formId }, editors)
   return right === 'edit' && child.archived ? 'read' : right
 }
 
@@ -91,7 +105,7 @@ export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now
   const rows = db.select().from(forms).where(and(eq(forms.childId, childId), eq(forms.kind, 'child')))
     .orderBy(desc(forms.formDate), desc(forms.formStart), desc(forms.id)).all() as ChildForm[]
   const editors = editorsOf(db, rows.map(row => row.id))
-  const canCreate = !child.archived && canCreateChildForm(asRightViewer(viewer), { keyEducatorId: child.row.keyEducatorId })
+  const canCreate = !child.archived && canCreateChildForm(asRightViewer(viewer, child), { keyEducatorId: child.row.keyEducatorId })
   // The tablet cannot read the template list itself (managers only), so whoever may start a form gets the choice here.
   const templates = canCreate
     ? listTemplates(db, viewer.facilityId, 'child').filter(template => !template.archived)
@@ -146,15 +160,16 @@ function assertMeetingFree(db: Db, meetingId: number): void {
 
 /**
  * A new form for the child from an active child template of the facility (its content copied, titled like it); returns
- * its id. Managers and, at the tablet, the child's key educator may (403 forbidden otherwise). From a parent meeting of
+ * its id. Managers, with childForms.group whoever works in the child's group, and at the tablet the child's key educator
+ * may (403 forbidden otherwise). From a parent meeting of
  * the child the header is the meeting's date, start and participants, and the two are linked (one form per meeting).
  */
 export function createChildForm(
   db: Db, viewer: ChildViewer, childId: number, input: ChildFormInput, now: Date = new Date(),
 ): number {
-  const child = loadVisibleChild(db, viewer, childId, now)
+  const child = loadVisibleChild(db, viewer, childId, now, true)
   assertNotArchived(child)
-  if (!canCreateChildForm(asRightViewer(viewer), { keyEducatorId: child.row.keyEducatorId })) {
+  if (!canCreateChildForm(asRightViewer(viewer, child), { keyEducatorId: child.row.keyEducatorId })) {
     throw new ServiceError(403, 'forbidden')
   }
   const template = loadTemplate(db, viewer.facilityId, input.templateId)
@@ -198,7 +213,7 @@ export function createChildForm(
 export function saveChildForm(
   db: Db, viewer: ChildViewer, formId: number, input: ChildFormSaveInput, now: Date = new Date(),
 ): ChildFormSavedDto {
-  const { form, child } = loadForm(db, viewer, formId, now)
+  const { form, child } = loadForm(db, viewer, formId, now, true)
   assertNotArchived(child)
   if (access(viewer, child, form.id, editorsOf(db, [form.id]).get(form.id)!) !== 'edit') {
     throw new ServiceError(403, 'forbidden')

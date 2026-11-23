@@ -44,8 +44,8 @@ export const PERMISSION_KEYS = [
   'employees.docs.application', 'employees.docs.correspondence', 'employees.docs.measures', 'employees.docs.salary',
   'children.view', 'children.ownAccount', 'children.planned', 'children.attendance', 'children.edit', 'children.manage',
   'children.schoolSettings', 'children.deleteArchived', 'children.moveFacility',
-  'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view', 'printTemplates.edit',
-  'printTemplates.global', 'talks.manage', 'talks.own', 'accidents.manage',
+  'childForms.group', 'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view',
+  'printTemplates.edit', 'printTemplates.global', 'talks.manage', 'talks.own', 'accidents.manage',
   'teamMeetings.write', 'teamMeetings.manage',
   'notes.view', 'notes.write',
   'contacts.view', 'contacts.manage', 'contacts.global',
@@ -141,6 +141,10 @@ export const PERMISSIONS: readonly PermissionDef[] = [
   def('children.deleteArchived', 'children', 'Archivierte Akten löschen', { requires: ['children.manage'], ...fixed }),
   def('children.moveFacility', 'children', 'Kind in andere Einrichtung verschieben', fixed),
 
+  // The forms of the own group's children (also the Entwicklungsgespräche of parent meetings): the own group as for
+  // accident reports, the scope of the attendance (server/services/childForms.ts); childForms.edit covers every child.
+  def('childForms.group', 'forms', 'Beobachtungsbögen und Entwicklungsgespräche der eigenen Gruppe anlegen und ausfüllen',
+    { requires: ['children.view'], scoped: true }),
   def('childForms.edit', 'forms', 'Alle Beobachtungsbögen anlegen und ausfüllen',
     { requires: ['children.view'], scoped: true }),
   def('childForms.manage', 'forms', 'Bearbeiter freischalten, Bögen löschen', { requires: ['childForms.edit'] }),
@@ -213,8 +217,8 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
     'employees.personal', 'employees.docs.qualifications',
     'children.view', 'children.ownAccount', 'children.planned', 'children.attendance', 'children.edit',
     'children.manage',
-    'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view', 'printTemplates.edit',
-    'talks.manage', 'talks.own', 'accidents.manage',
+    'childForms.group', 'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view',
+    'printTemplates.edit', 'talks.manage', 'talks.own', 'accidents.manage',
     'teamMeetings.write', 'teamMeetings.manage',
     'notes.view', 'notes.write',
     'contacts.view', 'contacts.manage',
@@ -228,6 +232,8 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
     'children.attendance', 'notes.view', 'contacts.view',
     // The print templates to read (the categories visible to all), since the template categories; not to change.
     'printTemplates.view',
+    // The observation forms and Entwicklungsgespräche of the own group's children (since 2026-11-20).
+    'childForms.group',
   ],
 }
 

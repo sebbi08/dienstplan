@@ -3,15 +3,14 @@ import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { can } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
-import type { ChildDocumentDto, ChildDocumentMeta, ChildDocumentTargetDto, DocumentOverviewDto } from '../../shared/types/api'
+import type { ChildDocumentDto, ChildDocumentMeta, DocumentOverviewDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { childDocuments, children, documentTypes, users } from '../db/schema'
 import { assertGroupRight, loadChild, loadEditableChild, seesGroup } from '../lib/childRecord'
-import { groupRightOf, type ChildActor, type ChildViewer } from '../lib/childViewer'
+import type { ChildActor, ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { DOCUMENT_EXTENSIONS, checkedDocumentFile, type DocumentMime } from '../lib/fileSignature'
-import { cachedHasFormFields, forgetFormFields } from '../lib/pdfForm'
 import { settleDue } from './childGroupChanges'
 import { settleDocumentReview, staleContractTypes, staleRequiredTypes } from './documentReview'
 import { assertDocumentType, listDocumentTypes } from './documentTypes'
@@ -38,16 +37,6 @@ type MetaRow = {
 
 /** Confidential documents may only be opened by those who maintain child records. */
 const mayOpen = (viewer: ChildViewer, row: { confidential: boolean }) => !row.confidential || can(viewer.permissions, 'children.edit')
-
-/**
- * A PDF the viewer may open that still has form fields („Weiter ausfüllen“, pdfForm.ts); the bytes are read once per
- * file and server run, a replaced file has a new upload time and size.
- */
-function isFillable(db: Db, viewer: ChildViewer, row: MetaRow): boolean {
-  if (row.mimeType !== 'application/pdf' || !mayOpen(viewer, row)) return false
-  return cachedHasFormFields('child_documents', row.id, `${row.uploadedAt}|${row.size}`, () =>
-    db.select({ data: childDocuments.data }).from(childDocuments).where(eq(childDocuments.id, row.id)).get()!.data)
-}
 
 /** The document day; every write requires one, the column is only nullable for historic rows. */
 const dayOf = (row: MetaRow): IsoDate => row.documentDate ?? row.uploadedAt.slice(0, 10)
@@ -119,27 +108,7 @@ export function listDocuments(
     uploadedBy: row.uploadedBy === null ? null : usernames.get(row.uploadedBy) ?? null,
     uploadedAt: row.uploadedAt,
     canOpen: mayOpen(viewer, row),
-    fillable: isFillable(db, viewer, row),
   }))
-}
-
-/**
- * The children the actor may add documents to, by name: not archived, not hidden from them by the tablet switches, in
- * a group they may write in (as uploadDocument checks; a group change due today is judged there).
- */
-export function documentTargets(db: Db, actor: ChildActor, facilityId: number, today: IsoDate): ChildDocumentTargetDto[] {
-  const groupNames = new Map(listGroups(db, facilityId).map(group => [group.id, group.name]))
-  return db.select().from(children).where(eq(children.facilityId, facilityId)).all()
-    .filter(row => childStatus(row, today) !== 'archived' && !hiddenFromViewer(row, actor.visibility, today)
-      && groupRightOf(actor, row.groupId, 'children.edit') === 'write')
-    .sort((a, b) => a.lastName.localeCompare(b.lastName, 'de') || a.firstName.localeCompare(b.firstName, 'de') || a.id - b.id)
-    .map(row => ({
-      id: row.id,
-      firstName: row.firstName,
-      lastName: row.lastName,
-      groupName: row.groupId === null ? null : groupNames.get(row.groupId) ?? null,
-      planned: childStatus(row, today) === 'planned',
-    }))
 }
 
 /**
@@ -203,28 +172,6 @@ export function updateDocument(
     }).where(eq(childDocuments.id, id)).run()
     settleDocumentReview(tx, childId)
   })
-}
-
-/**
- * A new file for the document („Weiter ausfüllen“: the form filled further), with the rights of changing it
- * (loadEditableDocument). Only a PDF replaces a PDF; type, title, date and confidentiality stay, the file counts as
- * uploaded now by the actor (as a new upload would, also for the required documents).
- */
-export function replaceDocumentFile(
-  db: Db, actor: ChildActor, facilityId: number, id: number, file: { data: Buffer; filename: string }, today: IsoDate,
-  now: Date = new Date(),
-): void {
-  const row = loadEditableDocument(db, actor, facilityId, id, today, now)
-  if (!mayOpen(actor, row)) throw new ServiceError(404, 'document_not_found')
-  if (row.mimeType !== 'application/pdf') throw new ServiceError(400, 'document_type_invalid')
-  const mimeType = checkedDocumentFile(file.data, ['application/pdf'])
-  db.transaction((tx) => {
-    tx.update(childDocuments).set({
-      mimeType, size: file.data.length, data: file.data, uploadedBy: actor.id, uploadedAt: now.toISOString(),
-    }).where(eq(childDocuments.id, id)).run()
-    settleDocumentReview(tx, row.childId)
-  })
-  forgetFormFields('child_documents', id)
 }
 
 export function deleteDocument(

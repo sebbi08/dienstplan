@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { childParentMeetings, children, formEditors, forms, formTemplates } from '../../server/db/schema'
+import { childGroupChanges, childParentMeetings, children, formEditors, forms, formTemplates } from '../../server/db/schema'
 import type { ChildViewer } from '../../server/lib/childViewer'
 import { ServiceError } from '../../server/lib/errors'
 import {
@@ -9,8 +9,12 @@ import {
 } from '../../server/services/childForms'
 import { deleteChild, moveChildToFacility } from '../../server/services/children'
 import { createTemplate, updateTemplate } from '../../server/services/formTemplates'
+import { setReadAccess } from '../../server/services/groupReadAccess'
 import { addMeeting, deleteMeeting, meetingsOf } from '../../server/services/parentMeetings'
+import { roleBundleRows } from '../../server/services/permissions'
+import { saveRoleRights } from '../../server/services/rights'
 import { resolveChildViewer } from '../../server/services/tabletUnlock'
+import { effectiveRights } from '../../shared/domain/permissionBundles'
 import {
   addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode, permissionsOf,
 } from '../helpers/fixtures'
@@ -42,8 +46,12 @@ describe('child observation forms', () => {
   let leitung: ChildViewer
   /** Anna at the tablet: the child's key educator, a Mitarbeiter account without the permission to edit records. */
   let annaTablet: ChildViewer
-  /** Berta at the tablet without an account. */
+  /** Berta at the tablet without an account, an employee of another group (the Füchse) who may read the Bären. */
   let bertaTablet: ChildViewer
+  /** Emil at the tablet without an account, an employee of the child's group (not its key educator). */
+  let emil: number
+  let emilTablet: ChildViewer
+  let tablet: Omit<ChildViewer, 'id' | 'employeeId' | 'name'>
 
   const header = { date: '2026-10-15', start: 600, participants: 'Mutter, Anna' }
   const save = (viewer: ChildViewer, formId: number, answers: unknown, now = LATER) => {
@@ -62,22 +70,25 @@ describe('child observation forms', () => {
     groupA = addGroup(db, 1, 'Bären')
     groupB = addGroup(db, 1, 'Füchse')
     anna = addEmployee(db, 'Anna', { groupId: groupA })
-    berta = addEmployee(db, 'Berta', { groupId: groupA })
+    berta = addEmployee(db, 'Berta', { groupId: groupB })
+    emil = addEmployee(db, 'Emil', { groupId: groupA })
     const annaUser = addUser(db, 'anna', 'observer', anna).id
     leitung = asChildViewer(addUser(db, 'leitung', 'admin'))
-    const tablet = {
+    tablet = {
       visibility: { waitlist: false, futureContracts: false }, onTablet: true, groups: { own: groupA, readable: [] },
       role: 'observer' as const, permissions: permissionsOf('observer'), facilityId: 1,
     }
     annaTablet = { id: annaUser, employeeId: anna, name: 'Anna', ...tablet }
-    bertaTablet = { id: null, employeeId: berta, name: 'Berta', ...tablet }
+    // Berta works in the Füchse, whose staff may read the Bären.
+    bertaTablet = { id: null, employeeId: berta, name: 'Berta', ...tablet, groups: { own: groupB, readable: [groupA] } }
+    emilTablet = { id: null, employeeId: emil, name: 'Emil', ...tablet }
     kid = addChild(db, 1, { firstName: 'Lena', groupId: groupA, keyEducatorId: anna })
     hiddenKid = addChild(db, 1, { firstName: 'Ida', groupId: groupB, keyEducatorId: anna })
     template = db.select({ id: formTemplates.id }).from(formTemplates)
       .where(and(eq(formTemplates.facilityId, 1), eq(formTemplates.starterKey, 'child_development'))).get()!.id
   })
 
-  it('the key educator creates and edits; Berta reads until unlocked for that one form (Review Focus 1)', () => {
+  it('the key educator creates and edits; Berta of another group reads until unlocked for that one form (Review Focus 1)', () => {
     const formA = createChildForm(db, annaTablet, kid, { templateId: template, ...header }, NOW)
     const formB = createChildForm(db, leitung, kid, { templateId: template, ...header, date: '2026-10-10' }, NOW)
     const { itemId, optionId } = firstChoice(formA)
@@ -135,6 +146,96 @@ describe('child observation forms', () => {
   it('a Mitarbeiter account outside the tablet never gets a child viewer (Review Focus 2)', () => {
     const observer = addUser(db, 'berta', 'observer', berta)
     expect(errorCode(() => resolveChildViewer(db, observer, undefined, NOW))).toBe('children_tablet_only')
+  })
+
+  describe('„Bögen der eigenen Gruppe“ (childForms.group)', () => {
+    it('an employee of the child\'s group creates and edits at the tablet, also the Entwicklungsgespräch of a parent meeting', () => {
+      expect(listChildForms(db, emilTablet, kid, NOW)).toMatchObject({ canCreate: true, templates: [{ id: template }] })
+      const own = createChildForm(db, emilTablet, kid, { templateId: template, ...header }, NOW)
+      const byLeitung = createChildForm(db, leitung, kid, { templateId: template, ...header, date: '2026-10-01' }, NOW)
+      expect(listChildForms(db, emilTablet, kid, NOW).forms.map(form => [form.id, form.right, form.canManage]))
+        .toEqual([[own, 'edit', false], [byLeitung, 'edit', false]])
+      expect(save(emilTablet, byLeitung, {})).toEqual({ updatedAt: LATER.toISOString(), updatedBy: 'Emil' })
+      expect(getChildForm(db, leitung, byLeitung, NOW).updatedBy).toBe('Emil')
+
+      const meeting = addMeeting(db, leitung, kid, {
+        date: '2026-10-05', start: 840, end: 900, kind: 'development', participants: 'Vater, Emil',
+      }, NOW)
+      const meetingForm = createChildForm(db, emilTablet, kid, { templateId: template, parentMeetingId: meeting }, NOW)
+      expect(save(emilTablet, meetingForm, {}).updatedBy).toBe('Emil')
+
+      // Deleting and unlocking stay with Leitung and Träger.
+      expect(failure(() => deleteChildForm(db, emilTablet, own, NOW))).toBe('403 forbidden')
+      expect(failure(() => setChildFormEditors(db, emilTablet, own, [berta], NOW))).toBe('403 forbidden')
+      expect(failure(() => listChildFormEditors(db, emilTablet, own, NOW))).toBe('403 forbidden')
+    })
+
+    it('an employee of another group only reads (403 on create and save); a hidden group stays 404', () => {
+      const formId = createChildForm(db, emilTablet, kid, { templateId: template, ...header }, NOW)
+      expect(listChildForms(db, bertaTablet, kid, NOW)).toMatchObject({ canCreate: false, templates: [], forms: [{ id: formId, right: 'read' }] })
+      expect(failure(() => createChildForm(db, bertaTablet, kid, { templateId: template, ...header }, NOW))).toBe('403 forbidden')
+      expect(failure(() => save(bertaTablet, formId, {}))).toBe('403 forbidden')
+      // Emil does not see the Füchse at all.
+      const foxForm = createChildForm(db, bertaTablet, hiddenKid, { templateId: template, ...header }, NOW)
+      expect(failure(() => getChildForm(db, emilTablet, foxForm, NOW))).toBe('404 child_not_found')
+      expect(failure(() => createChildForm(db, emilTablet, hiddenKid, { templateId: template, ...header }, NOW))).toBe('404 child_not_found')
+    })
+
+    it('works with the own account where children.ownAccount lets the person see the child', () => {
+      const emilAccount = () => resolveChildViewer(db, emilUser, undefined, NOW)
+      const emilUser = addUser(db, 'emil', 'group_lead', emil)
+      const formId = createChildForm(db, emilAccount(), kid, { templateId: template, ...header }, NOW)
+      expect(save(emilAccount(), formId, {}).updatedBy).toBe('Emil')
+      expect(listChildForms(db, emilAccount(), kid, NOW)).toMatchObject({ canCreate: true, forms: [{ id: formId, right: 'edit' }] })
+
+      // Berta's account (Füchse) sees the Bären once her group may read them, and then only reads.
+      const bertaUser = addUser(db, 'berta', 'group_lead', berta)
+      expect(failure(() => listChildForms(db, resolveChildViewer(db, bertaUser, undefined, NOW), kid, NOW))).toBe('404 child_not_found')
+      setReadAccess(db, 1, groupB, [groupA])
+      const bertaAccount = resolveChildViewer(db, bertaUser, undefined, NOW)
+      expect(listChildForms(db, bertaAccount, kid, NOW)).toMatchObject({ canCreate: false, forms: [{ id: formId, right: 'read' }] })
+      expect(failure(() => createChildForm(db, bertaAccount, kid, { templateId: template, ...header }, NOW))).toBe('403 forbidden')
+      expect(failure(() => save(bertaAccount, formId, {}))).toBe('403 forbidden')
+      expect(failure(() => deleteChildForm(db, emilAccount(), formId, NOW))).toBe('403 forbidden')
+    })
+
+    it('switched off for the role, the rule of before applies again (key educator and unlocked employees at the tablet)', () => {
+      saveRoleRights(db, 'group_lead', [{ id: 'formsGroup', enabled: false }])
+      saveRoleRights(db, 'observer', [{ id: 'formsGroup', enabled: false }])
+      const observerNow = effectiveRights({ role: 'observer', roleBundles: roleBundleRows(db, 'observer') }).permissions
+      expect(observerNow.has('childForms.group')).toBe(false)
+      const emilOff = { ...emilTablet, permissions: observerNow }
+      const annaOff = { ...annaTablet, permissions: observerNow }
+
+      const formId = createChildForm(db, annaOff, kid, { templateId: template, ...header }, NOW)
+      expect(listChildForms(db, emilOff, kid, NOW)).toMatchObject({ canCreate: false, forms: [{ id: formId, right: 'read' }] })
+      expect(failure(() => createChildForm(db, emilOff, kid, { templateId: template, ...header }, NOW))).toBe('403 forbidden')
+      expect(failure(() => save(emilOff, formId, {}))).toBe('403 forbidden')
+      setChildFormEditors(db, leitung, formId, [emil], NOW)
+      expect(save(emilOff, formId, {}).updatedBy).toBe('Emil')
+      expect(save(annaOff, formId, {}, new Date('2026-10-20T10:00:00Z')).updatedBy).toBe('Anna')
+
+      // With the own account (the session user is loaded per request with the role's rights): read only (key educator
+      // and unlocks count at the tablet).
+      const emilAccount = resolveChildViewer(db, addUser(db, 'emil', 'group_lead', emil), undefined, NOW)
+      expect(emilAccount.permissions.has('childForms.group')).toBe(false)
+      expect(listChildForms(db, emilAccount, kid, NOW)).toMatchObject({ canCreate: false, forms: [{ id: formId, right: 'read' }] })
+      expect(failure(() => createChildForm(db, emilAccount, kid, { templateId: template, ...header }, NOW))).toBe('403 forbidden')
+    })
+
+    it('judges the group of today: a due group change counts before the daily run', () => {
+      db.insert(childGroupChanges).values({ childId: kid, groupId: groupB, fromDate: '2026-10-20', createdAt: NOW.toISOString() }).run()
+      // Emil (Bären) no longer reaches the child, Berta (Füchse) now keeps it.
+      expect(failure(() => createChildForm(db, emilTablet, kid, { templateId: template, ...header }, NOW))).toBe('404 child_not_found')
+      expect(createChildForm(db, bertaTablet, kid, { templateId: template, ...header }, NOW)).toBeGreaterThan(0)
+    })
+
+    it('an archived record is read-only for everybody (others do not see it)', () => {
+      const formId = createChildForm(db, emilTablet, kid, { templateId: template, ...header }, NOW)
+      db.update(children).set({ leftOn: '2026-07-31' }).where(eq(children.id, kid)).run()
+      expect(failure(() => save(emilTablet, formId, {}))).toBe('404 child_not_found')
+      expect(failure(() => createChildForm(db, emilTablet, kid, { templateId: template, ...header }, NOW))).toBe('404 child_not_found')
+    })
   })
 
   it('unlocking, revoking and deleting are for managers only', () => {
