@@ -22,7 +22,7 @@ describe('visibleSettingsAreas', () => {
       ['groups', ['group-list']],
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
-      ['children', ['care-types', 'document-types', 'consent-questions', 'overview-sheets', 'school-children', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
+      ['children', ['care-types', 'document-types', 'consent-questions', 'overview-sheets', 'school-children', 'school-districts', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
       ['staff', ['staffing', 'employee-retention', 'child-sick-days', 'bem-invitation']],
     ])
   })
@@ -33,7 +33,7 @@ describe('visibleSettingsAreas', () => {
       ['groups', ['group-list']],
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
-      ['children', ['care-types', 'document-types', 'consent-questions', 'overview-sheets', 'school-children', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
+      ['children', ['care-types', 'document-types', 'consent-questions', 'overview-sheets', 'school-children', 'school-districts', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
       ['staff', ['staffing', 'employee-retention', 'child-sick-days', 'bem-invitation']],
     ])
   })
@@ -84,6 +84,11 @@ describe('searchSettings', () => {
   it('finds the notice on remaining leave by „Resturlaub“ and „verfällt“, for the Leitung too', () => {
     expect(firstHit('Resturlaub')).toMatchObject({ key: 'leave-forfeit', to: '/admin/settings/roster#section-leave-forfeit' })
     expect(firstHit('verfällt', leitung)?.key).toBe('leave-forfeit')
+  })
+
+  it('finds the Schulbezirke by „Schulbezirk“ and „Straßenliste“, for the Leitung too', () => {
+    expect(firstHit('Schulbezirk')).toMatchObject({ key: 'school-districts', to: '/admin/settings/children#section-school-districts' })
+    expect(firstHit('Straßenliste', leitung)?.key).toBe('school-districts')
   })
 
   it('finds the Tablet by „PIN“', () => {

@@ -142,6 +142,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['Stichtag', 'Einschulung', 'Schulstart', 'Schule', 'automatisch abmelden', 'Hort'],
     },
     {
+      // Leitung and Träger keep the facility's list; the Träger also the list for all facilities.
+      key: 'school-districts', title: de.schoolDistricts.title, replaces: [],
+      keywords: ['Schulbezirk', 'Straßenliste', 'Straßenverzeichnis', 'Grundschule', 'Einzugsgebiet', 'Hausnummer', 'künftige Schule', 'CSV', 'PDF'],
+    },
+    {
       key: 'attendance', title: s.attendance, replaces: ['attendance'],
       keywords: ['Anwesenheit', 'Essen', 'Mittagessen', 'Snack', 'Frühstück', 'Vesper', 'Mahlzeit', 'Bringperson', 'Anwesenheit erfasst ab'],
     },

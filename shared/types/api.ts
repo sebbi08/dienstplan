@@ -18,6 +18,7 @@ import type { PermissionKey } from '../domain/permissions'
 import type { EmployeeDocumentFolder } from '../domain/personnel'
 import type { DocSettings, ReminderKind } from '../domain/reminders'
 import type { RequirementState } from '../domain/requirements'
+import type { DistrictLegendEntry, DistrictRow } from '../domain/schoolDistricts'
 import type { BreakMode, StampChannel } from '../domain/stamping'
 import type {
   Confidence, Qualification, QuotaLine, RequirementLine, StaffingMethod, StaffingRuleSet,
@@ -520,6 +521,8 @@ export interface UpcomingSchoolChildDto {
   pendingSchoolGroup: string | null
   /** The „künftige Schule“ from the child's record (organisation and city), null = none chosen. */
   futureSchool: string | null
+  /** The school district by the facility's street list (null: no list, or no address). */
+  schoolDistrict: SchoolDistrictMatchDto | null
 }
 
 /** A child named in an occupancy cell, with the borders of the stay counted there (to null = open). */
@@ -664,6 +667,8 @@ export interface ChildRecordDto {
   keyEducatorName: string | null
   /** The „künftige Schule“ as shown (organisation and city; null together with master.futureSchoolContactId). */
   futureSchoolName: string | null
+  /** The school district by the facility's street list, computed from the address (null: no list, or no address). */
+  districtMatch: SchoolDistrictMatchDto | null
   health: ChildHealthInput
   /**
    * The facility's questions the record shows: the visible ones and the hidden ones this child has an answer to (shown
@@ -4078,3 +4083,82 @@ export interface KnowledgeConfirmResultDto {
   confirmedAt: string
   version: number
 }
+
+// ---- Schulbezirke (street lists of the school districts) ----------------------
+
+/** A district of a list: its code, the school's name and the school in the address book (null = none chosen). */
+export interface SchoolDistrictInput {
+  code: string
+  name: string
+  contactId: number | null
+}
+
+export interface SchoolDistrictDto extends SchoolDistrictInput {
+  /** The contact as shown (organisation and city); null together with contactId. */
+  contactName: string | null
+}
+
+/** A list as saved: the facility's own or the Träger's for all facilities. */
+export interface SchoolDistrictListDto {
+  scope: 'facility' | 'global'
+  name: string
+  /** „Stand“ as written. */
+  asOf: string
+  /** In the order they were saved. */
+  rows: DistrictRow[]
+  /** Every code the rows use, by code. */
+  districts: SchoolDistrictDto[]
+  updatedAt: string
+  updatedBy: string | null
+}
+
+/** The settings „Schulbezirke“ of a facility: its own list, the Träger's, and the schools to map the districts to. */
+export interface SchoolDistrictSettingsDto {
+  own: SchoolDistrictListDto | null
+  global: SchoolDistrictListDto | null
+  /** The facility's „künftige Schule“ choices (for its own list). */
+  schoolOptions: SchoolOptionDto[]
+  /** The Träger's school contacts for all facilities (for the Träger's list). */
+  globalSchoolOptions: SchoolOptionDto[]
+}
+
+/** Saving a list: it replaces the stored one of the same scope as a whole. */
+export interface SchoolDistrictListInput {
+  name: string
+  asOf: string
+  rows: DistrictRow[]
+  districts: SchoolDistrictInput[]
+}
+
+/** An uploaded CSV or PDF read into rows, for the preview; nothing is saved yet. */
+export interface SchoolDistrictParseDto {
+  /** The file name without its extension, as a name for the list. */
+  name: string
+  /** A year found in the file name, else ''. */
+  asOf: string
+  rows: DistrictRow[]
+  /** The school names found (the PDF's legend, a CSV's „Schule“ column), by code. */
+  legend: DistrictLegendEntry[]
+  /** Lines with digits that are no row (the first 100), and how many there were. */
+  skipped: string[]
+  skippedCount: number
+  /** The file had more rows than a list may hold; the rest was left out. */
+  truncated: boolean
+}
+
+/**
+ * A child's school district by the list that applies to its facility (its own, else the Träger's): exactly one
+ * (`match`, with the district's school and whether it can be taken over as „künftige Schule“), several (`ambiguous`:
+ * overlapping rows, or a street without house number) or none (`none`: the address is not in the list).
+ */
+export type SchoolDistrictMatchDto =
+  | {
+    status: 'match'; code: string; name: string; asOf: string; scope: 'facility' | 'global'
+    /** The district's school in the address book (null = none mapped). */
+    contactId: number | null
+    contactName: string | null
+    /** The child has no „künftige Schule“ yet and the district's school is one of the facility's choices. */
+    canAdopt: boolean
+  }
+  | { status: 'ambiguous'; codes: string[]; asOf: string; scope: 'facility' | 'global' }
+  | { status: 'none'; asOf: string; scope: 'facility' | 'global' }

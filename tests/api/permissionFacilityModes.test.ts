@@ -46,6 +46,8 @@ const NONE = [
   'contact-categories/names.get.ts',
   // And for the Träger's entries of „Wissen“ for all facilities.
   'knowledge-categories/names.get.ts',
+  // The Träger's street list of the school districts for all facilities.
+  'school-districts/global.put.ts', 'school-districts/global.delete.ts',
 ]
 
 const API_DIR = join(process.cwd(), 'server', 'api')

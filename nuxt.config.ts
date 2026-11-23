@@ -14,6 +14,9 @@ export default defineNuxtConfig({
     '/children', '/children/**', '/print/children/**',
   ].map(path => [path, { headers: { 'Cache-Control': 'no-store' } }])),
   nitro: {
+    // server/lib/pdfText.ts reads uploaded PDFs with pdf.js in a worker thread that loads these two files by path
+    // (createRequire), which the file tracing cannot see: copy them into .output/server/node_modules explicitly.
+    externals: { traceInclude: ['pdfjs-dist/legacy/build/pdf.mjs', 'pdfjs-dist/legacy/build/pdf.worker.mjs'] },
     hooks: {
       // Nitro types every $fetch/useFetch by matching the URL against all API routes at the type level. Past ~310 routes
       // that matching exceeds TypeScript's instantiation limit (TS2589) and the failure spreads as implicit `any` across

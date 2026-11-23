@@ -129,6 +129,8 @@ const CHILD_EDITOR_ROUTES = [
   'children/[id]/meetings.post.ts', 'children/meetings/[id].put.ts', 'children/meetings/[id].delete.ts',
   // The schools of the address book to choose as „künftige Schule“ in the master data (names only).
   'contacts/schools.get.ts',
+  // „Übernehmen“: the school of the child's district (by the street list) as its „künftige Schule“.
+  'children/[id]/adopt-school.post.ts',
 ]
 /** children.manage: the Leitung's child pages, at the office or at the unlocked tablet. */
 const CHILD_MANAGER_ROUTES = [
@@ -295,6 +297,22 @@ describe('API route permissions', () => {
     const code = source('groups/[id]/school-children.put.ts')
     expect(code).toContain("requirePermission(event, 'children.schoolSettings', { facility: 'none' })")
     expect(code).toContain("can(user.permissions, 'settings.otherFacility')")
+  })
+
+  it('keeps the street lists of the school districts to the settings, the list for all facilities to the Träger', () => {
+    for (const route of ['school-districts/index.get.ts', 'school-districts/index.put.ts', 'school-districts/index.delete.ts', 'school-districts/parse.post.ts']) {
+      expect(permissionCalls(route), route).toEqual([{ key: 'settings.facility', options: '' }])
+      // Reading an upload touches no facility's data; the others work in the facility of the request.
+      expect(source(route).includes('.facilityId'), route).toBe(route !== 'school-districts/parse.post.ts')
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+    }
+    for (const route of ['school-districts/global.put.ts', 'school-districts/global.delete.ts']) {
+      expect(permissionCalls(route), route).toEqual([{ key: 'settings.otherFacility', options: "{ facility: 'none' }" }])
+      expect(source(route), route).toContain(', null')
+      expect(fixture[route], route).toEqual(['provider'])
+    }
+    // The upload's size is checked before its body is read.
+    expect(source('school-districts/parse.post.ts')).toMatch(/assertUploadLength\([\s\S]*readMultipartFormData/)
   })
 
   it('opens the mandatory appointments to managers only, apart from the read-only own view', () => {

@@ -2825,3 +2825,67 @@ Das Recht „Wissen: pflegen“ steht auf der Seite **Rechte und Rollen** (Berei
   **„Beurteilungen und Zeugnisse“** (voreingestellt 3 Jahre nach dem Ende des Jahres, in dem die Person ausgeschieden ist;
   Mehr → Löschfristen, siehe Abschnitt „Löschfristen“); „Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sie
   sofort mit.
+
+## 29. Schulbezirke (Straßenliste der Stadt)
+
+Mit der Straßenliste der Stadt (welche Hausnummern welcher Straße zu welchem Grundschulbezirk gehören) zeigt die
+Kinderakte, zu welchem **Schulbezirk** die Adresse eines Kindes gehört, und die Liste der Schulkinder lässt sich nach
+Bezirk ordnen und drucken.
+
+### Liste hochladen und pflegen (Einstellungen → Kinder → Schulbezirke)
+
+- **Wer:** die eigene Liste der Einrichtung pflegen Leitung und Träger (Recht „Einstellungen der Einrichtung“). Der Träger
+  kann außerdem eine **Liste für alle Einrichtungen** hinterlegen (Recht „Einstellungen anderer Einrichtungen“); sie gilt
+  für jede Einrichtung ohne eigene Liste. Die Leitung sieht die Liste des Trägers und kann sie herunterladen.
+- **Hochladen:** PDF mit Text (z. B. die Liste der Stadtverwaltung) oder CSV (Semikolon oder Komma, UTF-8 oder
+  Windows-Zeichensatz). Eine **Excel-Datei** bitte zuerst als CSV speichern. Höchstens 10 MB und 20 000 Zeilen. Eine
+  gescannte PDF ohne Text lässt sich nicht lesen.
+- **CSV-Spalten** (erste Zeile): `Straße; von; bis; Seite; Bezirk; Schule; Prüfen; Hinweis` – so sieht auch der
+  Download aus. Es geht auch kürzer: `Straße; Hausnummer; Bezirk` mit Hausnummern wie `2-14` oder `1-3 A`. „Seite“ ist
+  `gerade`, `ungerade` oder `alle`; leer heißt: aus den Hausnummern (beide gerade → gerade Seite, beide ungerade →
+  ungerade Seite, gemischt → alle). Bezirk-Nummern werden zweistellig („1“ und „01“ sind derselbe Bezirk – Excel macht
+  aus „02“ gern „2“).
+- **Vorschau:** Die Datei wird auf dem Server gelesen, aber noch nicht gespeichert. Gelb markiert sind Zeilen, die mit der
+  Vorlage verglichen werden sollten: **„Nummer unklar“** (nach dem Bereich steht noch eine Zahl, z. B. „1- 23 1“; der
+  Bereich davor wird genommen), **„Bereich war umgedreht“** (z. B. „22 - 14“ wird zu 14–22) und **„überschneidet sich mit
+  anderem Bezirk“** (gleiche Straße und Seite, Bereiche überlappen, verschiedene Bezirke). Rot: unvollständige Zeilen;
+  sie müssen vor dem Speichern korrigiert oder gelöscht werden. Zeilen lassen sich einzeln bearbeiten, löschen und
+  hinzufügen; „Geprüft“ nimmt die gelbe Markierung weg. Zeilen der Datei, die nicht erkannt wurden, stehen über der
+  Tabelle.
+- **Bezirke und Schulen:** Jeder Bezirk bekommt den Namen der Schule (aus der Legende der PDF vorgeschlagen, z. B.
+  „1 Zeyherschule“ → Bezirk 01) und optional die Schule aus den **Kontakten**. Für die eigene Liste: die Schulen, die
+  auch als „künftige Schule“ wählbar sind; für die Liste des Trägers: die Schulen des Trägers für alle Einrichtungen.
+- **Speichern** ersetzt die gespeicherte Liste vollständig (mit Rückfrage), mit Name und **Stand** (z. B. „2021“ oder
+  „01.09.2021“). **Als CSV herunterladen** liefert die gespeicherte Liste im Format, das das Hochladen wieder liest.
+- **Sicherheit:** Hochgeladene Dateien gelten als nicht vertrauenswürdig. Eine PDF wird in einem eigenen Hintergrund-Thread
+  mit Zeit- (20 Sekunden) und Speichergrenze gelesen, ohne Skripte, Schriften oder Formulare; was länger braucht oder
+  mehr als 300 Seiten hat, wird abgelehnt. Die hochgeladene Datei selbst wird nicht gespeichert.
+
+### In der Kinderakte
+
+- Unter den Stammdaten steht **„Schulbezirk laut Liste: Schulbezirk 02 – Südstadtschule (laut Liste, Stand 2021)“**.
+  Das wird bei jedem Öffnen aus der Adresse berechnet (nicht gespeichert): Ändert sich die Adresse oder die Liste, ändert
+  sich die Anzeige. Das Freitextfeld „Schulbezirk“ der Stammdaten bleibt daneben unverändert.
+- Gelesen wird die erste Zeile der Adresse mit Hausnummer (Straße, Nummer, Buchstabe wie „12a“ oder „3 A“); Zeilen mit
+  Postleitzahl werden übersprungen. Verglichen wird ohne Groß-/Kleinschreibung, „ß“ = „ss“, „ä“ = „ae“ usw.,
+  „Str.“/„Str“/„Strasse“ = „Straße“, Bindestriche und Leerzeichen zählen nicht. Abgeschnittene Namen der Liste (z. B.
+  „Clementine-Bassermann-St“) passen als Anfang, wenn nur ein Name der Liste so anfängt. „bis 14“ schließt 14a ein,
+  „bis 3 A“ schließt 3a ein, aber nicht 3b.
+- **„Adresse nicht in der Liste“:** Straße oder Hausnummer kommt nicht vor (oder die Adresse liegt in einer anderen
+  Stadt – die Liste kennt keine Postleitzahl). **„nicht eindeutig: 01, 03 – bitte von Hand wählen“:** mehrere Zeilen
+  verschiedener Bezirke passen (Überschneidung in der Liste, oder Adresse ohne Hausnummer in einer geteilten Straße).
+- **„Übernehmen“:** Hat der Bezirk eine Schule aus den Kontakten und das Kind noch keine „künftige Schule“, trägt ein
+  Klick diese Schule ein (wer die Stammdaten ändern darf, auch am entsperrten Tablet). Automatisch wird nie etwas
+  eingetragen.
+
+### Liste der Schulkinder
+
+Kinder → Belegung → **„Schulkinder zum 1.9.“** zeigt, sobald eine Liste gilt, die Spalte **Schulbezirk**, die Anzahl je
+Bezirk, einen Filter nach Bezirk, **„nach Schulbezirk gruppieren“** und **„Nach Schulbezirk drucken“** (eine Liste je
+Bezirk mit Anzahl).
+
+### Datenschutz
+
+Die Straßenlisten enthalten keine personenbezogenen Daten. Der Bezirk eines Kindes wird nur auf dem Server und nur für
+Kinder berechnet, die die Person ohnehin sehen darf, und nirgends gespeichert. Die eigene Liste gehört zur Einrichtung
+und würde mit ihr gelöscht; eine Schule, die aus den Kontakten gelöscht wird, verschwindet aus der Zuordnung des Bezirks.

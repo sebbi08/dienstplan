@@ -38,6 +38,7 @@ import { meetingsOf, overviewMeetingsOf } from './parentMeetings'
 import { moveChildForms } from './childForms'
 import { developmentDocOf } from './reminders'
 import { guardAgainstLeaving, leavesAtNextRun, schoolCutoffOf } from './schoolChildren'
+import { schoolDistrictMatcher } from './schoolDistricts'
 
 const byName = (a: { lastName: string; firstName: string }, b: { lastName: string; firstName: string }) =>
   a.lastName.localeCompare(b.lastName, 'de') || a.firstName.localeCompare(b.firstName, 'de')
@@ -194,6 +195,7 @@ export function getChild(
     computedSchoolStart: computedSchoolStart(row.birthDate, schoolCutoffOf(db, viewer.facilityId)),
     keyEducatorName,
     futureSchoolName: schoolNameOf(db, row.futureSchoolContactId),
+    districtMatch: schoolDistrictMatcher(db, viewer.facilityId)(row),
     health: healthOf(row),
     consentQuestions: recordQuestions(db, viewer.facilityId, consents),
     consents,
@@ -363,6 +365,23 @@ export function updateChildMaster(
     }).where(eq(children.id, id)).run()
     assertStays(id)
   })
+}
+
+/**
+ * „Übernehmen“: the school of the child's school district (by the facility's street list) becomes its „künftige Schule“,
+ * with the write rules of the master data. Only while the child has none yet, and only the school the page showed
+ * (`contactId`): 409 school_district_changed when the address, the list or its school changed meanwhile,
+ * 409 future_school_already_set when somebody chose one meanwhile.
+ */
+export function adoptDistrictSchool(
+  db: Db, actor: ChildActor, facilityId: number, id: number, contactId: number, today: IsoDate, now: Date = new Date(),
+): void {
+  const row = loadEditableChild(db, actor, facilityId, id, today, now)
+  if (row.futureSchoolContactId !== null) throw new ServiceError(409, 'future_school_already_set')
+  const match = schoolDistrictMatcher(db, facilityId)(row)
+  if (match?.status !== 'match' || match.contactId !== contactId || !match.canAdopt) throw new ServiceError(409, 'school_district_changed')
+  db.update(children).set({ futureSchoolContactId: checkedFutureSchool(db, facilityId, contactId, null), ...sectionStamp('master', actor.id, now) })
+    .where(eq(children.id, id)).run()
 }
 
 export function updateChildHealth(

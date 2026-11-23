@@ -36,7 +36,7 @@ const CHILDREN = [
   '/print/children/attendance/2026-10-28', '/print/children/birthdays', '/print/children/documents',
   '/print/children/forms/1', '/print/children/ifsg-declaration/1', '/print/children/ifsg-notice/1', '/print/children/ifsg/2026',
   '/print/children/occupancy/2026',
-  '/print/children/overview/1', '/print/children/planned', '/print/children/school-children',
+  '/print/children/overview/1', '/print/children/planned', '/print/children/school-children', '/print/children/school-districts',
   '/print/children/staffing/2026/10', '/print/children/week/1/1',
 ]
 /** The office pages: Leitung and Träger only. */

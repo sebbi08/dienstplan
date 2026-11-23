@@ -10,6 +10,7 @@ import { ageLimitChildren, facilityAgeRules } from './ageLimits'
 import { schoolNames } from './contacts'
 import { facilityCapacity } from './facilities'
 import { listGroups } from './groups'
+import { schoolDistrictMatcher } from './schoolDistricts'
 import { activeSchoolChildren, isSchoolStartDue, occupancyChildren } from './schoolChildren'
 
 /** The places of the groups together, only when every group has a number of places (null otherwise, and without groups). */
@@ -95,6 +96,7 @@ export function upcomingSchoolChildren(db: Db, facilityId: number, today: IsoDat
   const listed = activeSchoolChildren(db, facilityId, today)
     .filter(child => isSchoolStartDue(child, today) || (listsComing && child.schoolStart > today && child.schoolStart <= coming))
   const schools = schoolNames(db, listed.map(({ row }) => row.futureSchoolContactId))
+  const districtOf = schoolDistrictMatcher(db, facilityId)
   return listed
     // The children come ordered by name; the sort is stable.
     .sort((a, b) => a.schoolStart.localeCompare(b.schoolStart))
@@ -105,5 +107,6 @@ export function upcomingSchoolChildren(db: Db, facilityId: number, today: IsoDat
       schoolStart,
       pendingSchoolGroup: schoolGroup?.name ?? null,
       futureSchool: row.futureSchoolContactId === null ? null : schools.get(row.futureSchoolContactId) ?? null,
+      schoolDistrict: districtOf(row),
     }))
 }

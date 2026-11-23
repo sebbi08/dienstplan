@@ -2017,3 +2017,51 @@ export const knowledgeStarterSeeds = sqliteTable('knowledge_starter_seeds', {
   starterKey: text('starter_key').notNull(),
   seededAt: text('seeded_at').notNull(),
 }, table => [primaryKey({ columns: [table.facilityId, table.starterKey] })])
+
+/**
+ * Schulbezirke: a street list that says which primary school district a house number belongs to. One own list per
+ * facility (`facilityId`), plus at most one list of the Träger for all facilities (`facilityId` null); a facility's own
+ * list wins over the Träger's. The lists hold no personal data; children are matched on read
+ * (server/services/schoolDistricts.ts). Saving replaces the whole list.
+ */
+export const schoolDistrictLists = sqliteTable('school_district_lists', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').references(() => facilities.id, { onDelete: 'cascade' }),
+  name: text('name').notNull().default(''),
+  /** „Stand“ as written (a date or a year). */
+  asOf: text('as_of').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  // One list per facility, and one with facility_id null (written without a comma: drizzle-kit splits index expressions there).
+}, table => [uniqueIndex('school_district_lists_scope').on(sql`(case when ${table.facilityId} is null then 0 else ${table.facilityId} end)`)])
+
+/**
+ * A row of a list: the street as written plus its compare key (shared/domain/schoolDistricts.ts `streetKey`), the house
+ * numbers (null/null = the whole street; suffix '' or one lower case letter), the side and the district code. `flags`
+ * names the doubts about the source row („unclear,reversed“), `note` what was in the source then.
+ */
+export const schoolDistrictRows = sqliteTable('school_district_rows', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  listId: integer('list_id').notNull().references(() => schoolDistrictLists.id, { onDelete: 'cascade' }),
+  street: text('street').notNull(),
+  streetKey: text('street_key').notNull(),
+  fromNo: integer('from_no'),
+  fromSuffix: text('from_suffix').notNull().default(''),
+  toNo: integer('to_no'),
+  toSuffix: text('to_suffix').notNull().default(''),
+  side: text('side', { enum: ['odd', 'even', 'all'] }).notNull().default('all'),
+  district: text('district').notNull(),
+  flags: text('flags').notNull().default(''),
+  note: text('note').notNull().default(''),
+}, table => [index('school_district_rows_list_street').on(table.listId, table.streetKey)])
+
+/** The districts of a list: code, the school's name and, optionally, the school in the address book (Kontakte). */
+export const schoolDistricts = sqliteTable('school_districts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  listId: integer('list_id').notNull().references(() => schoolDistrictLists.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  name: text('name').notNull().default(''),
+  contactId: integer('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+}, table => [uniqueIndex('school_districts_list_code').on(table.listId, table.code), index('school_districts_contact').on(table.contactId)])

@@ -25,6 +25,8 @@ describe('PDF_PATH (print views that may be rendered as PDF)', () => {
     '/print/contacts/12',
     '/print/contacts/provider',
     '/print/children/school-children',
+    // The school children by school district.
+    '/print/children/school-districts',
   ])('accepts %s', (path) => {
     expect(PDF_PATH.test(path)).toBe(true)
   })

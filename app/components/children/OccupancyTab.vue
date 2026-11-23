@@ -8,6 +8,7 @@ import { groupBySchool } from '~/utils/contacts'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, monthTitle } from '~/utils/format'
 import { occupancyCellLabel, occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
+import { districtKey, districtLabel, groupByDistrict, hasDistricts } from '~/utils/schoolDistricts'
 import { groupPath } from '~/utils/settingsAreas'
 
 /**
@@ -90,12 +91,33 @@ const { busy: leaving, run: runLeave } = useBusyAction(async () => {
 })
 const today = todayIso()
 const manualLeave = computed(() => !onTablet.value && schoolSettings.value?.autoLeave === false)
-// „nach Schule gruppieren“: one block per future school (from the child's record), „ohne künftige Schule“ last.
-const bySchool = ref(false)
-const schoolSections = computed(() => (bySchool.value
-  ? groupBySchool(schoolChildren.value ?? [])
-  : [{ school: undefined as string | null | undefined, rows: schoolChildren.value ?? [] }]))
-const schoolColumns = computed(() => (manualLeave.value ? 6 : 5))
+// The school district by the facility's street list (Einstellungen → Kinder → Schulbezirke): a column, a filter, a
+// count per district and a grouping, only while a list applies.
+const showDistricts = computed(() => hasDistricts(schoolChildren.value ?? []))
+const districtFilter = ref('all')
+const districtGroups = computed(() => groupByDistrict(schoolChildren.value ?? []))
+const districtItems = computed(() => [
+  { label: de.schoolDistricts.list.all, value: 'all' },
+  ...districtGroups.value.map(group => ({ label: `${group.label} (${group.rows.length})`, value: group.key })),
+])
+const shownSchoolChildren = computed(() => (schoolChildren.value ?? [])
+  .filter(child => districtFilter.value === 'all' || districtKey(child.schoolDistrict) === districtFilter.value))
+// One grouping at a time: „nach Schule gruppieren“ (future school from the record, „ohne künftige Schule“ last) or
+// „nach Schulbezirk gruppieren“ (by code, the open cases last).
+const grouping = ref<'none' | 'school' | 'district'>('none')
+const groupingSwitch = (kind: 'school' | 'district') => computed({
+  get: () => grouping.value === kind,
+  set: (value: boolean) => { grouping.value = value ? kind : 'none' },
+})
+const bySchool = groupingSwitch('school')
+const byDistrict = groupingSwitch('district')
+const schoolSections = computed(() => {
+  const rows = shownSchoolChildren.value
+  if (grouping.value === 'school') return groupBySchool(rows).map(section => ({ key: section.school ?? '-', title: section.school ?? de.contacts.noSchool, rows: section.rows }))
+  if (grouping.value === 'district') return groupByDistrict(rows).map(section => ({ key: section.key, title: section.label, rows: section.rows }))
+  return [{ key: 'all', title: null as string | null, rows }]
+})
+const schoolColumns = computed(() => 5 + (manualLeave.value ? 1 : 0) + (showDistricts.value ? 1 : 0))
 async function leaveAtSchoolStart(child: UpcomingSchoolChildDto) {
   const leftOn = addDays(child.schoolStart, -1)
   if (!await confirm(de.childLifecycle.confirmLeave(child.name, formatDate(leftOn)), { confirmLabel: de.childLifecycle.leave })) return
@@ -204,12 +226,21 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
         <div class="flex flex-wrap items-center gap-3">
           <h2 class="font-semibold">{{ de.schoolChildren.listTitle('1.9.') }}</h2>
           <UCheckbox v-model="bySchool" :label="de.contacts.groupBySchool" class="ml-auto" />
+          <UCheckbox v-if="showDistricts" v-model="byDistrict" :label="de.schoolDistricts.list.group" />
           <UButton
             v-if="!onTablet" size="xs" color="neutral" variant="outline" icon="i-lucide-printer" :label="de.contacts.printBySchool"
             to="/print/children/school-children" target="_blank"
           />
+          <UButton
+            v-if="!onTablet && showDistricts" size="xs" color="neutral" variant="outline" icon="i-lucide-printer"
+            :label="de.schoolDistricts.list.print" to="/print/children/school-districts" target="_blank"
+          />
         </div>
         <p class="text-gray-500">{{ de.schoolChildren.listHint }}</p>
+        <div v-if="showDistricts" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <USelect v-model="districtFilter" :items="districtItems" size="xs" class="w-64" :aria-label="de.schoolDistricts.list.filter" />
+          <span v-for="group in districtGroups" :key="group.key" class="text-xs text-gray-600">{{ de.schoolDistricts.list.count(group.label, group.rows.length) }}</span>
+        </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left">
             <thead class="text-xs text-gray-600">
@@ -219,13 +250,14 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
                 <th class="px-2 py-1">{{ de.schoolChildren.schoolStart }}</th>
                 <th class="px-2 py-1">{{ de.schoolChildren.afterSchoolGroup }}</th>
                 <th class="px-2 py-1">{{ de.contacts.schoolColumn }}</th>
+                <th v-if="showDistricts" class="px-2 py-1">{{ de.schoolDistricts.list.column }}</th>
                 <th v-if="manualLeave" class="px-2 py-1" />
               </tr>
             </thead>
-            <tbody v-for="section in schoolSections" :key="section.school ?? '-'">
-              <tr v-if="section.school !== undefined" class="border-t border-gray-200 bg-gray-50">
+            <tbody v-for="section in schoolSections" :key="section.key">
+              <tr v-if="section.title !== null" class="border-t border-gray-200 bg-gray-50">
                 <th scope="colgroup" :colspan="schoolColumns" class="px-2 py-1 text-left text-xs font-semibold text-gray-700">
-                  {{ section.school ?? de.contacts.noSchool }} ({{ section.rows.length }})
+                  {{ section.title }} ({{ section.rows.length }})
                 </th>
               </tr>
               <tr v-for="child in section.rows" :key="child.id" class="border-t border-gray-100">
@@ -237,6 +269,7 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
                 </td>
                 <td class="px-2 py-1.5">{{ child.pendingSchoolGroup ?? de.children.noValue }}</td>
                 <td class="px-2 py-1.5">{{ child.futureSchool ?? de.children.noValue }}</td>
+                <td v-if="showDistricts" class="px-2 py-1.5">{{ districtLabel(child.schoolDistrict) || de.children.noValue }}</td>
                 <td v-if="manualLeave" class="whitespace-nowrap px-2 py-1.5 text-right">
                   <UButton
                     v-if="child.pendingSchoolGroup === null" size="xs" color="neutral" variant="outline" :label="de.schoolChildren.leaveNow"

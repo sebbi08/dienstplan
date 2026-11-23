@@ -324,6 +324,7 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
         <p v-if="row.hint" class="text-xs text-gray-500">{{ row.hint }}</p>
       </div>
     </dl>
+    <ChildrenSchoolDistrictHint v-if="child?.districtMatch" :child="child" :match="child.districtMatch" :reload="reload" />
 
     <template #edit>
       <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="save">
