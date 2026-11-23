@@ -5,6 +5,7 @@ import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
+import { fillKinds } from '~/utils/pdfFill'
 import {
   berlinDay, chosenTemplateTab, defaultGlobalVisibility, readTemplateTabMemory, sameCategoryName, templateFileUrl, templateTabs,
   titleFromFileName, writeTemplateTabMemory,
@@ -25,6 +26,17 @@ const canEditGlobal = computed(() => can('printTemplates.global'))
 // The visibilities the editor may give a category (or a template for all facilities): those of the own role.
 const categoryLevels = computed(() => (user.value ? visibleTemplateLevels(user.value.role) : []))
 const { activeName } = useFacilities()
+// „Ausfüllen“: a fillable template for a child or a person of the team, where the viewer may add documents (the tablet only
+// while unlocked by such a person). Unsaved input in the fill view asks before the page is left.
+const { rights, onTablet } = useChildRights()
+const fillTargets = computed(() => fillKinds({ onTablet: onTablet.value, tabletMayEdit: rights.value?.canEdit ?? false, can }))
+const filling = ref<{ id: number; title: string } | undefined>(undefined)
+const fillOpen = ref(false)
+function startFill(template: PrintTemplateDto) {
+  filling.value = { id: template.id, title: template.title }
+  fillOpen.value = true
+}
+useUnsavedGuard()
 
 const { data, refresh: refreshTemplates, error } = await useFetch<PrintTemplateDto[]>('/api/print-templates', { default: () => [] })
 const { data: categoryData, refresh: refreshCategories } = await useFetch<TemplateCategoryDto[]>('/api/template-categories', { default: () => [] })
@@ -201,7 +213,10 @@ async function remove(template: PrintTemplateDto) {
 <template>
   <div class="space-y-4">
     <div class="flex flex-wrap items-center gap-3">
-      <p class="min-w-60 flex-1 text-sm text-gray-600">{{ de.printTemplates.intro }}</p>
+      <p class="min-w-60 flex-1 text-sm text-gray-600">
+        {{ de.printTemplates.intro }}
+        <template v-if="fillTargets.length && templates.some(template => template.fillable)"> {{ de.pdfFill.libraryHint }}</template>
+      </p>
       <div v-if="canEdit" class="flex flex-wrap gap-2">
         <UButton color="neutral" variant="outline" icon="i-lucide-folder-cog" :label="de.printTemplates.manageCategories" @click="managing = true" />
         <UButton icon="i-lucide-upload" :label="de.printTemplates.upload" @click="openNew" />
@@ -258,6 +273,10 @@ async function remove(template: PrintTemplateDto) {
                 :to="templateFileUrl(template.id)" target="_blank" external size="sm" color="neutral" variant="outline"
                 icon="i-lucide-printer" :label="de.printTemplates.open"
               />
+              <UButton
+                v-if="template.fillable && fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
+                :label="de.pdfFill.fill" @click="startFill(template)"
+              />
               <template v-if="canEdit && template.canEdit">
                 <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
                 <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" :disabled="busy" @click="remove(template)" />
@@ -311,5 +330,6 @@ async function remove(template: PrintTemplateDto) {
     </UModal>
 
     <TemplatesCategoryManager v-if="canEdit" v-model:open="managing" :categories="categories" :levels="categoryLevels" :refresh="refresh" />
+    <PdfFillStart v-if="filling" v-model:open="fillOpen" :template="filling" />
   </div>
 </template>

@@ -7,6 +7,7 @@ import { printTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
+import { cachedHasFormFields, forgetFormFields } from '../lib/pdfForm'
 import { checkedCategoryName, chosenCategory, comparableCategoryName, facilityCategories } from './templateCategories'
 
 /**
@@ -71,6 +72,15 @@ function placer(db: Db, facilityId: number, role: Role): (row: TemplateRow) => P
       ? { categoryId: category.id, category: category.name, sortOrder: category.sortOrder, visible }
       : { categoryId: null, category: name, sortOrder: Infinity, visible }
   }
+}
+
+/**
+ * Whether the template is a form to fill in the app (pdfForm.ts): judged once per file and server run, the bytes are
+ * read only then (the list itself never selects them). No column, so templates uploaded before need no backfill.
+ */
+function isFillable(db: Db, row: { id: number; size: number; updatedAt: string }): boolean {
+  return cachedHasFormFields('print_templates', row.id, `${row.updatedAt}|${row.size}`, () =>
+    db.select({ data: printTemplates.data }).from(printTemplates).where(eq(printTemplates.id, row.id)).get()!.data)
 }
 
 /** The facility's own templates and those for all facilities. */
@@ -145,6 +155,7 @@ export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[
       uploadedAt: row.uploadedAt,
       updatedAt: row.updatedAt,
       canEdit: mayEdit(permissions, row),
+      fillable: isFillable(db, row),
     }))
 }
 
@@ -197,6 +208,7 @@ export function replaceTemplateFile(
   const mimeType = checkedPdf(file.data)
   db.update(printTemplates).set({ mimeType, size: file.data.length, data: file.data, updatedAt: now.toISOString() })
     .where(eq(printTemplates.id, id)).run()
+  forgetFormFields('print_templates', id)
 }
 
 export function deleteTemplate(db: Db, actor: TemplateActor, id: number): void {

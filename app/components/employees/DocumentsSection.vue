@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
 import { EMPLOYEE_DOCUMENT_FOLDERS, type EmployeeDocumentFolder } from '#shared/domain/personnel'
-import type { EmployeeDocumentDto, EmployeeDocumentMeta, EmployeeDocumentsDto } from '#shared/types/api'
+import type { EmployeeDocumentDto, EmployeeDocumentMeta, EmployeeDocumentsDto, PrintTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
+import type { FillTarget } from '~/utils/pdfFill'
 import { employeeDocumentUrl } from '~/utils/personnel'
 
 /**
@@ -13,7 +14,7 @@ import { employeeDocumentUrl } from '~/utils/personnel'
  * those), each with its documents (open in a new tab, download, change, delete) and „Hochladen“. Like the child
  * documents: PDF, JPG or PNG up to 10 MB. Loaded in the browser once the tab is opened.
  */
-const props = defineProps<{ employeeId: number; active: boolean }>()
+const props = defineProps<{ employeeId: number; employeeName: string; active: boolean }>()
 const t = de.personnel.documents
 const { data: documents, status, error, execute, refresh } = useFetch<EmployeeDocumentsDto>(
   `/api/employees/${props.employeeId}/documents`, { server: false, immediate: false },
@@ -79,15 +80,46 @@ async function remove(document: EmployeeDocumentDto) {
   }
 }
 
+// Filling PDF forms: „Aus Vorlage ausfüllen“ (the facility's fillable templates the viewer sees) into a new document of
+// a folder the viewer may use, „Weiter ausfüllen“ of a document that still has form fields (replaces its file, with the
+// folder's key like every change).
+const { can } = useCan()
+const mayFill = computed(() => can('printTemplates.view'))
+const { data: templateList, execute: loadTemplates, status: templateStatus } = useFetch<PrintTemplateDto[]>('/api/print-templates', {
+  key: 'fill-templates', server: false, immediate: false, default: () => [],
+})
+watch(() => props.active && mayFill.value && folders.value.length > 0, (wanted) => {
+  if (wanted && templateStatus.value === 'idle') void loadTemplates()
+}, { immediate: true })
+const fillableTemplates = computed(() => (templateList.value ?? []).filter(template => template.fillable))
+const fillTarget = computed<FillTarget>(() => ({ kind: 'employee', id: props.employeeId, name: props.employeeName }))
+const fromTemplateOpen = ref(false)
+const refilling = ref<EmployeeDocumentDto | null>(null)
+const refillOpen = ref(false)
+function refill(document: EmployeeDocumentDto) {
+  refilling.value = document
+  refillOpen.value = true
+}
+function onRefillOpen(value: boolean) {
+  if (!value) refilling.value = null
+}
+const afterFill = () => refresh()
+
 const loadError = computed(() => (error.value ? errorMessage(error.value) : null))
 const link = 'text-sky-700 hover:underline'
 const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100'
 </script>
 
 <template>
-  <div>
-    <h2 class="font-semibold">{{ t.heading }}</h2>
-    <p class="text-sm text-gray-500">{{ t.hint }}</p>
+  <div class="flex flex-wrap items-start gap-2">
+    <div class="min-w-0 flex-1">
+      <h2 class="font-semibold">{{ t.heading }}</h2>
+      <p class="text-sm text-gray-500">{{ t.hint }}</p>
+    </div>
+    <UButton
+      v-if="documents && folders.length && fillableTemplates.length" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil-line"
+      :label="de.pdfFill.fromTemplate" :disabled="busy" @click="fromTemplateOpen = true"
+    />
   </div>
   <UAlert v-if="loadError" color="error" variant="soft" :title="loadError" />
   <p v-else-if="!documents" class="text-sm text-gray-500">{{ t.loading }}</p>
@@ -116,6 +148,10 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
           <div class="flex items-center">
             <a :href="employeeDocumentUrl(document.id)" target="_blank" rel="noopener" :class="iconLink" :aria-label="t.open" :title="t.open"><UIcon name="i-lucide-external-link" class="size-4" /></a>
             <a :href="employeeDocumentUrl(document.id, true)" :class="iconLink" :aria-label="t.download" :title="t.download"><UIcon name="i-lucide-download" class="size-4" /></a>
+            <UButton
+              v-if="document.fillable" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil-line" :label="de.pdfFill.fillMore"
+              :disabled="busy" @click="refill(document)"
+            />
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="busy" @click="openEdit(document)" />
             <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(document)" />
           </div>
@@ -123,6 +159,12 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
       </ul>
     </section>
   </template>
+
+  <PdfFillStart v-if="folders.length" v-model:open="fromTemplateOpen" :target="fillTarget" :templates="fillableTemplates" @saved="afterFill" />
+  <PdfFillDialog
+    v-if="refilling" v-model:open="refillOpen" :source="{ url: employeeDocumentUrl(refilling.id), title: titleOf(refilling) }"
+    :replace="{ kind: 'employee', documentId: refilling.id }" @saved="afterFill" @update:open="onRefillOpen"
+  />
 
   <UModal v-model:open="open" :title="editingId === null ? t.uploadTo(de.personnel.folders[form.folder]) : t.edit">
     <template #body>

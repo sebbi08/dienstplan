@@ -1349,6 +1349,35 @@ export const de = {
     viewerFailed: 'Das Dokument konnte nicht angezeigt werden.', viewerLoading: 'Das Dokument wird geladen …', takePhoto: 'Foto aufnehmen',
     photoChosen: (name: string) => `Foto ausgewählt: ${name}`,
   },
+  /** Filling PDF forms in the app and saving the filled copy to a child's record or a personnel file. */
+  pdfFill: {
+    fill: 'Ausfüllen', fillMore: 'Weiter ausfüllen', fromTemplate: 'Aus Vorlage ausfüllen',
+    libraryHint: '„Ausfüllen“ öffnet ein Formular mit Feldern hier in der App, danach kommt es in die Akte eines Kindes oder einer Person.',
+    // Start: which template, for whom.
+    startTitle: (title: string) => `„${title}“ ausfüllen`,
+    forWhom: 'Für wen?', kinds: { child: 'für ein Kind', employee: 'für eine Person aus dem Team' },
+    search: { child: 'Kind suchen', employee: 'Person suchen', template: 'Vorlage suchen' },
+    noTargets: {
+      child: 'Es gibt kein Kind, zu dessen Akte du Dokumente hinzufügen darfst.',
+      employee: 'Es gibt keine Person, in deren Personalakte du Dokumente ablegen darfst.',
+    },
+    noMatch: 'Nichts gefunden.', planned: 'noch nicht in der Kita', left: 'ausgeschieden', loading: 'Wird geladen …',
+    noTemplates: 'Es gibt keine Vorlagen zum Ausfüllen. Vorlagen mit Formularfeldern legt die Leitung unter „Dokumente → Vorlagen“ ab.',
+    // The fill view.
+    forTarget: (name: string) => `für ${name}`,
+    opening: 'Das Formular wird geladen …', failed: 'Das Formular konnte nicht geöffnet werden.',
+    noFields: 'Diese Datei hat keine Felder zum Ausfüllen. Du kannst sie nur drucken.',
+    page: (number: number, total: number) => `Seite ${number} von ${total}`, previousPage: 'Vorherige Seite', nextPage: 'Nächste Seite',
+    zoomIn: 'Größer', zoomOut: 'Kleiner', zoomFit: 'An die Breite anpassen',
+    print: 'Drucken', save: 'Speichern', close: 'Schließen', printFailed: 'Das Formular konnte nicht gedruckt werden.',
+    unsavedConfirm: 'Deine Eingaben sind noch nicht gespeichert. Trotzdem schließen?', unsavedLeave: 'Schließen ohne Speichern',
+    // Saving a new copy.
+    saveTitle: 'Ausgefülltes Formular speichern',
+    saveToChild: (name: string) => `Kommt in die Akte von ${name} (Dokumente).`,
+    saveToEmployee: (name: string) => `Kommt in die Personalakte von ${name} (Nachweise → Dokumente).`,
+    replaceHint: 'Beim Speichern wird die Datei dieses Dokuments ersetzt. Art, Bezeichnung und Datum bleiben.',
+    folder: 'Fach',
+  },
   /** „Dokumente“: the form templates („Bögen“) and the print templates („Vorlagen“) as tabs. */
   documents: {
     title: 'Dokumente', tabsLabel: 'Bereich', tabs: { forms: 'Bögen', templates: 'Vorlagen' },

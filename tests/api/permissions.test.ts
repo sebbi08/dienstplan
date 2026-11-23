@@ -123,6 +123,8 @@ const CHILD_EDITOR_ROUTES = [
   'children/[id]/consents.put.ts', 'children/[id]/confirm.post.ts', 'children/[id]/contacts.post.ts', 'children/[id]/contacts/order.post.ts',
   'child-contacts/[id].put.ts', 'child-contacts/[id].delete.ts',
   'children/[id]/documents.post.ts', 'child-documents/[id].put.ts', 'child-documents/[id].delete.ts',
+  // Filling PDF forms: the children to add documents to, and „Weiter ausfüllen“ (replaces a document's file).
+  'children/document-targets.get.ts', 'child-documents/[id]/file.put.ts',
   // Parent meetings: the record section's rights; the service keeps the note to Leitung and Träger (spec Elterngespräche §1).
   'children/[id]/meetings.post.ts', 'children/meetings/[id].put.ts', 'children/meetings/[id].delete.ts',
   // The schools of the address book to choose as „künftige Schule“ in the master data (names only).
@@ -565,7 +567,7 @@ describe('API route permissions', () => {
   it('keeps the personnel file to its keys: payroll for employees.payroll, documents by folder in the service', () => {
     const touching = routes.filter(route => /services\/employee(Payroll|Documents)'/.test(source(route)))
     expect(touching).toEqual(['employee-documents/[id].delete.ts', 'employee-documents/[id].get.ts', 'employee-documents/[id].put.ts',
-      'employees/[id]/documents.get.ts', 'employees/[id]/documents.post.ts', 'employees/[id]/payroll.get.ts',
+      'employee-documents/[id]/file.put.ts', 'employees/[id]/documents.get.ts', 'employees/[id]/documents.post.ts', 'employees/[id]/payroll.get.ts',
       'employees/[id]/payroll.put.ts'])
     for (const route of touching) {
       const code = source(route)
@@ -580,6 +582,9 @@ describe('API route permissions', () => {
     expect(DEFAULTS.admin.has('employees.docs.qualifications')).toBe(true)
     expect(source('employees/[id]/documents.post.ts')).toContain("assertUploadLength(getRequestHeader(event, 'content-length'))")
     expect(source('employee-documents/[id].delete.ts')).toContain('checkpointWal(useSqlite())')
+    // „Weiter ausfüllen“ replaces the file: refused before the body is read when too big, the old bytes leave the WAL.
+    expect(source('employee-documents/[id]/file.put.ts')).toContain("assertUploadLength(getRequestHeader(event, 'content-length'))")
+    expect(source('employee-documents/[id]/file.put.ts')).toContain('checkpointWal(useSqlite())')
     // The detail and its update decide the personnel file blocks by the session user's permissions.
     expect(source('employees/[id].get.ts')).toContain('viewer.permissions)')
     expect(source('employees/[id].put.ts')).toContain('admin.permissions, undefined, admin.employeeId)')

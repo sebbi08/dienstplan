@@ -890,7 +890,7 @@ async function onTabKey(event: KeyboardEvent) {
       <EmployeesRequirementsSection :employee-id="id" />
       <!-- Personalakte: mounted only with the rights, loaded in the browser only once the tab is opened. -->
       <div v-if="shows('documents')" id="employee-section-documents" class="scroll-mt-32 space-y-4">
-        <EmployeesDocumentsSection :employee-id="id" :active="tab === 'records'" />
+        <EmployeesDocumentsSection :employee-id="id" :employee-name="employee.name" :active="tab === 'records'" />
       </div>
       <!-- Unfallanzeigen: mounted only with accidents.manage, loaded once the tab is opened. -->
       <div v-if="shows('accidents')" id="employee-section-accidents" class="scroll-mt-32 space-y-4">

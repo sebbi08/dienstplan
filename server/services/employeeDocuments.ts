@@ -9,6 +9,7 @@ import { employeeDocuments, employees, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { DOCUMENT_EXTENSIONS, checkedDocumentFile, type DocumentMime } from '../lib/fileSignature'
+import { cachedHasFormFields, forgetFormFields } from '../lib/pdfForm'
 import { assertEmployee } from './employees'
 
 /**
@@ -48,6 +49,16 @@ const mayUse = (actor: DocumentActor, folder: EmployeeDocumentFolder) => can(act
 
 function assertFolder(actor: DocumentActor, folder: EmployeeDocumentFolder): void {
   if (!mayUse(actor, folder)) throw new ServiceError(403, 'forbidden')
+}
+
+/**
+ * A PDF that still has form fields („Weiter ausfüllen“, pdfForm.ts); the bytes are read once per file and server run, a
+ * replaced file has a new upload time and size.
+ */
+function isFillable(db: Db, row: MetaRow): boolean {
+  if (row.mimeType !== 'application/pdf') return false
+  return cachedHasFormFields('employee_documents', row.id, `${row.uploadedAt}|${row.size}`, () =>
+    db.select({ data: employeeDocuments.data }).from(employeeDocuments).where(eq(employeeDocuments.id, row.id)).get()!.data)
 }
 
 /** The document day; every write sets one, the column is only nullable like the child documents'. */
@@ -91,6 +102,7 @@ export function listEmployeeDocuments(db: Db, actor: DocumentActor, facilityId: 
   const toDto = (row: MetaRow): EmployeeDocumentDto => ({
     id: row.id, folder: row.folder, title: row.title, documentDate: dayOf(row), note: row.note, mimeType: row.mimeType,
     size: row.size, uploadedBy: row.uploadedBy === null ? null : usernames.get(row.uploadedBy) ?? null, uploadedAt: row.uploadedAt,
+    fillable: isFillable(db, row),
   })
   return Object.fromEntries(folders.map(folder => [folder, rows.filter(row => row.folder === folder).map(toDto)]))
 }
@@ -130,6 +142,21 @@ export function updateEmployeeDocument(
   assertFolder(actor, meta.folder)
   const checked = checkedMeta(meta)
   db.update(employeeDocuments).set(checked).where(eq(employeeDocuments.id, id)).run()
+}
+
+/**
+ * A new file for the document („Weiter ausfüllen“: the form filled further), with the folder's key like every change.
+ * Only a PDF replaces a PDF; folder, title, date and note stay, the file counts as uploaded now by the actor.
+ */
+export function replaceEmployeeDocumentFile(
+  db: Db, actor: DocumentActor, facilityId: number, id: number, file: { data: Buffer; filename: string }, now: Date = new Date(),
+): void {
+  const row = loadDocument(db, actor, facilityId, id)
+  if (row.mimeType !== 'application/pdf') throw new ServiceError(400, 'document_type_invalid')
+  const mimeType = checkedDocumentFile(file.data, ['application/pdf'])
+  db.update(employeeDocuments).set({ mimeType, size: file.data.length, data: file.data, uploadedBy: actor.id, uploadedAt: now.toISOString() })
+    .where(eq(employeeDocuments.id, id)).run()
+  forgetFormFields('employee_documents', id)
 }
 
 /** Deletes the document; the route runs the WAL checkpoint afterwards, so the bytes leave the files at once. */
