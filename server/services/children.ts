@@ -24,7 +24,7 @@ import { accidentHoldOf, childAccidentDays, childRecordPurgeDate } from './child
 import { answersOf, consentQuestionsOf, moveAnswers, recordQuestions, saveAnswers } from './childConsents'
 import { listContacts } from './childContacts'
 import { listOverviewSheets } from './childOverviewSheets'
-import { checkedFutureSchool, schoolNameOf, schoolNames, schoolStaysOnMove } from './contacts'
+import { checkedFutureSchool, contactForFacility, schoolNameOf, schoolNames, schoolStaysOnMove } from './contacts'
 import { listDocuments } from './childDocuments'
 import {
   changeGroupDirectly, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup, registerLeaving, settleDue,
@@ -195,6 +195,7 @@ export function getChild(
     computedSchoolStart: computedSchoolStart(row.birthDate, schoolCutoffOf(db, viewer.facilityId)),
     keyEducatorName,
     futureSchoolName: schoolNameOf(db, row.futureSchoolContactId),
+    futureSchoolOutOfScope: row.futureSchoolContactId !== null && !contactForFacility(db, viewer.facilityId, row.futureSchoolContactId),
     districtMatch: schoolDistrictMatcher(db, viewer.facilityId)(row),
     health: healthOf(row),
     consentQuestions: recordQuestions(db, viewer.facilityId, consents),
@@ -678,8 +679,8 @@ export function moveChildToFacility(db: Db, childId: number, targetFacilityId: n
     moveChildForms(tx, childId, targetFacilityId)
     moveAnswers(tx, childId, targetFacilityId)
     detachNoteEmployees(tx, childId)
-    // A school of the old facility's address book stays behind; one for all facilities goes along.
-    const school = schoolStaysOnMove(tx, childId) ? {} : { futureSchoolContactId: null }
+    // A school of the old facility's address book stays behind; one of the Träger goes along when it is for the new facility.
+    const school = schoolStaysOnMove(tx, childId, targetFacilityId) ? {} : { futureSchoolContactId: null }
     tx.update(children)
       .set({ facilityId: targetFacilityId, facilitySince: today, groupId: null, careTypeId: null, keyEducatorId: null, ...school })
       .where(eq(children.id, childId)).run()

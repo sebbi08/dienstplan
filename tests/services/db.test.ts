@@ -2566,6 +2566,37 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT count(*) AS n FROM knowledge_categories WHERE facility_id = 2').get()).toEqual({ n: 0 })
   })
 
+  it('0118 adds „Gilt für“ to the contacts and keeps who sees what: own ones for their facility, the Träger\'s for all, all groups', () => {
+    const { db, sqlite } = databaseAt('0117')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO groups (id, facility_id, name) VALUES (7, 1, 'Bären'), (8, 2, 'Mäuse');
+      INSERT INTO contacts (id, facility_id, category_id, organisation, visible_to_staff, updated_at) VALUES
+        (1, 2, (SELECT min(id) FROM contact_categories WHERE facility_id = 2), 'Eigene', 1, 'a');
+      INSERT INTO contacts (id, facility_id, category_name, organisation, updated_at) VALUES (2, NULL, 'Schulen', 'Für alle', 'a');
+    `)
+    const before = sqlite.prepare('SELECT id, facility_id, category_id, category_name, organisation, visible_to_staff FROM contacts ORDER BY id').all()
+    migrateThrough(db, '0118')
+    expect(sqlite.prepare('SELECT id, facility_id, category_id, category_name, organisation, visible_to_staff FROM contacts ORDER BY id').all()).toEqual(before)
+    expect(sqlite.prepare('SELECT id, all_facilities FROM contacts ORDER BY id').all()).toEqual([{ id: 1, all_facilities: 0 }, { id: 2, all_facilities: 1 }])
+    expect(sqlite.prepare('SELECT contact_id, facility_id, all_groups FROM contact_targets').all()).toEqual([{ contact_id: 1, facility_id: 2, all_groups: 1 }])
+    expect(count(sqlite, 'contact_target_groups')).toBe(0)
+    // One row per contact and facility / group; gone with the contact, the facility and the group.
+    sqlite.exec(`
+      INSERT INTO contact_targets (contact_id, facility_id, all_groups) VALUES (2, 2, 0);
+      INSERT INTO contact_target_groups (contact_id, group_id) VALUES (2, 7), (1, 8);
+    `)
+    expect(() => sqlite.exec('INSERT INTO contact_targets (contact_id, facility_id) VALUES (1, 2)')).toThrow(/UNIQUE|PRIMARY/)
+    expect(() => sqlite.exec('INSERT INTO contact_target_groups (contact_id, group_id) VALUES (1, 99)')).toThrow(/FOREIGN KEY/)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    sqlite.exec('DELETE FROM groups WHERE id = 7')
+    expect(sqlite.prepare('SELECT contact_id, group_id FROM contact_target_groups').all()).toEqual([{ contact_id: 1, group_id: 8 }])
+    sqlite.exec('DELETE FROM contacts WHERE id = 1')
+    expect(count(sqlite, 'contact_target_groups')).toBe(0)
+    sqlite.exec('DELETE FROM groups WHERE id = 8; DELETE FROM facilities WHERE id = 2')
+    expect(count(sqlite, 'contact_targets')).toBe(0)
+  })
+
   it('0117 adds „Gilt für“ (facilities and groups) and keeps who sees what: own items for their facility, the Träger\'s for all, all groups', () => {
     const { db, sqlite } = databaseAt('0116')
     sqlite.exec(`

@@ -3510,15 +3510,18 @@ export const de = {
     fields: {
       organisation: 'Einrichtung oder Firma', person: 'Ansprechperson', role: 'Funktion', phone: 'Telefon', mobile: 'Mobil',
       email: 'E-Mail', street: 'Straße und Hausnummer', postalCode: 'PLZ', city: 'Ort', website: 'Website', note: 'Notiz',
-      category: 'Kategorie', categoryName: 'Kategorie (Name)', scope: 'Gilt für', address: 'Adresse',
+      category: 'Kategorie', categoryName: 'Kategorie (Name)', address: 'Adresse',
     },
     organisationPlaceholder: 'z. B. Grundschule Süd', rolePlaceholder: 'z. B. Kooperationslehrkraft',
     categoryPlaceholder: 'Kategorie wählen',
     categoryNameHint: 'Erscheint in jeder Einrichtung in der Kategorie mit diesem Namen, sonst unter „Vom Träger“.',
     visibleToStaff: 'auch für Mitarbeitende und am Tablet sichtbar',
-    visibleToStaffHint: 'Ohne Haken sehen nur Leitung und Träger diesen Kontakt.',
-    internalBadge: 'nur Leitung', global: 'alle Einrichtungen', globalHint: 'Vom Träger für alle Einrichtungen gepflegt',
-    scopeFacility: (name: string) => `nur ${name}`, scopeThisFacility: 'nur diese Einrichtung', scopeAll: 'für alle Einrichtungen',
+    visibleToStaffHint: 'Ohne Haken sehen nur Leitung und Träger diesen Kontakt. Mit Haken sehen ihn Mitarbeitende und das Tablet, '
+      + 'wenn er unter „Gilt für“ für alle Gruppen oder für ihre Stammgruppe gilt.',
+    // A contact of the Träger: „alle Einrichtungen“ when it is for all, else „vom Träger“ (for the facilities chosen).
+    internalBadge: 'nur Leitung', global: 'alle Einrichtungen', ownerBadge: 'vom Träger', globalHint: 'Vom Träger – nur der Träger kann ihn ändern.',
+    // A linked school (künftige Schule, Schulbezirk) whose „Gilt für“ no longer includes the facility: it stays, with this.
+    schoolOutOfScope: 'gilt nicht mehr für diese Einrichtung',
     confirmDelete: (name: string) => `Kontakt „${name}“ löschen?`,
     updated: (date: string, by: string | null) => (by ? `zuletzt geändert am ${date} von ${by}` : `zuletzt geändert am ${date}`),
     call: (number: string) => `${number} anrufen`, mail: (address: string) => `E-Mail an ${address}`, openWebsite: 'Website öffnen',

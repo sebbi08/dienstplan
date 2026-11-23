@@ -130,10 +130,15 @@ async function loadSchools() {
 const showSchoolNote = computed(() => !!props.child?.master.primarySchool || (schoolsReady.value && schoolOptions.value.length === 0))
 watch(editing, (value) => { if (value) loadSchools() })
 onMounted(() => { if (editing.value) loadSchools() })
+/** The stored „künftige Schule“ as shown: with a hint when its „Gilt für“ no longer includes the facility (it stays). */
+const futureSchoolLabel = computed(() => {
+  const name = props.child?.futureSchoolName ?? ''
+  return props.child?.futureSchoolOutOfScope ? `${name} (${de.contacts.schoolOutOfScope})` : name
+})
 const schoolItems = computed(() => {
   const items = schoolOptions.value.map(option => ({ label: option.name, value: option.id }))
   const stored = props.child?.master.futureSchoolContactId ?? null
-  if (stored !== null && !items.some(item => item.value === stored)) items.push({ label: props.child?.futureSchoolName ?? '', value: stored })
+  if (stored !== null && !items.some(item => item.value === stored)) items.push({ label: futureSchoolLabel.value, value: stored })
   return [{ label: de.contacts.noFutureSchool, value: 0 }, ...items]
 })
 
@@ -285,7 +290,7 @@ const rows = computed<{ label: string; value: string; multiline?: boolean; hint?
     { label: f.schoolStartDate, value: date(master.schoolStartDate ?? computedStart), hint: schoolStartHint },
     ...(master.primarySchool ? [{ label: de.contacts.primarySchoolNote, value: master.primarySchool }] : []),
     { label: f.schoolDistrict, value: master.schoolDistrict },
-    { label: de.contacts.futureSchool, value: props.child?.futureSchoolName ?? '' },
+    { label: de.contacts.futureSchool, value: futureSchoolLabel.value },
     { label: f.keyEducator, value: props.child?.keyEducatorName ?? '' },
     { label: f.note, value: master.note, multiline: true },
   ]

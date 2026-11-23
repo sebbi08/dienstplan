@@ -6,6 +6,7 @@ import { de } from '~/locales/de'
 import {
   contactAddress, contactPrintPath, contactsOfTab, contactTabFromQuery, contactTabs, websiteLabel, type ContactTab, type ContactTabKey,
 } from '~/utils/contacts'
+import { targetHints } from '~/utils/documentTargets'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
@@ -25,6 +26,10 @@ const onTablet = computed(() => user.value?.role === 'terminal')
 const { data, error, refresh: refreshContacts } = await useFetch<ContactsDto>('/api/contacts', { key: 'contacts' })
 // The menu entry of the Mitarbeiter follows the contacts marked for the staff.
 const refresh = () => Promise.all([refreshContacts(), refreshNuxtData('contacts-staff-count')])
+// At the tablet: contacts limited to groups follow the person who unlocked it.
+useRefreshOnTabletUnlock(refreshContacts)
+/** The hints for Leitung and Träger: „nur Kita A, Kita B“, „nur Bären, Füchse“, „keine Gruppe mehr gewählt“. */
+const hintsOf = (contact: ContactDto) => targetHints(contact.targets, { only: de.documentTargets.only, noGroup: de.documentTargets.noGroup, noFacility: de.documentTargets.noFacility })
 const contacts = computed(() => data.value?.contacts ?? [])
 const categories = computed(() => data.value?.categories ?? [])
 const canManage = computed(() => !!data.value?.canManage)
@@ -124,7 +129,9 @@ async function remove(contact: ContactDto) {
               </div>
               <div class="flex flex-wrap gap-1">
                 <span v-if="tab === 'all'" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ categoryName(contact) }}</span>
-                <span v-if="contact.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="t.globalHint">{{ t.global }}</span>
+                <span v-if="contact.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="t.globalHint">{{ contact.allFacilities ? t.global : t.ownerBadge }}</span>
+                <!-- „Gilt für“, for Leitung and Träger: „nur Kita A“, „nur Bären, Füchse“. -->
+                <span v-for="hint in hintsOf(contact)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
                 <span v-if="canManage && !contact.visibleToStaff" class="whitespace-nowrap rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800" :title="t.visibleToStaffHint">{{ t.internalBadge }}</span>
               </div>
             </div>

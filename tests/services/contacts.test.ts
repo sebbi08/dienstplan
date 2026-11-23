@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { children, contacts } from '../../server/db/schema'
+import { children, contacts, contactTargets, facilities } from '../../server/db/schema'
 import { createChild, getChild, moveChildToFacility, updateChildMaster } from '../../server/services/children'
 import {
   createContact, createContactCategory, deleteContact, deleteContactCategory, globalContactCategoryNames, listContacts,
@@ -11,7 +11,7 @@ import { upcomingSchoolChildren } from '../../server/services/occupancy'
 import { DEFAULT_CONTACT_CATEGORIES } from '../../shared/domain/contacts'
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { ChildMasterInput, ContactInput, Role } from '../../shared/types/api'
-import { addChild, addFacility, addUser, asChildViewer, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
+import { addChild, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
 
 const NOW = new Date('2026-11-20T09:00:00.000Z')
 
@@ -31,7 +31,7 @@ describe('address book (Kontakte)', () => {
   /** The facility's tablet: no permission of its own. */
   const tablet = { id: 1, role: 'terminal' as Role, permissions: new Set<PermissionKey>(), facilityId: 1 }
   const categoryId = (name: string, facilityId = 1) => listContacts(db, as('admin', facilityId)).categories.find(category => category.name === name)!.id
-  const organisations = (viewer: { permissions: ReadonlySet<PermissionKey>; facilityId: number }) =>
+  const organisations = (viewer: { role: Role; permissions: ReadonlySet<PermissionKey>; facilityId: number }) =>
     listContacts(db, viewer).contacts.map(entry => entry.organisation)
 
   beforeEach(() => {
@@ -143,7 +143,7 @@ describe('address book (Kontakte)', () => {
       expect(listContacts(db, leitung).contacts[0]).toMatchObject({ updatedBy: 'leitung', updatedAt: NOW.toISOString() })
       expect(forStaff.categories.find(category => category.id === schools)).toMatchObject({ contactCount: 1, ownCount: 0 })
       expect(forStaff.categories.find(category => category.name === 'Jugendamt')).toMatchObject({ contactCount: 0 })
-      expect(staffContactCount(db, 1)).toBe(1)
+      expect(staffContactCount(db, staff)).toBe(1)
       expect(listContacts(db, leitung)).toMatchObject({ canManage: true, canManageGlobal: false })
       expect(listContacts(db, provider)).toMatchObject({ canManage: true, canManageGlobal: true })
     })
@@ -155,8 +155,8 @@ describe('address book (Kontakte)', () => {
       expect(organisations(as('admin', krippe))).toEqual(['Kreisjugendamt'])
       for (const viewer of [staff, tablet, as('observer', krippe), as('group_lead', krippe)]) expect(organisations(viewer)).toEqual([])
       expect(listContacts(db, staff).categories.find(category => category.name === 'Jugendamt')).toMatchObject({ contactCount: 0 })
-      expect(staffContactCount(db, 1)).toBe(0)
-      expect(staffContactCount(db, krippe)).toBe(0)
+      expect(staffContactCount(db, staff)).toBe(0)
+      expect(staffContactCount(db, as('observer', krippe))).toBe(0)
     })
 
     it('keeps each facility to its own contacts', () => {
@@ -164,7 +164,7 @@ describe('address book (Kontakte)', () => {
       const foreign = createContact(db, as('admin', krippe), contact({ categoryId: categoryId('Schulen', krippe), visibleToStaff: true }), NOW)
       expect(organisations(leitung)).toEqual([])
       expect(organisations(staff)).toEqual([])
-      expect(staffContactCount(db, 1)).toBe(0)
+      expect(staffContactCount(db, staff)).toBe(0)
       expect(errorCode(() => updateContact(db, leitung, foreign, contact({ categoryId: categoryId('Schulen') })))).toBe('address_contact_not_found')
       expect(errorCode(() => deleteContact(db, leitung, foreign))).toBe('address_contact_not_found')
       expect(errorCode(() => deleteContact(db, provider, foreign))).toBe('address_contact_not_found')
@@ -184,7 +184,7 @@ describe('address book (Kontakte)', () => {
       expect(listContacts(db, leitung).categories.find(category => category.name === 'Fachberatung')).toMatchObject({ contactCount: 1, ownCount: 0 })
       // Mitarbeiter of every facility see it (marked for the staff); the category of that name can still be deleted.
       expect(organisations(as('observer', krippe))).toEqual(['Fachberatung Träger'])
-      expect(staffContactCount(db, krippe)).toBe(1)
+      expect(staffContactCount(db, as('observer', krippe))).toBe(1)
       deleteContactCategory(db, leitung, categoryId('Fachberatung'))
       expect(listContacts(db, leitung).contacts[0]!.categoryId).toBeNull()
       // Only the Träger changes and deletes it; it stays for all facilities.
@@ -205,6 +205,155 @@ describe('address book (Kontakte)', () => {
       createContact(db, leitung, contact({ categoryId: categoryId('Schulen'), organisation: 'Realschule' }), NOW)
       createContact(db, provider, contact({ scope: 'all', categoryName: 'Verbände', organisation: 'Arbeitskreis' }), NOW)
       expect(organisations(leitung)).toEqual(['Realschule', 'Außenstelle', 'Zentrale', 'Arbeitskreis'])
+    })
+  })
+
+  describe('„Gilt für“ (facilities and groups)', () => {
+    /** A viewer of the role with the given home group (none: null), in facility 1 unless named. */
+    const reader = (role: Role, homeGroupId: number | null, facilityId = 1) => ({ ...as(role, facilityId), homeGroupId })
+
+    it('shows the staff a contact only when it is for the staff and for all groups or their home group; managers see every one', () => {
+      const baeren = addGroup(db, 1, 'Bären')
+      const fuechse = addGroup(db, 1, 'Füchse')
+      const schools = categoryId('Schulen')
+      createContact(db, leitung, contact({ categoryId: schools, organisation: 'Alle Gruppen', visibleToStaff: true }), NOW)
+      createContact(db, leitung, contact({ categoryId: schools, organisation: 'Nur Bären', visibleToStaff: true, groupTargets: [{ facilityId: 1, groupIds: [baeren] }] }), NOW)
+      createContact(db, leitung, contact({ categoryId: schools, organisation: 'Bären intern', groupTargets: [{ facilityId: 1, groupIds: [baeren] }] }), NOW)
+      createContact(db, leitung, contact({ categoryId: schools, organisation: 'Intern' }), NOW)
+      const matrix: [string, ReturnType<typeof reader> | typeof tablet & { homeGroupId: number | null }, string[]][] = [
+        ['Leitung', reader('admin', null), ['Alle Gruppen', 'Bären intern', 'Intern', 'Nur Bären']],
+        ['Träger', reader('provider', null), ['Alle Gruppen', 'Bären intern', 'Intern', 'Nur Bären']],
+        ['Mitarbeiter der Bären', reader('observer', baeren), ['Alle Gruppen', 'Nur Bären']],
+        ['Mitarbeiter der Füchse', reader('observer', fuechse), ['Alle Gruppen']],
+        ['Gruppenleitung der Bären', reader('group_lead', baeren), ['Alle Gruppen', 'Nur Bären']],
+        ['Gruppenleitung der Füchse', reader('group_lead', fuechse), ['Alle Gruppen']],
+        // Helpers and accounts without a home group: only those for all groups.
+        ['ohne Stammgruppe', reader('observer', null), ['Alle Gruppen']],
+        // The tablet: locked no group, unlocked the unlocking person's.
+        ['Tablet gesperrt', { ...tablet, homeGroupId: null }, ['Alle Gruppen']],
+        ['Tablet entsperrt (Bären)', { ...tablet, homeGroupId: baeren }, ['Alle Gruppen', 'Nur Bären']],
+      ]
+      for (const [who, viewer, expected] of matrix) {
+        expect(organisations(viewer).sort((a, b) => a.localeCompare(b, 'de')), who).toEqual(expected)
+        expect(staffContactCount(db, viewer), who).toBe(expected.length)
+      }
+      // The category counts follow what the viewer sees.
+      expect(listContacts(db, reader('observer', fuechse)).categories.find(category => category.id === schools)!.contactCount).toBe(1)
+      expect(listContacts(db, reader('observer', baeren)).categories.find(category => category.id === schools)!.contactCount).toBe(2)
+    })
+
+    it('limits a contact of the Träger to the chosen facilities and their groups, with hints for the managers only', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const hort = addFacility(db, 'Hort')
+      const maeuse = addGroup(db, krippe, 'Mäuse')
+      const igel = addGroup(db, krippe, 'Igel')
+      const id = createContact(db, provider, contact({
+        scope: 'selected', facilityIds: [1, krippe], groupTargets: [{ facilityId: krippe, groupIds: [maeuse] }],
+        categoryName: 'Jugendamt', organisation: 'Kreisjugendamt', visibleToStaff: true,
+      }), NOW)
+      expect(organisations(leitung)).toEqual(['Kreisjugendamt'])
+      expect(organisations(reader('observer', null))).toEqual(['Kreisjugendamt'])
+      expect(organisations(as('admin', hort))).toEqual([])
+      expect(organisations(reader('observer', maeuse, krippe))).toEqual(['Kreisjugendamt'])
+      expect(organisations(reader('observer', igel, krippe))).toEqual([])
+      expect(organisations(as('admin', krippe))).toEqual(['Kreisjugendamt'])
+      // Managers get the hints; the Träger the full choice; the staff nothing of it.
+      expect(listContacts(db, as('admin', krippe)).contacts[0]).toMatchObject({
+        global: true, allFacilities: false, canEdit: false, targets: { facilityNames: expect.arrayContaining(['Krippe']), groupNames: ['Mäuse'] },
+      })
+      expect(listContacts(db, as('provider', krippe)).contacts[0]!.targets).toMatchObject({
+        scope: 'selected', facilityIds: [1, krippe], groupTargets: [{ facilityId: krippe, groupIds: [maeuse] }],
+      })
+      expect(listContacts(db, reader('observer', maeuse, krippe)).contacts[0]!.targets).toBeNull()
+      // The scope changes: now the Hort only; the Krippe loses it.
+      updateContact(db, provider, id, contact({ scope: 'selected', facilityIds: [hort], categoryName: 'Jugendamt', organisation: 'Kreisjugendamt', visibleToStaff: true }), NOW)
+      expect(organisations(as('admin', krippe))).toEqual([])
+      expect(organisations(as('admin', hort))).toEqual(['Kreisjugendamt'])
+      // Saved without „Gilt für“ (from a facility it is for): kept as it is.
+      updateContact(db, as('provider', hort), id, contact({ categoryName: 'Jugendamt', organisation: 'Kreisjugendamt (neu)' }), NOW)
+      expect(organisations(as('admin', hort))).toEqual(['Kreisjugendamt (neu)'])
+      expect(listContacts(db, as('provider', hort)).contacts[0]!.targets).toMatchObject({ scope: 'selected', facilityIds: [hort] })
+      // For all facilities again.
+      updateContact(db, as('provider', hort), id, contact({ scope: 'all', categoryName: 'Jugendamt', organisation: 'Kreisjugendamt' }), NOW)
+      expect(listContacts(db, leitung).contacts[0]).toMatchObject({ allFacilities: true })
+      expect(organisations(as('admin', krippe))).toEqual(['Kreisjugendamt'])
+    })
+
+    it('lets only the Träger reach beyond the own facility; the Leitung limits its own contacts to its groups', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const baeren = addGroup(db, 1, 'Bären')
+      const maeuse = addGroup(db, krippe, 'Mäuse')
+      const schools = categoryId('Schulen')
+      expect(errorCode(() => createContact(db, leitung, contact({ scope: 'selected', facilityIds: [1], categoryName: 'Schulen' })))).toBe('forbidden')
+      expect(errorCode(() => createContact(db, leitung, contact({ scope: 'all', categoryName: 'Schulen' })))).toBe('forbidden')
+      // Groups only of the own facility.
+      expect(errorCode(() => createContact(db, leitung, contact({ categoryId: schools, groupTargets: [{ facilityId: krippe, groupIds: [maeuse] }] }))))
+        .toBe('document_targets_invalid')
+      expect(errorCode(() => createContact(db, leitung, contact({ categoryId: schools, groupTargets: [{ facilityId: 1, groupIds: [maeuse] }] }))))
+        .toBe('document_targets_invalid')
+      expect(errorCode(() => createContact(db, provider, contact({ scope: 'selected', facilityIds: [], categoryName: 'Schulen' }))))
+        .toBe('document_targets_no_facility')
+      const own = createContact(db, leitung, contact({ categoryId: schools, groupTargets: [{ facilityId: 1, groupIds: [baeren] }] }), NOW)
+      expect(listContacts(db, leitung).contacts[0]!.targets).toMatchObject({ scope: 'facility', groupTargets: [{ facilityId: 1, groupIds: [baeren] }], groupNames: ['Bären'] })
+      // The Leitung cannot turn its contact into one for several facilities; the Träger can, and back.
+      expect(errorCode(() => updateContact(db, leitung, own, contact({ scope: 'all', categoryName: 'Schulen' })))).toBe('forbidden')
+      updateContact(db, provider, own, contact({ scope: 'selected', facilityIds: [krippe], categoryName: 'Schulen' }), NOW)
+      expect(organisations(leitung)).toEqual([])
+      expect(listContacts(db, as('admin', krippe)).contacts[0]).toMatchObject({ global: true, categoryId: categoryId('Schulen', krippe) })
+      updateContact(db, as('provider', krippe), own, contact({ scope: 'facility', categoryId: categoryId('Schulen', krippe) }), NOW)
+      expect(listContacts(db, as('admin', krippe)).contacts[0]).toMatchObject({ global: false, canEdit: true })
+      expect(organisations(leitung)).toEqual([])
+    })
+
+    it('keeps a contact whose chosen facilities are all gone for the Träger only, and asks for a facility when it is saved', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const id = createContact(db, provider, contact({ scope: 'selected', facilityIds: [krippe], categoryName: 'Schulen', organisation: 'Waise' }), NOW)
+      // The facility is deleted (directly; its rows go with it).
+      db.run(sql`PRAGMA foreign_keys = OFF`)
+      db.delete(facilities).where(eq(facilities.id, krippe)).run()
+      db.run(sql`PRAGMA foreign_keys = ON`)
+      db.delete(contactTargets).where(eq(contactTargets.facilityId, krippe)).run()
+      expect(organisations(leitung)).toEqual([])
+      expect(listContacts(db, provider).contacts[0]).toMatchObject({ id, categoryId: null, targets: { scope: 'selected', facilityIds: [], facilityNames: [] } })
+      // Saved as it is: a clear message; with a facility again it shows there.
+      expect(errorCode(() => updateContact(db, provider, id, contact({ categoryName: 'Schulen', organisation: 'Waise' })))).toBe('document_targets_no_facility')
+      expect(errorCode(() => updateContact(db, leitung, id, contact({ categoryName: 'Schulen' })))).toBe('address_contact_not_found')
+      updateContact(db, provider, id, contact({ scope: 'selected', facilityIds: [1], categoryName: 'Schulen', organisation: 'Waise' }), NOW)
+      expect(organisations(leitung)).toEqual(['Waise'])
+    })
+
+    it('offers as future schools only the Träger\'s schools for the child\'s facility, and flags a linked one no longer for it', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const baeren = addGroup(db, 1, 'Bären')
+      const here = createContact(db, provider, contact({ scope: 'selected', facilityIds: [1], categoryName: 'Schulen', organisation: 'Hierschule' }), NOW)
+      const there = createContact(db, provider, contact({ scope: 'selected', facilityIds: [krippe], categoryName: 'Schulen', organisation: 'Dortschule' }), NOW)
+      // Groups do not matter for this link.
+      const grouped = createContact(db, leitung, contact({ categoryId: categoryId('Schulen'), organisation: 'Bärenschule', groupTargets: [{ facilityId: 1, groupIds: [baeren] }] }), NOW)
+      expect(schoolOptions(db, 1).map(option => option.id)).toEqual([grouped, here])
+      expect(schoolOptions(db, krippe).map(option => option.id)).toEqual([there])
+      const actor = asChildViewer(addUser(db, 'leitung3', 'admin'))
+      const master = {
+        lastName: 'Meier', firstName: 'Lena', birthDate: '2021-03-15', address: '', groupId: null, careTypeId: null, entryDate: '2024-09-01',
+        plannedEntryDate: null, infoMeetingDate: null, schoolStartDate: null, primarySchool: '', schoolDistrict: '', keyEducatorId: null,
+        note: '', admissionStatus: 'contract' as const, waitlistedOn: null,
+      }
+      expect(errorCode(() => createChild(db, actor, 1, { ...master, futureSchoolContactId: there }, NOW))).toBe('future_school_invalid')
+      const child = createChild(db, actor, 1, { ...master, futureSchoolContactId: here }, NOW)
+      expect(getChild(db, actor, child, '2027-04-01')).toMatchObject({ futureSchoolName: 'Hierschule', futureSchoolOutOfScope: false })
+      // The Träger moves the school to the Krippe: it stays linked, with the hint, and can be saved unchanged.
+      updateContact(db, provider, here, contact({ scope: 'selected', facilityIds: [krippe], categoryName: 'Schulen', organisation: 'Hierschule' }), NOW)
+      expect(getChild(db, actor, child, '2027-04-01')).toMatchObject({
+        master: { futureSchoolContactId: here }, futureSchoolName: 'Hierschule', futureSchoolOutOfScope: true,
+      })
+      updateChildMaster(db, actor, 1, child, { ...master, futureSchoolContactId: here }, '2027-04-01', NOW)
+      expect(schoolOptions(db, 1).map(option => option.id)).toEqual([grouped])
+      // A move keeps a school of the Träger only when it is for the new facility.
+      moveChildToFacility(db, child, krippe, NOW)
+      expect(db.select({ school: children.futureSchoolContactId }).from(children).where(eq(children.id, child)).get()!.school).toBe(here)
+      const other = addChild(db, krippe, { birthDate: '2023-01-01' })
+      db.update(children).set({ futureSchoolContactId: there }).where(eq(children.id, other)).run()
+      moveChildToFacility(db, other, 1, NOW)
+      expect(db.select({ school: children.futureSchoolContactId }).from(children).where(eq(children.id, other)).get()!.school).toBeNull()
     })
   })
 

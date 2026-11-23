@@ -2722,33 +2722,58 @@ Gesundheitsamt, Fachberatung, Ärztinnen und Ärzte, Handwerk und Notdienst usw.
 - **„auch für Mitarbeitende und am Tablet sichtbar“**: Nur Kontakte mit diesem Haken sehen Mitarbeiter-Konten (unter
   **Meins → Kontakte**, der Eintrag erscheint erst, wenn es mindestens einen solchen Kontakt gibt) und das Tablet (Kachel
   **Kontakte** auf der Startseite, ohne PIN). Ohne Haken sehen ihn auf dieser Seite nur Leitung und Träger (Hinweis
-  „nur Leitung“); zur Ausnahme bei Schulen siehe „Künftige Schule eines Kindes“.
+  „nur Leitung“); zur Ausnahme bei Schulen siehe „Künftige Schule eines Kindes“. Zusätzlich zählt **„Gilt für“** (siehe
+  unten): Mitarbeitende sehen einen Kontakt nur, wenn er für alle Gruppen gilt oder ihre Stammgruppe gewählt ist.
 - **Drucken**: alle Kontakte oder die geöffnete Kategorie, jeweils so, wie die Person sie sieht (nicht am Tablet).
 
 ### Wer was darf
 
 | Wer | Was |
 |---|---|
-| Träger | alles, in der gewählten Einrichtung; zusätzlich Kontakte **für alle Einrichtungen** |
-| Leitung (Recht „Kontakte: pflegen“, voreingestellt an) | alle Kontakte der Einrichtung sehen, anlegen, ändern, löschen; Kategorien verwalten |
-| Mitarbeiter, Gruppenleitung, Tablet | nur die freigegebenen Kontakte lesen (Recht „Kontakte lesen“ hat jedes Konto) |
+| Träger | alles, in der gewählten Einrichtung; zusätzlich Kontakte **für alle oder ausgewählte Einrichtungen** |
+| Leitung (Recht „Kontakte: pflegen“, voreingestellt an) | alle Kontakte für die Einrichtung sehen; eigene anlegen, ändern, löschen und auf Gruppen beschränken; Kategorien verwalten |
+| Mitarbeiter, Gruppenleitung, Tablet | nur die freigegebenen Kontakte für ihre Gruppe lesen (Recht „Kontakte lesen“ hat jedes Konto) |
 
 Das Recht „Kontakte: pflegen“ steht auf der Seite **Rechte und Rollen** (Bereich „Kontakte“) und ist für die Leitung
 voreingestellt; der Träger kann es auch einer Gruppenleitung oder einzelnen Personen geben. Jede Einrichtung sieht nur ihre
-eigenen Kontakte (und die des Trägers für alle Einrichtungen).
+eigenen Kontakte und die des Trägers, die für sie gelten.
 
-### Kontakte für alle Einrichtungen (nur Träger)
+### Gilt für (Einrichtungen und Gruppen)
 
-Beim Anlegen wählt der Träger „für alle Einrichtungen“ und gibt statt einer Kategorie einen **Kategorie-Namen** ein
-(Vorschläge: die Namen, die die Einrichtungen verwenden). In jeder Einrichtung erscheint der Kontakt in der Kategorie mit
-diesem Namen, sonst im Reiter **„Vom Träger“**. Ändern und löschen kann ihn nur der Träger; eine Kategorie gleichen Namens
-kann die Einrichtung trotzdem löschen (der Kontakt wandert dann zu „Vom Träger“).
+Beim Anlegen und später mit **Bearbeiten** gibt es **„Gilt für“** – genau wie bei den Vorlagen (Abschnitt 19):
+
+- **Einrichtungen**: Die **Leitung** legt Kontakte für die **eigene Einrichtung** an. Nur der **Träger** wählt „nur
+  ‹Einrichtung›“ (die oben gewählte), **„alle Einrichtungen (auch neue)“** oder **„ausgewählte Einrichtungen“**. Statt
+  einer Kategorie gibt er dann einen **Kategorie-Namen** ein (Vorschläge: die Namen, die die Einrichtungen verwenden). In
+  jeder Einrichtung erscheint der Kontakt in der Kategorie mit diesem Namen, sonst im Reiter **„Vom Träger“**. Markiert
+  ist er mit **„alle Einrichtungen“** bzw. **„vom Träger“**, für Leitung und Träger mit dem Hinweis „nur Kita A, Kita B“.
+  Ändern und löschen kann ihn nur der Träger, und zwar in einer Einrichtung, für die er gilt; eine Kategorie gleichen
+  Namens kann die Einrichtung trotzdem löschen (der Kontakt wandert dann zu „Vom Träger“).
+- **Gruppen**: je Einrichtung **„alle Gruppen“** oder **„nur bestimmte Gruppen“**; die Leitung darf das für die Kontakte
+  ihrer Einrichtung einstellen. Mitarbeitende und Gruppenleitungen sehen einen freigegebenen Kontakt nur, wenn ihre
+  **Stammgruppe** gewählt ist; Aushilfen aus anderen Einrichtungen und Personen ohne Stammgruppe nur Kontakte für alle
+  Gruppen. Das **Tablet** zeigt gesperrt nur freigegebene Kontakte für alle Gruppen, entsperrt zusätzlich die für die
+  Gruppe der Person, die entsperrt hat (die Liste lädt beim Entsperren und Sperren neu). Leitung und Träger sehen immer
+  alle Kontakte der Einrichtung, mit dem Hinweis „nur Bären, Füchse“. Das gilt auch für die Zahl im Menü.
+- **Speichern** wartet, bis die Auswahl geladen ist; wer „Gilt für“ nicht anfasst, lässt es, wie es ist. Verliert ein
+  Kontakt dadurch Einrichtungen, fragt die App vorher nach.
+- Gibt es keine der gewählten Einrichtungen mehr, sieht nur noch der Träger den Kontakt („Keine Einrichtung gewählt“).
+  Beim Bearbeiten ist „Gilt für“ dann markiert; Speichern ohne Einrichtung meldet **„Bitte unter ‚Gilt für‘ mindestens
+  eine Einrichtung wählen.“**
+- **Beim Update** auf diese Version blieb alles, wie es war: eigene Kontakte gelten für ihre Einrichtung, die des Trägers
+  für alle Einrichtungen, jeweils für alle Gruppen.
 
 ### Künftige Schule eines Kindes
 
 - In der Kinderakte (Stammdaten) gibt es das Feld **„künftige Schule“**: Auswahl aus den Kontakten in Kategorien mit
-  „Schule“ im Namen (z. B. „Schulen“, „Grundschulen“) der Einrichtung und des Trägers. Am Tablet gilt es wie die übrigen
+  „Schule“ im Namen (z. B. „Schulen“, „Grundschulen“) der Einrichtung und des Trägers – vom Träger nur die, deren „Gilt
+  für“ die Einrichtung des Kindes umfasst (die Gruppen spielen dafür keine Rolle). Am Tablet gilt es wie die übrigen
   Stammdaten (lesen; ändern, wer die Akte ändern darf).
+- Gilt eine bereits gewählte Schule nicht mehr für die Einrichtung (der Träger hat „Gilt für“ geändert), bleibt sie
+  eingetragen und steht mit **„(gilt nicht mehr für diese Einrichtung)“** da; neu auswählen lässt sie sich nicht. Dasselbe
+  gilt für die Zuordnung der Schulbezirke zu Schulen (Abschnitt Schulbezirke): Die Liste der Einrichtung bietet deren
+  Schulen an, die Liste des Trägers nur Schulen für alle Einrichtungen. Wechselt ein Kind die Einrichtung, bleibt eine
+  Schule des Trägers nur, wenn sie auch für die neue Einrichtung gilt.
 - Name und Ort einer Schule sieht in der Kinderakte (und in der Liste der Schulkinder) jede Person, die die Akte sehen
   bzw. ändern darf – auch ohne den Haken „auch für Mitarbeitende und am Tablet sichtbar“; Ansprechperson, Telefon,
   E-Mail und Notiz nicht.

@@ -103,6 +103,17 @@ const sections = computed(() => [
   { scope: 'facility' as const, title: t.own, list: data.value?.own ?? null, canEdit: true, empty: t.noOwn },
   { scope: 'global' as const, title: t.global, list: data.value?.global ?? null, canEdit: canGlobal.value, empty: t.noGlobal },
 ])
+/**
+ * The schools a district of the list may name: the scope's school contacts, and a school stored before that no longer
+ * is one of them (its „Gilt für“ changed) – it stays, named with a hint.
+ */
+function schoolChoices(scope: Scope) {
+  const options = (scope === 'global' ? data.value?.globalSchoolOptions : data.value?.schoolOptions) ?? []
+  const stale = (listOf(scope)?.districts ?? []).filter(district => district.contactId !== null && district.contactOutOfScope)
+    .filter((district, index, all) => all.findIndex(other => other.contactId === district.contactId) === index)
+    .map(district => ({ id: district.contactId!, name: `${district.contactName ?? ''} (${de.contacts.schoolOutOfScope})` }))
+  return [...options, ...stale.filter(entry => !options.some(option => option.id === entry.id))]
+}
 /** Which list the facility's children are matched against, as a line under each list. */
 function appliesText(scope: Scope): string {
   if (scope === 'facility') return data.value?.own ? t.applies : data.value?.global ? t.usesGlobal : ''
@@ -120,7 +131,7 @@ function appliesText(scope: Scope): string {
       v-if="editing" :key="`${editing.scope}-${editing.fresh}`" :scope="editing.scope" :initial="editing.draft" :fresh="editing.fresh"
       :legend="editing.legend" :skipped="editing.skipped" :skipped-count="editing.skippedCount" :truncated="editing.truncated"
       :replacing="!!listOf(editing.scope)"
-      :school-options="editing.scope === 'global' ? data.globalSchoolOptions : data.schoolOptions"
+      :school-options="schoolChoices(editing.scope)"
       @saved="saved" @cancel="editing = null"
     />
 

@@ -918,8 +918,11 @@ export const bemSettingsSchema = z.object({ text: z.string().max(BEM_LIMITS.invi
 
 // The address book („Kontakte“): the lengths as in the form; e-mail, website and the category are checked by the service.
 const contactText = (limit: number) => z.string().max(limit)
+// A contact, with „Gilt für“ (left out on create: the facility's own; on a change: as it is).
 export const contactSchema = z.object({
-  scope: z.enum(['facility', 'all']).optional(),
+  scope: z.enum(DOCUMENT_SCOPES).optional(),
+  facilityIds: targetFacilityIds.optional(),
+  groupTargets: targetGroups.optional(),
   categoryId: nullableId.optional(),
   categoryName: z.string().max(CONTACT_LIMITS.categoryName).nullable().optional(),
   organisation: contactText(CONTACT_LIMITS.organisation),

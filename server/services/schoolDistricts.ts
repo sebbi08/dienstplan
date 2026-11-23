@@ -71,7 +71,9 @@ export async function parseSchoolDistrictFile(file: { data: Buffer; filename: st
 
 /** The Träger's school contacts for all facilities: global contacts whose category name holds „Schule“. */
 export function globalSchoolOptions(db: Db): SchoolOptionDto[] {
-  return db.select().from(contacts).where(isNull(contacts.facilityId)).all()
+  // Only those for all facilities: the Träger's list applies in every facility (a school of chosen facilities would not
+  // be one of the others).
+  return db.select().from(contacts).where(and(isNull(contacts.facilityId), eq(contacts.allFacilities, true))).all()
     .filter(row => isSchoolCategory(row.categoryName ?? ''))
     .map(row => ({ id: row.id, name: row.city ? `${row.organisation}, ${row.city}` : row.organisation }))
     .sort((a, b) => a.name.localeCompare(b.name, 'de') || a.id - b.id)
@@ -89,6 +91,8 @@ function listDto(db: Db, list: ListRow | null): SchoolDistrictListDto | null {
     }))
   const districts = db.select().from(schoolDistricts).where(eq(schoolDistricts.listId, list.id)).all()
   const names = schoolNames(db, districts.map(district => district.contactId))
+  // A school stored before that is no longer one of the scope's (its „Gilt für“ changed) stays, with a hint.
+  const allowed = allowedContacts(db, list.facilityId)
   const updatedBy = list.updatedBy === null ? null
     : db.select({ username: users.username }).from(users).where(eq(users.id, list.updatedBy)).get()?.username ?? null
   return {
@@ -100,6 +104,7 @@ function listDto(db: Db, list: ListRow | null): SchoolDistrictListDto | null {
       .map((district): SchoolDistrictDto => ({
         code: district.code, name: district.name, contactId: district.contactId,
         contactName: district.contactId === null ? null : names.get(district.contactId) ?? null,
+        contactOutOfScope: district.contactId !== null && !allowed.has(district.contactId),
       }))
       .sort((a, b) => a.code.localeCompare(b.code, 'de', { numeric: true })),
     updatedAt: list.updatedAt,

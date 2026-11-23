@@ -155,6 +155,7 @@
   "contacts/index.post.ts": ["provider","admin"],
   "contacts/schools.get.ts": ["provider","admin","group_lead","tablet:provider","tablet:admin","tablet:group_lead","tablet:observerEditor"],
   "contacts/staff-count.get.ts": ["provider","admin","group_lead","observer"],
+  "contacts/targets.get.ts": ["provider","admin"],
   "coverage-rules/[id].delete.ts": ["provider","admin"],
   "coverage-rules/[id].put.ts": ["provider","admin"],
   "coverage-rules/index.post.ts": ["provider","admin"],

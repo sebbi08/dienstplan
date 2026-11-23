@@ -5,17 +5,44 @@ import {
 import type { DocumentGroupTarget, DocumentTargetOptionsDto, DocumentTargetsDto, DocumentTargetsInput, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  employees, facilities, groups, knowledgeEntryTargetGroups, knowledgeEntryTargets, printTemplateTargetGroups, printTemplateTargets,
+  contactTargetGroups, contactTargets, employees, facilities, groups, knowledgeEntryTargetGroups, knowledgeEntryTargets, printTemplateTargetGroups, printTemplateTargets,
 } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { tabletUnlockStatus } from './tabletUnlock'
 
 /**
- * „Gilt für“ of Vorlagen and „Wissen“ entries as stored (print_template_targets / knowledge_entry_targets and their
- * group tables; the rules are in shared/domain/documentTargets.ts): reading them for many items at once, checking what an
- * editor chose, and writing it.
+ * „Gilt für“ of Vorlagen, „Wissen“ entries and Kontakte as stored (print_template_targets / knowledge_entry_targets /
+ * contact_targets and their group tables; the rules are in shared/domain/documentTargets.ts): reading them for many items
+ * at once, checking what an editor chose, and writing it.
  */
-export type TargetKind = 'template' | 'knowledge'
+export type TargetKind = 'template' | 'knowledge' | 'contact'
+
+/** The rows of „Gilt für“ of the items of the kind: per facility, and the groups (with their facility). */
+function targetRows(db: Db, kind: TargetKind, ids: number[]) {
+  switch (kind) {
+    case 'template': return {
+      facilities: db.select({ itemId: printTemplateTargets.templateId, facilityId: printTemplateTargets.facilityId, allGroups: printTemplateTargets.allGroups })
+        .from(printTemplateTargets).where(inArray(printTemplateTargets.templateId, ids)).all(),
+      groups: db.select({ itemId: printTemplateTargetGroups.templateId, groupId: groups.id, facilityId: groups.facilityId })
+        .from(printTemplateTargetGroups).innerJoin(groups, eq(groups.id, printTemplateTargetGroups.groupId))
+        .where(inArray(printTemplateTargetGroups.templateId, ids)).all(),
+    }
+    case 'knowledge': return {
+      facilities: db.select({ itemId: knowledgeEntryTargets.entryId, facilityId: knowledgeEntryTargets.facilityId, allGroups: knowledgeEntryTargets.allGroups })
+        .from(knowledgeEntryTargets).where(inArray(knowledgeEntryTargets.entryId, ids)).all(),
+      groups: db.select({ itemId: knowledgeEntryTargetGroups.entryId, groupId: groups.id, facilityId: groups.facilityId })
+        .from(knowledgeEntryTargetGroups).innerJoin(groups, eq(groups.id, knowledgeEntryTargetGroups.groupId))
+        .where(inArray(knowledgeEntryTargetGroups.entryId, ids)).all(),
+    }
+    case 'contact': return {
+      facilities: db.select({ itemId: contactTargets.contactId, facilityId: contactTargets.facilityId, allGroups: contactTargets.allGroups })
+        .from(contactTargets).where(inArray(contactTargets.contactId, ids)).all(),
+      groups: db.select({ itemId: contactTargetGroups.contactId, groupId: groups.id, facilityId: groups.facilityId })
+        .from(contactTargetGroups).innerJoin(groups, eq(groups.id, contactTargetGroups.groupId))
+        .where(inArray(contactTargetGroups.contactId, ids)).all(),
+    }
+  }
+}
 
 /** „Gilt für“ as checked, ready to be written. */
 export interface CheckedTargets {
@@ -31,18 +58,7 @@ const NO_TARGETS: ItemTargets = { allFacilities: false, facilities: new Map(), g
 /** The targets of the items (`allFacilities` from the item rows), by item id; an item without rows gets none. */
 export function loadTargets(db: Db, kind: TargetKind, items: readonly { id: number; allFacilities: boolean }[]): Map<number, ItemTargets> {
   const ids = items.map(item => item.id)
-  const facilityRows = ids.length === 0 ? [] : kind === 'template'
-    ? db.select({ itemId: printTemplateTargets.templateId, facilityId: printTemplateTargets.facilityId, allGroups: printTemplateTargets.allGroups })
-      .from(printTemplateTargets).where(inArray(printTemplateTargets.templateId, ids)).all()
-    : db.select({ itemId: knowledgeEntryTargets.entryId, facilityId: knowledgeEntryTargets.facilityId, allGroups: knowledgeEntryTargets.allGroups })
-      .from(knowledgeEntryTargets).where(inArray(knowledgeEntryTargets.entryId, ids)).all()
-  const groupRows = ids.length === 0 ? [] : kind === 'template'
-    ? db.select({ itemId: printTemplateTargetGroups.templateId, groupId: groups.id, facilityId: groups.facilityId })
-      .from(printTemplateTargetGroups).innerJoin(groups, eq(groups.id, printTemplateTargetGroups.groupId))
-      .where(inArray(printTemplateTargetGroups.templateId, ids)).all()
-    : db.select({ itemId: knowledgeEntryTargetGroups.entryId, groupId: groups.id, facilityId: groups.facilityId })
-      .from(knowledgeEntryTargetGroups).innerJoin(groups, eq(groups.id, knowledgeEntryTargetGroups.groupId))
-      .where(inArray(knowledgeEntryTargetGroups.entryId, ids)).all()
+  const { facilities: facilityRows, groups: groupRows } = ids.length === 0 ? { facilities: [], groups: [] } : targetRows(db, kind, ids)
   const result = new Map<number, { allFacilities: boolean; facilities: Map<number, boolean>; groups: Map<number, Set<number>> }>()
   for (const item of items) result.set(item.id, { allFacilities: item.allFacilities, facilities: new Map(), groups: new Map() })
   for (const row of facilityRows) result.get(row.itemId)?.facilities.set(row.facilityId, row.allGroups)
@@ -126,6 +142,13 @@ export function writeTargets(db: Db, kind: TargetKind, itemId: number, targets: 
     db.delete(printTemplateTargetGroups).where(eq(printTemplateTargetGroups.templateId, itemId)).run()
     for (const row of targets.rows) db.insert(printTemplateTargets).values({ templateId: itemId, ...row }).run()
     for (const groupId of targets.groupIds) db.insert(printTemplateTargetGroups).values({ templateId: itemId, groupId }).run()
+    return
+  }
+  if (kind === 'contact') {
+    db.delete(contactTargets).where(eq(contactTargets.contactId, itemId)).run()
+    db.delete(contactTargetGroups).where(eq(contactTargetGroups.contactId, itemId)).run()
+    for (const row of targets.rows) db.insert(contactTargets).values({ contactId: itemId, ...row }).run()
+    for (const groupId of targets.groupIds) db.insert(contactTargetGroups).values({ contactId: itemId, groupId }).run()
     return
   }
   db.delete(knowledgeEntryTargets).where(eq(knowledgeEntryTargets.entryId, itemId)).run()

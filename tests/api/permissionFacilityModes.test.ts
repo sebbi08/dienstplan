@@ -22,6 +22,7 @@ const ACTIVE = [
   'notes/[id].delete.ts', 'notes/[id].put.ts', 'notes/index.get.ts', 'notes/index.post.ts',
   // The address book (like the notes): read by every account and the tablet, maintained in the active facility.
   'contacts/index.get.ts', 'contacts/staff-count.get.ts', 'contacts/index.post.ts', 'contacts/[id].put.ts', 'contacts/[id].delete.ts',
+  'contacts/targets.get.ts',
   'contact-categories/index.post.ts', 'contact-categories/[id].put.ts', 'contact-categories/[id].delete.ts',
   'contact-categories/[id]/move.post.ts',
   // „Wissen“ (like the address book): read and confirmed by every account and the tablet, maintained in the active facility.

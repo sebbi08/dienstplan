@@ -668,6 +668,8 @@ export interface ChildRecordDto {
   keyEducatorName: string | null
   /** The „künftige Schule“ as shown (organisation and city; null together with master.futureSchoolContactId). */
   futureSchoolName: string | null
+  /** The „künftige Schule“ no longer is for the child's facility (its „Gilt für“ changed): it stays, with a hint. */
+  futureSchoolOutOfScope: boolean
   /** The school district by the facility's street list, computed from the address (null: no list, or no address). */
   districtMatch: SchoolDistrictMatchDto | null
   health: ChildHealthInput
@@ -3934,15 +3936,16 @@ export interface ContactCategoryInput {
 }
 
 /** Where a contact is kept: in the facility, or for all facilities (the Träger's, contacts.global). */
-export type ContactScope = 'facility' | 'all'
+export type ContactScope = DocumentScope
 
-/** What Leitung or Träger enter about a contact. */
-export interface ContactInput {
-  /** Only on create: 'all' = for all facilities (Träger). Left out = the facility. */
-  scope?: ContactScope
+/**
+ * What Leitung or Träger enter about a contact, with „Gilt für“ (shared/domain/documentTargets.ts): left out on create =
+ * the facility's own, left out on a change = as it is; 'all' / 'selected' are the Träger's.
+ */
+export interface ContactInput extends DocumentTargetsInput {
   /** A contact of the facility: one of the facility's categories. */
   categoryId?: number | null
-  /** A contact for all facilities: the category name it shows under in each facility (else „Vom Träger“). */
+  /** A contact of the Träger (all or the chosen facilities): the category name it shows under in each facility (else „Vom Träger“). */
   categoryName?: string | null
   organisation: string
   person: string
@@ -3960,12 +3963,16 @@ export interface ContactInput {
 }
 
 /** A contact as the viewer sees it, placed in the facility's categories. */
-export interface ContactDto extends Omit<ContactInput, 'scope' | 'categoryId' | 'categoryName'> {
+export interface ContactDto extends Omit<ContactInput, 'scope' | 'facilityIds' | 'groupTargets' | 'categoryId' | 'categoryName'> {
   id: number
   /** The facility's category it shows in; null = „Vom Träger“ (for all facilities, no category of its name). */
   categoryId: number | null
-  /** For all facilities (maintained by the Träger). */
+  /** Of the Träger (for all or the chosen facilities, only the Träger changes it). */
   global: boolean
+  /** For all facilities, also later ones (the Träger's; otherwise for its own facility or the facilities chosen). */
+  allFacilities: boolean
+  /** „Gilt für“, for whoever maintains the contacts (null for everyone else). */
+  targets: DocumentTargetsDto | null
   /** A contact for all facilities: the category name the Träger chose (null for a facility's own). */
   globalCategoryName: string | null
   /** When it was changed last; '' for whoever does not maintain the contacts (contacts.manage). */
@@ -4149,6 +4156,8 @@ export interface SchoolDistrictInput {
 export interface SchoolDistrictDto extends SchoolDistrictInput {
   /** The contact as shown (organisation and city); null together with contactId. */
   contactName: string | null
+  /** The contact no longer is a school of the list's facility (its „Gilt für“ changed): it stays, with a hint. */
+  contactOutOfScope: boolean
 }
 
 /** A list as saved: the facility's own or the Träger's for all facilities. */

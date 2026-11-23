@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { CONTACT_LIMITS } from '#shared/domain/contacts'
-import type { ContactCategoryDto, ContactDto, ContactInput, ContactScope } from '#shared/types/api'
+import type { ContactCategoryDto, ContactDto, ContactInput, DocumentTargetOptionsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import {
+  emptyTargets, facilitiesLost, isOrphanTargets, targetsFormOf, targetsPayload, targetsProblem, type TargetsForm,
+} from '~/utils/documentTargets'
 
 /**
  * Creating or changing a contact (contacts.manage): a contact of the active facility in one of its categories, or, for
- * the Träger (contacts.global), one for all facilities filed under a category name (with the names the facilities use
- * as suggestions). Where a contact is kept is chosen once, when it is created.
+ * the Träger (contacts.global), one for all or the chosen facilities filed under a category name (with the names the
+ * facilities use as suggestions). „Gilt für“ (shared/domain/documentTargets.ts: facilities for the Träger, groups also
+ * for the Leitung) at creation and afterwards; it is sent only when changed, and saving waits for its choices.
  */
 const props = defineProps<{
   /** null = a new contact. */
@@ -23,22 +27,38 @@ const t = de.contacts
 const f = t.fields
 const { activeName } = useFacilities()
 const { busy, run } = useBusyAction(props.refresh)
+const confirm = useConfirm()
+const toast = useToast()
 
-type Form = Omit<ContactInput, 'categoryId' | 'scope'> & { scope: ContactScope; categoryId: number | undefined; categoryName: string }
+type Form = Omit<ContactInput, 'categoryId' | 'scope' | 'facilityIds' | 'groupTargets'> & {
+  targets: TargetsForm; categoryId: number | undefined; categoryName: string
+}
 const empty = (): Form => ({
-  scope: 'facility', categoryId: undefined, categoryName: '', organisation: '', person: '', role: '', phone: '', mobile: '',
+  targets: emptyTargets(), categoryId: undefined, categoryName: '', organisation: '', person: '', role: '', phone: '', mobile: '',
   email: '', street: '', postalCode: '', city: '', website: '', note: '', visibleToStaff: false,
 })
 const form = reactive<Form>(empty())
 
-const forAll = computed(() => (props.contact ? props.contact.global : form.scope === 'all'))
+/** For all or the chosen facilities (the Träger's): filed by category name. */
+const forAll = computed(() => form.targets.scope !== 'facility')
 const categoryItems = computed(() => props.categories.map(category => ({ label: category.name, value: category.id })))
-const scopeItems = computed(() => [
-  { label: activeName.value ? t.scopeFacility(activeName.value) : t.scopeThisFacility, value: 'facility' },
-  { label: t.scopeAll, value: 'all' },
-])
 
-// The category names the facilities use, loaded when the Träger first files a contact for all facilities.
+// What „Gilt für“ offers, loaded with the form; saving waits for it, a failed load offers to try again. Sent only when
+// the editor changed it (or must: no facility left), otherwise the server keeps it as it is.
+const targetOptions = ref<DocumentTargetOptionsDto | null>(null)
+const targetsFailed = ref(false)
+const targetsTouched = ref(false)
+async function loadTargetOptions() {
+  targetsFailed.value = false
+  try {
+    targetOptions.value = await $fetch<DocumentTargetOptionsDto>('/api/contacts/targets')
+  }
+  catch {
+    targetsFailed.value = true
+  }
+}
+
+// The category names the facilities use, loaded when the Träger first files a contact for all or the chosen facilities.
 const categoryNames = ref<string[]>([])
 async function loadCategoryNames() {
   if (!props.canManageGlobal || categoryNames.value.length) return
@@ -48,23 +68,36 @@ watch(forAll, (value) => { if (value && open.value) loadCategoryNames() })
 
 watch(open, (isOpen) => {
   if (!isOpen) return
+  loadTargetOptions()
   const contact = props.contact
   if (contact) {
-    const { id: _id, categoryId, global, globalCategoryName, updatedAt: _at, updatedBy: _by, canEdit: _edit, ...fields } = contact
-    Object.assign(form, { ...fields, scope: global ? 'all' : 'facility', categoryId: categoryId ?? undefined, categoryName: globalCategoryName ?? '' })
+    const {
+      id: _id, categoryId, global, allFacilities: _all, globalCategoryName, updatedAt: _at, updatedBy: _by, canEdit: _edit, targets, ...fields
+    } = contact
+    // Turned into one for several facilities, it is filed by the name of its category (preselected).
+    const categoryName = globalCategoryName ?? props.categories.find(category => category.id === categoryId)?.name ?? ''
+    Object.assign(form, { ...fields, targets: targetsFormOf(targets), categoryId: categoryId ?? undefined, categoryName })
+    targetsTouched.value = isOrphanTargets(targets)
     if (global) loadCategoryNames()
   }
   else {
     const preset = props.presetCategoryId ?? (props.categories.length === 1 ? props.categories[0]!.id : undefined)
     Object.assign(form, { ...empty(), categoryId: preset, categoryName: props.categories.find(category => category.id === preset)?.name ?? '' })
+    targetsTouched.value = false
   }
 }, { immediate: true })
 
 async function save() {
-  const { scope, categoryId, categoryName, ...fields } = form
+  if (!targetOptions.value) return
+  const ownFacilityId = targetOptions.value.facilityId
+  const problem = targetsTouched.value ? targetsProblem(form.targets, targetOptions.value, ownFacilityId) : null
+  if (problem) return void toast.add({ title: problem.kind === 'facility' ? de.documentTargets.pickFacility : de.documentTargets.pickGroup(problem.facility), color: 'error' })
+  const lost = props.contact && targetsTouched.value ? facilitiesLost(props.contact.targets, form.targets, targetOptions.value, ownFacilityId) : 0
+  if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'der Kontakt')))) return
+  const { targets: _targets, categoryId, categoryName, ...fields } = form
   const body: ContactInput = {
     ...fields,
-    ...(props.contact ? {} : { scope }),
+    ...(targetsTouched.value ? targetsPayload(form.targets, targetOptions.value, ownFacilityId) : {}),
     ...(forAll.value ? { categoryName } : { categoryId: categoryId ?? null }),
   }
   const saved = await run(() => (props.contact
@@ -78,9 +111,15 @@ async function save() {
   <UModal v-model:open="open" :title="contact ? t.edit : t.add">
     <template #body>
       <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="save">
-        <UFormField v-if="canManageGlobal && !contact" :label="f.scope" class="sm:col-span-2">
-          <USelect v-model="form.scope" :items="scopeItems" class="w-full" />
-        </UFormField>
+        <!-- „Gilt für“: facilities (the Träger) and groups; afterwards too. -->
+        <DocumentTargetsField
+          v-model="form.targets" :options="targetOptions" :can-global="canManageGlobal" :facility-id="targetOptions?.facilityId ?? null"
+          :facility-name="activeName ?? ''" id-prefix="contact-targets" class="sm:col-span-2" @update:model-value="targetsTouched = true"
+        />
+        <UAlert
+          v-if="targetsFailed" color="warning" variant="soft" :title="de.documentTargets.loadFailed" class="sm:col-span-2"
+          :actions="[{ label: de.documentTargets.retry, color: 'neutral', variant: 'outline', onClick: loadTargetOptions }]"
+        />
         <UFormField v-if="forAll" :label="f.categoryName" :description="t.categoryNameHint" required class="sm:col-span-2">
           <UInput v-model="form.categoryName" :maxlength="CONTACT_LIMITS.categoryName" class="w-full" list="contact-category-names" required autocomplete="off" />
           <datalist id="contact-category-names">
@@ -109,7 +148,7 @@ async function save() {
           <UCheckbox v-model="form.visibleToStaff" :label="t.visibleToStaff" />
         </UFormField>
         <div class="flex gap-2 sm:col-span-2">
-          <UButton type="submit" :label="contact ? de.common.save : t.add" :loading="busy" :disabled="busy" />
+          <UButton type="submit" :label="contact ? de.common.save : t.add" :loading="busy" :disabled="busy || !targetOptions" />
           <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
         </div>
       </form>

@@ -1960,7 +1960,22 @@ export const contacts = sqliteTable('contacts', {
   sortOrder: integer('sort_order').notNull().default(0),
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  /** „Gilt für“ alle Einrichtungen (also later ones), like print_templates.all_facilities (shared/domain/documentTargets.ts). */
+  allFacilities: integer('all_facilities', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('contacts_facility').on(table.facilityId), index('contacts_category').on(table.categoryId)])
+
+/** „Gilt für“ of a contact per facility, like print_template_targets. */
+export const contactTargets = sqliteTable('contact_targets', {
+  contactId: integer('contact_id').notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  allGroups: integer('all_groups', { mode: 'boolean' }).notNull().default(true),
+}, table => [primaryKey({ columns: [table.contactId, table.facilityId] }), index('contact_targets_facility').on(table.facilityId)])
+
+/** The groups a contact is limited to, like print_template_target_groups. */
+export const contactTargetGroups = sqliteTable('contact_target_groups', {
+  contactId: integer('contact_id').notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+}, table => [primaryKey({ columns: [table.contactId, table.groupId] }), index('contact_target_groups_group').on(table.groupId)])
 
 /**
  * A category of „Wissen“ (Dokumente → Wissen), one list per facility like the print template categories, with one level
