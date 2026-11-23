@@ -14,6 +14,8 @@ const TABLES = [printTemplates, childDocuments, employeeDocuments] as const
 const nextTick = () => new Promise<void>(resolve => setImmediate(resolve))
 
 export async function backfillFillable(db: Db, batchSize = 20): Promise<number> {
+  // Nothing during the server's start itself: the first file is judged after the start-up has finished.
+  await nextTick()
   let judged = 0
   for (const table of TABLES) {
     let after = 0

@@ -114,6 +114,8 @@ export function hasFormFields(data: Buffer, limits: ScanLimits = SCAN_LIMITS): b
   let lastObj = -1
   let upcomingObj = data.indexOf('obj', 0, 'latin1')
   let upcomingStream = data.indexOf('stream', 0, 'latin1')
+  // Steps of those searches, for the time check.
+  let steps = 0
   try {
     let acroForm = hasName(data, '/AcroForm', check)
     let field = hasFieldType(data, check)
@@ -125,8 +127,12 @@ export function hasFormFields(data: Buffer, limits: ScanLimits = SCAN_LIMITS): b
       while (upcomingObj !== -1 && upcomingObj < at) {
         lastObj = upcomingObj
         upcomingObj = data.indexOf('obj', upcomingObj + 1, 'latin1')
+        if (++steps % 4096 === 0) check()
       }
-      while (upcomingStream !== -1 && upcomingStream < at) upcomingStream = data.indexOf('stream', upcomingStream + 1, 'latin1')
+      while (upcomingStream !== -1 && upcomingStream < at) {
+        upcomingStream = data.indexOf('stream', upcomingStream + 1, 'latin1')
+        if (++steps % 4096 === 0) check()
+      }
       if (lastObj === -1 || at - lastObj > DICTIONARY_REACH || upcomingStream === -1 || upcomingStream - at > DICTIONARY_REACH) continue
       const objectStart = lastObj
       const keyword = upcomingStream

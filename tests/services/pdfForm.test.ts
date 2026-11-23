@@ -66,6 +66,13 @@ describe('fillable PDF detection', () => {
       expect(names.ms).toBeLessThan(500)
     })
 
+    it('a file full of `obj` before an object stream name stops within the time limit', () => {
+      const { answer, ms } = timed(Buffer.concat([header, Buffer.from('obj '.repeat(2_500_000), 'latin1'),
+        Buffer.from('/Type /ObjStm /Length 1 stream\nx', 'latin1')]))
+      expect(answer).toBe(false)
+      expect(ms).toBeLessThan(450)
+    })
+
     it('many object streams (more than may be looked at)', () => {
       const small = Buffer.from('1 0 << /A 1 >>\n', 'latin1')
       const many = Buffer.concat([header, ...Array.from({ length: 600 }, (_, index) => objectStream(index + 1, small)),

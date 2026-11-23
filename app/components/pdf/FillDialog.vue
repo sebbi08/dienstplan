@@ -282,6 +282,9 @@ async function print() {
   if (!lib || !doc || busy.value) return
   busy.value = true
   endPrint()
+  // Closed (or reopened) meanwhile: the document is gone; stop quietly and drop what was drawn.
+  const current = generation
+  const stale = () => current !== generation
   try {
     const storage = doc.annotationStorage.print
     const box = document.createElement('div')
@@ -311,7 +314,9 @@ async function print() {
         image.src = url
       })
       box.append(image)
+      if (stale()) return void endPrint()
     }
+    if (stale()) return void endPrint()
     printBox = box
     printStyle = document.createElement('style')
     printStyle.textContent = '@page { margin: 0; }'
@@ -326,7 +331,7 @@ async function print() {
   }
   catch {
     endPrint()
-    toast.add({ title: t.printFailed, color: 'error' })
+    if (!stale()) toast.add({ title: t.printFailed, color: 'error' })
   }
   finally {
     busy.value = false
