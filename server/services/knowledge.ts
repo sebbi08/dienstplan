@@ -293,6 +293,7 @@ export function listKnowledge(db: Db, viewer: KnowledgeViewer): KnowledgeDto {
     categories: categories.map((category): KnowledgeCategoryDto => ({
       id: category.id, parentId: category.parentId, name: category.name, visibility: category.visibility,
       entryCount: counts.get(category.id) ?? 0, ownCount: owns.get(category.id) ?? 0,
+      hiddenSubcategories: all.filter(child => child.parentId === category.id && !seesCategoryNode(viewer.role, child, all)).length,
     })),
     entries: dtos,
     canManage: manages(viewer),

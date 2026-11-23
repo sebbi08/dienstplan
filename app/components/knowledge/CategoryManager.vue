@@ -78,10 +78,18 @@ async function remove(category: KnowledgeCategoryDto) {
   }
 }
 
-/** Why a category cannot be deleted (it holds own entries or subcategories), else the button's own label. */
-const deleteTitle = (category: KnowledgeCategoryDto, subcategories: number) => (category.ownCount > 0
-  ? de.errors.knowledge_category_not_empty
-  : subcategories > 0 ? de.errors.knowledge_category_has_subcategories : de.common.delete)
+/**
+ * Why a category cannot be deleted – it holds own entries, subcategories, or subcategories the editor does not see
+ * (said without naming them) –, else the button's own label.
+ */
+const deleteTitle = (category: KnowledgeCategoryDto, subcategories: number) => {
+  if (category.ownCount > 0) return de.errors.knowledge_category_not_empty
+  if (subcategories > 0) return de.errors.knowledge_category_has_subcategories
+  return category.hiddenSubcategories > 0 ? t.hiddenSubcategories : de.common.delete
+}
+/** Whether the editor may delete the category: no own entries and no subcategories (also hidden ones). */
+const deletable = (category: KnowledgeCategoryDto, subcategories: number) =>
+  category.ownCount === 0 && subcategories === 0 && category.hiddenSubcategories === 0
 </script>
 
 <template>
@@ -96,7 +104,7 @@ const deleteTitle = (category: KnowledgeCategoryDto, subcategories: number) => (
               <div class="min-w-40 flex-1">
                 <span class="font-medium">{{ category.name }}</span>
                 <span class="block text-xs text-gray-500">
-                  {{ t.visibilities[category.visibility] }}<template v-if="category.entryCount > 0"> · {{ t.entryCount(category.entryCount) }}</template><template v-if="subcategories.length > 0"> · {{ t.subcategoryCount(subcategories.length) }}</template>
+                  {{ t.visibilities[category.visibility] }}<template v-if="category.entryCount > 0"> · {{ t.entryCount(category.entryCount) }}</template><template v-if="subcategories.length > 0"> · {{ t.subcategoryCount(subcategories.length) }}</template><template v-if="category.hiddenSubcategories > 0"> · {{ t.hiddenSubcategoryNote }}</template>
                 </span>
               </div>
               <div class="flex flex-wrap items-center gap-1">
@@ -107,7 +115,7 @@ const deleteTitle = (category: KnowledgeCategoryDto, subcategories: number) => (
                 <UButton
                   color="error" variant="ghost" icon="i-lucide-trash-2" class="min-h-10 min-w-10 justify-center" :aria-label="`${de.common.delete}: ${category.name}`"
                   :title="deleteTitle(category, subcategories.length)"
-                  :disabled="busy || category.ownCount > 0 || subcategories.length > 0" @click="remove(category)"
+                  :disabled="busy || !deletable(category, subcategories.length)" @click="remove(category)"
                 />
               </div>
             </div>

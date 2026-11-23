@@ -465,6 +465,9 @@ describe('„Wissen“ (knowledge library)', () => {
       const bund = subId('Gesetze & Vorgaben', 'Bund')
       const bw = subId('Gesetze & Vorgaben', 'Baden-Württemberg')
       updateKnowledgeCategory(db, leitung, bw, { name: 'Baden-Württemberg', visibility: 'managers' })
+      // Mitarbeiter see that „Gesetze & Vorgaben“ holds a subcategory they do not see, without its name.
+      expect(listKnowledge(db, staff).categories.find(category => category.id === categoryId('Gesetze & Vorgaben'))!.hiddenSubcategories).toBe(1)
+      expect(listKnowledge(db, leitung).categories.find(category => category.id === categoryId('Gesetze & Vorgaben'))!.hiddenSubcategories).toBe(0)
       createKnowledgeEntry(db, leitung, link(bund, { title: 'Im Bund' }), null, NOW)
       createKnowledgeEntry(db, leitung, link(bw, { title: 'Im Land' }), null, NOW)
       expect(titles(staff)).toEqual(['Im Bund'])

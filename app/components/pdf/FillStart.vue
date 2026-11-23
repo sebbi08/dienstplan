@@ -3,7 +3,7 @@ import type { ChildDocumentTargetDto, EmployeeListItemDto, PrintTemplateDto } fr
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { fillKinds, searchTargets, type FillKind, type FillTarget } from '~/utils/pdfFill'
-import { templateFileUrl } from '~/utils/printTemplates'
+import { templateFileUrl, templatePath } from '~/utils/printTemplates'
 
 /**
  * Starts filling a PDF: picks what is missing — the template (from the facility's templates the viewer sees, all PDFs,
@@ -41,7 +41,7 @@ const target = computed(() => props.target ?? chosenTarget.value)
 const step = computed<'template' | 'target' | null>(() => (!template.value ? 'template' : !target.value ? 'target' : null))
 
 const templateEntries = computed<Entry[]>(() => (templates.value ?? [])
-  .map(entry => ({ id: entry.id, name: entry.title, note: entry.category || null })))
+  .map(entry => ({ id: entry.id, name: entry.title, note: templatePath(entry) || null })))
 const shown = computed(() => searchTargets(step.value === 'template' ? templateEntries.value : people.value ?? [], query.value))
 const loading = computed(() => (step.value === 'template' ? templates.value === null : people.value === null) && !loadError.value)
 

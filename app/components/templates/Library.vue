@@ -9,7 +9,7 @@ import { formatDate } from '~/utils/format'
 import { focusOrderArrow, orderArrowId } from '~/utils/orderArrows'
 import { fillKinds } from '~/utils/pdfFill'
 import {
-  berlinDay, chosenTemplateTab, defaultGlobalVisibility, readTemplateTabMemory, sameCategoryName, templateFileUrl, templatePath, templateTabs,
+  berlinDay, categoryOfNames, chosenTemplateTab, defaultGlobalVisibility, readTemplateTabMemory, templateFileUrl, templatePath, templateTabs,
   titleFromFileName, writeTemplateTabMemory,
 } from '~/utils/printTemplates'
 import {
@@ -156,12 +156,13 @@ const subcategoryNames = computed(() => subcategoryNamesFor(categoryNames.value,
 watch(forAll, (value) => {
   if (value && open.value) loadCategoryNames()
 })
-// A new template for all facilities starts with the visibility of the facility's category of the typed (or chosen) name,
-// so one meant for a restricted category is not shown to everyone where a facility lacks that category. Can be changed.
-watch(() => form.categoryName, (name) => {
+// A new template for all facilities starts with the visibility that applies at the facility's category (and subcategory)
+// of the typed (or chosen) names – the stricter of both –, so one meant for a restricted place is not shown to everyone
+// where a facility lacks that category. Can be changed.
+watch(() => [form.categoryName, form.subcategoryName] as const, ([name, subName]) => {
   if (editing.value !== null || !open.value) return
-  const match = topCategories(categories.value).find(category => sameCategoryName(category.name, name))
-  if (match) form.visibility = defaultGlobalVisibility(match, categoryLevels.value)
+  const { category, subcategory } = categoryOfNames(categories.value, name, subName)
+  if (category) form.visibility = defaultGlobalVisibility(category, categoryLevels.value, subcategory)
 })
 
 function resetFile() {
@@ -179,8 +180,9 @@ function openNew() {
   const preset = current.value?.category?.id ?? (tops.length === 1 ? tops[0]!.id : undefined)
   const presetName = current.value?.category?.name ?? current.value?.templates[0]?.category ?? ''
   const presetSub = current.value?.subcategories.find(sub => subcategoryChip(sub.id) === chip.value)
-  // For all facilities: as restricted as the open sub-tab's category (none for „Vom Träger“).
-  const visibility = defaultGlobalVisibility(presetSub ?? current.value?.category, categoryLevels.value)
+  // For all facilities: as restricted as the open sub-tab's category and small tab's subcategory, the stricter of both
+  // (none for „Vom Träger“).
+  const visibility = defaultGlobalVisibility(current.value?.category, categoryLevels.value, presetSub)
   Object.assign(form, {
     title: '', categoryId: preset, subcategoryId: presetSub?.id ?? 0, scope: 'facility', categoryName: presetName,
     subcategoryName: presetSub?.name ?? '', visibility,

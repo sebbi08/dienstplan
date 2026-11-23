@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  berlinDay, chosenTemplateTab, defaultGlobalVisibility, FROM_PROVIDER_TAB, hiddenByVisibility, movedToProvider,
+  berlinDay, categoryOfNames, chosenTemplateTab, defaultGlobalVisibility, FROM_PROVIDER_TAB, hiddenByVisibility, movedToProvider,
   readTemplateTabMemory, sameCategoryName, templatePath, templateTabs, titleFromFileName, writeTemplateTabMemory,
 } from '../../app/utils/printTemplates'
 import type { TemplateVisibility } from '../../shared/domain/templateCategories'
@@ -12,7 +12,7 @@ const template = (id: number, categoryId: number | null, title: string, category
   globalVisibility: categoryId === null ? 'all' : null, size: 1, uploadedAt: '', updatedAt: '', canEdit: true, fillable: false,
 })
 const category = (id: number, name: string, visibility: TemplateVisibility = 'all', templateCount = 2, globalCount = 0): TemplateCategoryDto =>
-  ({ id, parentId: null, name, visibility, templateCount, globalCount })
+  ({ id, parentId: null, name, visibility, templateCount, globalCount, hiddenSubcategories: 0 })
 
 describe('print template page helpers', () => {
   it('makes a sub-tab of every category the viewer sees, in the facility\'s order, empty ones too, templates in the server\'s order', () => {
@@ -106,7 +106,7 @@ describe('print template page helpers', () => {
 
   describe('subcategories', () => {
     const sub = (id: number, parentId: number, name: string, visibility: TemplateVisibility = 'all', templateCount = 0, globalCount = 0): TemplateCategoryDto =>
-      ({ id, parentId, name, visibility, templateCount, globalCount })
+      ({ id, parentId, name, visibility, templateCount, globalCount, hiddenSubcategories: 0 })
     const inSub = (id: number, categoryId: number, subcategoryId: number | null, title: string): PrintTemplateDto =>
       ({ ...template(id, categoryId, title), subcategoryId })
 
@@ -129,6 +129,22 @@ describe('print template page helpers', () => {
       // A subcategory's own: they move into its category.
       expect(movedToProvider(categories[1]!, null, categories)).toBe(3)
       expect(movedToProvider(categories[1]!, 'BRIEFE', categories)).toBe(0)
+    })
+
+    it('starts a template for all facilities with the stricter of category and subcategory, found by the typed names', () => {
+      const all = ['all', 'managers', 'provider'] as const
+      const intern = category(1, 'Intern', 'managers')
+      const offen = sub(11, 1, 'Offen', 'all')
+      const eltern = category(2, 'Eltern', 'all')
+      const leitung = sub(21, 2, 'Leitung', 'managers')
+      expect(defaultGlobalVisibility(intern, all, offen)).toBe('managers')
+      expect(defaultGlobalVisibility(eltern, all, leitung)).toBe('managers')
+      expect(defaultGlobalVisibility(eltern, all, null)).toBe('all')
+      expect(defaultGlobalVisibility(eltern, ['all'], leitung)).toBe('all')
+      const categories = [intern, offen, eltern, leitung]
+      expect(categoryOfNames(categories, ' eltern ', 'LEITUNG')).toEqual({ category: eltern, subcategory: leitung })
+      expect(categoryOfNames(categories, 'Eltern', 'Offen')).toEqual({ category: eltern, subcategory: undefined })
+      expect(categoryOfNames(categories, 'Leitung', '')).toEqual({ category: undefined, subcategory: undefined })
     })
   })
 })

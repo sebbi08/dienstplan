@@ -8,7 +8,7 @@ import {
 import type { KnowledgeCategoryDto, KnowledgeConfirmationRowDto, KnowledgeEntryDto } from '../../shared/types/api'
 
 const category = (id: number, name: string, parentId: number | null = null): KnowledgeCategoryDto =>
-  ({ id, parentId, name, visibility: 'all', entryCount: 0, ownCount: 0 })
+  ({ id, parentId, name, visibility: 'all', entryCount: 0, ownCount: 0, hiddenSubcategories: 0 })
 const entry = (id: number, categoryId: number | null, overrides: Partial<KnowledgeEntryDto> = {}): KnowledgeEntryDto => ({
   id, categoryId, subcategoryId: null, global: categoryId === null, globalCategoryName: null, globalSubcategoryName: null, globalVisibility: null,
   kind: 'link', title: `Eintrag ${id}`,

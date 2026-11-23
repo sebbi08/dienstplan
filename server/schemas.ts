@@ -600,10 +600,10 @@ export const printTemplateOrderSchema = z.object({
   categoryId: z.number().int().positive().nullable(),
   ids: z.array(z.number().int().positive()).max(500),
 })
-// The categories of a facility; `parentId` (only when creating) makes a subcategory of that category.
-export const templateCategorySchema = z.object({
-  name: z.string().max(60), visibility: z.enum(TEMPLATE_VISIBILITIES), parentId: z.number().int().positive().nullish(),
-})
+// The categories of a facility; `parentId` (only when creating) makes a subcategory of that category. A change keeps
+// where the category sits: a `parentId` there is refused (400), as moving to another category is not offered.
+export const templateCategoryUpdateSchema = z.object({ name: z.string().max(60), visibility: z.enum(TEMPLATE_VISIBILITIES) }).strict()
+export const templateCategorySchema = templateCategoryUpdateSchema.extend({ parentId: z.number().int().positive().nullish() })
 /** Replacing the file sends the file alone. */
 export const noFields = z.object({})
 
@@ -932,10 +932,11 @@ export const knowledgeEntryFields = z.object({
   visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
   scope: z.enum(['facility', 'all']).default('facility'),
 })
-export const knowledgeCategorySchema = z.object({
+// A change keeps where the category sits: a `parentId` there is refused (400).
+export const knowledgeCategoryUpdateSchema = z.object({
   name: z.string().max(KNOWLEDGE_LIMITS.categoryName), visibility: z.enum(TEMPLATE_VISIBILITIES),
-  parentId: z.number().int().positive().nullish(),
-})
+}).strict()
+export const knowledgeCategorySchema = knowledgeCategoryUpdateSchema.extend({ parentId: z.number().int().positive().nullish() })
 /**
  * „Gelesen und verstanden“: the version the reader was shown, and at the tablet the person and their PIN (an own account
  * confirms for its linked employee).

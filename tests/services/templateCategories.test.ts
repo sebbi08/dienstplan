@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { templateCategories } from '../../server/db/schema'
 import { DEFAULT_TEMPLATE_CATEGORIES } from '../../server/db/seed'
+import {
+  knowledgeCategorySchema, knowledgeCategoryUpdateSchema, templateCategorySchema, templateCategoryUpdateSchema,
+} from '../../server/schemas'
 import { uploadTemplate } from '../../server/services/printTemplates'
 import {
   createCategory, deleteCategory, globalCategoryNames, listCategories, moveCategory, updateCategory,
@@ -50,8 +53,8 @@ describe('template categories', () => {
       const eltern = create(leitung, '  Eltern ')
       create(provider, 'Personal', 'managers')
       expect(listCategories(db, provider)).toEqual([
-        { id: eltern, parentId: null, name: 'Eltern', visibility: 'all', templateCount: 0, globalCount: 0 },
-        { id: expect.any(Number), parentId: null, name: 'Personal', visibility: 'managers', templateCount: 0, globalCount: 0 },
+        { id: eltern, parentId: null, name: 'Eltern', visibility: 'all', templateCount: 0, globalCount: 0, hiddenSubcategories: 0 },
+        { id: expect.any(Number), parentId: null, name: 'Personal', visibility: 'managers', templateCount: 0, globalCount: 0, hiddenSubcategories: 0 },
       ])
     })
 
@@ -268,7 +271,7 @@ describe('template categories', () => {
       sub(leitung, eltern, 'Ausflüge')
       expect(tree('admin')).toEqual(['Eltern', '  Briefe', '  Ausflüge', 'Personal', '  Urlaub'])
       expect(listCategories(db, leitung).find(category => category.id === briefe))
-        .toEqual({ id: briefe, parentId: eltern, name: 'Briefe', visibility: 'all', templateCount: 0, globalCount: 0 })
+        .toEqual({ id: briefe, parentId: eltern, name: 'Briefe', visibility: 'all', templateCount: 0, globalCount: 0, hiddenSubcategories: 0 })
       // A new category still goes to the end of the categories.
       create(leitung, 'Gesundheit')
       expect(tree('admin').filter(name => !name.startsWith(' '))).toEqual(['Eltern', 'Personal', 'Gesundheit'])
@@ -315,6 +318,25 @@ describe('template categories', () => {
       expect(errorCode(() => updateCategory(db, leitung, drin, { name: 'X', visibility: 'all' }))).toBe('template_category_not_found')
       expect(errorCode(() => moveCategory(db, leitung, drin, 'up'))).toBe('template_category_not_found')
       expect(errorCode(() => deleteCategory(db, leitung, drin))).toBe('template_category_not_found')
+    })
+
+    it('tells the Leitung that a category holds subcategories it does not see (it cannot delete the category)', () => {
+      const offen = create(provider, 'Offen')
+      sub(provider, offen, 'Nur Träger', 'provider')
+      sub(provider, offen, 'Alle')
+      const hidden = (role: Role) => listCategories(db, { role, facilityId: 1 }).find(category => category.id === offen)!.hiddenSubcategories
+      expect(hidden('admin')).toBe(1)
+      expect(hidden('observer')).toBe(1)
+      expect(hidden('provider')).toBe(0)
+      expect(errorCode(() => deleteCategory(db, leitung, offen))).toBe('template_category_has_subcategories')
+    })
+
+    it('refuses a parent when a category is changed (the PUT body), takes it when one is created', () => {
+      expect(templateCategoryUpdateSchema.safeParse({ name: 'X', visibility: 'all', parentId: 3 }).success).toBe(false)
+      expect(templateCategoryUpdateSchema.safeParse({ name: 'X', visibility: 'all' }).success).toBe(true)
+      expect(templateCategorySchema.parse({ name: 'X', visibility: 'all', parentId: 3 })).toEqual({ name: 'X', visibility: 'all', parentId: 3 })
+      expect(knowledgeCategoryUpdateSchema.safeParse({ name: 'X', visibility: 'all', parentId: 3 }).success).toBe(false)
+      expect(knowledgeCategorySchema.parse({ name: 'X', visibility: 'all', parentId: null }).parentId).toBeNull()
     })
 
     it('moves a subcategory among the subcategories of its category only', () => {

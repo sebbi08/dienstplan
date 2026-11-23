@@ -94,10 +94,18 @@ async function remove(category: TemplateCategoryDto) {
   }
 }
 
-/** Why a category cannot be deleted (it holds templates or subcategories), else the button's own label. */
-const deleteTitle = (category: TemplateCategoryDto, subcategories: number) => (category.templateCount > 0
-  ? de.errors.template_category_not_empty
-  : subcategories > 0 ? de.errors.template_category_has_subcategories : de.common.delete)
+/**
+ * Why a category cannot be deleted – it holds templates, subcategories, or subcategories the editor does not see (said
+ * without naming them) –, else the button's own label.
+ */
+const deleteTitle = (category: TemplateCategoryDto, subcategories: number) => {
+  if (category.templateCount > 0) return de.errors.template_category_not_empty
+  if (subcategories > 0) return de.errors.template_category_has_subcategories
+  return category.hiddenSubcategories > 0 ? t.hiddenSubcategories : de.common.delete
+}
+/** Whether the editor may delete the category: empty and without subcategories (also hidden ones). */
+const deletable = (category: TemplateCategoryDto, subcategories: number) =>
+  category.templateCount === 0 && subcategories === 0 && category.hiddenSubcategories === 0
 </script>
 
 <template>
@@ -112,7 +120,7 @@ const deleteTitle = (category: TemplateCategoryDto, subcategories: number) => (c
               <div class="min-w-40 flex-1">
                 <span class="font-medium">{{ category.name }}</span>
                 <span class="block text-xs text-gray-500">
-                  {{ t.visibilities[category.visibility] }}<template v-if="category.templateCount > 0"> · {{ t.templateCount(category.templateCount) }}</template><template v-if="category.globalCount > 0"> · {{ t.globalCount(category.globalCount) }}</template><template v-if="subcategories.length > 0"> · {{ t.subcategoryCount(subcategories.length) }}</template>
+                  {{ t.visibilities[category.visibility] }}<template v-if="category.templateCount > 0"> · {{ t.templateCount(category.templateCount) }}</template><template v-if="category.globalCount > 0"> · {{ t.globalCount(category.globalCount) }}</template><template v-if="subcategories.length > 0"> · {{ t.subcategoryCount(subcategories.length) }}</template><template v-if="category.hiddenSubcategories > 0"> · {{ t.hiddenSubcategoryNote }}</template>
                 </span>
               </div>
               <div class="flex flex-wrap items-center gap-1">
@@ -123,7 +131,7 @@ const deleteTitle = (category: TemplateCategoryDto, subcategories: number) => (c
                 <UButton
                   size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${category.name}`"
                   :title="deleteTitle(category, subcategories.length)"
-                  :disabled="busy || category.templateCount > 0 || subcategories.length > 0"
+                  :disabled="busy || !deletable(category, subcategories.length)"
                   @click="remove(category)"
                 />
               </div>

@@ -1463,6 +1463,9 @@ export const de = {
       editSub: 'Unterkategorie ändern',
       subVisibilityHint: 'Es gilt zusätzlich „Wer sieht sie?“ der Kategorie – die engere Einstellung zählt.',
       subcategoryCount: (n: number) => (n === 1 ? '1 Unterkategorie' : `${n} Unterkategorien`),
+      // A category with subcategories the editor does not see (e.g. the Träger's alone): said without naming them.
+      hiddenSubcategoryNote: 'weitere Unterkategorien, die du nicht siehst',
+      hiddenSubcategories: 'Diese Kategorie hat Unterkategorien, die du nicht siehst. Löschen kann sie nur, wer alle Unterkategorien sieht.',
       confirmDeleteSub: (name: string, moved = 0) => `Die Unterkategorie „${name}“ löschen?${moved > 0 ? ` ${generalMoves(moved)}` : ''}`,
       confirmRenameSub: (name: string, moved: number) => `Die Unterkategorie „${name}“ umbenennen? ${generalMoves(moved)}`,
       visibilities: { all: 'Alle (auch Mitarbeiter und Tablet)', managers: 'Nur Leitung und Träger', provider: 'Nur Träger' },
@@ -3487,6 +3490,9 @@ export const de = {
       subName: 'Name der Unterkategorie',
       subVisibilityHint: 'Es gilt zusätzlich „Wer sieht sie?“ der Kategorie – die engere Einstellung zählt.',
       subcategoryCount: (count: number) => (count === 1 ? '1 Unterkategorie' : `${count} Unterkategorien`),
+      // A category with subcategories the editor does not see (e.g. the Träger's alone): said without naming them.
+      hiddenSubcategoryNote: 'weitere Unterkategorien, die du nicht siehst',
+      hiddenSubcategories: 'Diese Kategorie hat Unterkategorien, die du nicht siehst. Löschen kann sie nur, wer alle Unterkategorien sieht.',
       confirmDeleteSub: (name: string) => `Unterkategorie „${name}“ löschen?`,
       visibilities: { all: 'alle (auch Mitarbeitende und Tablet)', managers: 'nur Leitung und Träger', provider: 'nur Träger' },
       entryCount: (count: number) => (count === 1 ? '1 Eintrag' : `${count} Einträge`),

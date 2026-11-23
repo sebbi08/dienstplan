@@ -768,6 +768,11 @@ export interface TemplateCategoryDto {
    * Träger“ (from a subcategory: into its category) when it is deleted or renamed (the confirmations name them).
    */
   globalCount: number
+  /**
+   * The subcategories of a category the viewer does not see (e.g. the Träger's alone): while there are any, the viewer
+   * cannot delete the category (0 for a subcategory).
+   */
+  hiddenSubcategories: number
 }
 
 /** What Leitung or Träger enter about a category; `parentId` (only when creating) makes it a subcategory of that category. */
@@ -3955,6 +3960,8 @@ export interface KnowledgeCategoryDto {
   entryCount: number
   /** The facility's own entries filed directly in it; while there are any it cannot be deleted. */
   ownCount: number
+  /** The subcategories the viewer does not see: while there are any, the viewer cannot delete the category (0 for a subcategory). */
+  hiddenSubcategories: number
 }
 
 /** The viewer's own „Gelesen und verstanden“ of an entry (with an own account linked to an employee). */

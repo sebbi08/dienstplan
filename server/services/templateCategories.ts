@@ -59,6 +59,7 @@ export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategory
   return rows.map(row => ({
     id: row.id, parentId: row.parentId, name: row.name, visibility: row.visibility,
     templateCount: counts.get(row.id) ?? 0, globalCount: globalCounts.get(row.id) ?? 0,
+    hiddenSubcategories: all.filter(child => child.parentId === row.id && !seesCategoryNode(viewer.role, child, all)).length,
   }))
 }
 

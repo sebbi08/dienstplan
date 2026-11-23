@@ -1,5 +1,5 @@
 import { nowInBerlin } from '#shared/domain/timeRecords'
-import { categoryPath, type TemplateVisibility } from '#shared/domain/templateCategories'
+import { categoryPath, stricterVisibility, type TemplateVisibility } from '#shared/domain/templateCategories'
 import type { IsoDate } from '#shared/domain/types'
 import type { PrintTemplateDto, TemplateCategoryDto } from '#shared/types/api'
 import { subcategoriesOf, topCategories } from './subcategories'
@@ -107,13 +107,31 @@ export function movedToProvider(category: TemplateCategoryDto, newName: string |
 }
 
 /**
- * Who sees a new template for all facilities, to start with: the visibility of the category it is filed under (the open
- * sub-tab's, or the facility's category of the typed name), so a template for a restricted category stays restricted
- * where a facility has no category of that name; 'all' without one. Clamped to what the editor may give.
+ * Who sees a new template for all facilities, to start with: the visibility that applies where it is filed (the open
+ * sub-tab's category and small tab's subcategory, or the facility's category and subcategory of the typed names; the
+ * stricter of both), so a template for a restricted place stays restricted where a facility has no category of that
+ * name; 'all' without one. Clamped to what the editor may give.
  */
-export function defaultGlobalVisibility(category: TemplateCategoryDto | null | undefined, levels: readonly TemplateVisibility[]): TemplateVisibility {
+export function defaultGlobalVisibility(
+  category: TemplateCategoryDto | null | undefined, levels: readonly TemplateVisibility[], subcategory?: TemplateCategoryDto | null,
+): TemplateVisibility {
   if (!category) return 'all'
-  return levels.includes(category.visibility) ? category.visibility : levels.at(-1) ?? 'all'
+  const visibility = stricterVisibility(category.visibility, subcategory?.visibility ?? 'all')
+  return levels.includes(visibility) ? visibility : levels.at(-1) ?? 'all'
+}
+
+/**
+ * The facility's category of the typed name (regardless of case) and its subcategory of the typed subcategory name,
+ * where a template for all facilities filed so shows here.
+ */
+export function categoryOfNames(
+  categories: readonly TemplateCategoryDto[], categoryName: string, subcategoryName: string,
+): { category: TemplateCategoryDto | undefined; subcategory: TemplateCategoryDto | undefined } {
+  const category = topCategories(categories).find(row => sameCategoryName(row.name, categoryName))
+  const subcategory = category && subcategoryName.trim() !== ''
+    ? subcategoriesOf(categories, category.id).find(row => sameCategoryName(row.name, subcategoryName))
+    : undefined
+  return { category, subcategory }
 }
 
 /** The title a chosen file suggests: its name without the extension. */
