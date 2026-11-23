@@ -2401,6 +2401,27 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(fillable('employee_documents')).toEqual([{ id: 1, fillable: 0 }, { id: 2, fillable: null }])
   })
 
+  it('0113 adds the empty order of the templates per facility, gone with the facility or the template, one row each', () => {
+    const { db, sqlite } = databaseAt('0112')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Zweite');
+      INSERT INTO print_templates (id, facility_id, title, category_id, mime_type, size, data, uploaded_at, updated_at) VALUES
+        (1, 1, 'Bogen', (SELECT min(id) FROM template_categories), 'application/pdf', 1, x'25', 'a', 'a');
+      INSERT INTO print_templates (id, facility_id, title, category_name, mime_type, size, data, uploaded_at, updated_at) VALUES
+        (2, NULL, 'Für alle', 'Eltern', 'application/pdf', 1, x'25', 'a', 'a');
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(count(sqlite, 'print_template_order')).toBe(0)
+    sqlite.exec('INSERT INTO print_template_order (facility_id, template_id, sort_order) VALUES (1, 1, 0), (1, 2, 1), (2, 2, 0)')
+    expect(() => sqlite.exec('INSERT INTO print_template_order (facility_id, template_id, sort_order) VALUES (1, 2, 5)')).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec('INSERT INTO print_template_order (facility_id, template_id, sort_order) VALUES (1, 99, 5)')).toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM print_templates WHERE id = 1')
+    expect(sqlite.prepare('SELECT facility_id, template_id FROM print_template_order ORDER BY facility_id').all())
+      .toEqual([{ facility_id: 1, template_id: 2 }, { facility_id: 2, template_id: 2 }])
+    sqlite.exec('DELETE FROM facilities WHERE id = 2')
+    expect(sqlite.prepare('SELECT facility_id, template_id FROM print_template_order').all()).toEqual([{ facility_id: 1, template_id: 2 }])
+  })
+
   it('0109 adds the address book with the example categories for every facility and the future school of a child', () => {
     const { db, sqlite } = databaseAt('0108')
     sqlite.exec(`

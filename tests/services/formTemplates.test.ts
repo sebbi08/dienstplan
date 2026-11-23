@@ -5,11 +5,12 @@ import { forms, formStarterSeeds, formTemplates } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
 import { createFacility } from '../../server/services/facilities'
 import {
-  copyTemplate, createTemplate, deleteTemplate, listTemplates, seedPendingStarterTemplates, seedStarterTemplates, updateTemplate,
-  withFormErrors,
+  copyTemplate, createTemplate, deleteTemplate, listTemplates, orderTemplates, seedPendingStarterTemplates, seedStarterTemplates,
+  updateTemplate, withFormErrors,
 } from '../../server/services/formTemplates'
+import { listTeamMeetings } from '../../server/services/teamMeetings'
 import type { ServiceError } from '../../server/lib/errors'
-import { checkContent, FormError, type FormContent } from '../../shared/domain/forms'
+import { checkContent, FormError, type FormContent, type FormKind } from '../../shared/domain/forms'
 import {
   ACCIDENT_STARTERS, CHILD_STARTERS, RATING_LEGEND, STAFF_STARTERS, starterContent, TEAM_STARTERS,
 } from '../../shared/domain/forms/starters'
@@ -433,5 +434,63 @@ describe('form templates', () => {
     const long = create('y'.repeat(80))
     const longCopy = copyTemplate(db, leitung, 1, long, now)
     expect(listTemplates(db, 1).find(template => template.id === longCopy)!.name).toBe(`${'y'.repeat(72)} (Kopie)`)
+  })
+})
+
+describe('form template order (▲/▼ within a kind)', () => {
+  let facility: number
+  beforeEach(() => {
+    // Only the accident starters: the other kinds start empty.
+    facility = createFacility(db, 'Krippe').id
+  })
+  const names = (kind: FormKind, archived = false) => listTemplates(db, facility, kind)
+    .filter(template => template.archived === archived).map(template => template.name)
+  const idsOf = (kind: FormKind, ...wanted: string[]) =>
+    wanted.map(name => listTemplates(db, facility, kind).find(template => template.name === name)!.id)
+
+  it('stores the new order of the active templates of a kind; the pickers list them in it', () => {
+    for (const name of ['Erste', 'Zweite', 'Dritte']) create(name, 'team', facility)
+    create('Kind', 'child', facility)
+    orderTemplates(db, facility, 'team', idsOf('team', 'Dritte', 'Erste', 'Zweite'))
+    expect(names('team')).toEqual(['Dritte', 'Erste', 'Zweite'])
+    expect(listTemplates(db, facility).filter(template => template.kind === 'team').map(template => template.name))
+      .toEqual(['Dritte', 'Erste', 'Zweite'])
+    const member = { facilityId: facility, name: 'Leitung', manager: true, left: false, employeeId: null }
+    expect(listTeamMeetings(db, member, { year: 2026 }, now).templates.map(template => template.name)).toEqual(['Dritte', 'Erste', 'Zweite'])
+    // A new template goes to the end.
+    create('Vierte', 'team', facility)
+    expect(names('team')).toEqual(['Dritte', 'Erste', 'Zweite', 'Vierte'])
+    expect(names('child')).toEqual(['Kind'])
+  })
+
+  it('orders the accident templates of both subjects together, as one box', () => {
+    const before = names('accident')
+    expect(before).toHaveLength(2)
+    const reversed = [...before].reverse()
+    orderTemplates(db, facility, 'accident', idsOf('accident', ...reversed))
+    expect(names('accident')).toEqual(reversed)
+  })
+
+  it('keeps archived templates in their place among the others, without ordering them', () => {
+    for (const name of ['A', 'B', 'C']) create(name, 'team', facility)
+    const [b] = idsOf('team', 'B')
+    updateTemplate(db, leitung, facility, b!, { archived: true }, now)
+    expect(errorCode(() => orderTemplates(db, facility, 'team', idsOf('team', 'C', 'B', 'A')))).toBe('invalid_order')
+    orderTemplates(db, facility, 'team', idsOf('team', 'C', 'A'))
+    expect(names('team')).toEqual(['C', 'A'])
+    expect(names('team', true)).toEqual(['B'])
+    updateTemplate(db, leitung, facility, b!, { archived: false }, now)
+    expect(names('team')).toEqual(['C', 'B', 'A'])
+  })
+
+  it('refuses an order that is not exactly the active templates of the kind in the facility, each once', () => {
+    const [a, b] = ['A', 'B'].map(name => create(name, 'team', facility))
+    const otherKind = create('Kind', 'child', facility)
+    const foreign = create('Fremd', 'team', 1)
+    for (const ids of [[a!], [a!, b!, b!], [a!, b!, otherKind], [a!, b!, foreign], [b!, foreign], []]) {
+      expect(errorCode(() => orderTemplates(db, facility, 'team', ids)), JSON.stringify(ids)).toBe('invalid_order')
+    }
+    expect(errorCode(() => orderTemplates(db, facility, 'unknown' as FormKind, [a!]))).toBe('form_kind_invalid')
+    expect(names('team')).toEqual(['A', 'B'])
   })
 })

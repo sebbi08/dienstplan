@@ -19,21 +19,18 @@ export interface TemplateTab {
   templates: PrintTemplateDto[]
 }
 
-const byTitle = (a: PrintTemplateDto, b: PrintTemplateDto) => a.title.localeCompare(b.title, 'de') || a.id - b.id
-
 /**
  * The sub-tabs: every category the viewer sees (the server lists only those), in the facility's order, also an empty one;
- * then „Vom Träger“ when there are templates for all facilities that fit no category of the facility. Titles alphabetical
- * („Vom Träger“ by the category name the Träger chose first).
+ * then „Vom Träger“ when there are templates for all facilities that fit no category of the facility. The templates in
+ * the order the server lists them (the facility's ▲/▼ order).
  */
 export function templateTabs(categories: TemplateCategoryDto[], templates: PrintTemplateDto[]): TemplateTab[] {
   const tabs: TemplateTab[] = categories.map(category => ({
     key: `category-${category.id}`,
     category,
-    templates: templates.filter(template => template.categoryId === category.id).sort(byTitle),
+    templates: templates.filter(template => template.categoryId === category.id),
   }))
   const fromProvider = templates.filter(template => template.categoryId === null)
-    .sort((a, b) => a.category.localeCompare(b.category, 'de') || byTitle(a, b))
   if (fromProvider.length > 0) tabs.push({ key: FROM_PROVIDER_TAB, category: null, templates: fromProvider })
   return tabs
 }

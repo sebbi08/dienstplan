@@ -505,7 +505,7 @@ describe('API route permissions', () => {
   it('opens the form templates to managers of the active facility only (staff and tablet 403)', () => {
     const touching = routes.filter(route => /^form-templates\//.test(route) || source(route).includes('services/formTemplates\''))
     expect(touching).toEqual(['form-templates/[id].delete.ts', 'form-templates/[id].put.ts', 'form-templates/[id]/copy.post.ts',
-      'form-templates/index.get.ts', 'form-templates/index.post.ts'])
+      'form-templates/index.get.ts', 'form-templates/index.post.ts', 'form-templates/order.post.ts'])
     for (const route of touching) {
       const code = source(route)
       expect(code, route).toContain("requirePermission(event, 'formTemplates.manage')")
@@ -750,7 +750,7 @@ describe('API route permissions', () => {
     const touching = routes.filter(route => /^(print-templates|template-categories)\//.test(route)
       || /services\/(printTemplates|templateCategories)'/.test(source(route)))
     expect(touching).toEqual(['print-templates/[id].delete.ts', 'print-templates/[id].put.ts', 'print-templates/[id]/file.get.ts',
-      'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts',
+      'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts', 'print-templates/order.post.ts',
       'template-categories/[id].delete.ts', 'template-categories/[id].put.ts', 'template-categories/[id]/move.post.ts',
       'template-categories/index.get.ts', 'template-categories/index.post.ts', 'template-categories/names.get.ts'])
     const readers = ['print-templates/index.get.ts', 'print-templates/[id]/file.get.ts', 'template-categories/index.get.ts']

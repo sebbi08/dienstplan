@@ -588,6 +588,11 @@ export const printTemplateFields = z.object({
   visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
   scope: z.enum(['facility', 'all']).default('facility'),
 })
+/** The new order of one sub-tab of „Vorlagen“: a category of the facility, or null for „Vom Träger“. */
+export const printTemplateOrderSchema = z.object({
+  categoryId: z.number().int().positive().nullable(),
+  ids: z.array(z.number().int().positive()).max(500),
+})
 // The categories of a facility.
 export const templateCategorySchema = z.object({ name: z.string().max(60), visibility: z.enum(TEMPLATE_VISIBILITIES) })
 /** Replacing the file sends the file alone. */
@@ -751,6 +756,8 @@ export const cashCsvQuery = yearQuery.extend({ month: z.coerce.number().int().mi
 // (form_template_name_too_long, form_content_invalid …), so the answers are in German.
 const formKind = z.enum(['staff', 'child', 'team', 'accident'])
 export const formTemplateQuery = z.object({ kind: formKind.optional() })
+/** The new order of the active templates of one kind. */
+export const formTemplateOrderSchema = z.object({ kind: formKind, ids: z.array(z.number().int().positive()).max(500) })
 /** `subject` is required for an accident template; the service checks it (form_subject_invalid). */
 export const formTemplateSchema = z.object({
   kind: formKind, name: z.string().max(200), selfAssessment: z.boolean().default(false), subject: z.string().max(20).nullish(),

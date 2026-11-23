@@ -5,11 +5,14 @@ import {
 } from '#shared/domain/forms'
 import type { FormTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { moveInList } from '~/utils/consentSettings'
 import { errorCode, errorMessage, errorTextOf } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
+import { focusOrderArrow, orderArrowId } from '~/utils/orderArrows'
 
 /**
- * Dokumente → Bögen: the form templates of the active facility per kind (create, copy, rename, archive, delete) and the
+ * Dokumente → Bögen: the form templates of the active facility per kind (create, copy, rename, archive, delete, order the
+ * active ones with ▲/▼ – the pickers for new forms list them in that order) and the
  * editor of one template (sections and items with arrows, inline texts, the options of a choices item). The editor works
  * on a local copy and sends the whole content with „Vorlage speichern“; the server checks it and answers in German.
  * An item's kind cannot change (delete it and add a new one).
@@ -64,6 +67,17 @@ const copy = (template: FormTemplateDto) =>
 const setArchived = (template: FormTemplateDto, value: boolean) =>
   run(() => $fetch<unknown>(`/api/form-templates/${template.id}`, { method: 'PUT', body: { archived: value } }),
     value ? de.forms.archivedDone : de.forms.unarchivedDone)
+/** One place up or down among the active templates of the kind (archived ones keep their place, the server sees to it). */
+const { busy: ordering, run: runOrder } = useBusyAction(refresh)
+async function move(kind: FormKind, index: number, direction: -1 | 1) {
+  const active = activeOf(kind)
+  const id = active[index]?.id
+  const ids = moveInList(active.map(template => template.id), index, direction)
+  if (id === undefined || !ids) return
+  if (await runOrder(() => $fetch<unknown>('/api/form-templates/order', { method: 'POST', body: { kind, ids } }))) {
+    focusOrderArrow(`form-template-${id}`, direction)
+  }
+}
 async function remove(template: FormTemplateDto) {
   if (await confirm(de.forms.deleteTemplateConfirm(template.name))) {
     await run(() => $fetch<unknown>(`/api/form-templates/${template.id}`, { method: 'DELETE' }), de.common.deleted)
@@ -210,7 +224,7 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
             {{ archivedOf(listKind).length ? de.forms.noActiveTemplates : de.forms.noTemplates }}
           </p>
           <ul class="divide-y divide-gray-100">
-            <li v-for="template in activeOf(listKind)" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+            <li v-for="(template, index) in activeOf(listKind)" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
               <div class="min-w-0 flex-1 basis-48">
                 <div class="font-medium break-words">{{ template.name }}</div>
                 <div class="flex flex-wrap gap-1">
@@ -232,6 +246,19 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
                   size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${template.name}`"
                   :disabled="template.inUse" :title="template.inUse ? de.forms.inUseHint : de.common.delete" @click="remove(template)"
                 />
+                <!-- ▲/▼ last, so they stay in the same place in every row; 40 px for a finger. -->
+                <span role="group" :aria-label="`${de.forms.order}: ${template.name}`" class="flex items-center gap-1">
+                  <UButton
+                    :id="orderArrowId(`form-template-${template.id}`, -1)" color="neutral" variant="ghost" icon="i-lucide-arrow-up"
+                    class="min-h-10 min-w-10 justify-center" :aria-label="`${de.forms.moveUp}: ${template.name}`" :title="de.forms.moveUp"
+                    :disabled="ordering || index === 0" @click="move(listKind, index, -1)"
+                  />
+                  <UButton
+                    :id="orderArrowId(`form-template-${template.id}`, 1)" color="neutral" variant="ghost" icon="i-lucide-arrow-down"
+                    class="min-h-10 min-w-10 justify-center" :aria-label="`${de.forms.moveDown}: ${template.name}`" :title="de.forms.moveDown"
+                    :disabled="ordering || index === activeOf(listKind).length - 1" @click="move(listKind, index, 1)"
+                  />
+                </span>
               </div>
             </li>
           </ul>

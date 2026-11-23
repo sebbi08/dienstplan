@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { printTemplates, templateCategories } from '../../server/db/schema'
+import { printTemplateOrder, printTemplates, templateCategories } from '../../server/db/schema'
 import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
 import {
-  deleteTemplate, listTemplates, readTemplateFile, replaceTemplateFile, templateReaderFacility, updateTemplate, uploadTemplate,
-  type TemplateActor,
+  deleteTemplate, listTemplates, orderTemplates, readTemplateFile, replaceTemplateFile, templateReaderFacility, updateTemplate,
+  uploadTemplate, type TemplateActor,
 } from '../../server/services/printTemplates'
 import { createCategory, deleteCategory } from '../../server/services/templateCategories'
 import type { TemplateVisibility } from '../../shared/domain/templateCategories'
@@ -131,7 +131,7 @@ describe('print templates', () => {
   })
 
   describe('list', () => {
-    it('shows the own and the global templates, never those of another facility, by category order and title', () => {
+    it('shows the own and the global templates, never those of another facility, by category order and upload order', () => {
       upload(leitung, { title: 'Zahnarzt', category: 'Gesundheit' })
       upload(leitung, { title: 'Ausflug', category: 'Eltern' })
       upload(otherLeitung, { title: 'Krippenbrief', category: 'Eltern' })
@@ -139,7 +139,7 @@ describe('print templates', () => {
       upload(leitung, { title: 'Allergien', category: 'Gesundheit' })
       expect(listTemplates(db, seer('admin', 1)).map(template => [template.category, template.title, template.global]))
         .toEqual([
-          ['Eltern', 'Ausflug', false], ['Gesundheit', 'Allergien', false], ['Gesundheit', 'Zahnarzt', false],
+          ['Eltern', 'Ausflug', false], ['Gesundheit', 'Zahnarzt', false], ['Gesundheit', 'Allergien', false],
           ['Personal', 'Urlaubsantrag', true],
         ])
       expect(titles(other)).toEqual(['Krippenbrief', 'Urlaubsantrag'])
@@ -166,6 +166,138 @@ describe('print templates', () => {
       expect(titles(1, 'admin')).toEqual(['Für alle', 'Für Leitungen'])
       expect(titles(1, 'observer')).toEqual(['Für alle'])
       expect(titles(1, 'terminal')).toEqual(['Für alle'])
+    })
+  })
+
+  describe('order (▲/▼ within a sub-tab)', () => {
+    /** The titles of one sub-tab of the facility as the role sees it (null = „Vom Träger“). */
+    const tab = (facilityId: number, categoryId: number | null, role: Role = 'admin') => listTemplates(db, seer(role, facilityId))
+      .filter(template => template.categoryId === categoryId).map(template => template.title)
+    const idOf = (title: string, facilityId = 1) =>
+      listTemplates(db, seer('provider', facilityId)).find(template => template.title === title)!.id
+    const order = (by: TemplateActor, categoryId: number | null, titles: string[]) =>
+      orderTemplates(db, by, categoryId, titles.map(title => idOf(title, by.facilityId)))
+
+    it('keeps templates of before (no order yet) alphabetical, after those with an order', () => {
+      upload(leitung, { title: 'Zahnarzt' })
+      upload(leitung, { title: 'Ausflug' })
+      upload(leitung, { title: 'Mittag' })
+      db.delete(printTemplateOrder).run()
+      expect(tab(1, cat.Eltern!)).toEqual(['Ausflug', 'Mittag', 'Zahnarzt'])
+      db.insert(printTemplateOrder).values({ facilityId: 1, templateId: idOf('Zahnarzt'), sortOrder: 0 }).run()
+      expect(tab(1, cat.Eltern!)).toEqual(['Zahnarzt', 'Ausflug', 'Mittag'])
+    })
+
+    it('puts a new upload at the end of its category, also behind templates of before', () => {
+      upload(leitung, { title: 'Zahnarzt' })
+      upload(leitung, { title: 'Ausflug' })
+      db.delete(printTemplateOrder).run()
+      upload(leitung, { title: 'Abholung' })
+      expect(tab(1, cat.Eltern!)).toEqual(['Ausflug', 'Zahnarzt', 'Abholung'])
+      upload(provider, { title: 'Aaa für alle', scope: 'all' })
+      expect(tab(1, cat.Eltern!)).toEqual(['Ausflug', 'Zahnarzt', 'Abholung', 'Aaa für alle'])
+      upload(otherLeitung, { title: 'Zzz Krippe' })
+      upload(provider, { title: 'Bbb für alle', scope: 'all' })
+      expect(tab(other, otherCat.Eltern!)).toEqual(['Aaa für alle', 'Zzz Krippe', 'Bbb für alle'])
+    })
+
+    it('stores the order per facility: a template for all facilities in a different place in each', () => {
+      upload(leitung, { title: 'Eigener Brief' })
+      upload(otherLeitung, { title: 'Krippenbrief' })
+      upload(provider, { title: 'Für alle', scope: 'all' })
+      order(leitung, cat.Eltern!, ['Für alle', 'Eigener Brief'])
+      expect(tab(1, cat.Eltern!)).toEqual(['Für alle', 'Eigener Brief'])
+      expect(tab(other, otherCat.Eltern!)).toEqual(['Krippenbrief', 'Für alle'])
+      // Mitarbeiter and the tablet see the same order.
+      expect(tab(1, cat.Eltern!, 'observer')).toEqual(['Für alle', 'Eigener Brief'])
+      expect(tab(1, cat.Eltern!, 'terminal')).toEqual(['Für alle', 'Eigener Brief'])
+      order(otherLeitung, otherCat.Eltern!, ['Krippenbrief', 'Für alle'])
+      expect(tab(other, otherCat.Eltern!)).toEqual(['Krippenbrief', 'Für alle'])
+      expect(tab(1, cat.Eltern!)).toEqual(['Für alle', 'Eigener Brief'])
+    })
+
+    it('orders „Vom Träger“ as well (by category name and title until ordered)', () => {
+      upload(provider, { title: 'Speiseplan', category: 'Küche', scope: 'all' })
+      upload(provider, { title: 'Anfahrt', category: 'Wege', scope: 'all' })
+      db.delete(printTemplateOrder).run()
+      expect(tab(1, null)).toEqual(['Speiseplan', 'Anfahrt'])
+      order(leitung, null, ['Anfahrt', 'Speiseplan'])
+      expect(tab(1, null)).toEqual(['Anfahrt', 'Speiseplan'])
+      expect(tab(other, null)).toEqual(['Speiseplan', 'Anfahrt'])
+    })
+
+    it('refuses an order that is not exactly the visible templates of the sub-tab, each once (400 invalid_order)', () => {
+      const a = upload(leitung, { title: 'A' })
+      const b = upload(leitung, { title: 'B' })
+      const elsewhere = upload(leitung, { title: 'Gesund', category: 'Gesundheit' })
+      const foreign = upload(otherLeitung, { title: 'Krippe' })
+      for (const ids of [[a], [a, b, b], [a, b, foreign], [a, b, elsewhere], [b, foreign], [a, b, 9999], []]) {
+        expect(errorCode(() => orderTemplates(db, leitung, cat.Eltern!, ids)), JSON.stringify(ids)).toBe('invalid_order')
+      }
+      expect(errorCode(() => orderTemplates(db, leitung, otherCat.Eltern!, [foreign]))).toBe('template_category_not_found')
+      expect(errorCode(() => orderTemplates(db, otherLeitung, cat.Eltern!, [a, b]))).toBe('template_category_not_found')
+      expect(tab(1, cat.Eltern!)).toEqual(['A', 'B'])
+      orderTemplates(db, leitung, cat.Eltern!, [b, a])
+      expect(tab(1, cat.Eltern!)).toEqual(['B', 'A'])
+    })
+
+    it('leaves a template the editor does not see where it is, and refuses to order it', () => {
+      upload(provider, { title: 'A' })
+      upload(provider, { title: 'Nur Träger', scope: 'all', visibility: 'provider' })
+      upload(provider, { title: 'C' })
+      expect(tab(1, cat.Eltern!, 'provider')).toEqual(['A', 'Nur Träger', 'C'])
+      expect(tab(1, cat.Eltern!)).toEqual(['A', 'C'])
+      expect(errorCode(() => order(leitung, cat.Eltern!, ['C', 'Nur Träger', 'A']))).toBe('invalid_order')
+      order(leitung, cat.Eltern!, ['C', 'A'])
+      expect(tab(1, cat.Eltern!)).toEqual(['C', 'A'])
+      expect(tab(1, cat.Eltern!, 'provider')).toEqual(['C', 'Nur Träger', 'A'])
+      // A category the editor does not see at all: 404.
+      category('Geheim', 'provider')
+      upload(provider, { title: 'Geheim', category: 'Geheim' })
+      expect(errorCode(() => orderTemplates(db, leitung, cat.Geheim!, [idOf('Geheim')]))).toBe('template_category_not_found')
+    })
+
+    it('lets the Leitung order the Träger\'s templates in its facility; Mitarbeiter may not order', () => {
+      upload(leitung, { title: 'Eigener Brief' })
+      upload(provider, { title: 'Für alle', scope: 'all' })
+      order(leitung, cat.Eltern!, ['Für alle', 'Eigener Brief'])
+      expect(tab(1, cat.Eltern!)).toEqual(['Für alle', 'Eigener Brief'])
+      const staff = actor(addUser(db, 'anna', 'observer', addEmployee(db, 'Anna')))
+      expect(errorCode(() => order(staff, cat.Eltern!, ['Eigener Brief', 'Für alle']))).toBe('forbidden')
+    })
+
+    it('puts a template moved to another category at the end there; a new title alone keeps the place', () => {
+      upload(leitung, { title: 'Zahnarzt', category: 'Gesundheit' })
+      upload(leitung, { title: 'Allergien', category: 'Gesundheit' })
+      db.delete(printTemplateOrder).run()
+      const moved = upload(leitung, { title: 'Aaa Brief' })
+      upload(leitung, { title: 'Bbb Brief' })
+      updateTemplate(db, leitung, moved, { title: 'Aaa Brief', categoryId: cat.Gesundheit! }, LATER)
+      expect(tab(1, cat.Gesundheit!)).toEqual(['Allergien', 'Zahnarzt', 'Aaa Brief'])
+      expect(tab(1, cat.Eltern!)).toEqual(['Bbb Brief'])
+      order(leitung, cat.Gesundheit!, ['Aaa Brief', 'Allergien', 'Zahnarzt'])
+      updateTemplate(db, leitung, moved, { title: 'Aaa Brief neu', categoryId: cat.Gesundheit! }, LATER)
+      expect(tab(1, cat.Gesundheit!)).toEqual(['Aaa Brief neu', 'Allergien', 'Zahnarzt'])
+    })
+
+    it('puts a template for all facilities filed under another name at the end there, in every facility', () => {
+      upload(leitung, { title: 'Zahnarzt', category: 'Gesundheit' })
+      upload(otherLeitung, { title: 'Krippe gesund', category: 'Gesundheit' })
+      const id = upload(provider, { title: 'Aaa für alle', category: 'Eltern', scope: 'all' })
+      updateTemplate(db, provider, id, { title: 'Aaa für alle', categoryName: 'gesundheit' }, LATER)
+      expect(tab(1, cat.Gesundheit!)).toEqual(['Zahnarzt', 'Aaa für alle'])
+      expect(tab(other, otherCat.Gesundheit!)).toEqual(['Krippe gesund', 'Aaa für alle'])
+      // Only another visibility or spelling of the name: the place stays.
+      order(leitung, cat.Gesundheit!, ['Aaa für alle', 'Zahnarzt'])
+      updateTemplate(db, provider, id, { title: 'Aaa für alle', categoryName: 'Gesundheit', visibility: 'managers' }, LATER)
+      expect(tab(1, cat.Gesundheit!)).toEqual(['Aaa für alle', 'Zahnarzt'])
+    })
+
+    it('forgets the order with the template', () => {
+      const id = upload(provider, { title: 'Für alle', scope: 'all' })
+      expect(db.select().from(printTemplateOrder).all()).toHaveLength(2)
+      deleteTemplate(db, provider, id)
+      expect(db.select().from(printTemplateOrder).all()).toEqual([])
     })
   })
 
@@ -315,7 +447,8 @@ describe('print templates', () => {
       expect(titles(1, 'observer')).toEqual(['Alle, Vom Träger'])
       expect(titles(1, 'terminal')).toEqual(['Alle, Vom Träger'])
       expect(titles(1, 'admin')).toEqual(['Für Leitungen', 'In interner Kategorie', 'Alle, Vom Träger'])
-      expect(titles(1, 'provider')).toEqual(['Für Leitungen', 'In interner Kategorie', 'Alle, Vom Träger', 'Nur Träger, Vom Träger'])
+      // „Vom Träger“ in upload order (each new one at the end).
+      expect(titles(1, 'provider')).toEqual(['Für Leitungen', 'In interner Kategorie', 'Nur Träger, Vom Träger', 'Alle, Vom Träger'])
       const hidden = listTemplates(db, seer('provider', 1)).find(template => template.title === 'Für Leitungen')!.id
       expect(errorCode(() => readTemplateFile(db, seer('observer', other), hidden))).toBe('print_template_not_found')
       expect(readTemplateFile(db, seer('admin', other), hidden).fileName).toBe('Fuer-Leitungen.pdf')

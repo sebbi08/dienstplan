@@ -1588,6 +1588,16 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   die Vorlage, gilt die Kategorie (die engere Einstellung gewinnt).
 - **Ändern**: Mit **Bearbeiten** lassen sich Titel und Kategorie ändern und die Datei durch eine neue ersetzen;
   **Löschen** fragt vorher nach. Die Vorlagen für alle Einrichtungen kann **nur der Träger** ändern oder löschen.
+- **Reihenfolge**: Wer Vorlagen bearbeiten darf, schiebt jede Vorlage mit den Pfeilen **Nach oben / Nach unten** (rechts
+  in der Zeile) innerhalb ihres Unterreiters. Die Reihenfolge gilt für die **oben gewählte Einrichtung** und für alle,
+  die dort die Vorlagen ansehen (Mitarbeiter und Tablet sehen dieselbe Reihenfolge, aber keine Pfeile). Auch die
+  Vorlagen für alle Einrichtungen lassen sich so schieben – das ändert nur die Reihenfolge in dieser Einrichtung; jede
+  Einrichtung hat ihre eigene. Eine **neu hochgeladene** Vorlage kommt ans **Ende** ihrer Kategorie (eine für alle
+  Einrichtungen in jeder Einrichtung); ebenso eine, die in eine **andere Kategorie** verschoben wird. Nur den Titel oder
+  die Datei zu ändern lässt den Platz, wie er ist. Vorlagen, die jemand nicht sieht (z. B. eine Vorlage des Trägers „Nur
+  Träger“), behalten beim Schieben ihren Platz.
+- **Beim Update** auf die Version mit der Reihenfolge stehen die Vorlagen wie bisher alphabetisch, bis jemand sie
+  verschiebt oder eine neue hochlädt; von da an zählt in diesem Unterreiter die gespeicherte Reihenfolge.
 - **Drucken**: **Öffnen** zeigt das PDF in einem neuen Tab; dort druckst du es mit der Druckfunktion des Browsers.
 - **Am Tablet**: Auf der Startseite des Tablets gibt es den Knopf **Vorlagen**; er öffnet **Dokumente** → **Vorlagen**.
   Dort lassen sich die Vorlagen der Kategorien für **Alle** öffnen und drucken – **ohne PIN**, weil darin keine Daten
@@ -2365,6 +2375,12 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   sie **leer** (A4 hochkant) – zum Ausfüllen von Hand, mit leeren Kopffeldern, Kästchen, Schreiblinien und Unterschriftszeilen. Die Einrichtungen von vor dem Update haben die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
   Fachkräfte**. Du kannst Vorlagen anlegen, **kopieren**, **stilllegen** (steht dann eingeklappt unten, schon angelegte
   Bögen bleiben lesbar) und löschen – Löschen geht nur, solange noch kein Bogen damit angelegt wurde.
+- **Reihenfolge:** Mit den Pfeilen **Nach oben / Nach unten** rechts bei jeder aktiven Vorlage schiebst du sie innerhalb
+  ihres Kastens (bei **Unfälle** stehen die Vorlagen für Kinder und für Mitarbeiter zusammen in einem Kasten). In dieser
+  Reihenfolge bietet die App die Vorlagen überall zur Auswahl an: beim Anlegen eines Bogens in der Kinderakte, beim
+  Mitarbeitergespräch, bei der Teamsitzung und beim Unfallbericht bzw. der Unfallanzeige. Neue und kopierte Vorlagen
+  kommen ans Ende. Stillgelegte Vorlagen haben keine Pfeile; sie behalten ihren Platz und stehen nach dem
+  **Wieder aktivieren** wieder dort, wo sie vorher waren.
 - **Neue Einrichtungen** (unter Einstellungen neu angelegt, seit dem Update mit „Dokumente“) bekommen nur die
   Startvorlagen für Unfälle (**Unfallbericht Kind** und **Unfallanzeige (U 1000)**). Selbstbeurteilung,
   Beurteilungsbogen, Entwicklungsgespräch und Teamsitzung legt die App dort nicht an – auch später nicht. Ein Kasten

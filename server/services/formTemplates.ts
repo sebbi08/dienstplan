@@ -218,6 +218,27 @@ export function updateTemplate(
   if (result.changes !== 1) throw new ServiceError(409, 'form_template_changed')
 }
 
+/**
+ * The new order of the facility's active templates of a kind (▲/▼ on „Bögen“; the pickers list them in it): exactly
+ * those, each once (else 400 invalid_order). Archived templates keep their places in between, so one reactivated comes
+ * back where it was. The kind's whole list is numbered afresh.
+ */
+export function orderTemplates(db: Db, facilityId: number, kind: FormKind, ids: readonly number[]): void {
+  assertKind(kind)
+  const all = db.select({ id: formTemplates.id, archived: formTemplates.archived, sortOrder: formTemplates.sortOrder })
+    .from(formTemplates).where(and(eq(formTemplates.facilityId, facilityId), eq(formTemplates.kind, kind))).all()
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
+  const active = new Set(all.filter(row => !row.archived).map(row => row.id))
+  if (ids.length !== active.size || new Set(ids).size !== ids.length || !ids.every(id => active.has(id))) {
+    throw new ServiceError(400, 'invalid_order')
+  }
+  let next = 0
+  const order = all.map(row => (row.archived ? row.id : ids[next++]!))
+  db.transaction((tx) => {
+    order.forEach((id, index) => tx.update(formTemplates).set({ sortOrder: index }).where(eq(formTemplates.id, id)).run())
+  })
+}
+
 /** Deletes a template no form was made from (409 form_template_in_use otherwise: archive it instead). */
 export function deleteTemplate(db: Db, facilityId: number, id: number): void {
   loadTemplate(db, facilityId, id)

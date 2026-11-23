@@ -14,14 +14,14 @@ const category = (id: number, name: string, visibility: TemplateVisibility = 'al
   ({ id, name, visibility, templateCount, globalCount })
 
 describe('print template page helpers', () => {
-  it('makes a sub-tab of every category the viewer sees, in the facility\'s order, empty ones too, titles alphabetical', () => {
+  it('makes a sub-tab of every category the viewer sees, in the facility\'s order, empty ones too, templates in the server\'s order', () => {
     const tabs = templateTabs([category(3, 'Sonstiges'), category(1, 'Eltern'), category(2, 'Leer')], [
       template(1, 3, 'Zettel'), template(2, 1, 'Übernachtung'), template(3, 1, 'Ausflug'), template(4, 3, 'Attest'),
       // A category the viewer does not see (not in the list) shows nothing.
       template(5, 9, 'Versteckt'),
     ])
     expect(tabs.map(tab => [tab.key, tab.category?.name, tab.templates.map(t => t.title)])).toEqual([
-      ['category-3', 'Sonstiges', ['Attest', 'Zettel']], ['category-1', 'Eltern', ['Ausflug', 'Übernachtung']], ['category-2', 'Leer', []],
+      ['category-3', 'Sonstiges', ['Zettel', 'Attest']], ['category-1', 'Eltern', ['Übernachtung', 'Ausflug']], ['category-2', 'Leer', []],
     ])
   })
 
@@ -31,7 +31,7 @@ describe('print template page helpers', () => {
       template(1, null, 'Urlaubsantrag', 'Personal'), template(2, null, 'Speiseplan', 'Küche'), template(3, null, 'Attest', 'Personal'),
     ])
     expect(tabs.map(tab => [tab.key, tab.category, tab.templates.map(t => t.title)])).toEqual([
-      ['category-1', category(1, 'Eltern'), []], [FROM_PROVIDER_TAB, null, ['Speiseplan', 'Attest', 'Urlaubsantrag']],
+      ['category-1', category(1, 'Eltern'), []], [FROM_PROVIDER_TAB, null, ['Urlaubsantrag', 'Speiseplan', 'Attest']],
     ])
   })
 

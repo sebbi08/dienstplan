@@ -4,7 +4,9 @@ import type { PrintTemplateDto, PrintTemplateScope, TemplateCategoryDto } from '
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
+import { moveInList } from '~/utils/consentSettings'
 import { formatDate } from '~/utils/format'
+import { focusOrderArrow, orderArrowId } from '~/utils/orderArrows'
 import { fillKinds } from '~/utils/pdfFill'
 import {
   berlinDay, chosenTemplateTab, defaultGlobalVisibility, readTemplateTabMemory, sameCategoryName, templateFileUrl, templateTabs,
@@ -16,7 +18,8 @@ import {
  * only those the viewer sees; the server filters) and „Vom Träger“ for templates for all facilities whose category name
  * the facility has no category of. Whoever may edit templates (printTemplates.edit: Träger and Leitung by default, a
  * Mitarbeiter with „Vorlagen bearbeiten“) uploads and maintains them and the facility's categories, everyone else and
- * the tablet (no unlock, they are no child data) only open them. The device remembers the last sub-tab.
+ * the tablet (no unlock, they are no child data) only open them. The device remembers the last sub-tab. Editors order
+ * the templates of a sub-tab with ▲/▼ (this facility's order, also for the Träger's templates); everyone sees that order.
  */
 const { user } = useUserSession()
 const { can } = useCan()
@@ -203,6 +206,17 @@ async function save() {
   if (saved) open.value = false
 }
 
+// ---- order (▲/▼) --------------------------------------------------------
+/** One place up or down in the open sub-tab: the server takes the sub-tab's whole order as the editor sees it. */
+async function move(index: number, direction: -1 | 1) {
+  const entry = current.value
+  const id = entry?.templates[index]?.id
+  const ids = entry ? moveInList(entry.templates.map(template => template.id), index, direction) : null
+  if (!entry || id === undefined || !ids) return
+  const body = { categoryId: entry.category?.id ?? null, ids }
+  if (await run(() => $fetch<unknown>('/api/print-templates/order', { method: 'POST', body }))) focusOrderArrow(`template-${id}`, direction)
+}
+
 async function remove(template: PrintTemplateDto) {
   if (await confirm(de.printTemplates.confirmDelete(template.title))) {
     run(() => $fetch<unknown>(`/api/print-templates/${template.id}`, { method: 'DELETE' }), de.common.deleted)
@@ -253,7 +267,7 @@ async function remove(template: PrintTemplateDto) {
         </div>
         <p v-if="!current.templates.length" class="px-4 py-3 text-sm text-gray-500">{{ de.printTemplates.emptyCategory }}</p>
         <ul v-else class="divide-y divide-gray-100">
-          <li v-for="template in current.templates" :key="template.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+          <li v-for="(template, index) in current.templates" :key="template.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
             <UIcon name="i-lucide-file-text" class="size-5 shrink-0 text-gray-500" aria-hidden="true" />
             <!-- At least 12rem for the text; on a narrow screen the buttons move to their own line instead. -->
             <div class="min-w-48 flex-1 space-y-0.5">
@@ -281,6 +295,19 @@ async function remove(template: PrintTemplateDto) {
                 <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
                 <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" :disabled="busy" @click="remove(template)" />
               </template>
+              <!-- ▲/▼ last, so they stay in the same place in every row; 40 px for a finger. -->
+              <span v-if="canEdit" role="group" :aria-label="`${de.printTemplates.order}: ${template.title}`" class="flex items-center gap-1">
+                <UButton
+                  :id="orderArrowId(`template-${template.id}`, -1)" color="neutral" variant="ghost" icon="i-lucide-arrow-up"
+                  class="min-h-10 min-w-10 justify-center" :aria-label="`${de.printTemplates.moveUp}: ${template.title}`"
+                  :title="de.printTemplates.moveUp" :disabled="busy || index === 0" @click="move(index, -1)"
+                />
+                <UButton
+                  :id="orderArrowId(`template-${template.id}`, 1)" color="neutral" variant="ghost" icon="i-lucide-arrow-down"
+                  class="min-h-10 min-w-10 justify-center" :aria-label="`${de.printTemplates.moveDown}: ${template.title}`"
+                  :title="de.printTemplates.moveDown" :disabled="busy || index === current.templates.length - 1" @click="move(index, 1)"
+                />
+              </span>
             </div>
           </li>
         </ul>

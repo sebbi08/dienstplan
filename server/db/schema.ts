@@ -1427,6 +1427,18 @@ export const printTemplates = sqliteTable('print_templates', {
 }, table => [index('print_templates_facility').on(table.facilityId), index('print_templates_category').on(table.categoryId)])
 
 /**
+ * The order of the templates within a facility's sub-tab of „Dokumente“ → „Vorlagen“ (▲/▼), one row per facility and
+ * template: a template for all facilities shows in every facility and each orders it on its own. Within a sub-tab the
+ * templates with a row come first by `sortOrder`, those without one after them by title (so a template of before stays
+ * where it was). Gone with the facility or the template.
+ */
+export const printTemplateOrder = sqliteTable('print_template_order', {
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  templateId: integer('template_id').notNull().references(() => printTemplates.id, { onDelete: 'cascade' }),
+  sortOrder: integer('sort_order').notNull(),
+}, table => [primaryKey({ columns: [table.facilityId, table.templateId] }), index('print_template_order_template').on(table.templateId)])
+
+/**
  * The Träger's overrides of the state's staffing preset, one row per facility (no row = the preset as it is).
  * `overrides` is JSON `{ [path]: { value, preset } }` (see shared/domain/staffing/overrides.ts).
  */

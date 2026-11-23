@@ -3,7 +3,7 @@ import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { seesTemplateCategory, visibleTemplateLevels, type TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { PrintTemplateDto, PrintTemplateMeta, PrintTemplateScope, Role, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { printTemplates } from '../db/schema'
+import { facilities, printTemplateOrder, printTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
@@ -77,6 +77,73 @@ function placer(db: Db, facilityId: number, role: Role): (row: TemplateRow) => P
 /** The facility's own templates and those for all facilities. */
 const ofFacility = (facilityId: number) => or(eq(printTemplates.facilityId, facilityId), isNull(printTemplates.facilityId))
 
+/** What the list shows of a template (never the file). */
+const LISTED = {
+  id: printTemplates.id, facilityId: printTemplates.facilityId, title: printTemplates.title, categoryId: printTemplates.categoryId,
+  categoryName: printTemplates.categoryName, visibility: printTemplates.visibility, size: printTemplates.size,
+  uploadedAt: printTemplates.uploadedAt, updatedAt: printTemplates.updatedAt, fillable: printTemplates.fillable,
+}
+type ListedRow = { [K in keyof typeof LISTED]: (typeof printTemplates.$inferSelect)[K] }
+
+/** A template placed in one of the facility's sub-tabs, with its place there (print_template_order; none = not ordered yet). */
+interface Placed { row: ListedRow; placement: Placement; order: number | undefined }
+
+/** Category order first (infinite for „Vom Träger“, last), then the category itself. */
+const byCategory = (a: Placement, b: Placement) =>
+  (a.sortOrder === b.sortOrder ? 0 : a.sortOrder < b.sortOrder ? -1 : 1) || (a.categoryId ?? 0) - (b.categoryId ?? 0)
+
+/**
+ * The order within a sub-tab: the templates ordered with ▲/▼ (or uploaded since) by their place, then those of before
+ * without a place, alphabetical („Vom Träger“ by the category name the Träger chose first), as they were listed before.
+ */
+const bySubTabOrder = (a: Placed, b: Placed) =>
+  Number(a.order === undefined) - Number(b.order === undefined) || (a.order ?? 0) - (b.order ?? 0)
+  || (a.placement.categoryId === null ? a.placement.category.localeCompare(b.placement.category, 'de') : 0)
+  || a.row.title.localeCompare(b.row.title, 'de') || a.row.id - b.row.id
+
+/**
+ * Every template of the facility in its sub-tab (`placement.categoryId`, null = „Vom Träger“) and order, also those the
+ * role does not see (`placement.visible`). A facility template without a category of the facility shows nowhere.
+ */
+function placedTemplates(db: Db, facilityId: number, role: Role): Placed[] {
+  const place = placer(db, facilityId, role)
+  const orders = new Map(db.select({ templateId: printTemplateOrder.templateId, sortOrder: printTemplateOrder.sortOrder })
+    .from(printTemplateOrder).where(eq(printTemplateOrder.facilityId, facilityId)).all()
+    .map(row => [row.templateId, row.sortOrder]))
+  return db.select(LISTED).from(printTemplates).where(ofFacility(facilityId)).all()
+    .map(row => ({ row, placement: place(row), order: orders.get(row.id) }))
+    .filter(({ row, placement }) => row.facilityId === null || placement.categoryId !== null)
+    .sort((a, b) => byCategory(a.placement, b.placement) || bySubTabOrder(a, b))
+}
+
+/** Numbers the facility's sub-tab afresh in the given order (0, 1, …). */
+function writeOrder(db: Db, facilityId: number, ids: readonly number[]): void {
+  ids.forEach((templateId, sortOrder) => {
+    db.insert(printTemplateOrder).values({ facilityId, templateId, sortOrder })
+      .onConflictDoUpdate({ target: [printTemplateOrder.facilityId, printTemplateOrder.templateId], set: { sortOrder } }).run()
+  })
+}
+
+/**
+ * Puts the template at the end of its sub-tab in the facility (a new upload, or filed elsewhere). The others keep the
+ * order they show in, so those of before without a place get one (else they would sort after the new one).
+ */
+function appendToSubTab(db: Db, facilityId: number, templateId: number): void {
+  const placed = placedTemplates(db, facilityId, 'provider')
+  const self = placed.find(entry => entry.row.id === templateId)
+  if (!self) return
+  const others = placed.filter(entry => entry.row.id !== templateId && entry.placement.categoryId === self.placement.categoryId)
+  writeOrder(db, facilityId, [...others.map(entry => entry.row.id), templateId])
+}
+
+/** The facilities a template shows in: its own, or every facility for one for all facilities. */
+const facilitiesOf = (db: Db, row: { facilityId: number | null }): number[] => (row.facilityId !== null
+  ? [row.facilityId]
+  : db.select({ id: facilities.id }).from(facilities).all().map(facility => facility.id))
+
+/** The sub-tab the template shows in, in the facility (null = „Vom Träger“). */
+const subTabOf = (db: Db, facilityId: number, row: TemplateRow): number | null => placer(db, facilityId, 'provider')(row).categoryId
+
 /** The category name and visibility of a template for all facilities, as the Träger chose them. */
 function globalFiling(role: Role, input: PrintTemplateMeta, current?: TemplateVisibility): { categoryName: string; visibility: TemplateVisibility } {
   const categoryName = checkedCategoryName(input.categoryName ?? '')
@@ -104,37 +171,35 @@ export function uploadTemplate(
   const title = input.title.trim() || file.filename.replace(/\.[^.]*$/, '').trim()
   if (title === '') throw new ServiceError(400, 'print_template_title_required')
   const at = now.toISOString()
-  return db.insert(printTemplates).values({
-    facilityId: input.scope === 'all' ? null : actor.facilityId,
-    title: title.slice(0, 200),
-    ...filing,
-    mimeType,
-    fillable: fillableFile(file.data, mimeType),
-    size: file.data.length,
-    data: file.data,
-    uploadedBy: actor.id,
-    uploadedAt: at,
-    updatedAt: at,
-  }).returning({ id: printTemplates.id }).get().id
+  const facilityId = input.scope === 'all' ? null : actor.facilityId
+  return db.transaction((tx) => {
+    const id = tx.insert(printTemplates).values({
+      facilityId,
+      title: title.slice(0, 200),
+      ...filing,
+      mimeType,
+      fillable: fillableFile(file.data, mimeType),
+      size: file.data.length,
+      data: file.data,
+      uploadedBy: actor.id,
+      uploadedAt: at,
+      updatedAt: at,
+    }).returning({ id: printTemplates.id }).get().id
+    // At the end of its category, in every facility it shows in.
+    for (const shownIn of facilitiesOf(tx, { facilityId })) appendToSubTab(tx, shownIn, id)
+    return id
+  })
 }
 
 /**
- * The templates the viewer sees in the facility, in the order of the facility's categories („Vom Träger“ last) and by
- * title; `canEdit` by the viewer's permissions.
+ * The templates the viewer sees in the facility, in the order of the facility's categories („Vom Träger“ last) and
+ * within each in the facility's order (▲/▼; those of before without a place after them, by title); `canEdit` by the
+ * viewer's permissions.
  */
 export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[] {
   const permissions = viewer.permissions
-  const place = placer(db, viewer.facilityId, viewer.role)
-  const rows = db.select({
-    id: printTemplates.id, facilityId: printTemplates.facilityId, title: printTemplates.title, categoryId: printTemplates.categoryId,
-    categoryName: printTemplates.categoryName, visibility: printTemplates.visibility, size: printTemplates.size,
-    uploadedAt: printTemplates.uploadedAt, updatedAt: printTemplates.updatedAt, fillable: printTemplates.fillable,
-  }).from(printTemplates).where(ofFacility(viewer.facilityId)).all()
-  return rows
-    .map(row => ({ row, placement: place(row) }))
+  return placedTemplates(db, viewer.facilityId, viewer.role)
     .filter(({ placement }) => placement.visible)
-    .sort((a, b) => a.placement.sortOrder - b.placement.sortOrder || (a.placement.categoryId ?? 0) - (b.placement.categoryId ?? 0)
-      || a.row.title.localeCompare(b.row.title, 'de') || a.row.id - b.row.id)
     .map(({ row, placement }) => ({
       id: row.id,
       title: row.title,
@@ -180,7 +245,8 @@ function loadEditable(db: Db, actor: TemplateActor, id: number) {
 
 /**
  * Renames the template and files it elsewhere, the file stays: a facility's template in another of the facility's
- * categories the actor sees, a template for all facilities under another category name and visibility.
+ * categories the actor sees, a template for all facilities under another category name and visibility. Where it lands in
+ * another sub-tab, it goes to the end there; otherwise it keeps its place.
  */
 export function updateTemplate(db: Db, actor: TemplateActor, id: number, meta: PrintTemplateMeta, now: Date = new Date()): void {
   const row = loadEditable(db, actor, id)
@@ -189,8 +255,38 @@ export function updateTemplate(db: Db, actor: TemplateActor, id: number, meta: P
   const filing = row.facilityId === null
     ? globalFiling(actor.role, meta, row.visibility)
     : { categoryId: chosenCategory(db, actor.role, actor.facilityId, meta.categoryId).id }
-  db.update(printTemplates).set({ title, ...filing, updatedAt: now.toISOString() })
-    .where(eq(printTemplates.id, id)).run()
+  const shownIn = facilitiesOf(db, row).map(facilityId => ({ facilityId, before: subTabOf(db, facilityId, row) }))
+  db.transaction((tx) => {
+    tx.update(printTemplates).set({ title, ...filing, updatedAt: now.toISOString() })
+      .where(eq(printTemplates.id, id)).run()
+    const after = { ...row, ...filing }
+    for (const { facilityId, before } of shownIn) {
+      if (subTabOf(tx, facilityId, after) !== before) appendToSubTab(tx, facilityId, id)
+    }
+  })
+}
+
+/**
+ * The new order of a sub-tab of the actor's facility (a category of the facility they see, or null for „Vom Träger“),
+ * as the editor sees it: exactly the templates of the sub-tab the actor sees, each once (else 400 invalid_order).
+ * Templates the actor does not see keep their places in between. For a template for all facilities this is the order
+ * of this facility alone; the Leitung may order them too (printTemplates.edit, else 403).
+ */
+export function orderTemplates(db: Db, actor: TemplateActor, categoryId: number | null, ids: readonly number[]): void {
+  if (!can(actor.permissions, 'printTemplates.edit')) throw new ServiceError(403, 'forbidden')
+  if (categoryId !== null) {
+    const category = facilityCategories(db, actor.facilityId).find(row => row.id === categoryId)
+    if (!category || !seesTemplateCategory(actor.role, category.visibility)) throw new ServiceError(404, 'template_category_not_found')
+  }
+  const subTab = placedTemplates(db, actor.facilityId, actor.role).filter(entry => entry.placement.categoryId === categoryId)
+  const visible = new Set(subTab.filter(entry => entry.placement.visible).map(entry => entry.row.id))
+  if (ids.length !== visible.size || new Set(ids).size !== ids.length || !ids.every(id => visible.has(id))) {
+    throw new ServiceError(400, 'invalid_order')
+  }
+  // The visible ones take the visible places in the new order, the hidden ones stay put.
+  let next = 0
+  const order = subTab.map(entry => (entry.placement.visible ? ids[next++]! : entry.row.id))
+  db.transaction(tx => writeOrder(tx, actor.facilityId, order))
 }
 
 /** A new file for the template (same id, title and category). */

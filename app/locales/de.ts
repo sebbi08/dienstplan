@@ -1398,6 +1398,8 @@ export const de = {
     name: 'Titel', category: 'Kategorie', categoryPlaceholder: 'Kategorie auswählen',
     noCategory: 'Es gibt noch keine Kategorie. Leg unter „Kategorien verwalten“ zuerst eine an.',
     manageCategories: 'Kategorien verwalten',
+    // ▲/▼ at each template (whoever may edit templates): the order of this facility, also for the Träger's templates.
+    order: 'Reihenfolge', moveUp: 'Nach oben', moveDown: 'Nach unten',
     // Shown at a category that not everyone sees.
     visibilityBadge: { managers: 'nur Leitung und Träger', provider: 'nur Träger' },
     // The sub-tabs: one per category, „Vom Träger“ for templates for all facilities without a category of their name here.
@@ -2427,6 +2429,7 @@ export const de = {
     newTemplateName: 'Name der neuen Vorlage', nameFirst: 'Bitte zuerst oben einen Namen für die neue Vorlage eingeben.',
     createTemplate: 'Vorlage anlegen',
     name: 'Name',
+    order: 'Reihenfolge', moveUp: 'Nach oben', moveDown: 'Nach unten',
     edit: 'Bearbeiten', printBlank: 'Leer drucken (zum Ausfüllen von Hand)', copy: 'Kopieren', archive: 'Stilllegen', unarchive: 'Wieder aktivieren',
     starter: 'Startvorlage', selfAssessmentBadge: 'vom Mitarbeiter auszufüllen',
     selfAssessment: 'Vom Mitarbeiter auszufüllen (Selbstbeurteilung)',
