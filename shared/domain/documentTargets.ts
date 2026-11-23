@@ -66,16 +66,7 @@ export function facilitiesLosing(before: 'all' | readonly number[], after: 'all'
 }
 
 /**
- * Text for searching: lower case, umlauts as „ae/oe/ue“ and ß as „ss“, so „Ärzte“, „aerzte“ and „ÄRZTE“ meet, as do
- * „Straße“ and „Strasse“.
+ * A Träger item for chosen facilities none of which exists any more (e.g. after a facility was deleted): it shows in no
+ * facility, only the Träger finds it („Keine Einrichtung gewählt“) to choose facilities again or delete it.
  */
-export const searchFold = (text: string): string => text.toLocaleLowerCase('de')
-  .replaceAll('ä', 'ae').replaceAll('ö', 'oe').replaceAll('ü', 'ue').replaceAll('ß', 'ss')
-
-/** Whether every word of the search occurs in one of the texts (regardless of case and umlaut spelling; empty: all). */
-export function matchesSearch(texts: readonly string[], query: string): boolean {
-  const words = searchFold(query).split(/\s+/).filter(Boolean)
-  if (words.length === 0) return true
-  const haystack = searchFold(texts.join(' '))
-  return words.every(word => haystack.includes(word))
-}
+export const isOrphan = (targets: ItemTargets): boolean => !targets.allFacilities && targets.facilities.size === 0

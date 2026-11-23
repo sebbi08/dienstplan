@@ -23,16 +23,20 @@ export const targetsFormOf = (targets: DocumentTargetsDto | null): TargetsForm =
     }
   : emptyTargets())
 
-/** The facilities in the scope: the own one, every facility offered, or the ones chosen. */
-function facilitiesInScope(form: TargetsForm, options: DocumentTargetOptionsDto | null, ownFacilityId: number | null): number[] {
-  if (form.scope === 'facility') return ownFacilityId === null ? [] : [ownFacilityId]
-  if (form.scope === 'all') return (options?.facilities ?? []).map(facility => facility.id)
-  return form.facilityIds
+/**
+ * The facilities in the scope: the own one, every facility offered, or the ones chosen; null while that is not known
+ * (the choices not loaded), so nothing is dropped then.
+ */
+function facilitiesInScope(form: TargetsForm, options: DocumentTargetOptionsDto | null, ownFacilityId: number | null): number[] | null {
+  if (form.scope === 'selected') return form.facilityIds
+  if (!options) return null
+  if (form.scope === 'facility') return ownFacilityId === null ? null : [ownFacilityId]
+  return options.facilities.map(facility => facility.id)
 }
 
 /** The facilities whose groups the form offers to limit, in the order offered. */
 export function facilitiesForGroups(options: DocumentTargetOptionsDto | null, form: TargetsForm, ownFacilityId: number | null) {
-  const ids = new Set(facilitiesInScope(form, options, ownFacilityId))
+  const ids = new Set(facilitiesInScope(form, options, ownFacilityId) ?? [])
   return (options?.facilities ?? []).filter(facility => ids.has(facility.id))
 }
 
@@ -67,19 +71,20 @@ export function targetsProblem(
   form: TargetsForm, options: DocumentTargetOptionsDto | null, ownFacilityId: number | null,
 ): { kind: 'facility' } | { kind: 'group'; facility: string } | null {
   if (form.scope === 'selected' && form.facilityIds.length === 0) return { kind: 'facility' }
-  const inScope = new Set(facilitiesInScope(form, options, ownFacilityId))
-  const empty = form.groupTargets.find(target => inScope.has(target.facilityId) && target.groupIds.length === 0)
+  const scope = facilitiesInScope(form, options, ownFacilityId)
+  const inScope = (facilityId: number) => scope === null || scope.includes(facilityId)
+  const empty = form.groupTargets.find(target => inScope(target.facilityId) && target.groupIds.length === 0)
   if (!empty) return null
   return { kind: 'group', facility: options?.facilities.find(facility => facility.id === empty.facilityId)?.name ?? '' }
 }
 
-/** „Gilt für“ as sent: groups only for facilities in the scope. */
+/** „Gilt für“ as sent: groups only for facilities in the scope (all of them while the scope is not known). */
 export function targetsPayload(form: TargetsForm, options: DocumentTargetOptionsDto | null, ownFacilityId: number | null): Required<DocumentTargetsInput> {
-  const inScope = new Set(facilitiesInScope(form, options, ownFacilityId))
+  const scope = facilitiesInScope(form, options, ownFacilityId)
   return {
     scope: form.scope,
     facilityIds: form.scope === 'selected' ? form.facilityIds : [],
-    groupTargets: form.groupTargets.filter(target => inScope.has(target.facilityId) && target.groupIds.length > 0),
+    groupTargets: form.groupTargets.filter(target => (scope === null || scope.includes(target.facilityId)) && target.groupIds.length > 0),
   }
 }
 
@@ -98,13 +103,15 @@ export function facilitiesLost(
 }
 
 /**
- * The hints at an item for Leitung and Träger: „nur Kita A, Kita B“ (chosen facilities), „nur Bären, Füchse“ (groups in
- * this facility) or that no group is left.
+ * The hints at an item for Leitung and Träger: „nur Kita A, Kita B“ (chosen facilities) or that none of them is left,
+ * „nur Bären, Füchse“ (groups in this facility) or that no group is left.
  */
-export function targetHints(targets: DocumentTargetsDto | null, texts: { only: (names: string[]) => string; noGroup: string }): string[] {
+export function targetHints(
+  targets: DocumentTargetsDto | null, texts: { only: (names: string[]) => string; noGroup: string; noFacility: string },
+): string[] {
   if (!targets) return []
   return [
-    ...(targets.scope === 'selected' && targets.facilityNames.length > 0 ? [texts.only(targets.facilityNames)] : []),
+    ...(targets.scope === 'selected' ? [targets.facilityNames.length > 0 ? texts.only(targets.facilityNames) : texts.noFacility] : []),
     ...(targets.groupNames === null ? [] : targets.groupNames.length === 0 ? [texts.noGroup] : [texts.only(targets.groupNames)]),
   ]
 }

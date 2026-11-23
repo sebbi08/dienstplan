@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employees, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeStarterSeeds } from '../../server/db/schema'
+import { employees, entries, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeStarterSeeds } from '../../server/db/schema'
 import { deleteAssessmentData, deleteImmediateData } from '../../server/services/employeeDeletion'
 import { createFacility } from '../../server/services/facilities'
 import {
@@ -318,6 +318,11 @@ describe('„Wissen“ (knowledge library)', () => {
       const left = addEmployee(db, 'Alma Alt', { leftOn: '2026-06-30' })
       const krippe = addFacility(db, 'Krippe')
       const helper = addEmployee(db, 'Hans Helfer', { facilityId: krippe })
+      // Planned here once (a help-out entry): a helper of this facility.
+      db.insert(entries).values({ employeeId: helper, date: '2026-11-02', kind: 'shift', helpFacilityId: 1, updatedAt: NOW.toISOString() }).run()
+      // Someone of the Krippe who confirmed (the entry was for them before) does not show here.
+      const stranger = addEmployee(db, 'Kai Krippe', { facilityId: krippe })
+      db.insert(knowledgeConfirmations).values({ entryId: entry, employeeId: stranger, entryVersion: 1, confirmedAt: NOW.toISOString(), via: 'tablet' }).run()
       for (const employeeId of [left, helper]) {
         db.insert(knowledgeConfirmations).values({ entryId: entry, employeeId, entryVersion: 1, confirmedAt: NOW.toISOString(), via: 'tablet' }).run()
       }

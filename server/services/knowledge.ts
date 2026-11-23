@@ -5,7 +5,7 @@ import {
   KNOWLEDGE_LIMITS, KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES, checkedAsOf, checkedKnowledgeUrl,
   comparableKnowledgeName, confirmState, type KnowledgeConfirmState,
 } from '../../shared/domain/knowledge'
-import { groupsAllow, inFacilityScope, seesAllGroups, type Audience, type DocumentScope, type ItemTargets } from '../../shared/domain/documentTargets'
+import { groupsAllow, inFacilityScope, isOrphan, seesAllGroups, type Audience, type DocumentScope, type ItemTargets } from '../../shared/domain/documentTargets'
 import { can } from '../../shared/domain/permissions'
 import { isRichText, plainTextToRichText, richTextLength, sanitizeRichText } from '../../shared/domain/richText'
 import { isEmployedOn } from '../../shared/domain/targets'
@@ -19,7 +19,7 @@ import type {
   KnowledgeConfirmResultDto, KnowledgeDto, KnowledgeEntryDto, KnowledgeEntryInput, Role, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, facilities, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeStarterSeeds, users } from '../db/schema'
+import { employees, entries, facilities, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeStarterSeeds, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
@@ -202,16 +202,20 @@ type PlacedRow = Pick<EntryRow, 'id' | 'facilityId' | 'categoryId' | 'categoryNa
  * the Träger in the facility's category of the same name (regardless of case) – there in its subcategory of the
  * subcategory name, else directly in the category –, otherwise under „Vom Träger“; an entry not for this facility is
  * nowhere (null). The visibilities that apply: the category's, the subcategory's and the entry's own (the strictest one
- * wins).
+ * wins). An entry of the Träger whose chosen facilities are all gone (`orphans`, for those with knowledge.global) shows
+ * under „Vom Träger“, to be given facilities again or deleted.
  */
-function placer(facilityId: number, categories: readonly CategoryRow[], targets: ReadonlyMap<number, ItemTargets>): (row: PlacedRow) => Placement | null {
+function placer(
+  facilityId: number, categories: readonly CategoryRow[], targets: ReadonlyMap<number, ItemTargets>, orphans = false,
+): (row: PlacedRow) => Placement | null {
   const place = categoryPlacer(categories)
   return (row) => {
     const own = row.facilityId !== null
     if (own && row.facilityId !== facilityId) return null
     const itemTargets = targets.get(row.id)
-    if (!own && (!itemTargets || !inFacilityScope(itemTargets, facilityId))) return null
-    const spot = own ? place.byId(row.categoryId) : place.byName(row.categoryName, row.subcategoryName)
+    const orphan = !own && !!itemTargets && isOrphan(itemTargets)
+    if (!own && (!itemTargets || (orphan ? !orphans : !inFacilityScope(itemTargets, facilityId)))) return null
+    const spot = own ? place.byId(row.categoryId) : orphan ? { category: null, subcategory: null } : place.byName(row.categoryName, row.subcategoryName)
     if (!spot) return null
     const name = spot.category?.name ?? row.categoryName ?? ''
     const subName = spot.subcategory?.name ?? (spot.category ? '' : row.subcategoryName ?? '')
@@ -247,9 +251,9 @@ function compareEntries(a: Placed, b: Placed): number {
 }
 
 /** The entries for the facility the viewer sees, placed and in order. */
-function visibleEntries(db: Db, viewer: Pick<KnowledgeViewer, 'role' | 'facilityId' | 'homeGroupId'>, categories: readonly CategoryRow[]): Placed[] {
+function visibleEntries(db: Db, viewer: Pick<KnowledgeViewer, 'role' | 'permissions' | 'facilityId' | 'homeGroupId'>, categories: readonly CategoryRow[]): Placed[] {
   const rows = db.select(ENTRY_COLUMNS).from(knowledgeEntries).where(ofFacility(viewer.facilityId)).all()
-  const place = placer(viewer.facilityId, categories, loadTargets(db, 'knowledge', rows))
+  const place = placer(viewer.facilityId, categories, loadTargets(db, 'knowledge', rows), can(viewer.permissions, 'knowledge.global'))
   const audience = audienceOf(viewer)
   return rows
     .map(row => ({ row, placement: place(row) }))
@@ -295,6 +299,7 @@ export function listKnowledge(db: Db, viewer: KnowledgeViewer): KnowledgeDto {
       globalCategoryName: row.facilityId === null ? row.categoryName ?? '' : null,
       globalSubcategoryName: row.facilityId === null ? row.subcategoryName ?? '' : null,
       globalVisibility: row.facilityId === null ? row.visibility : null,
+      allFacilities: row.allFacilities,
       kind: row.kind,
       title: row.title,
       description: row.description,
@@ -313,7 +318,7 @@ export function listKnowledge(db: Db, viewer: KnowledgeViewer): KnowledgeDto {
       canEdit,
       visibility: row.visibility,
       targets: (canEdit || seesAllGroups(viewer.role)) && placement.targets && names
-        ? targetsDto(row, placement.targets, viewer.facilityId, names)
+        ? targetsDto(row, placement.targets, viewer.facilityId, names, canEdit)
         : null,
     }
   })
@@ -336,16 +341,24 @@ export function openKnowledgeCount(db: Db, viewer: KnowledgeViewer): number {
   return accountPerson(viewer) === null ? 0 : listKnowledge(db, viewer).openCount
 }
 
-/** The entry placed in the facility (whoever sees it or not); null when it is not for the facility. */
-function placedEntry(db: Db, facilityId: number, id: number): { row: EntryRow; placement: Placement } | null {
+/**
+ * The entry placed in the facility (whoever sees it or not; with `orphans` also the Träger's without facilities); null
+ * when it is not for the facility.
+ */
+function placedEntry(db: Db, facilityId: number, id: number, orphans = false): { row: EntryRow; placement: Placement } | null {
   const row = db.select(ENTRY_COLUMNS).from(knowledgeEntries).where(and(eq(knowledgeEntries.id, id), ofFacility(facilityId))).get()
-  const placement = row ? placer(facilityId, facilityKnowledgeCategories(db, facilityId), loadTargets(db, 'knowledge', [row]))(row) : null
+  const placement = row ? placer(facilityId, facilityKnowledgeCategories(db, facilityId), loadTargets(db, 'knowledge', [row]), orphans)(row) : null
   return row && placement ? { row, placement } : null
 }
 
-/** An entry for the viewer's facility that the viewer sees (else 404 knowledge_entry_not_found). */
-function loadVisible(db: Db, viewer: Pick<KnowledgeViewer, 'role' | 'facilityId' | 'homeGroupId'>, id: number): { row: EntryRow; placement: Placement } {
-  const placed = placedEntry(db, viewer.facilityId, id)
+/**
+ * An entry for the viewer's facility that the viewer sees (for the Träger also one without facilities; else 404
+ * knowledge_entry_not_found).
+ */
+function loadVisible(
+  db: Db, viewer: Pick<KnowledgeViewer, 'role' | 'facilityId' | 'homeGroupId'> & { permissions?: KnowledgeViewer['permissions'] }, id: number,
+): { row: EntryRow; placement: Placement } {
+  const placed = placedEntry(db, viewer.facilityId, id, !!viewer.permissions && can(viewer.permissions, 'knowledge.global'))
   if (!placed || !seesPlacement(audienceOf(viewer), placed.placement)) throw new ServiceError(404, 'knowledge_entry_not_found')
   return placed
 }
@@ -587,13 +600,17 @@ export function confirmWithAccount(
 /**
  * „Gelesen und verstanden“ at the facility's tablet: a person of its list (404 employee_not_found otherwise, without
  * counting a PIN attempt) confirms for themselves with their PIN (the same attempts and lock as stamping), an entry the
- * tablet shows (visible to all) and that is for the person's home group, in the version the tablet showed. Everything but
- * the PIN is checked first, so a stale page or another person never costs a PIN attempt.
+ * tablet shows (visible to all; 404 knowledge_entry_not_found otherwise) and that is for the person's home group (403
+ * knowledge_not_for_person otherwise), in the version the tablet showed. Everything but the PIN is checked first, so a
+ * stale page or another person never costs a PIN attempt.
  */
 export function confirmAtTablet(
   db: Db, terminal: { facilityId: number }, id: number, shownVersion: number, employeeId: number, pin: string, now: Date = new Date(),
 ): KnowledgeConfirmResultDto {
-  const { row } = loadVisible(db, { role: 'terminal', facilityId: terminal.facilityId, homeGroupId: homeGroupOf(db, employeeId) }, id)
+  const placed = placedEntry(db, terminal.facilityId, id)
+  if (!placed || !seesAll('terminal', placed.placement.visibility)) throw new ServiceError(404, 'knowledge_entry_not_found')
+  const { row, placement } = placed
+  if (!seesPlacement({ role: 'terminal', homeGroupId: homeGroupOf(db, employeeId) }, placement)) throw new ServiceError(403, 'knowledge_not_for_person')
   assertConfirmable(row, shownVersion)
   if (!terminalStatus(db, terminal.facilityId, now).some(person => person.employeeId === employeeId)) {
     throw new ServiceError(404, 'employee_not_found')
@@ -622,9 +639,9 @@ const STATE_ORDER: Record<KnowledgeConfirmState, number> = { open: 0, outdated: 
  * else 404): every employee of the facility employed today who sees it (by the role of their active account, the
  * Mitarbeiter's without one: a category for Leitung and Träger counts only them; an entry limited to groups counts only
  * those of these groups, and Leitung and Träger), plus anyone who confirmed but left, no longer sees it (also after a
- * change of „Gilt für“: „nicht mehr erwartet“) or is not on the staff: for the facility's own entry also helpers of
- * other facilities who confirmed it at this tablet (the facility plans them); for an entry of the Träger only the
- * facility's own employees, so no other facility's names show.
+ * change of „Gilt für“: „nicht mehr erwartet“) or is not on the staff – but only the facility's own employees and the
+ * helpers of other facilities it plans (a help-out entry here), so no other facility's names show, also not for an entry
+ * that was another facility's or the Träger's before (its confirmations stay with it).
  */
 export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, today: IsoDate = todayIso()): KnowledgeConfirmationsDto {
   assertManager(actor)
@@ -637,9 +654,10 @@ export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, 
     employeeId: knowledgeConfirmations.employeeId, entryVersion: knowledgeConfirmations.entryVersion,
     confirmedAt: knowledgeConfirmations.confirmedAt, via: knowledgeConfirmations.via, name: employees.name,
   }).from(knowledgeConfirmations).innerJoin(employees, eq(employees.id, knowledgeConfirmations.employeeId))
-    .where(row.facilityId === null
-      ? and(eq(knowledgeConfirmations.entryId, id), eq(employees.facilityId, actor.facilityId))
-      : eq(knowledgeConfirmations.entryId, id)).all()
+    .where(and(eq(knowledgeConfirmations.entryId, id), or(
+      eq(employees.facilityId, actor.facilityId),
+      inArray(employees.id, db.selectDistinct({ id: entries.employeeId }).from(entries).where(eq(entries.helpFacilityId, actor.facilityId))),
+    ))).all()
   const byEmployee = new Map(confirmations.map(confirmation => [confirmation.employeeId, confirmation]))
   const homeGroups = new Map(ids.length === 0 ? [] : db.select({ id: employees.id, groupId: employees.groupId }).from(employees)
     .where(inArray(employees.id, ids)).all().map(employee => [employee.id, employee.groupId]))

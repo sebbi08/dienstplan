@@ -55,9 +55,19 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const forAll = computed(() => form.targets.scope !== 'facility')
 const confirm = useConfirm()
 // What „Gilt für“ offers (the Träger every facility with its groups, everyone else the own facility), loaded with the form.
+// Saving waits for them (else a limit could not be shown and kept); a failed load offers to try again. „Gilt für“ is sent
+// only when the editor changed it, otherwise the server keeps it as it is.
 const targetOptions = ref<DocumentTargetOptionsDto | null>(null)
+const targetsFailed = ref(false)
+const targetsTouched = ref(false)
 async function loadTargetOptions() {
-  targetOptions.value = await $fetch<DocumentTargetOptionsDto>('/api/knowledge/targets').catch(() => targetOptions.value)
+  targetsFailed.value = false
+  try {
+    targetOptions.value = await $fetch<DocumentTargetOptionsDto>('/api/knowledge/targets')
+  }
+  catch {
+    targetsFailed.value = true
+  }
 }
 const kindItems = KNOWLEDGE_KINDS.map(kind => ({ label: t.kindLabels[kind], value: kind }))
 const categoryItems = computed(() => topCategories(props.categories).map(category => ({ label: category.name, value: category.id })))
@@ -82,6 +92,7 @@ watch(forAll, (value) => { if (value && open.value) loadCategoryNames() })
 
 watch(open, (isOpen) => {
   if (!isOpen) return
+  targetsTouched.value = false
   loadTargetOptions()
   file.value = null
   if (fileInput.value) fileInput.value.value = ''
@@ -128,13 +139,15 @@ async function save() {
   const chosen = file.value
   if (form.kind === 'file' && !chosen && props.entry?.kind !== 'file') return void toast.add({ title: de.errors.file_required, color: 'error' })
   // Fails early instead of after a long upload; the server checks the size and the real file type again.
-  const ownFacilityId = targetOptions.value?.facilityId ?? null
-  const problem = targetsProblem(form.targets, targetOptions.value, ownFacilityId)
   if (chosen && form.kind === 'file' && chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: uploadSizeError(chosen.size)!, color: 'error' })
+  if (!targetOptions.value) return
+  const ownFacilityId = targetOptions.value.facilityId
+  // Only a changed „Gilt für“ is sent (checked first); untouched, the server keeps it.
+  const problem = targetsTouched.value ? targetsProblem(form.targets, targetOptions.value, ownFacilityId) : null
   if (problem) return void toast.add({ title: problem.kind === 'facility' ? de.documentTargets.pickFacility : de.documentTargets.pickGroup(problem.facility), color: 'error' })
   const targets = targetsPayload(form.targets, targetOptions.value, ownFacilityId)
   // Facilities that lose the entry: ask first.
-  const lost = props.entry ? facilitiesLost(props.entry.targets, form.targets, targetOptions.value, ownFacilityId) : 0
+  const lost = props.entry && targetsTouched.value ? facilitiesLost(props.entry.targets, form.targets, targetOptions.value, ownFacilityId) : 0
   if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'der Eintrag')))) return
   const body = new FormData()
   // A facility's entry: the subcategory chosen, else the category; for all or the chosen facilities the names.
@@ -143,7 +156,10 @@ async function save() {
     kind: form.kind, title: form.title, description: form.description, asOf: form.asOf,
     url: form.kind === 'link' ? form.url : '', body: form.kind === 'text' ? form.body : '',
     needsConfirmation: String(form.needsConfirmation),
-    visibility: form.visibility, scope: targets.scope, facilityIds: JSON.stringify(targets.facilityIds), groupTargets: JSON.stringify(targets.groupTargets),
+    visibility: form.visibility,
+    ...(targetsTouched.value
+      ? { scope: targets.scope, facilityIds: JSON.stringify(targets.facilityIds), groupTargets: JSON.stringify(targets.groupTargets) }
+      : {}),
     ...(forAll.value
       ? { categoryName: form.categoryName, subcategoryName: form.subcategoryName }
       : categoryId !== undefined ? { categoryId: String(categoryId) } : {}),
@@ -168,7 +184,11 @@ async function save() {
         <!-- „Gilt für“: facilities (the Träger) and groups; afterwards too. -->
         <DocumentTargetsField
           v-model="form.targets" :options="targetOptions" :can-global="canManageGlobal" :facility-id="targetOptions?.facilityId ?? null"
-          :facility-name="activeName ?? ''" id-prefix="knowledge-targets"
+          :facility-name="activeName ?? ''" id-prefix="knowledge-targets" @update:model-value="targetsTouched = true"
+        />
+        <UAlert
+          v-if="targetsFailed" color="warning" variant="soft" :title="de.documentTargets.loadFailed"
+          :actions="[{ label: de.documentTargets.retry, color: 'neutral', variant: 'outline', onClick: loadTargetOptions }]"
         />
         <template v-if="forAll">
           <UFormField :label="f.categoryName" :description="t.categoryNameHint" required>
@@ -230,7 +250,7 @@ async function save() {
         </UFormField>
         <UAlert v-if="contentChanged && entry?.needsConfirmation && form.needsConfirmation" color="warning" variant="soft" :title="t.contentChangeHint" />
         <div class="flex gap-2">
-          <UButton type="submit" :label="entry ? de.common.save : t.add" :loading="busy" :disabled="busy" />
+          <UButton type="submit" :label="entry ? de.common.save : t.add" :loading="busy" :disabled="busy || !targetOptions" />
           <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
         </div>
       </form>

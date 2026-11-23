@@ -13,7 +13,7 @@ const entry = (id: number, categoryId: number | null, overrides: Partial<Knowled
   id, categoryId, subcategoryId: null, global: categoryId === null, globalCategoryName: null, globalSubcategoryName: null, globalVisibility: null,
   kind: 'link', title: `Eintrag ${id}`,
   description: '', asOf: null, url: 'https://example.de', body: '', fileSize: null, needsConfirmation: false, version: 1, versionAt: '2026-11-23T09:00:00.000Z',
-  updatedAt: '2026-11-23T09:00:00.000Z', myConfirmation: null, canEdit: false, visibility: 'all', targets: null, ...overrides,
+  updatedAt: '2026-11-23T09:00:00.000Z', myConfirmation: null, canEdit: false, visibility: 'all', targets: null, allFacilities: false, ...overrides,
 })
 
 describe('knowledge fields', () => {

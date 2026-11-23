@@ -4,5 +4,5 @@ export default defineServiceHandler(async (event) => {
   // Like the templates themselves: also the tablet without an unlock and Mitarbeiter accounts, each the categories of
   // their level in the active facility.
   const reader = await requirePermission(event, 'printTemplates.view', { allowTerminal: true, facility: 'active' })
-  return listCategories(useDb(), reader)
+  return listCategories(useDb(), await withHomeGroup(event, reader))
 })

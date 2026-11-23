@@ -3,7 +3,7 @@ import {
   FORM_LIMITS, ITEM_KINDS, addItem, addSection, moveItem, moveSection, removeItem, removeSection,
   type FormContent, type FormItem, type FormKind, type FormSubject, type ItemDraft, type ItemKind,
 } from '#shared/domain/forms'
-import { matchesSearch } from '#shared/domain/documentTargets'
+import { matchesSearch } from '#shared/domain/search'
 import type { FormTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { moveInList } from '~/utils/consentSettings'

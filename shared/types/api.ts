@@ -846,8 +846,10 @@ export interface PrintTemplateDto {
   subcategoryId: number | null
   /** The name of that subcategory ('' for none; under „Vom Träger“ the name the Träger chose). */
   subcategory: string
-  /** For all facilities (maintained by the Träger). */
+  /** Of the Träger (for all or the chosen facilities, only the Träger changes it). */
   global: boolean
+  /** For all facilities, also later ones (the Träger's; otherwise for its own facility or the facilities chosen). */
+  allFacilities: boolean
   /**
    * A template for all facilities: the category name, the subcategory name ('' for none) and the visibility the Träger
    * chose (null for a facility's own).
@@ -4025,8 +4027,10 @@ export interface KnowledgeEntryDto {
   categoryId: number | null
   /** The subcategory it shows in; null when directly in the category („Allgemein“) or under „Vom Träger“. */
   subcategoryId: number | null
-  /** For all facilities (maintained by the Träger). */
+  /** Of the Träger (for all or the chosen facilities, only the Träger changes it). */
   global: boolean
+  /** For all facilities, also later ones (the Träger's; otherwise for its own facility or the facilities chosen). */
+  allFacilities: boolean
   /**
    * An entry for all facilities: the category name, the subcategory name ('' for none) and the visibility the Träger
    * chose (null for a facility's own).

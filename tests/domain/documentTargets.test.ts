@@ -4,8 +4,9 @@ import {
   toggleGroup, toggleId,
 } from '../../app/utils/documentTargets'
 import {
-  facilitiesLosing, groupsAllow, inFacilityScope, matchesSearch, reachesAudience, scopeOf, searchFold, type ItemTargets,
+  facilitiesLosing, groupsAllow, inFacilityScope, reachesAudience, scopeOf, type ItemTargets,
 } from '../../shared/domain/documentTargets'
+import { matchesSearch, searchFold } from '../../shared/domain/search'
 import { knowledgeMatches } from '../../shared/domain/knowledge'
 import type { DocumentTargetOptionsDto, DocumentTargetsDto } from '../../shared/types/api'
 
@@ -58,6 +59,9 @@ describe('„Gilt für“ (shared rules)', () => {
 
   it('searches regardless of case and umlaut spelling (ä/ae, ß/ss), every word', () => {
     expect(searchFold('Ärztliche STRASSE Straße')).toBe('aerztliche strasse strasse')
+    // A decomposed umlaut (A + combining diaeresis), e.g. pasted from a PDF.
+    expect(searchFold('Ärztin')).toBe('aerztin')
+    expect(searchFold('Ärztin')).toBe('aerztin')
     expect(matchesSearch(['Ärztliches Attest', 'Gesundheit'], 'aerztl')).toBe(true)
     expect(matchesSearch(['Ärztliches Attest', 'Gesundheit'], 'ärztl gesund')).toBe(true)
     expect(matchesSearch(['Elternbrief'], 'eltern attest')).toBe(false)
@@ -101,6 +105,15 @@ describe('„Gilt für“ in the form', () => {
       .toEqual({ scope: 'facility', facilityIds: [], groupTargets: [{ facilityId: 1, groupIds: [11] }] })
   })
 
+  it('drops nothing while the choices are not loaded (no options)', () => {
+    const limited = { scope: 'facility' as const, facilityIds: [], groupTargets: [{ facilityId: 1, groupIds: [11] }] }
+    expect(targetsPayload(limited, null, null).groupTargets).toEqual([{ facilityId: 1, groupIds: [11] }])
+    expect(targetsPayload({ ...limited, scope: 'all' }, null, null).groupTargets).toEqual([{ facilityId: 1, groupIds: [11] }])
+    expect(targetsProblem({ ...limited, groupTargets: [{ facilityId: 1, groupIds: [] }] }, null, null)).toEqual({ kind: 'group', facility: '' })
+    expect(facilitiesForGroups(null, limited, 1)).toEqual([])
+    expect(facilitiesLost(dto({ scope: 'all', facilityIds: [] }), limited, null, 1)).toBe(0)
+  })
+
   it('counts the facilities that lose an item (to ask first)', () => {
     expect(facilitiesLost(dto({ scope: 'all', facilityIds: [] }), { scope: 'selected', facilityIds: [2], groupTargets: [] }, OPTIONS, 1)).toBe(2)
     expect(facilitiesLost(dto({ scope: 'selected', facilityIds: [2] }), { scope: 'all', facilityIds: [], groupTargets: [] }, OPTIONS, 1)).toBe(0)
@@ -109,11 +122,12 @@ describe('„Gilt für“ in the form', () => {
   })
 
   it('shows the hints for Leitung and Träger', () => {
-    const texts = { only: (names: string[]) => `nur ${names.join(', ')}`, noGroup: 'keine Gruppe mehr gewählt' }
+    const texts = { only: (names: string[]) => `nur ${names.join(', ')}`, noGroup: 'keine Gruppe mehr gewählt', noFacility: 'Keine Einrichtung gewählt' }
     expect(targetHints(dto({ scope: 'selected', facilityNames: ['Kita A', 'Kita B'], groupNames: ['Bären', 'Füchse'] }), texts))
       .toEqual(['nur Kita A, Kita B', 'nur Bären, Füchse'])
     expect(targetHints(dto({ groupNames: [] }), texts)).toEqual(['keine Gruppe mehr gewählt'])
     expect(targetHints(dto({}), texts)).toEqual([])
     expect(targetHints(null, texts)).toEqual([])
+    expect(targetHints(dto({ scope: 'selected', facilityIds: [], facilityNames: [] }), texts)).toEqual(['Keine Einrichtung gewählt'])
   })
 })

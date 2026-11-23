@@ -1,5 +1,5 @@
 import { normalizedWebsite } from './contacts'
-import { matchesSearch } from './documentTargets'
+import { matchesSearch } from './search'
 import { isValidIsoDate } from './dates'
 import { richTextToPlain } from './richText'
 import type { GermanState } from './states'

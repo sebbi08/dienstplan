@@ -22,8 +22,8 @@ import { loadTargets } from './documentTargets'
  */
 export type CategoryActor = Pick<SessionUser, 'role' | 'permissions'> & { facilityId: number }
 
-/** Who looks at a facility's categories: the role decides which they see. */
-export type CategoryViewer = Pick<SessionUser, 'role'> & { facilityId: number }
+/** Who looks at a facility's categories: the role decides which they see, the home group which Träger templates count. */
+export type CategoryViewer = Pick<SessionUser, 'role'> & { facilityId: number; homeGroupId?: number | null }
 
 type CategoryRow = typeof templateCategories.$inferSelect
 
@@ -55,7 +55,7 @@ export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategory
   }).from(printTemplates).where(isNull(printTemplates.facilityId)).all()
   // Only those for this facility („Gilt für“) whose groups allow the viewer.
   const targets = loadTargets(db, 'template', globals)
-  const audience = { role: viewer.role, homeGroupId: null }
+  const audience = { role: viewer.role, homeGroupId: viewer.homeGroupId ?? null }
   for (const global of globals) {
     const spot = place.byName(global.name, global.subcategoryName)
     const shownIn = spot.subcategory ?? spot.category

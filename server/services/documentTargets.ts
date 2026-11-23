@@ -160,18 +160,22 @@ export function targetNames(db: Db): { facilities: Map<number, string>; groups: 
   }
 }
 
-/** „Gilt für“ of an item as the lists show it to those who maintain it, with the hints for the facility looked at. */
+/**
+ * „Gilt für“ of an item as the lists show it to Leitung, Träger and whoever may change it, with the hints for the
+ * facility looked at. Only who may change the item (`full`) gets the chosen facility ids and the groups of other
+ * facilities; everyone else the facility names for the hint and the groups of the facility looked at.
+ */
 export function targetsDto(
-  item: { facilityId: number | null }, targets: ItemTargets, facilityId: number, names: ReturnType<typeof targetNames>,
+  item: { facilityId: number | null }, targets: ItemTargets, facilityId: number, names: ReturnType<typeof targetNames>, full: boolean,
 ): DocumentTargetsDto {
   const input = targetsInput(item, targets)
-  const facilityIds = input.scope === 'facility' ? [item.facilityId!] : input.facilityIds
+  const chosen = input.scope === 'facility' ? [item.facilityId!] : input.facilityIds
   const byName = (a: string, b: string) => a.localeCompare(b, 'de')
-  const groupTargets: DocumentGroupTarget[] = input.groupTargets
+  const groupTargets: DocumentGroupTarget[] = full ? input.groupTargets : input.groupTargets.filter(target => target.facilityId === facilityId)
   return {
     scope: input.scope,
-    facilityIds,
-    facilityNames: input.scope === 'selected' ? facilityIds.map(id => names.facilities.get(id) ?? '').sort(byName) : [],
+    facilityIds: full ? chosen : chosen.filter(id => id === facilityId),
+    facilityNames: input.scope === 'selected' ? chosen.map(id => names.facilities.get(id) ?? '').sort(byName) : [],
     groupTargets,
     groupNames: forAllGroups(targets, facilityId)
       ? null

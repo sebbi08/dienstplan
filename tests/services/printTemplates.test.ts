@@ -77,7 +77,7 @@ describe('print templates', () => {
       const id = upload(leitung, { title: '  Elternbrief  ' })
       expect(listTemplates(db, seer('admin', 1))).toEqual([{
         id, title: 'Elternbrief', categoryId: cat.Eltern, category: 'Eltern', subcategoryId: null, subcategory: '', global: false, globalCategoryName: null,
-        globalSubcategoryName: null, globalVisibility: null, visibility: 'all', size: pdf().length, uploadedAt: NOW.toISOString(), updatedAt: NOW.toISOString(), canEdit: true,
+        globalSubcategoryName: null, globalVisibility: null, allFacilities: false, visibility: 'all', size: pdf().length, uploadedAt: NOW.toISOString(), updatedAt: NOW.toISOString(), canEdit: true,
         fillable: false, targets: { scope: 'facility', facilityIds: [1], facilityNames: [], groupTargets: [], groupNames: null },
       }])
       const row = db.select().from(printTemplates).get()!

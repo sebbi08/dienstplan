@@ -9,7 +9,7 @@ import type { PrintTemplateDto, TemplateCategoryDto } from '../../shared/types/a
 const template = (id: number, categoryId: number | null, title: string, category = ''): PrintTemplateDto => ({
   id, title, categoryId, category, subcategoryId: null, subcategory: '', global: categoryId === null,
   globalCategoryName: categoryId === null ? category : null, globalSubcategoryName: categoryId === null ? '' : null,
-  globalVisibility: categoryId === null ? 'all' : null, visibility: 'all', size: 1, uploadedAt: '', updatedAt: '', canEdit: true, fillable: false,
+  globalVisibility: categoryId === null ? 'all' : null, allFacilities: categoryId === null, visibility: 'all', size: 1, uploadedAt: '', updatedAt: '', canEdit: true, fillable: false,
   targets: null,
 })
 const category = (id: number, name: string, visibility: TemplateVisibility = 'all', templateCount = 2, globalCount = 0): TemplateCategoryDto =>

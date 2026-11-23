@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import {
-  facilitiesLosing, reachesAudience, seesAllGroups, type Audience, type ItemTargets,
+  facilitiesLosing, groupsAllow, inFacilityScope, isOrphan, seesAllGroups, type Audience, type ItemTargets,
 } from '../../shared/domain/documentTargets'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import {
@@ -76,19 +76,24 @@ interface Placement {
  * template of the Träger in the facility's category of the same name (regardless of case) – there in its subcategory of
  * the subcategory name, else directly in the category –, otherwise under „Vom Träger“ (after all categories). A template
  * not for this facility is nowhere (null). The viewer sees a template when they see its category, subcategory and its
- * own visibility (the strictest one wins) and its groups allow them („Gilt für“).
+ * own visibility (the strictest one wins) and its groups allow them („Gilt für“). A template of the Träger whose chosen
+ * facilities are all gone (`orphans`, for those with printTemplates.global) shows under „Vom Träger“, to be given
+ * facilities again or deleted.
  */
-function placer(db: Db, facilityId: number, audience: Audience, targets: ReadonlyMap<number, ItemTargets>): (row: TemplateRow) => Placement | null {
+function placer(
+  db: Db, facilityId: number, audience: Audience, targets: ReadonlyMap<number, ItemTargets>, orphans = false,
+): (row: TemplateRow) => Placement | null {
   const place = categoryPlacer(facilityCategories(db, facilityId))
   return (row) => {
     const own = row.facilityId !== null
     if (own && row.facilityId !== facilityId) return null
     const itemTargets = targets.get(row.id)
-    if (!own && (!itemTargets || !(itemTargets.allFacilities || itemTargets.facilities.has(facilityId)))) return null
-    const spot = own ? place.byId(row.categoryId) : place.byName(row.categoryName, row.subcategoryName)
+    const orphan = !own && !!itemTargets && isOrphan(itemTargets)
+    if (!own && (!itemTargets || (orphan ? !orphans : !inFacilityScope(itemTargets, facilityId)))) return null
+    const spot = own ? place.byId(row.categoryId) : orphan ? { category: null, subcategory: null } : place.byName(row.categoryName, row.subcategoryName)
     if (!spot) return null
     const visible = seesAll(audience.role, [...spotVisibilities(spot), row.visibility])
-      && (!itemTargets || reachesAudience(itemTargets, facilityId, audience))
+      && (!itemTargets || groupsAllow(itemTargets, facilityId, audience))
     return {
       categoryId: spot.category?.id ?? null,
       category: spot.category?.name ?? row.categoryName ?? '',
@@ -132,13 +137,13 @@ const bySubTabOrder = (a: Placed, b: Placed) =>
  * Träger“) and order – by category, within it the templates directly in it first, then by subcategory –, also those the
  * viewer does not see (`placement.visible`). A facility template without a category of the facility shows nowhere.
  */
-function placedTemplates(db: Db, facilityId: number, audience: Audience): Placed[] {
+function placedTemplates(db: Db, facilityId: number, audience: Audience, orphans = false): Placed[] {
   const orders = new Map(db.select({ templateId: printTemplateOrder.templateId, sortOrder: printTemplateOrder.sortOrder })
     .from(printTemplateOrder).where(eq(printTemplateOrder.facilityId, facilityId)).all()
     .map(row => [row.templateId, row.sortOrder]))
   const rows = db.select(LISTED).from(printTemplates).where(ofFacility(facilityId)).all()
   const targets = loadTargets(db, 'template', rows)
-  const place = placer(db, facilityId, audience, targets)
+  const place = placer(db, facilityId, audience, targets, orphans)
   return rows
     .map(row => ({ row, placement: place(row), order: orders.get(row.id), targets: targets.get(row.id) }))
     .filter((entry): entry is Placed => entry.placement !== null)
@@ -251,7 +256,8 @@ export function uploadTemplate(
  */
 export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[] {
   const permissions = viewer.permissions
-  const placed = placedTemplates(db, viewer.facilityId, audienceOf(viewer)).filter(({ placement }) => placement.visible)
+  const placed = placedTemplates(db, viewer.facilityId, audienceOf(viewer), can(permissions, 'printTemplates.global'))
+    .filter(({ placement }) => placement.visible)
   const names = placed.length > 0 ? targetNames(db) : null
   return placed.map(({ row, placement, targets }) => {
     const canEdit = mayEdit(permissions, row)
@@ -266,6 +272,7 @@ export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[
       globalCategoryName: row.facilityId === null ? row.categoryName ?? '' : null,
       globalSubcategoryName: row.facilityId === null ? row.subcategoryName ?? '' : null,
       globalVisibility: row.facilityId === null ? row.visibility : null,
+      allFacilities: row.allFacilities,
       visibility: row.visibility,
       size: row.size,
       uploadedAt: row.uploadedAt,
@@ -273,16 +280,20 @@ export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[
       canEdit,
       // Judged when the file was stored; a template of before not judged yet (null) offers no „Ausfüllen“ yet.
       fillable: row.fillable === true,
-      targets: (canEdit || seesAllGroups(viewer.role)) && targets && names ? targetsDto(row, targets, viewer.facilityId, names) : null,
+      targets: (canEdit || seesAllGroups(viewer.role)) && targets && names ? targetsDto(row, targets, viewer.facilityId, names, canEdit) : null,
     }
   })
 }
 
-/** A template for the viewer's facility that the viewer sees, else 404 print_template_not_found. */
+/**
+ * A template for the viewer's facility that the viewer sees (for the Träger also one without facilities), else 404
+ * print_template_not_found.
+ */
 function loadVisible(db: Db, viewer: TemplateViewer, id: number) {
   const row = db.select().from(printTemplates).where(and(eq(printTemplates.id, id), ofFacility(viewer.facilityId))).get()
   const targets = row ? loadTargets(db, 'template', [row]) : new Map<number, ItemTargets>()
-  if (!row || !placer(db, viewer.facilityId, audienceOf(viewer), targets)(row)?.visible) throw new ServiceError(404, 'print_template_not_found')
+  const orphans = can(viewer.permissions, 'printTemplates.global')
+  if (!row || !placer(db, viewer.facilityId, audienceOf(viewer), targets, orphans)(row)?.visible) throw new ServiceError(404, 'print_template_not_found')
   return row
 }
 
@@ -361,7 +372,8 @@ export function orderTemplates(db: Db, actor: TemplateActor, categoryId: number 
     const category = all.find(row => row.id === categoryId)
     if (!category || !seesCategoryNode(actor.role, category, all)) throw new ServiceError(404, 'template_category_not_found')
   }
-  const subTab = placedTemplates(db, actor.facilityId, audienceOf(actor)).filter(entry => entry.placement.groupId === categoryId)
+  const subTab = placedTemplates(db, actor.facilityId, audienceOf(actor), can(actor.permissions, 'printTemplates.global'))
+    .filter(entry => entry.placement.groupId === categoryId)
   const visible = new Set(subTab.filter(entry => entry.placement.visible).map(entry => entry.row.id))
   if (ids.length !== visible.size || new Set(ids).size !== ids.length || !ids.every(id => visible.has(id))) {
     throw new ServiceError(400, 'invalid_order')

@@ -1607,13 +1607,20 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
 - **Gilt für** (beim Hochladen und später mit **Bearbeiten**):
   - **Einrichtungen**: Die **Leitung** lädt Vorlagen für die **eigene Einrichtung** hoch. Der **Träger** wählt „nur
     ‹Einrichtung›“ (die oben gewählte), **„alle Einrichtungen (auch neue)“** oder **„ausgewählte Einrichtungen“**
-    (Häkchen). Vorlagen des Trägers sind mit **„alle Einrichtungen“** markiert. Bei ausgewählten Einrichtungen steht für
-    Leitung und Träger dazu „nur Kita A, Kita B“.
+    (Häkchen). Vorlagen des Trägers für alle Einrichtungen sind mit **„alle Einrichtungen“** markiert, die für
+    ausgewählte Einrichtungen mit **„vom Träger“**; für Leitung und Träger steht dort dazu „nur Kita A, Kita B“.
+  - Gibt es keine der gewählten Einrichtungen mehr, sieht nur noch der Träger die Vorlage, in jeder Einrichtung unter
+    „Vom Träger“ mit dem Hinweis **„Keine Einrichtung gewählt“**. Er kann ihr dort wieder Einrichtungen geben oder sie
+    löschen.
   - **Gruppen**: je Einrichtung **„alle Gruppen“** oder **„nur bestimmte Gruppen“** (Häkchen). Die Leitung darf das für
     Vorlagen ihrer Einrichtung einstellen. Mitarbeitende sehen eine solche Vorlage nur, wenn ihre **Stammgruppe**
     (die Gruppe im Dienstplan) gewählt ist. Leitung und Träger sehen sie immer, mit dem Hinweis „nur Bären, Füchse“. Das
     **Tablet** zeigt sie nur, solange es von jemandem aus diesen Gruppen entsperrt ist (gesperrt: nur Vorlagen für alle
-    Gruppen). Aushilfen aus anderen Einrichtungen und Personen ohne Stammgruppe sehen nur Vorlagen für alle Gruppen.
+    Gruppen); die Liste lädt neu, sobald jemand anderes entsperrt oder das Tablet sperrt (die App fragt dazu jede Minute
+    nach, ob es noch entsperrt ist). Aushilfen aus anderen Einrichtungen und Personen ohne Stammgruppe sehen nur Vorlagen
+    für alle Gruppen. Eine **Gruppenleitung** zählt dabei wie Mitarbeitende: nur ihre Stammgruppe.
+  - Beim Bearbeiten wartet **Speichern**, bis die Auswahl geladen ist (klappt das nicht: „Noch einmal laden“). Wer „Gilt
+    für“ nicht anfasst, lässt es, wie es ist.
   - Wird eine gewählte Gruppe gelöscht, fällt sie aus der Auswahl. Ist danach keine Gruppe mehr gewählt, sehen nur
     noch Leitung und Träger die Vorlage („keine Gruppe mehr gewählt“).
   - **Ändern**: Der Träger kann eine Vorlage nachträglich anderen Einrichtungen zuordnen. Für mehrere Einrichtungen wird
@@ -2821,7 +2828,11 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
   Suche, beim Öffnen der PDF, beim Text und bei „Gelesen und verstanden“ (am Tablet zählt die Person, die bestätigt).
   **Wer hat bestätigt?** erwartet nur noch die Mitarbeitenden, die den Eintrag sehen. Ändert sich „Gilt für“ oder „Wer
   sieht ihn?“, bleiben die Bestätigungen erhalten und es gibt keine neue Fassung; wer nicht mehr dazugehört, steht mit
-  „nicht mehr angestellt oder sieht den Eintrag nicht mehr“ in der Liste. Die Suche findet „ä“ auch als „ae“ und „ß“ als „ss“.
+  „nicht mehr angestellt oder sieht den Eintrag nicht mehr“ in der Liste – aber nur Mitarbeitende dieser Einrichtung und
+  Aushilfen, die sie einplant; Namen anderer Einrichtungen erscheinen nie. Bestätigt am Tablet jemand, für dessen Gruppe
+  der Eintrag nicht gilt, sagt die App „Dieser Eintrag gilt nicht für deine Gruppe.“ Einträge des Trägers tragen
+  „alle Einrichtungen“ oder (für ausgewählte) „vom Träger“; ohne verbliebene Einrichtung sieht nur der Träger sie
+  („Keine Einrichtung gewählt“). Die Suche findet „ä“ auch als „ae“ und „ß“ als „ss“.
 
 ### „Gelesen und verstanden“
 

@@ -1484,8 +1484,8 @@ export const de = {
       confirmRename: (name: string, moved: number) => `Die Kategorie „${name}“ umbenennen? ${providerMoves(moved)}`,
       rename: 'Umbenennen',
     },
-    scope: 'Gilt für', scopeFacility: (name: string) => `nur ${name}`, scopeThisFacility: 'nur diese Einrichtung', scopeAll: 'alle Einrichtungen',
-    global: 'alle Einrichtungen', globalHint: 'Vom Träger für alle Einrichtungen – nur der Träger kann sie ändern.',
+    // A template of the Träger: „alle Einrichtungen“ when it is for all, else „vom Träger“ (for the facilities chosen).
+    global: 'alle Einrichtungen', ownerBadge: 'vom Träger', globalHint: 'Vom Träger – nur der Träger kann sie ändern.',
     uploadedAt: (date: string) => `hochgeladen am ${date}`, updatedAt: (date: string) => `geändert am ${date}`,
     confirmDelete: (title: string) => `Die Vorlage „${title}“ wirklich löschen?`,
     // The search above the sub-tabs: title, category and subcategory in every category.
@@ -1510,6 +1510,9 @@ export const de = {
     confirmLosing: (count: number, what: string) => `In ${count === 1 ? '1 Einrichtung' : `${count} Einrichtungen`} ist ${what} danach nicht mehr zu sehen. Trotzdem speichern?`,
     only: (names: string[]) => `nur ${names.join(', ')}`,
     noGroup: 'keine Gruppe mehr gewählt',
+    // A Träger item whose chosen facilities are all gone: only the Träger sees it, under „Vom Träger“.
+    noFacility: 'Keine Einrichtung gewählt',
+    loadFailed: 'Die Auswahl für „Gilt für“ konnte nicht geladen werden.', retry: 'Noch einmal laden',
     nameHint: 'Für mehrere Einrichtungen wird sie nach dem Namen der Kategorie einsortiert (sonst unter „Vom Träger“).',
   },
   parentMeetings: {
@@ -3483,6 +3486,7 @@ export const de = {
     knowledge_category_name_taken: 'Eine Kategorie mit diesem Namen gibt es schon.',
     knowledge_category_not_empty: 'In dieser Kategorie liegen noch Einträge. Verschieb oder lösch sie zuerst.',
     knowledge_category_has_subcategories: 'Diese Kategorie hat noch Unterkategorien. Lösch sie zuerst.',
+    knowledge_not_for_person: 'Dieser Eintrag gilt nicht für deine Gruppe.',
     document_targets_invalid: 'Die Auswahl bei „Gilt für“ passt nicht: Bitte wähle mindestens eine Einrichtung und bei eingeschränkten Einrichtungen mindestens eine ihrer Gruppen.',
     knowledge_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung, nicht zu einer anderen Unterkategorie.',
     knowledge_entry_not_movable: 'Einträge des Trägers für alle Einrichtungen stehen nach den eigenen, nach Titel.',
@@ -3554,7 +3558,8 @@ export const de = {
     kinds: { file: 'PDF', link: 'Link', text: 'Text' },
     open: 'Öffnen', openLink: (host: string) => `Öffnen (${host})`, read: 'Lesen', collapse: 'Zuklappen',
     asOf: (date: string) => `Stand vom ${date}`,
-    global: 'alle Einrichtungen', globalHint: 'Vom Träger für alle Einrichtungen gepflegt',
+    // An entry of the Träger: „alle Einrichtungen“ when it is for all, else „vom Träger“ (for the facilities chosen).
+    global: 'alle Einrichtungen', ownerBadge: 'vom Träger', globalHint: 'Vom Träger – nur der Träger kann ihn ändern.',
     needsConfirmationBadge: 'Bestätigung erforderlich',
     confirm: 'Gelesen und verstanden',
     confirmQuestion: (title: string) => `Hast du „${title}“ gelesen und verstanden?`,
@@ -3569,8 +3574,8 @@ export const de = {
     whoConfirmed: 'Wer hat bestätigt?',
     fields: {
       kind: 'Art', title: 'Titel', description: 'Beschreibung (freiwillig)', asOf: 'Stand vom (freiwillig)', url: 'Link',
-      categoryName: 'Kategorie (Name)', visibility: 'Wer sieht ihn?', scope: 'Gilt für',
       body: 'Text', file: 'PDF-Datei (höchstens 30 MB)', replaceFile: 'Neue PDF-Datei (freiwillig)', category: 'Kategorie',
+      categoryName: 'Kategorie (Name)', visibility: 'Wer sieht ihn?',
       subcategory: 'Unterkategorie', subcategoryName: 'Unterkategorie (Name, freiwillig)',
       needsConfirmation: '„Gelesen und verstanden“ erforderlich',
     },
@@ -3581,7 +3586,6 @@ export const de = {
     needsConfirmationHint: 'Alle, die den Eintrag sehen, bestätigen ihn mit ihrem Zugang oder am Tablet mit ihrer PIN. Wird die Datei, der Link oder der Text geändert, müssen alle neu bestätigen.',
     contentChangeHint: 'Datei, Link oder Text geändert: Alle, die schon bestätigt haben, werden noch einmal gefragt.',
     currentFile: (size: string) => `Gespeicherte Datei: ${size}`,
-    scopeFacility: (name: string) => `nur ${name}`, scopeThisFacility: 'nur diese Einrichtung', scopeAll: 'für alle Einrichtungen',
     noCategory: 'Es gibt noch keine Kategorie. Leg unter „Kategorien verwalten“ zuerst eine an.',
     categories: {
       intro: 'Die Kategorien gelten nur für diese Einrichtung. Jede Kategorie kann Unterkategorien haben (eine Ebene). '

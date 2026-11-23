@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { TEMPLATE_VISIBILITIES, visibleTemplateLevels, type TemplateVisibility } from '#shared/domain/templateCategories'
-import { matchesSearch } from '#shared/domain/documentTargets'
+import { matchesSearch } from '#shared/domain/search'
 import type { CategoryNameDto, DocumentTargetOptionsDto, PrintTemplateDto, TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
@@ -61,6 +61,8 @@ const categories = computed(() => categoryData.value ?? [])
 const tabs = computed(() => templateTabs(categories.value, templates.value))
 const categoryItems = computed(() => topCategories(categories.value).map(category => ({ label: category.name, value: category.id })))
 const refresh = () => Promise.all([refreshTemplates(), refreshCategories()])
+// At the tablet: templates limited to groups follow the person who unlocked it.
+useRefreshOnTabletUnlock(refresh)
 
 // ---- sub-tabs ------------------------------------------------------------
 const wantedTab = ref<string | null>(null)
@@ -115,7 +117,7 @@ const foundGroups = computed(() => {
   return groups
 })
 /** The hints for Leitung and Träger: „nur Kita A, Kita B“, „nur Bären, Füchse“, „keine Gruppe mehr gewählt“. */
-const hintsOf = (template: PrintTemplateDto) => targetHints(template.targets, { only: de.documentTargets.only, noGroup: de.documentTargets.noGroup })
+const hintsOf = (template: PrintTemplateDto) => targetHints(template.targets, { only: de.documentTargets.only, noGroup: de.documentTargets.noGroup, noFacility: de.documentTargets.noFacility })
 
 // ---- subcategories: the second row of small tabs -------------------------
 /** The lists of the open sub-tab: the templates directly in the category, then one per subcategory. */
@@ -167,9 +169,19 @@ let suggestedTitle = ''
 /** For all or the chosen facilities (the Träger's): filed by category name (with the names the facilities use as suggestions). */
 const forAll = computed(() => form.targets.scope !== 'facility')
 // What „Gilt für“ offers (the Träger every facility with its groups, everyone else the own facility), loaded with the form.
+// Saving waits for them (else a limit could not be shown and kept); a failed load offers to try again. „Gilt für“ is sent
+// only when the editor changed it, otherwise the server keeps it as it is.
 const targetOptions = ref<DocumentTargetOptionsDto | null>(null)
+const targetsFailed = ref(false)
+const targetsTouched = ref(false)
 async function loadTargetOptions() {
-  targetOptions.value = await $fetch<DocumentTargetOptionsDto>('/api/print-templates/targets').catch(() => targetOptions.value)
+  targetsFailed.value = false
+  try {
+    targetOptions.value = await $fetch<DocumentTargetOptionsDto>('/api/print-templates/targets')
+  }
+  catch {
+    targetsFailed.value = true
+  }
 }
 const visibilityItems = computed(() => TEMPLATE_VISIBILITIES.filter(level => categoryLevels.value.includes(level))
   .map(level => ({ label: de.printTemplates.categories.visibilities[level], value: level })))
@@ -216,6 +228,7 @@ function openNew() {
     title: '', categoryId: preset, subcategoryId: presetSub?.id ?? 0, targets: emptyTargets(), categoryName: presetName,
     subcategoryName: presetSub?.name ?? '', visibility,
   })
+  targetsTouched.value = false
   open.value = true
   loadTargetOptions()
 }
@@ -228,6 +241,7 @@ function openEdit(template: PrintTemplateDto) {
     targets: targetsFormOf(template.targets), categoryName: template.globalCategoryName ?? template.category,
     subcategoryName: template.globalSubcategoryName ?? template.subcategory, visibility: template.visibility,
   })
+  targetsTouched.value = false
   open.value = true
   loadTargetOptions()
   if (template.global) loadCategoryNames()
@@ -288,17 +302,21 @@ function checkedTargets() {
 async function save() {
   const chosen = file.value
   const fields = filing()
-  const targets = fields ? checkedTargets() : null
-  if (!fields || !targets) return
+  if (!fields || !targetOptions.value) return
+  // Only a changed „Gilt für“ is sent (checked first); untouched, the server keeps it.
+  const targets = targetsTouched.value ? checkedTargets() : null
+  if (targetsTouched.value && !targets) return
   if (editing.value === null) {
     if (!chosen) return void toast.add({ title: de.errors.file_required, color: 'error' })
     if (!checkFile(chosen)) return
     const body = fileBody(chosen)
     body.append('title', form.title)
     body.append('visibility', form.visibility)
-    body.append('scope', targets.scope)
-    body.append('facilityIds', JSON.stringify(targets.facilityIds))
-    body.append('groupTargets', JSON.stringify(targets.groupTargets))
+    if (targets) {
+      body.append('scope', targets.scope)
+      body.append('facilityIds', JSON.stringify(targets.facilityIds))
+      body.append('groupTargets', JSON.stringify(targets.groupTargets))
+    }
     for (const [key, value] of Object.entries(fields)) body.append(key, String(value))
     if (await run(() => $fetch<unknown>('/api/print-templates', { method: 'POST', body }), de.common.saved)) open.value = false
     return
@@ -306,10 +324,10 @@ async function save() {
   const id = editing.value.id
   if (chosen && !checkFile(chosen)) return
   // Facilities that lose the template: ask first.
-  const lost = facilitiesLost(editing.value.targets, form.targets, targetOptions.value, targetOptions.value?.facilityId ?? null)
+  const lost = targetsTouched.value ? facilitiesLost(editing.value.targets, form.targets, targetOptions.value, targetOptions.value.facilityId) : 0
   if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'die Vorlage')))) return
   const saved = await run(async () => {
-    await $fetch<unknown>(`/api/print-templates/${id}`, { method: 'PUT', body: { title: form.title, visibility: form.visibility, ...targets, ...fields } })
+    await $fetch<unknown>(`/api/print-templates/${id}`, { method: 'PUT', body: { title: form.title, visibility: form.visibility, ...targets ?? {}, ...fields } })
     if (chosen) await $fetch<unknown>(`/api/print-templates/${id}/file`, { method: 'PUT', body: fileBody(chosen) })
   }, de.common.saved)
   if (saved) open.value = false
@@ -363,7 +381,7 @@ async function remove(template: PrintTemplateDto) {
               <UIcon name="i-lucide-file-text" class="size-5 shrink-0 text-gray-500" aria-hidden="true" />
               <div class="flex min-w-48 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
                 <span class="font-medium">{{ template.title }}</span>
-                <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ de.printTemplates.global }}</span>
+                <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ template.allFacilities ? de.printTemplates.global : de.printTemplates.ownerBadge }}</span>
                 <span v-for="hint in hintsOf(template)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
               </div>
               <div class="flex flex-wrap items-center gap-1">
@@ -429,7 +447,7 @@ async function remove(template: PrintTemplateDto) {
             <div class="min-w-48 flex-1 space-y-0.5">
               <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span class="font-medium">{{ template.title }}</span>
-                <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ de.printTemplates.global }}</span>
+                <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ template.allFacilities ? de.printTemplates.global : de.printTemplates.ownerBadge }}</span>
                 <span v-if="!current.category" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ templatePath(template) }}</span>
                 <!-- „Gilt für“, for Leitung and Träger: „nur Kita A“, „nur Bären, Füchse“. -->
                 <span v-for="hint in hintsOf(template)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
@@ -489,7 +507,11 @@ async function remove(template: PrintTemplateDto) {
           <!-- „Gilt für“: facilities (the Träger) and groups; afterwards too. -->
           <DocumentTargetsField
             v-model="form.targets" :options="targetOptions" :can-global="canEditGlobal" :facility-id="targetOptions?.facilityId ?? null"
-            :facility-name="activeName ?? ''" id-prefix="template-targets"
+            :facility-name="activeName ?? ''" id-prefix="template-targets" @update:model-value="targetsTouched = true"
+          />
+          <UAlert
+            v-if="targetsFailed" color="warning" variant="soft" :title="de.documentTargets.loadFailed"
+            :actions="[{ label: de.documentTargets.retry, color: 'neutral', variant: 'outline', onClick: loadTargetOptions }]"
           />
           <template v-if="forAll">
             <UFormField :label="de.printTemplates.categoryName" :description="de.printTemplates.categoryNameHint" required>
@@ -524,7 +546,7 @@ async function remove(template: PrintTemplateDto) {
             <USelect v-model="form.visibility" :items="visibilityItems" class="w-full" />
           </UFormField>
           <div class="flex gap-2">
-            <UButton type="submit" :label="editing === null ? de.printTemplates.upload : de.common.save" :loading="busy" :disabled="busy" />
+            <UButton type="submit" :label="editing === null ? de.printTemplates.upload : de.common.save" :loading="busy" :disabled="busy || !targetOptions" />
             <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
           </div>
         </form>

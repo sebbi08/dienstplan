@@ -30,6 +30,8 @@ const { data, error, refresh: refreshKnowledge } = await useFetch<KnowledgeDto>(
 // The count at „Dokumente“ in the menu follows the confirmations (and new entries asking for one); only an account with a
 // linked employee has one (the layout loads it for those alone).
 const refresh = () => Promise.all([refreshKnowledge(), ...(confirmVia.value === 'account' ? [refreshNuxtData('knowledge-open-count')] : [])])
+// At the tablet: entries limited to groups follow the person who unlocked it.
+useRefreshOnTabletUnlock(refreshKnowledge)
 const entries = computed(() => data.value?.entries ?? [])
 const categories = computed(() => data.value?.categories ?? [])
 const canManage = computed(() => !!data.value?.canManage)
@@ -93,7 +95,7 @@ const emptyText = computed(() => {
 })
 const categoryName = (entry: KnowledgeEntryDto) => knowledgePlace(categories.value, entry, t.fromProvider)
 /** The hints for Leitung and Träger: „nur Kita A, Kita B“, „nur Bären, Füchse“, „keine Gruppe mehr gewählt“. */
-const hintsOf = (entry: KnowledgeEntryDto) => targetHints(entry.targets, { only: de.documentTargets.only, noGroup: de.documentTargets.noGroup })
+const hintsOf = (entry: KnowledgeEntryDto) => targetHints(entry.targets, { only: de.documentTargets.only, noGroup: de.documentTargets.noGroup, noFacility: de.documentTargets.noFacility })
 /** The cards shown, each with its list (for ▲/▼); in „Alle“ the first of each list carries the heading. */
 const rows = computed(() => shownLists.value.flatMap(group => group.items.map((entry, index) => ({
   entry, group, heading: headings.value && index === 0,
@@ -233,7 +235,7 @@ const presetSubcategoryId = computed(() => current.value?.subcategories.find(sub
                     <span class="sr-only">({{ t.kinds[entry.kind] }})</span>
                     <span v-if="entry.asOf" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ t.asOf(formatDate(entry.asOf)) }}</span>
                     <span v-if="searching" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ categoryName(entry) }}</span>
-                    <span v-if="entry.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="t.globalHint">{{ t.global }}</span>
+                    <span v-if="entry.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="t.globalHint">{{ entry.allFacilities ? t.global : t.ownerBadge }}</span>
                     <span v-if="entry.needsConfirmation" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ t.needsConfirmationBadge }}</span>
                     <!-- „Gilt für“, for Leitung and Träger: „nur Kita A“, „nur Bären, Füchse“. -->
                     <span v-for="hint in hintsOf(entry)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
