@@ -2,18 +2,20 @@
  * Formatted free texts (the `text` answers of the Bögen): a small HTML subset — paragraphs (p), line breaks (br),
  * bold (strong), italic (em), underline (u) and bullet / numbered lists (ul, ol, li).
  *
- * Stored form: the canonical HTML that sanitizeRichText returns. It always starts with `<p>`, `<ul>` or `<ol>` (or is
- * '' when there is no text). Answers stored before the formatting are plain text; isRichText tells them apart by that
- * start (plain text that happened to start with such a tag is read as HTML — and sanitized like any other). Plain text
- * stays plain until it is edited in the new editor, which saves HTML; showing it escapes it and keeps its line breaks.
+ * Stored form: the canonical HTML that sanitizeRichText returns. It always starts with `<p>`, `<ul>` or `<ol` (`<ol>`
+ * or `<ol start="…">`), or is '' when there is no text. Answers stored before the formatting are plain text;
+ * isRichText tells them apart by that start (plain text that happened to start with such a tag is read as HTML — and
+ * sanitized like any other). Plain text stays plain until it is edited in the new editor, which saves HTML; showing it
+ * escapes it and keeps its line breaks.
  *
- * The sanitizer is a small tolerant tokenizer (no DOM, the same code on server and client): every attribute goes,
- * comments, doctype and processing instructions go, script/style/iframe/svg/… go with their content, any other tag
- * goes but keeps its text; block tags (div, h1, table cells …) end the paragraph. The result is rebuilt from a document
- * model (paragraphs of marked text runs, lists of items), so it is always well-formed and canonical: b/i become
- * strong/em, marks open in the order strong > em > u (an open mark stays open across runs), white space collapses
- * (non-breaking spaces stay), empty leading/trailing paragraphs and
- * empty list items are dropped. Sanitizing is idempotent, so equal content gives equal strings.
+ * The sanitizer is a small tolerant tokenizer (no DOM, the same code on server and client, linear in the input): every
+ * attribute goes except the first number of a numbered list (`start` on `ol`, a whole number 1–999), comments,
+ * doctype and processing instructions go, script/style/iframe/svg/… go with their content, any other tag goes but
+ * keeps its text; block tags (div, h1, table cells …) end the paragraph. The result is rebuilt from a document model
+ * (paragraphs of marked text runs, lists of items), so it is always well-formed and canonical: b/i become strong/em,
+ * marks open in the order strong > em > u (an open mark stays open across runs), white space collapses (non-breaking
+ * spaces stay), empty leading/trailing paragraphs and empty list items are dropped, `start="1"` is left out.
+ * Sanitizing is idempotent, so equal content gives equal strings.
  */
 
 const MARK_STRONG = 1
@@ -51,7 +53,8 @@ const NAMED_ENTITIES: Record<string, string> = {
 
 type Run = { text: string; marks: number } | { br: true; marks: number }
 interface Para { kind: 'p'; runs: Run[] }
-interface List { kind: 'ul' | 'ol'; items: Item[] }
+/** `start`: the first number of a numbered list (2–999; 1 is left out). */
+interface List { kind: 'ul' | 'ol'; items: Item[]; start?: number }
 interface Item { blocks: Block[] }
 type Block = Para | List
 
@@ -83,6 +86,8 @@ class Builder {
   readonly root: { type: 'root'; blocks: Block[] } = { type: 'root', blocks: [] }
   ctx: Container[] = [this.root]
   para: Para | null = null
+  /** Whether the open paragraph's last text ends with a space (only read while its last run is text). */
+  tailSpace = false
   strong = 0
   em = 0
   u = 0
@@ -121,13 +126,15 @@ class Builder {
     let text = raw.replace(CONTROL, '').replace(/[ \t\n\r\f]+/g, ' ')
     if (text === '' || (text === ' ' && !this.para)) return
     const last = this.para?.runs.at(-1)
-    if (!last || 'br' in last || last.text.endsWith(' ')) text = text.replace(/^ /, '')
+    // The flag, not the run's text: asking the growing text for its end would flatten it each time (quadratic).
+    if (!last || 'br' in last || this.tailSpace) text = text.replace(/^ /, '')
     if (text === '') return
     const para = this.para ?? this.openPara()
     const marks = this.marks
     const tail = para.runs.at(-1)
     if (tail && !('br' in tail) && tail.marks === marks) tail.text += text
     else para.runs.push({ text, marks })
+    this.tailSpace = text.endsWith(' ')
   }
 
   addBreak(): void {
@@ -136,7 +143,7 @@ class Builder {
     para.runs.push({ br: true, marks: this.marks })
   }
 
-  startList(kind: 'ul' | 'ol'): boolean {
+  startList(kind: 'ul' | 'ol', start = 1): boolean {
     this.closePara()
     if (this.listDepth >= MAX_LIST_DEPTH) return false
     const top = this.ctx.at(-1)!
@@ -155,7 +162,7 @@ class Builder {
     else {
       container = top
     }
-    const list: List = { kind, items: [] }
+    const list: List = kind === 'ol' && start !== 1 ? { kind, items: [], start } : { kind, items: [] }
     container.blocks.push(list)
     this.ctx.push({ type: 'list', list })
     return true
@@ -212,6 +219,24 @@ interface OpenElement {
   ctxLength?: number
 }
 
+const COMMENT_END = /--!?>/g
+const ATTRIBUTE = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
+
+/**
+ * The first number of a numbered list from the attribute text of its `ol` — `start` is the only attribute ever kept:
+ * a whole number 1–999 (digits only, spaces around allowed), anything else counts as 1. The first `start` counts, as
+ * in browsers.
+ */
+function listStart(attributes: string): number {
+  ATTRIBUTE.lastIndex = 0
+  for (let match = ATTRIBUTE.exec(attributes); match; match = ATTRIBUTE.exec(attributes)) {
+    if (match[1]!.toLowerCase() !== 'start') continue
+    const value = (match[2] ?? match[3] ?? match[4] ?? '').trim()
+    return /^\d{1,3}$/.test(value) && Number(value) >= 1 ? Number(value) : 1
+  }
+  return 1
+}
+
 /** Index of the next `>` outside quoted attribute values, from `from` on; -1 when the tag never ends. */
 function tagEnd(html: string, from: number): number {
   let quote = ''
@@ -236,7 +261,6 @@ function tagEnd(html: string, from: number): number {
 function parse(html: string): Block[] {
   const b = new Builder()
   const open: OpenElement[] = []
-  const lower = html.toLowerCase()
 
   const closeElement = (entry: OpenElement) => {
     if (entry.mark) b[entry.mark] = Math.max(0, b[entry.mark] - 1)
@@ -246,7 +270,7 @@ function parse(html: string): Block[] {
     }
   }
 
-  const startTag = (name: string, selfClosing: boolean) => {
+  const startTag = (name: string, selfClosing: boolean, start: number) => {
     if (name === 'br') return b.addBreak()
     if (BOUNDARY.has(name)) b.closePara()
     if (VOID.has(name) || selfClosing) return
@@ -264,7 +288,7 @@ function parse(html: string): Block[] {
     }
     else if (name === 'ul' || name === 'ol') {
       const length = b.ctx.length
-      if (b.startList(name)) {
+      if (b.startList(name, start)) {
         entry.structural = true
         entry.ctxLength = length
       }
@@ -299,8 +323,18 @@ function parse(html: string): Block[] {
     i = lt
     const next = html[i + 1]
     if (html.startsWith('<!--', i)) {
-      const end = html.indexOf('-->', i + 4)
-      i = end < 0 ? length : end + 3
+      // As in browsers: `<!-->` and `<!--->` are empty comments; a comment ends at `-->` or `--!>` (else at the end).
+      if (html[i + 4] === '>') {
+        i += 5
+      }
+      else if (html.startsWith('->', i + 4)) {
+        i += 6
+      }
+      else {
+        COMMENT_END.lastIndex = i + 4
+        const found = COMMENT_END.exec(html)
+        i = found ? found.index + found[0].length : length
+      }
     }
     else if (next === '!' || next === '?') {
       const end = html.indexOf('>', i + 2)
@@ -322,22 +356,24 @@ function parse(html: string): Block[] {
     else if (isNameStart(next)) {
       const match = /^[a-zA-Z][a-zA-Z0-9:_-]*/.exec(html.slice(i + 1, i + 65))!
       const name = match[0].toLowerCase()
-      const end = tagEnd(html, i + 1 + match[0].length)
+      const attributesFrom = i + 1 + match[0].length
+      const end = tagEnd(html, attributesFrom)
       // An unfinished tag at the end is dropped with the rest.
       if (end < 0) break
       const selfClosing = html[end - 1] === '/'
       i = end + 1
       if (DROPPED.has(name)) {
-        // Everything up to the first end tag of the same name goes.
-        const close = new RegExp(`</${name}[\\s/>]`, 'g')
+        // Everything up to the first end tag of the same name goes. Searched in the input itself, case-insensitively
+        // (a lower-cased copy may be longer, e.g. „İ“, and its positions would not fit the input).
+        const close = new RegExp(`</${name}[\\s/>]`, 'gi')
         close.lastIndex = i
-        const found = close.exec(lower)
+        const found = close.exec(html)
         if (!found) break
         const closeEnd = html.indexOf('>', found.index)
         i = closeEnd < 0 ? length : closeEnd + 1
         continue
       }
-      startTag(name, selfClosing)
+      startTag(name, selfClosing, name === 'ol' ? listStart(html.slice(attributesFrom, end)) : 1)
     }
     else {
       // A `<` that starts no tag is text.
@@ -363,7 +399,7 @@ function normalizeBlocks(blocks: Block[]): Block[] {
     const items = block.items
       .map(item => ({ blocks: normalizeBlocks(item.blocks) }))
       .filter(item => item.blocks.length > 0)
-    if (items.length) result.push({ kind: block.kind, items })
+    if (items.length) result.push({ ...block, items })
   }
   let start = 0
   let end = result.length
@@ -395,7 +431,7 @@ function serializeRuns(runs: Run[]): string {
 function serializeBlocks(blocks: Block[]): string {
   return blocks.map(block => (block.kind === 'p'
     ? `<p>${serializeRuns(block.runs)}</p>`
-    : `<${block.kind}>${block.items.map(item => `<li>${serializeBlocks(item.blocks)}</li>`).join('')}</${block.kind}>`)).join('')
+    : `<${block.kind}${block.start ? ` start="${block.start}"` : ''}>${block.items.map(item => `<li>${serializeBlocks(item.blocks)}</li>`).join('')}</${block.kind}>`)).join('')
 }
 
 /** The canonical, safe HTML of any input ('' when it holds no text). */
@@ -463,7 +499,7 @@ function linesOf(blocks: Block[], indent = '', lines: Line[] = []): Line[] {
       continue
     }
     block.items.forEach((item, index) => {
-      const marker = block.kind === 'ul' ? '• ' : `${index + 1}. `
+      const marker = block.kind === 'ul' ? '• ' : `${(block.start ?? 1) + index}. `
       const first = lines.length
       linesOf(item.blocks, indent + ' '.repeat(marker.length), lines)
       if (lines[first]) lines[first] = { ...lines[first], prefix: indent + marker }

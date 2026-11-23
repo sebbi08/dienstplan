@@ -37,9 +37,14 @@ function onUpdate(value: unknown) {
 }
 
 const length = computed(() => textAnswerLength(model.value))
-const tooLong = computed(() => length.value > FORM_LIMITS.textAnswer
-  || (isRichText(model.value) && model.value.length > FORM_LIMITS.textAnswerHtml))
+/** Too many characters, or (rarely, with very much formatting) too big as HTML: the server refuses both. */
+const tooManyCharacters = computed(() => length.value > FORM_LIMITS.textAnswer)
+const tooMuchFormatting = computed(() => isRichText(model.value) && model.value.length > FORM_LIMITS.textAnswerHtml)
+const tooLong = computed(() => tooManyCharacters.value || tooMuchFormatting.value)
 const showCount = computed(() => tooLong.value || length.value > FORM_LIMITS.textAnswer * 0.9)
+const limitText = computed(() => (tooManyCharacters.value
+  ? r.tooLong(FORM_LIMITS.textAnswer)
+  : tooMuchFormatting.value ? r.tooMuchFormatting : r.count(length.value, FORM_LIMITS.textAnswer)))
 
 /** Only what is kept on saving: no headings, quotes, code, links, strike-through, images. */
 const starterKit = {
@@ -55,6 +60,9 @@ const editorProps = {
   },
   /** Code and rules (which the editor would keep) go before pasting; the rest is left to the editor's own rules. */
   transformPastedHTML: (html: string) => html.replace(/<\/?(?:code|kbd|samp|tt)\b[^>]*>/gi, '').replace(/<hr\b[^>]*>/gi, ''),
+  /** Strg+E (code, from UEditor's own Code extension) would show formatting that saving drops: it does nothing here. */
+  handleKeyDown: (_view: unknown, event: KeyboardEvent) =>
+    (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'e',
 }
 
 /** A toolbar button of 40 px with its name (and shortcut) as label for screen readers and as tooltip. */
@@ -95,7 +103,7 @@ const items: EditorToolbarItem[][] = [
       />
     </UEditor>
     <p v-if="showCount" class="text-xs" :class="tooLong ? 'text-error' : 'text-muted'" aria-live="polite">
-      {{ tooLong ? r.tooLong(FORM_LIMITS.textAnswer) : r.count(length, FORM_LIMITS.textAnswer) }}
+      {{ limitText }}
     </p>
   </div>
 </template>

@@ -2400,12 +2400,14 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Unfallberichte und Unfallanzeigen, auch am Tablet) hat oben eine kleine Leiste: **Fett**, **Kursiv**,
   **Unterstrichen**, **Aufzählung**, **nummerierte Liste**, **Rückgängig** und **Wiederholen**. Tastenkürzel: Strg+B,
   Strg+I, Strg+U (Strg+Z / Strg+Y). „- “ bzw. „1. “ am Anfang einer Zeile beginnt eine Aufzählung bzw. eine nummerierte
-  Liste; zweimal Enter beendet die Liste. Auf Handy und Tablet bricht die Leiste um, die Knöpfe sind fingergroß.
+  Liste; zweimal Enter beendet die Liste. „3. “ beginnt die Nummerierung bei 3 (bis 999). Auf Handy und Tablet bricht
+  die Leiste um, die Knöpfe sind fingergroß.
 - **Einfügen** aus Word, E-Mails oder Webseiten behält nur diese Formatierungen; Überschriften, Farben, Schriftgrößen,
   Links und Bilder fallen weg (der Text bleibt).
 - **Höchstens 4000 Zeichen** je Freitext wie bisher (Zeilen- und Absatzwechsel zählen je ein Zeichen; mit sehr viel
   Formatierung etwas weniger). Kurz vor der Grenze zeigt das Feld „… von 4000 Zeichen“, darüber eine rote Meldung – so
-  lässt sich der Bogen nicht speichern.
+  lässt sich der Bogen nicht speichern. Alle formatierten Freitexte eines Bogens zusammen dürfen beim Speichern höchstens
+  200 000 Zeichen HTML haben (praktisch nie erreicht; schützt den Server vor riesigen Anfragen).
 - **Alte Antworten** (vor diesem Update geschrieben) bleiben, wie sie sind, und werden wie bisher mit ihren
   Zeilenumbrüchen angezeigt und gedruckt. Erst wenn du eine solche Antwort änderst, wird sie im neuen Format gespeichert.
   Nur Hineinklicken ohne Änderung zählt nicht als Änderung.
@@ -2414,8 +2416,9 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   „•“ bzw. „1.“ davor.
 - **Technik (für den Betrieb):** Formatierte Antworten werden als kleines HTML gespeichert (nur Absätze, Zeilenumbrüche,
   fett, kursiv, unterstrichen, Aufzählungen und nummerierte Listen). Der Server bereinigt jede Antwort bei jedem
-  Speichern: alle Attribute, Skripte, Styles, Kommentare und alle anderen Tags fallen weg (deren Text bleibt). Eine
-  gespeicherte Antwort gilt als formatiert, wenn sie mit `<p>`, `<ul>` oder `<ol>` beginnt; alles andere ist alter
+  Speichern: alle Attribute (außer der Startnummer `start` einer nummerierten Liste, 1–999), Skripte, Styles,
+  Kommentare und alle anderen Tags fallen weg (deren Text bleibt). Eine gespeicherte Antwort gilt als formatiert, wenn
+  sie mit `<p>`, `<ul>` oder `<ol>` (auch `<ol start="…">`) beginnt; alles andere ist alter
   Klartext und wird nie als HTML gelesen. Beim Anzeigen wird noch einmal bereinigt. Keine Datenbank-Migration; die
   Datensicherung enthält die Antworten wie bisher.
 

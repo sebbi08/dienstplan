@@ -211,6 +211,17 @@ describe('checkAnswers', () => {
     expect(code(() => checkAnswers(content, { t1: `<p class="${'x'.repeat(100_000)}">a</p>` }))).toBe('form_answer_too_long')
   })
 
+  it('limits all formatted answers of one save together before sanitizing any of them', () => {
+    const many = checkContent({
+      sections: [{ id: 's', title: 'T', hint: '', items: Array.from({ length: 6 }, (_, n) => ({ id: `t${n}`, kind: 'text', question: 'F' })) }],
+    })
+    const big = `<p>${'x'.repeat(35_000)}</p>`
+    const answers = (count: number) => Object.fromEntries(Array.from({ length: count }, (_, n) => [`t${n}`, big]))
+    expect(code(() => checkAnswers(many, answers(6)))).toBe('form_answers_too_long')
+    // Within the total, each answer is still checked on its own.
+    expect(code(() => checkAnswers(many, answers(5)))).toBe('form_answer_too_long')
+  })
+
   it('validates against the form snapshot, not the current template', () => {
     const snapshot = checkContent(sample())
     let template = checkContent(sample())

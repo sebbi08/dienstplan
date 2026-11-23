@@ -85,6 +85,8 @@ export const FORM_LIMITS = {
   textAnswer: 4000,
   /** The HTML of a formatted text answer, before and after sanitizing (room for lists and formatting). */
   textAnswerHtml: 40000,
+  /** All formatted text answers of one save together, before sanitizing (bounds the work of one request). */
+  answersHtml: 200000,
   ratingRemark: 500,
   milestoneRemark: 200,
   templateName: 80,
@@ -271,12 +273,17 @@ function checkAnswer(item: FormItem, value: unknown): FormAnswer {
 
 /**
  * Validates answers against the form's own content (its snapshot). Keys must be ids of
- * answerable items; missing answers are fine. Anything invalid throws, nothing is dropped.
+ * answerable items; missing answers are fine. Anything invalid throws, nothing is dropped. Formatted text answers
+ * together may hold at most FORM_LIMITS.answersHtml characters (form_answers_too_long, checked before any sanitizing).
  */
 export function checkAnswers(content: FormContent, answers: unknown): FormAnswers {
   if (!isObject(answers)) invalidAnswer()
   const items = new Map<string, FormItem>()
   for (const section of content.sections) for (const item of section.items) items.set(item.id, item)
+  // Many text items must not add up to unbounded sanitizing work: the formatted ones together are limited first.
+  let html = 0
+  for (const value of Object.values(answers)) if (typeof value === 'string' && isRichText(value)) html += value.length
+  if (html > FORM_LIMITS.answersHtml) throw new FormError('form_answers_too_long')
   const result: FormAnswers = Object.create(null)
   for (const [key, value] of Object.entries(answers)) {
     const item = items.get(key)

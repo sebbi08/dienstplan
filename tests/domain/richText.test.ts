@@ -179,12 +179,71 @@ describe('sameTextAnswer', () => {
   })
 })
 
+describe('sanitizeRichText in linear time (adversarial input)', () => {
+  const timed = (input: string) => {
+    const started = performance.now()
+    const html = sanitizeRichText(input)
+    return { html, ms: performance.now() - started }
+  }
+
+  it('sanitizes 40 000 characters of stray „<“ or unknown tags between text in well under 50 ms', () => {
+    const inputs = ['<p>' + '<'.repeat(39_997), '<p>' + 'a<x>'.repeat(9_999), '<p>' + 'a<!---->'.repeat(4_999), '<p>' + 'ab<b></b>'.repeat(4_444)]
+    for (const input of inputs) timed(input) // warm-up (JIT)
+    for (const input of inputs) {
+      expect(input.length).toBeLessThanOrEqual(40_000)
+      expect(timed(input).ms).toBeLessThan(50)
+    }
+    expect(timed(inputs[0]!).html).toBe(`<p>${'&lt;'.repeat(39_997)}</p>`)
+  })
+
+  it('stays linear for much bigger input', () => {
+    timed('<p>' + '<'.repeat(1000))
+    expect(timed('<p>' + '<'.repeat(200_000)).ms).toBeLessThan(500)
+    expect(timed('<p>' + 'a<x>'.repeat(50_000)).ms).toBeLessThan(500)
+  })
+})
+
+describe('sanitizeRichText details', () => {
+  it('finds the end of a dropped element after characters whose lower case is longer („İ“)', () => {
+    expect(sanitizeRichText('İ'.repeat(25) + '<script>SECRET</script>VISIBLE_AFTER')).toBe(`<p>${'İ'.repeat(25)}VISIBLE_AFTER</p>`)
+    expect(sanitizeRichText('<p>İstanbul<STYLE>x</Style>Ömer</p>')).toBe('<p>İstanbulÖmer</p>')
+  })
+
+  it('ends comments as browsers do', () => {
+    expect(sanitizeRichText('<!--> <b>x</b>')).toBe('<p><strong>x</strong></p>')
+    expect(sanitizeRichText('a<!--->b')).toBe('<p>ab</p>')
+    expect(sanitizeRichText('a<!-- x --!>b')).toBe('<p>ab</p>')
+    expect(sanitizeRichText('a<!-- x -- y -->b')).toBe('<p>ab</p>')
+    expect(sanitizeRichText('a<!-- offen b')).toBe('<p>a</p>')
+  })
+
+  it('keeps the first number of a numbered list (whole numbers 1–999) as the only attribute', () => {
+    expect(sanitizeRichText('<ol start="3"><li>c</li><li>d</li></ol>')).toBe('<ol start="3"><li><p>c</p></li><li><p>d</p></li></ol>')
+    expect(sanitizeRichText('<ol type="a" START=\'  12 \' onclick="x"><li>l</li></ol>')).toBe('<ol start="12"><li><p>l</p></li></ol>')
+    expect(sanitizeRichText('<ol start=999><li>x</li></ol>')).toBe('<ol start="999"><li><p>x</p></li></ol>')
+    expect(sanitizeRichText('<ol start="007"><li>x</li></ol>')).toBe('<ol start="7"><li><p>x</p></li></ol>')
+    // The first start counts; a start inside another attribute's value is none.
+    expect(sanitizeRichText('<ol start="4" start="7"><li>x</li></ol>')).toBe('<ol start="4"><li><p>x</p></li></ol>')
+    for (const bad of ['1', '0', '1000', '-2', '3a', '2.5', 'x', '', '&#51;', '3 4']) {
+      expect(sanitizeRichText(`<ol start="${bad}"><li>x</li></ol>`)).toBe('<ol><li><p>x</p></li></ol>')
+    }
+    expect(sanitizeRichText('<ol title="start=5"><li>x</li></ol>')).toBe('<ol><li><p>x</p></li></ol>')
+    expect(sanitizeRichText('<ul start="3"><li>x</li></ul>')).toBe('<ul><li><p>x</p></li></ul>')
+    const html = '<ol start="5"><li><p>a</p><ol start="2"><li><p>b</p></li></ol></li></ol>'
+    expect(sanitizeRichText(html)).toBe(html)
+    expect(isRichText('<ol start="5"><li><p>a</p></li></ol>')).toBe(true)
+    expect(richTextToPlain(html)).toBe('5. a\n   2. b')
+    expect(richTextInlineHtml('<ol start="3"><li><p>c</p></li><li><p>d</p></li></ol>')).toBe('3. c<br>4. d')
+  })
+})
+
 describe('sanitizeRichText on random input', () => {
   it('only ever answers allowed tags, never a raw < in text, and is idempotent', () => {
     const pieces = [
       '<p>', '</p>', '<ul>', '</ul>', '<ol>', '</ol>', '<li>', '</li>', '<b>', '</b>', '<i>', '</i>', '<u>', '</u>',
       '<br>', '<div>', '</div>', '<script>', '</script>', '<a href="javascript:x">', '</a>', '<!--', '-->', 'text', ' ',
       '&amp;', '&lt;', '<', '>', '"', '<img onerror=x>', '<p style="x">', '<style>', '</style>', '\n', '<h1>', '</h1>',
+      '<ol start="3">', '<ol start=x>', '<!-->', '--!>', 'İ',
     ]
     let seed = 42
     const random = () => {
@@ -196,7 +255,7 @@ describe('sanitizeRichText on random input', () => {
       const count = Math.floor(random() * 40)
       for (let n = 0; n < count; n++) input += pieces[Math.floor(random() * pieces.length)]
       const html = sanitizeRichText(input)
-      expect(html.replace(/<\/?(?:p|ul|ol|li|strong|em|u)>|<br>/g, '')).not.toMatch(/[<>]/)
+      expect(html.replace(/<\/?(?:p|ul|ol|li|strong|em|u)>|<br>|<ol start="[1-9]\d{0,2}">/g, '')).not.toMatch(/[<>]/)
       expect(sanitizeRichText(html)).toBe(html)
       if (html) expect(isRichText(html)).toBe(true)
     }
@@ -208,5 +267,10 @@ describe('sanitizeRichText on random input', () => {
 
   it('indents nested items in the inline form', () => {
     expect(richTextInlineHtml('<ul><li><p>a</p><ol><li><p>b</p></li></ol></li></ul>')).toBe('• a<br>  1. b')
+  })
+
+  it('reopens marks on every line of the inline form and keeps an empty paragraph as an empty line', () => {
+    expect(richTextInlineHtml('<p><strong>a<br>b</strong></p>')).toBe('<strong>a</strong><br><strong>b</strong>')
+    expect(richTextInlineHtml('<p>a</p><p></p><p>b</p>')).toBe('a<br><br>b')
   })
 })

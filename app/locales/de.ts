@@ -2468,6 +2468,7 @@ export const de = {
       undo: 'Rückgängig (Strg+Z)', redo: 'Wiederholen (Strg+Y)',
       count: (count: number, max: number) => `${count} von ${max} Zeichen`,
       tooLong: (max: number) => `Der Text ist zu lang: höchstens ${max} Zeichen. Bitte kürze ihn, sonst lässt er sich nicht speichern.`,
+      tooMuchFormatting: 'Zu viele Formatierungen und Listenpunkte für ein Feld. Bitte kürze den Text oder nimm Formatierungen heraus, sonst lässt er sich nicht speichern.',
     },
   },
   /** BEM – Betriebliches Eingliederungsmanagement (§ 167 Abs. 2 SGB IX): employee page („Nachweise“), print, settings. */
@@ -3165,6 +3166,7 @@ export const de = {
     form_content_invalid: 'Die Vorlage ist so nicht gültig. Bitte prüfe, ob alle Texte ausgefüllt und nicht zu lang sind.',
     form_answer_invalid: 'Die Antworten passen nicht zum Bogen oder sind zu lang. Bitte lade die Seite neu.',
     form_answer_too_long: 'Ein Freitext ist zu lang: höchstens 4000 Zeichen (mit vielen Formatierungen etwas weniger). Bitte kürze ihn.',
+    form_answers_too_long: 'Die Freitexte dieses Bogens sind zusammen zu lang. Bitte kürze einige davon.',
     form_item_kind_fixed: 'Die Art eines Punkts lässt sich nicht ändern. Lösche ihn und lege ihn neu an.',
     form_section_not_found: 'Diesen Bereich gibt es nicht (mehr).',
     form_item_not_found: 'Diesen Punkt gibt es nicht (mehr).',
