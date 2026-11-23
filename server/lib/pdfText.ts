@@ -35,9 +35,19 @@ export interface PdfTextLimits {
   stallMs: number
 }
 
+/**
+ * The container of the app has 1024 MB for everything (docs/BETRIEB.md „Speicher“): the server runs at about 150–300 MB,
+ * so the reader gets at most 320 MB resident (heap 160 MB) and is killed above it. The pre-check budget (96 MB of
+ * inflated data) keeps a file that pdf.js would have to decode into more than that from being opened at all. The real
+ * street list (8 pages) peaks at about 110 MB.
+ */
 export const PDF_TEXT_LIMITS: PdfTextLimits = {
-  timeoutMs: 20_000, maxPages: 300, maxItems: 300_000, maxChars: 5_000_000, heapMb: 256, rssMb: 512, inflateMb: 128, stallMs: 5_000,
+  timeoutMs: 20_000, maxPages: 300, maxItems: 300_000, maxChars: 5_000_000, heapMb: 160, rssMb: 320, inflateMb: 96, stallMs: 5_000,
 }
+
+let peakRss = 0
+/** The highest resident memory the reading process reported during the last read (bytes; for tests and diagnostics). */
+export const lastReadPeakRss = () => peakRss
 
 /** The pdf.js worker thread: CommonJS, loads pdf.js by URL. */
 const WORKER_SOURCE = `
@@ -122,7 +132,7 @@ process.once('message', (job) => {
   })
   worker.stdout.resume()
   worker.stderr.resume()
-  worker.once('message', (message) => { clearInterval(report); send(message, () => process.exit(0)) })
+  worker.once('message', (message) => { clearInterval(report); send({ rss: process.memoryUsage.rss() }); send(message, () => process.exit(0)) })
   worker.once('error', () => send({ error: 'crashed' }, () => process.exit(0)))
   worker.once('exit', () => send({ error: 'exit' }, () => process.exit(0)))
 })
@@ -202,6 +212,7 @@ function readInChild(data: Uint8Array, limits: PdfTextLimits): Promise<PdfTextIt
     child.on('message', (message: { rss?: number; pages?: PdfTextItem[][]; error?: string }) => {
       if (typeof message.rss === 'number') {
         lastReport = Date.now()
+        peakRss = Math.max(peakRss, message.rss)
         if (message.rss > limits.rssMb * MB) finish(fail('memory'))
       }
       else if (message.pages) finish(null, message.pages)
@@ -222,6 +233,7 @@ function readInChild(data: Uint8Array, limits: PdfTextLimits): Promise<PdfTextIt
 export async function pdfTextItems(data: Uint8Array, limits: PdfTextLimits = PDF_TEXT_LIMITS): Promise<PdfTextItem[][]> {
   if (running) throw new ServiceError(429, 'pdf_busy')
   running = true
+  peakRss = 0
   try {
     return await readInChild(data, limits)
   }

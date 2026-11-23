@@ -2889,12 +2889,17 @@ Bezirk ordnen und drucken.
   „01.09.2021“). **Als CSV herunterladen** liefert die gespeicherte Liste im Format, das das Hochladen wieder liest.
 - **Sicherheit:** Hochgeladene Dateien gelten als nicht vertrauenswürdig. Eine PDF wird in einem **eigenen Node-Prozess**
   gelesen (ohne Skripte, Schriften oder Formulare), nie im Server selbst: Vorab werden alle komprimierten Bereiche mit
-  einer Obergrenze entpackt (zusammen höchstens 128 MB – eine „Zip-Bombe“ wird so sofort abgelehnt); danach beendet der
-  Server den Leseprozess, sobald er mehr als 512 MB Speicher belegt, länger als 20 Sekunden braucht oder nicht mehr
+  einer Obergrenze entpackt (zusammen höchstens 96 MB – eine „Zip-Bombe“ wird so sofort abgelehnt); danach beendet der
+  Server den Leseprozess, sobald er mehr als 320 MB Speicher belegt, länger als 20 Sekunden braucht oder nicht mehr
   antwortet; mehr als 300 Seiten werden abgelehnt. Es wird immer nur **eine PDF gleichzeitig** gelesen (sonst: „Bitte
   gleich noch einmal versuchen“). Zeilen über 300 Zeichen gelten als „nicht erkannt“. Die hochgeladene Datei selbst wird
   nicht gespeichert. Der Server muss als `node .output/server/index.mjs` gestartet werden (wie im Docker-Image), sonst
   findet er pdf.js nicht und meldet das im Log.
+- **Speicher des Containers:** Die App läuft mit höchstens **1024 MB** für alles. Der Server selbst braucht etwa
+  150–300 MB; der Leseprozess für eine PDF darf höchstens 320 MB belegen (JavaScript-Speicher 160 MB) und wird darüber
+  sofort beendet – so bleibt auch mit einer großen Hochladung genug Luft, damit der Container nie den Server selbst
+  beendet. Die echte Straßenliste (8 Seiten) braucht etwa 110 MB. Wer den Container kleiner macht, muss diese Werte
+  (server/lib/pdfText.ts, `PDF_TEXT_LIMITS`) mit verkleinern.
 - **Bezirk-Nummern** dürfen nur Buchstaben, Ziffern, Leerzeichen, Punkt, Bindestrich und Schrägstrich enthalten (höchstens
   10 Zeichen); Zeilen mit anderen Bezirken gelten beim Hochladen als „nicht erkannt“.
 

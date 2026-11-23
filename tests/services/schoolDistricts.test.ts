@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { children, schoolDistrictLists, schoolDistrictRows } from '../../server/db/schema'
 import { ServiceError } from '../../server/lib/errors'
-import { PDF_TEXT_LIMITS, pdfTextItems, type PdfTextLimits } from '../../server/lib/pdfText'
+import { lastReadPeakRss, PDF_TEXT_LIMITS, pdfTextItems, type PdfTextLimits } from '../../server/lib/pdfText'
 import { adoptDistrictSchool, createChild, getChild, updateChildMaster } from '../../server/services/children'
 import { createContact, deleteContact, listContacts } from '../../server/services/contacts'
 import { upcomingSchoolChildren } from '../../server/services/occupancy'
@@ -109,18 +109,24 @@ describe('school district lists (Schulbezirke)', () => {
     }, 60_000)
 
     it('refuses a decompression bomb before pdf.js reads it, and kills a reader that grows too big', async () => {
+      // Built first: making a bomb needs its whole inflated content in this process.
       const bomb = flateBombPdf(64)
+      const bigger = flateBombPdf(192)
+      const huge = flateBombPdf(160)
       expect(bomb.length).toBeLessThan(200_000)
       const before = process.memoryUsage.rss()
       const started = Date.now()
       await expect(pdfTextItems(bomb, { ...PDF_TEXT_LIMITS, inflateMb: 16 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
       expect(Date.now() - started).toBeLessThan(10_000)
-      // With the pre-check out of the way, the memory watchdog stops pdf.js decoding the 64 MB in the other process.
-      await expect(pdfTextItems(bomb, { ...PDF_TEXT_LIMITS, inflateMb: 1024, rssMb: 100 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'memory' } })
+      // With the pre-check out of the way, the memory watchdog stops pdf.js decoding 192 MB in the other process at the
+      // default 320 MB.
+      await expect(pdfTextItems(bigger, { ...PDF_TEXT_LIMITS, inflateMb: 1024 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'memory' } })
+      expect(lastReadPeakRss()).toBeGreaterThan(320 * 1024 * 1024)
+      expect(lastReadPeakRss()).toBeLessThan(640 * 1024 * 1024)
       // The server process itself never held the inflated data.
       expect(process.memoryUsage.rss() - before).toBeLessThan(64 * 1024 * 1024)
-      // With the default limits a bomb beyond 128 MB is refused through the upload as well.
-      await expect(parseSchoolDistrictFile({ data: flateBombPdf(160), filename: 'bombe.pdf' }))
+      // With the default limits a bomb beyond 96 MB is refused through the upload as well.
+      await expect(parseSchoolDistrictFile({ data: huge, filename: 'bombe.pdf' }))
         .rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
     }, 60_000)
 
@@ -129,8 +135,10 @@ describe('school district lists (Schulbezirke)', () => {
       const first = pdfTextItems(pdf)
       await expect(pdfTextItems(pdf)).rejects.toMatchObject({ code: 'pdf_busy' })
       await expect(first).resolves.toHaveLength(1)
-      // Afterwards the next one is read again.
+      // Afterwards the next one is read again, well inside the reader's memory budget.
       await expect(pdfTextItems(pdf)).resolves.toHaveLength(1)
+      expect(lastReadPeakRss()).toBeGreaterThan(0)
+      expect(lastReadPeakRss()).toBeLessThan(PDF_TEXT_LIMITS.rssMb * 1024 * 1024 * 0.7)
     }, 60_000)
   })
 
