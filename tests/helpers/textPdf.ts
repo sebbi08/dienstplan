@@ -88,6 +88,41 @@ export function fakeEndstreamBombPdf(megabytes: number): Buffer {
   return Buffer.concat([head, data, tail])
 }
 
+const pageHead = (contents: string) => '%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'
+  + `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents ${contents} >>\nendobj\n`
+const latin1 = (text: string) => Buffer.from(text, 'latin1')
+
+/**
+ * A bomb (`megabytes` of compressed zeros, indirect /Length) that a check positioning by untrusted data would skip:
+ * `longLength` – an earlier stream whose direct /Length runs over the bomb object; `stringWord` – the word „stream“ in
+ * a string right before it.
+ */
+export function hiddenBombPdf(kind: 'longLength' | 'stringWord', megabytes: number): Buffer {
+  const bomb = deflateSync(Buffer.alloc(megabytes * 1024 * 1024), { level: 9 })
+  const bombObject = Buffer.concat([latin1('4 0 obj\n<< /Length 5 0 R /Filter /FlateDecode >>\nstream\n'), bomb, latin1('\nendstream\nendobj\n')])
+  const tail = latin1(`5 0 obj\n${bomb.length}\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n`)
+  if (kind === 'stringWord') return Buffer.concat([latin1(`${pageHead('4 0 R')}6 0 obj\n(xstream)\nendobj\n`), bombObject, tail])
+  const inner = Buffer.concat([latin1('x\nendstream\nendobj\n'), bombObject])
+  return Buffer.concat([latin1(`${pageHead('4 0 R')}6 0 obj\n<< /Length ${inner.length} >>\nstream\n`), inner, tail])
+}
+
+/**
+ * Deflate data chained through the whole file: each stream's data runs on through every later stream (empty fixed
+ * blocks produce nothing; the next dictionary sits in a stored block), so inflating each stream to the end of its
+ * data reads the file again and again.
+ */
+export function chainedDeflatePdf(streams = 1000, fillerPatterns = 1900): Buffer {
+  const filler = Buffer.alloc(fillerPatterns * 5)
+  for (let at = 0; at < filler.length; at += 5) filler.set([0x02, 0x08, 0x20, 0x80, 0x00], at)
+  const stored = (payload: Buffer) => Buffer.concat([Buffer.from([0x00, payload.length & 0xFF, payload.length >> 8, ~payload.length & 0xFF, (~payload.length >> 8) & 0xFF]), payload])
+  const parts = [latin1(pageHead('8 0 R')), latin1('10 0 obj\n<< /Length 1 /Filter /FlateDecode >>\nstream\n'), Buffer.from([0x78, 0x01]), filler]
+  for (let index = 1; index < streams; index++) {
+    parts.push(stored(Buffer.concat([latin1(`\nendstream\nendobj\n${10 + index} 0 obj\n<< /Length 1 /Filter /FlateDecode >>\nstream\n`), Buffer.from([0x78, 0x01])])), filler)
+  }
+  parts.push(stored(latin1('\nendstream\nendobj\n8 0 obj\n<< /Length 5 >>\nstream\nBT ET\nendstream\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n')))
+  return Buffer.concat(parts)
+}
+
 /** The street list as a PDF: the three columns at the x positions of the real list, one row every 15 points. */
 export function streetListPdf(lines: readonly (readonly string[])[], perPage = 40): Buffer {
   const columns = [53, 205, 348]

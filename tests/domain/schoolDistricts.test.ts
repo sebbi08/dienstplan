@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildDistrictIndex, decodeCsvBytes, districtCsv, guessAsOf, looksTruncated, matchAddress, MAX_CSV_RECORDS, normalizeDistrictCode, overlappingRows,
-  parseAddress, parseDistrictCsv, parseDistrictLines, pdfLines, rowContains, streetKey, validDistrictCode, type DistrictRow,
+  parseAddress, parseDistrictCsv, parseDistrictCsvInSlices, parseDistrictLines, parseDistrictLinesInSlices, pdfLines, rowContains, streetKey,
+  validDistrictCode, type DistrictRow,
 } from '../../shared/domain/schoolDistricts'
 
 /** A row with the defaults of a clean source line. */
@@ -234,6 +235,31 @@ describe('CSV import and export', () => {
     }
     // A row after 100 000 blank ones is still found.
     expect(parseDistrictCsv(`Straße;Hausnummer;Bezirk\r\n${';;\r\n'.repeat(100_000)}Ahornweg;2-14;04\r\n`).rows).toEqual([row('Ahornweg', 2, 14, '04')])
+  })
+
+  it('counts cells of Unicode white space as blank', () => {
+    const blanks = ['　;;', '﻿;;', ' ; ;', ' '].join('\n')
+    const result = parseDistrictCsv(`${`${blanks}\n`.repeat(20_000)}Straße;Hausnummer;Bezirk\nAhornweg;2-14;04\n`)
+    expect(result).toMatchObject({ skippedCount: 0, truncated: false })
+    expect(result.rows).toEqual([row('Ahornweg', 2, 14, '04')])
+  })
+
+  it('reads a large file in slices, never holding the event loop for long', async () => {
+    const wide = `${Array.from({ length: 100 }, (_, index) => `x${index}`).join(';')}\n`
+    const text = `${'\n'.repeat(2 * 1024 * 1024)}${wide.repeat(20_000)}`
+    let longest = 0
+    let last = performance.now()
+    const ticker = setInterval(() => {
+      const now = performance.now()
+      longest = Math.max(longest, now - last)
+      last = now
+    }, 5)
+    const sliced = await parseDistrictCsvInSlices(text)
+    clearInterval(ticker)
+    expect(longest).toBeLessThan(150)
+    // Same result as in one go.
+    expect(sliced).toEqual(parseDistrictCsv(text))
+    expect(await parseDistrictLinesInSlices([['Ahornweg', '2- 14', '04']])).toEqual(parseDistrictLines([['Ahornweg', '2- 14', '04']]))
   })
 
   it('reads at most 50 000 records and 20 000 rows, and says so', () => {

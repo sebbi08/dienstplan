@@ -8,12 +8,15 @@ import { ServiceError } from './errors'
 /**
  * The text layer of an uploaded PDF (an untrusted file), read with pdf.js (the legacy build the app already ships) in a
  * **separate Node process**, so whatever the file does to memory or CPU never reaches the server process:
- * - The work runs in a worker thread inside that process. First every Flate stream is inflated (streaming, only the
- *   byte count is kept) against a total budget (`inflateMb`): a decompression bomb is refused cheaply ('inflate'). A
- *   stream is inflated from its start to the end of its deflate data – a direct `/Length` or the keyword `endstream`
- *   only says where the next object starts, so a fake `endstream` inside the data does not shorten the check; a stream
- *   without `endstream` and without a direct length refuses the file ('structure'). Then pdf.js reads it (fonts,
- *   scripting and XFA off; only text items and their positions; pages, items and characters capped).
+ * - The work runs in a worker thread inside that process. First every **Flate** stream is inflated (streaming, only
+ *   the byte count is kept) against a total output budget (`inflateMb`) and an input budget (twice the file plus 1 MB):
+ *   a decompression bomb, or deflate data chained through the whole file, is refused cheaply ('inflate'). `stream`
+ *   counts only as the keyword (after a dictionary's `>>`, followed by a line end); each stream is inflated from its
+ *   start to the end of its deflate data, and the search goes on right behind the keyword, so neither a fake
+ *   `endstream`, a wrong `/Length` nor the word inside a string makes it skip bytes. A stream keyword without any
+ *   `endstream` after it refuses the file ('structure'). Other filters (LZW, RunLength, a chain not starting with
+ *   Flate, an indirect `/Filter`) are not pre-checked; the memory watch below bounds them. Then pdf.js reads the file
+ *   (fonts, scripting and XFA off; only text items and their positions; pages, items and characters capped).
  * - The process's main thread does nothing but watch: every 15 ms it reads its own resident memory (RSS, which also
  *   counts the typed arrays pdf.js decodes into, unlike a heap limit) and exits at once above `rssMb`; every ~90 ms it
  *   reports to the server. The server kills it as a backstop above `rssMb`, after `stallMs` without a report or after
@@ -58,47 +61,61 @@ export const lastReadPeakRss = () => peakRss
 const WORKER_SOURCE = `
 const { parentPort, workerData } = require('node:worker_threads')
 const zlib = require('node:zlib')
-// The size of the deflate data starting at input[0] (trailing bytes after its end are ignored), -1 above the budget;
-// only the count is kept, never the inflated data.
+// The deflate data starting at input[0]: how many bytes it inflates to (only counted, never kept; over \`budget\`:
+// over) and how many input bytes it took (trailing bytes after its end are not read). The input given is already cut to
+// what may still be read, so data that runs on through the rest of the file cannot be read twice.
 function inflatedSize(input, budget) {
   return new Promise((resolve) => {
     const inflate = zlib.createInflate({ finishFlush: zlib.constants.Z_SYNC_FLUSH })
     let total = 0
     let done = false
-    const finish = (value) => { if (!done) { done = true; inflate.destroy(); resolve(value) } }
-    inflate.on('data', (chunk) => { total += chunk.length; if (total > budget) finish(-1) })
-    inflate.on('end', () => finish(total))
-    inflate.on('error', () => finish(total))
+    const finish = (over) => {
+      if (done) return
+      done = true
+      const read = inflate.bytesWritten
+      inflate.destroy()
+      resolve({ out: total, read, over })
+    }
+    inflate.on('data', (chunk) => { total += chunk.length; if (total > budget) finish(true) })
+    inflate.on('end', () => finish(false))
+    inflate.on('error', () => finish(false))
     inflate.end(input)
   })
 }
-// Every Flate stream against one budget; forward-only searches, so linear in the file size apart from the inflating.
+const isSpace = (byte) => byte === 32 || byte === 9 || byte === 10 || byte === 13 || byte === 12 || byte === 0
+// Every Flate stream against one output budget and one input budget (twice the file plus 1 MB). „stream“ counts only as
+// the keyword: after a dictionary's „>>“ (and white space) and followed by a line end. The search never jumps: after a
+// stream it goes on right behind its keyword, so no bytes are left unchecked, whatever the lengths in the file claim.
 async function precheck(buf, budget) {
   let total = 0
+  let input = 2 * buf.length + 1024 * 1024
   let pos = 0
+  let previous = 0
+  let nextEnd = -2
   let streams = 0
   for (;;) {
     const s = buf.indexOf('stream', pos, 'latin1')
     if (s < 0) return null
-    if (s >= 3 && buf.toString('latin1', s - 3, s) === 'end') { pos = s + 6; continue }
+    pos = s + 6
+    let k = s - 1
+    while (k >= 0 && isSpace(buf[k])) k--
+    if (k < 1 || buf[k] !== 62 || buf[k - 1] !== 62) continue
     let start = s + 6
-    if (buf[start] === 13) start++
-    if (buf[start] === 10) start++
-    const dictionary = buf.toString('latin1', Math.max(pos, s - 2048), s)
-    const length = /\\/Length\\s+(\\d{1,10})\\b(?!\\s+\\d+\\s+R)/.exec(dictionary)
-    let next
-    if (length && start + Number(length[1]) <= buf.length) next = start + Number(length[1])
-    else {
-      const end = buf.indexOf('endstream', start, 'latin1')
-      if (end < 0) return 'structure'
-      next = end
-    }
-    pos = next
+    if (buf[start] === 13 && buf[start + 1] === 10) start += 2
+    else if (buf[start] === 10 || buf[start] === 13) start += 1
+    else continue
+    // A real stream keyword needs an end somewhere after it (the next one is looked up once and reused).
+    if (nextEnd !== -1 && nextEnd < start) nextEnd = buf.indexOf('endstream', start, 'latin1')
+    if (nextEnd === -1) return 'structure'
+    const dictionary = buf.toString('latin1', Math.max(previous, s - 2048), s)
+    previous = start
     if (!/FlateDecode|\\/Fl\\b/.test(dictionary)) continue
     if (++streams > 10000) return 'streams'
-    const size = await inflatedSize(buf.subarray(start), budget - total)
-    if (size < 0) return 'inflate'
-    total += size
+    if (input <= 0) return 'inflate'
+    const result = await inflatedSize(buf.subarray(start, start + input), budget - total)
+    if (result.over) return 'inflate'
+    total += result.out
+    input -= Math.max(result.read, 1)
   }
 }
 ;(async () => {
@@ -147,7 +164,8 @@ const watch = setInterval(() => {
 }, 15)
 process.once('message', (job) => {
   limit = job.rssMb * 1024 * 1024
-  // The file goes to the worker without another copy (its own buffer is moved, not cloned).
+  // The file arrives as a view into the IPC message, so it is copied once into a buffer of its own, which is then moved
+  // (not cloned) to the worker; the message copy is garbage afterwards.
   let data = job.data
   if (data.byteOffset !== 0 || data.byteLength !== data.buffer.byteLength) data = new Uint8Array(data)
   const worker = new Worker(WORKER_SOURCE, {
@@ -209,6 +227,7 @@ function readerEnvironment(): NodeJS.ProcessEnv {
 
 const MB = 1024 * 1024
 let running = false
+let readerPid: number | null = null
 
 /**
  * One reading process: `pages` resolves with the pages or rejects with 422 pdf_unreadable (details.reason) or
@@ -247,11 +266,13 @@ function readInChild(data: Uint8Array, limits: PdfTextLimits): { pages: Promise<
       markClosed()
       return
     }
+    readerPid = child.pid ?? null
     // After the kill an 'error' may still come; it must never become an uncaught exception.
     child.on('error', () => finish(fail('crashed')))
     // 'close' (not 'exit'): the IPC channel is drained first, so the last message is never lost to the exit.
     child.once('close', (code) => {
       finish(fail(code === MEMORY_EXIT ? 'memory' : 'exit'))
+      readerPid = null
       markClosed()
     })
     child.on('message', (message: { rss?: number; pages?: PdfTextItem[][]; error?: string }) => {
@@ -289,8 +310,16 @@ export async function pdfTextItems(data: Uint8Array, limits: PdfTextLimits = PDF
   }
   finally {
     // The next reader starts only once this process is gone (it closes within about 100 ms of its answer or kill;
-    // 5 s at most).
-    await Promise.race([closed, new Promise(resolve => setTimeout(resolve, 5_000))])
+    // 5 s at most, a timer that keeps nothing alive and is cleared at once).
+    let fallback: ReturnType<typeof setTimeout> | undefined
+    await Promise.race([closed, new Promise((resolve) => {
+      fallback = setTimeout(resolve, 5_000)
+      fallback.unref?.()
+    })])
+    clearTimeout(fallback)
     running = false
   }
 }
+
+/** The process id of the reader at work, null when none is left (for tests and diagnostics). */
+export const activeReaderPid = () => readerPid

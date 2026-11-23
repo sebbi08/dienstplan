@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import {
-  decodeCsvBytes, guessAsOf, looksTruncated, matchAddress, normalizeDistrictCode, parseDistrictCsv, parseDistrictLines, pdfLines,
-  streetKey, validDistrictCode,
+  decodeCsvBytes, guessAsOf, looksTruncated, matchAddress, normalizeDistrictCode, parseDistrictCsvInSlices,
+  parseDistrictLinesInSlices, pdfLines, streetKey, validDistrictCode,
   SCHOOL_DISTRICT_LIMITS, type DistrictFlag, type DistrictLookup, type DistrictParseResult, type DistrictRow, type IndexRow,
 } from '../../shared/domain/schoolDistricts'
 import { isSchoolCategory } from '../../shared/domain/contacts'
@@ -55,10 +55,10 @@ export async function parseSchoolDistrictFile(file: { data: Buffer; filename: st
   let result: DistrictParseResult
   const head = file.data.subarray(0, 1024)
   if (head.includes(PDF_MAGIC)) {
-    result = parseDistrictLines(pdfLines(await pdfTextItems(file.data)))
+    result = await parseDistrictLinesInSlices(pdfLines(await pdfTextItems(file.data)))
   }
   else if (/\.(csv|txt)$/i.test(file.filename) && !head.includes(0)) {
-    result = parseDistrictCsv(decodeCsvBytes(file.data))
+    result = await parseDistrictCsvInSlices(decodeCsvBytes(file.data))
   }
   else throw new ServiceError(400, 'school_district_file_type')
   if (result.rows.length === 0) throw new ServiceError(422, 'school_district_no_rows', { skipped: result.skippedCount })

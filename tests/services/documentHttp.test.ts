@@ -120,8 +120,10 @@ describe('reading an upload body', () => {
   it('reads the parameters with quoted strings as whole tokens', () => {
     const body = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; filename="x; name=evil.pdf"; name="file"\r\n\r\nabc\r\n--${boundary}--\r\n`, 'latin1')
     expect(parseMultipart(body, boundary).map(part => [part.name, part.filename])).toEqual([['file', 'x; name=evil.pdf']])
-    const escaped = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a\\"b.pdf"\r\n\r\nabc\r\n--${boundary}--\r\n`, 'latin1')
-    expect(parseMultipart(escaped, boundary)[0]!.filename).toBe('a"b.pdf')
+    // A backslash is part of the name (browsers never escape with it).
+    const backslash = (name: string) => Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\n\r\nabc\r\n--${boundary}--\r\n`, 'latin1')
+    expect(parseMultipart(backslash('a\\b.pdf'), boundary)[0]!.filename).toBe('a\\b.pdf')
+    expect(parseMultipart(backslash('dir\\'), boundary)[0]!.filename).toBe('dir\\')
   })
 
   it('reads at most 100 parts and header blocks of at most 16 KB', () => {

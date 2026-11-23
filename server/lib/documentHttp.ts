@@ -33,13 +33,14 @@ const MAX_PART_HEADERS = 16 * 1024
 
 /**
  * The parameters of a Content-Disposition header, read left to right with quoted strings as whole tokens (so
- * `filename="a; name=b"` cannot fake a `name`), decoded like browsers send them (UTF-8 bytes); the first of a name wins.
+ * `filename="a; name=b"` cannot fake a `name`), decoded like browsers send them (UTF-8 bytes; browsers percent-encode
+ * `"` and line breaks and never escape with a backslash, so a backslash stays part of the name); the first of a name wins.
  */
 function dispositionParameters(header: string): Map<string, string> {
   const parameters = new Map<string, string>()
-  for (const match of header.matchAll(/;\s*([^=;\s]+)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;]*))/g)) {
+  for (const match of header.matchAll(/;\s*([^=;\s]+)\s*=\s*(?:"([^"]*)"|([^;]*))/g)) {
     const name = match[1]!.toLowerCase()
-    const raw = match[2] !== undefined ? match[2].replace(/\\(.)/g, '$1') : (match[3] ?? '').trim()
+    const raw = match[2] !== undefined ? match[2] : (match[3] ?? '').trim()
     if (!parameters.has(name)) parameters.set(name, Buffer.from(raw, 'latin1').toString('utf8'))
   }
   return parameters

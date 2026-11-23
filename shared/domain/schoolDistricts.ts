@@ -223,6 +223,20 @@ export function parseDistrictLines(lines: readonly (readonly string[])[]): Distr
   return into.result()
 }
 
+/** parseDistrictLines that lets other work run after at most `sliceMs` of work (see parseDistrictCsvInSlices). */
+export async function parseDistrictLinesInSlices(lines: readonly (readonly string[])[], sliceMs = 20): Promise<DistrictParseResult> {
+  const into = new Collector()
+  let sliceStart = Date.now()
+  for (const cells of lines) {
+    readLine(cells, into)
+    if (Date.now() - sliceStart >= sliceMs) {
+      await new Promise(resolve => setTimeout(resolve, 0))
+      sliceStart = Date.now()
+    }
+  }
+  return into.result()
+}
+
 /** A text item of a PDF page: its text, position (left, baseline) and width. */
 export interface PdfTextItem { str: string; x: number; y: number; w: number }
 
@@ -288,6 +302,14 @@ function separatorOf(text: string): string {
 /** Cells kept per record; a record with more is no row anyway (it is then reported as not recognised). */
 const MAX_CELLS = 1000
 
+/** White space as `/\s/` sees it (also U+00A0, U+2000–U+200A, U+3000, U+FEFF …): a cell of only these is blank. */
+function isWhiteSpace(code: number): boolean {
+  return code <= 32
+    ? code === 32 || (code >= 9 && code <= 13)
+    : code === 0xA0 || code === 0x1680 || (code >= 0x2000 && code <= 0x200A) || code === 0x2028 || code === 0x2029
+      || code === 0x202F || code === 0x205F || code === 0x3000 || code === 0xFEFF
+}
+
 /** Non-blank records read from one file at most (a list has up to 20 000 rows); the rest is left out (`truncated`). */
 export const MAX_CSV_RECORDS = 50_000
 
@@ -297,8 +319,9 @@ export const MAX_CSV_RECORDS = 50_000
  * they are read, so 10 MB of empty lines cost no memory. After MAX_CSV_RECORDS non-blank records `limit.reached` is
  * set and reading stops.
  */
-function* csvRecords(text: string, sep: string, limit: { reached: boolean }): Generator<string[]> {
+function* csvRecords(text: string, sep: string, limit: { reached: boolean }): Generator<string[] | null> {
   let yielded = 0
+  let steps = 0
   const length = text.length
   const sepCode = sep.charCodeAt(0)
   // The end of an unquoted field; whether it holds anything but white space is noted on the way.
@@ -308,7 +331,7 @@ function* csvRecords(text: string, sep: string, limit: { reached: boolean }): Ge
     while (at < length) {
       const char = text.charCodeAt(at)
       if (char === 10 || char === 13 || char === sepCode) break
-      if (char > 32 && char !== 160) filled = true
+      if (!filled && !isWhiteSpace(char)) filled = true
       at++
     }
     return at
@@ -318,6 +341,8 @@ function* csvRecords(text: string, sep: string, limit: { reached: boolean }): Ge
   let blank = true
   let i = 0
   while (i < length) {
+    // A pause point every 32 768 fields, so a caller can let other work run (blank lines yield no records).
+    if ((++steps & 0x7FFF) === 0) yield null
     let field: string
     filled = false
     const first = text.charCodeAt(i)
@@ -459,6 +484,32 @@ function csvRow(cells: readonly string[], columns: Map<Column, number>, into: Co
  * columns, without one each record like a line of text.
  */
 export function parseDistrictCsv(text: string): DistrictParseResult {
+  const steps = csvSteps(text)
+  for (;;) {
+    const next = steps.next()
+    if (next.done) return next.value
+  }
+}
+
+/**
+ * parseDistrictCsv in slices: after at most `sliceMs` of work it lets other work run (a timer of 0 ms), so a large or
+ * crafted file never holds the server's event loop for long.
+ */
+export async function parseDistrictCsvInSlices(text: string, sliceMs = 20): Promise<DistrictParseResult> {
+  const steps = csvSteps(text)
+  let sliceStart = Date.now()
+  for (;;) {
+    const next = steps.next()
+    if (next.done) return next.value
+    if (Date.now() - sliceStart >= sliceMs) {
+      await new Promise(resolve => setTimeout(resolve, 0))
+      sliceStart = Date.now()
+    }
+  }
+}
+
+/** The work of parseDistrictCsv, pausing (yield) between records and every 32 768 fields. */
+function* csvSteps(text: string): Generator<void, DistrictParseResult> {
   const limit = { reached: false }
   const records = csvRecords(text, separatorOf(text), limit)
   const into = new Collector()
@@ -474,12 +525,19 @@ export function parseDistrictCsv(text: string): DistrictParseResult {
     const next = records.next()
     if (next.done) break
     const cells = next.value
+    if (cells === null) {
+      yield
+      continue
+    }
     // A header line is short; a long record is no header (and not worth comparing).
     if (cells.length <= 30 && cells.every(cell => cell.length <= 60)) columns = headerColumns(cells)
     if (!columns) first.push(cells)
   }
   if (!columns) for (const cells of first) readRecord(cells, null)
-  for (let next = records.next(); !next.done; next = records.next()) readRecord(next.value, columns)
+  for (let next = records.next(); !next.done; next = records.next()) {
+    if (next.value !== null) readRecord(next.value, columns)
+    yield
+  }
   const result = into.result()
   return limit.reached ? { ...result, truncated: true } : result
 }

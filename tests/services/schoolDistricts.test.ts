@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { children, schoolDistrictLists, schoolDistrictRows } from '../../server/db/schema'
 import { ServiceError } from '../../server/lib/errors'
-import { lastReadPeakRss, PDF_TEXT_LIMITS, pdfTextItems, type PdfTextLimits } from '../../server/lib/pdfText'
+import { activeReaderPid, lastReadPeakRss, PDF_TEXT_LIMITS, pdfTextItems, type PdfTextLimits } from '../../server/lib/pdfText'
 import { adoptDistrictSchool, createChild, getChild, updateChildMaster } from '../../server/services/children'
 import { createContact, deleteContact, listContacts, updateContact } from '../../server/services/contacts'
 import { upcomingSchoolChildren } from '../../server/services/occupancy'
@@ -15,7 +15,7 @@ import {
 import type { DistrictRow } from '../../shared/domain/schoolDistricts'
 import type { ChildMasterInput, ContactInput, Role, SchoolDistrictListInput } from '../../shared/types/api'
 import { addFacility, addUser, asChildViewer, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
-import { fakeEndstreamBombPdf, flateBombPdf, streetListPdf, textPdf } from '../helpers/textPdf'
+import { chainedDeflatePdf, fakeEndstreamBombPdf, flateBombPdf, hiddenBombPdf, streetListPdf, textPdf } from '../helpers/textPdf'
 
 const NOW = new Date('2027-04-01T09:00:00.000Z')
 const TODAY = '2027-04-01'
@@ -140,11 +140,30 @@ describe('school district lists (Schulbezirke)', () => {
       await expect(pdfTextItems(endless)).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'structure' } })
     }, 60_000)
 
-    it('reads one PDF at a time', async () => {
+    it('takes „stream“ only as the keyword and never skips bytes: harmless words pass, hidden bombs do not', async () => {
+      // The word in the document info after the last stream (it was refused as „structure“ before).
+      const upstream = Buffer.concat([streetListPdf(LINES), Buffer.from('9 0 obj\n<< /Title (Schulbezirke Upstream) >>\nendobj\n', 'latin1')])
+      await expect(pdfTextItems(upstream)).resolves.toHaveLength(1)
+      // A bomb behind an earlier stream's too long /Length, or behind the word in a string: found by the pre-check.
+      for (const kind of ['longLength', 'stringWord'] as const) {
+        await expect(pdfTextItems(hiddenBombPdf(kind, 160)), kind).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
+      }
+      // Deflate data chained through 1000 streams: the input budget stops it quickly instead of the 20 s timeout.
+      const started = Date.now()
+      await expect(pdfTextItems(chainedDeflatePdf())).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
+      expect(Date.now() - started).toBeLessThan(10_000)
+    }, 90_000)
+
+    it('reads one PDF at a time, busy until the reading process has ended', async () => {
       const pdf = streetListPdf(LINES)
       const first = pdfTextItems(pdf)
+      expect(activeReaderPid()).not.toBeNull()
+      const pid = activeReaderPid()!
       await expect(pdfTextItems(pdf)).rejects.toMatchObject({ code: 'pdf_busy' })
       await expect(first).resolves.toHaveLength(1)
+      // When the answer comes, the process is gone already.
+      expect(activeReaderPid()).toBeNull()
+      expect(() => process.kill(pid, 0)).toThrow()
       // Afterwards the next one is read again, well inside the reader's memory budget.
       await expect(pdfTextItems(pdf)).resolves.toHaveLength(1)
       expect(lastReadPeakRss()).toBeGreaterThan(0)
