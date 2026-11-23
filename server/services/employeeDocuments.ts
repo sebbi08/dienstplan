@@ -137,7 +137,7 @@ export function updateEmployeeDocument(
 }
 
 /**
- * A new file for the document („Weiter ausfüllen“: the form filled further), with the folder's key like every change.
+ * A new file for the document („Bearbeiten“: the PDF filled further), with the folder's key like every change.
  * Only a PDF replaces a PDF; folder, title, date and note stay, the file counts as uploaded now by the actor.
  */
 export function replaceEmployeeDocumentFile(

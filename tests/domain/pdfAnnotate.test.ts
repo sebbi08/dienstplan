@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, fontSizeName, MARK_LINES, nextEditorState, nextZoom, pdfjsTexts, stampSize,
+  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, isEditorLayer, isEditorManager, tolerant, fontSizeName, MARK_LINES, nextEditorState, nextZoom, pdfjsTexts, stampSize,
   strokeBounds, TAP_SLOP, ZOOMS,
 } from '../../app/utils/pdfAnnotate'
 
@@ -101,6 +101,27 @@ describe('filling any PDF: the tools of the fill view', () => {
     expect(taps.release(8, { x: 50, y: 50 })).toBeNull()
     taps.press(10, { x: 10, y: 10 }, true)
     expect(taps.release(10, { x: 10, y: 10 })).toEqual({ x: 10, y: 10 })
+  })
+
+  it('checks what pdf.js hands over before the tools use it (another pdf.js version may differ)', () => {
+    const fn = () => {}
+    expect(isEditorManager({ getLayer: fn, undo: fn, delete: fn, commitOrRemove: fn, updateParams: fn })).toBe(true)
+    expect(isEditorManager({ getLayer: fn, undo: fn, delete: fn, commitOrRemove: fn })).toBe(false)
+    expect(isEditorManager(null)).toBe(false)
+    const layer = { createAndAddNewEditor: fn, pageDimensions: [595, 842], div: {}, viewport: { rotation: 0 } }
+    expect(isEditorLayer(layer)).toBe(true)
+    expect(isEditorLayer({ ...layer, pageDimensions: undefined })).toBe(false)
+    expect(isEditorLayer({ ...layer, createAndAddNewEditor: undefined })).toBe(false)
+    expect(isEditorLayer(undefined)).toBe(false)
+  })
+
+  it('answers unknown calls on the translations quietly, and is no promise', async () => {
+    const l10n = tolerant({ getLanguage: () => 'de' }) as Record<string, unknown> & { getLanguage: () => string }
+    expect(l10n.getLanguage()).toBe('de')
+    await expect((l10n.somethingNew as () => Promise<unknown>)()).resolves.toBeUndefined()
+    expect(l10n.then).toBeUndefined()
+    expect(await Promise.resolve(l10n)).toBe(l10n)
+    expect(typeof (createPdfjsL10n() as unknown as Record<string, unknown>).newerMethod).toBe('function')
   })
 
   it('keeps the bar state from the editor events (pdf.js sends only what changed)', () => {

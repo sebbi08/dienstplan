@@ -16,12 +16,14 @@ const PAD_HEIGHT = 200
 /** Line width in CSS pixels of the pad. */
 const LINE = 2.6
 const INK = '#14234b'
-/** The picture: sharp enough for print, small enough for the PDF. */
-const MAX_PICTURE_WIDTH = 1200
+/** The picture: sharp enough for print (170 pt at 300 dpi is about 710 px), small enough for the PDF. */
+const MAX_PICTURE_WIDTH = 800
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const empty = ref(true)
 const missing = ref(false)
+/** The picture is being made: „Einfügen“ once only (a double tap would place two signatures). */
+const placing = ref(false)
 let strokes: Point[][] = []
 let drawing: Point[] | null = null
 let pad = { width: 0, height: PAD_HEIGHT }
@@ -122,6 +124,17 @@ function clear() {
 }
 
 async function place() {
+  if (placing.value) return
+  placing.value = true
+  try {
+    await makePicture()
+  }
+  finally {
+    placing.value = false
+  }
+}
+
+async function makePicture() {
   const bounds = strokeBounds(strokes, LINE * 2, pad)
   if (!bounds) {
     missing.value = true
@@ -176,7 +189,7 @@ onBeforeUnmount(() => {
         />
         <p v-if="missing" class="text-sm text-red-700" role="alert">{{ t.padEmpty }}</p>
         <div class="flex flex-wrap gap-2">
-          <UButton icon="i-lucide-check" :label="t.padPlace" :disabled="empty" @click="place" />
+          <UButton icon="i-lucide-check" :label="t.padPlace" :loading="placing" :disabled="empty || placing" @click="place" />
           <UButton color="neutral" variant="outline" icon="i-lucide-eraser" :label="t.padClear" :disabled="empty" @click="clear" />
           <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
         </div>

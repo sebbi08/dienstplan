@@ -8,7 +8,7 @@ import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 import {
-  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, FONT_SIZES, fontSizeName, MARK_LINES, MARK_POINTS, nextEditorState, nextZoom,
+  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, isEditorLayer, isEditorManager, FONT_SIZES, fontSizeName, MARK_LINES, MARK_POINTS, nextEditorState, nextZoom,
   SIGNATURE_POINTS, stampSize, ZOOMS, type AnnotateTool, type EditorState, type FontSizeName, type MarkKind,
 } from '~/utils/pdfAnnotate'
 import { pdfjsFileOptions } from '~/utils/pdfjsFiles'
@@ -58,6 +58,11 @@ useDirty(() => touched.value)
 const tool = ref<AnnotateTool>('fields')
 /** pdf.js's editors are ready (they start once the first page is there). */
 const editorsReady = ref(false)
+/**
+ * pdf.js's editors did not start or failed (e.g. a pdf.js version whose internals differ): the tools other than
+ * „Felder“ stay off with a note; filling fields, printing and saving go on.
+ */
+const editorsUnavailable = ref(false)
 const editorState = ref<EditorState>({ canUndo: false, hasSelection: false })
 const fontSize = ref<FontSizeName>('normal')
 const padOpen = ref(false)
@@ -105,6 +110,37 @@ let generation = 0
 
 /** At most this scale for zoom 1: a page on a wide screen stays readable instead of filling the whole width. */
 const MAX_FIT_SCALE = 1.5
+/** pdf.js's TextLayerMode.ENABLE: the text layer (pdf.js builds the structure tree with it, see start()). */
+const TEXT_LAYER_ENABLE = 1
+/** How long after the pages are there pdf.js's editors may take to start before the tools are given up. */
+const EDITORS_WATCHDOG_MS = 8000
+let editorsWatchdog: ReturnType<typeof setTimeout> | undefined
+
+/** Turns the tools off (once) and says why in the console; the fields, printing and saving keep working. */
+function disableEditors(reason: unknown) {
+  clearTimeout(editorsWatchdog)
+  if (editorsUnavailable.value) return
+  console.warn('pdf.js editors not available:', reason)
+  editorsUnavailable.value = true
+  editorsReady.value = false
+  editors = null
+  tool.value = 'fields'
+  try {
+    if (viewer && pdfjs) viewer.annotationEditorMode = { mode: pdfjs.AnnotationEditorType.NONE }
+  }
+  catch {}
+}
+
+/** Runs a call into pdf.js's editors; if it throws, the tools are turned off instead of the view breaking. */
+function safely<T>(action: () => T): T | undefined {
+  try {
+    return action()
+  }
+  catch (error) {
+    disableEditors(error)
+    return undefined
+  }
+}
 
 function release() {
   generation++
@@ -112,6 +148,8 @@ function release() {
   abort?.abort()
   abort = null
   editorsReady.value = false
+  editorsUnavailable.value = false
+  clearTimeout(editorsWatchdog)
   editors = null
   try {
     // Ends the editors, the drawn pages and the form layers of the document.
@@ -195,10 +233,21 @@ function start(lib: PdfJs, viewerLib: ViewerLib, doc: PDFDocumentProxy) {
   // the forms layer for the fields, the editors on (`abortSignal` is missing in its types).
   const options = {
     container, viewer: viewerDiv, eventBus: bus, linkService: links, l10n: l10n as never,
-    textLayerMode: 1, annotationMode: lib.AnnotationMode.ENABLE_FORMS, annotationEditorMode: lib.AnnotationEditorType.NONE,
-    enableAutoLinking: false, supportsPinchToZoom: true, abortSignal: abort.signal,
+    textLayerMode: TEXT_LAYER_ENABLE, annotationMode: lib.AnnotationMode.ENABLE_FORMS,
+    annotationEditorMode: lib.AnnotationEditorType.NONE, enableAutoLinking: false, supportsPinchToZoom: true, abortSignal: abort.signal,
   }
-  const view = new viewerLib.PDFViewer(options as ConstructorParameters<ViewerLib['PDFViewer']>[0])
+  type ViewerOptions = ConstructorParameters<ViewerLib['PDFViewer']>[0]
+  let view: PDFViewer
+  try {
+    view = new viewerLib.PDFViewer(options as ViewerOptions)
+  }
+  catch (error) {
+    // Once more without the editors and with pdf.js's own translations: the fields still work.
+    disableEditors(error)
+    viewerDiv.replaceChildren()
+    const { l10n: _ours, ...plain } = options
+    view = new viewerLib.PDFViewer({ ...plain, annotationEditorMode: lib.AnnotationEditorType.DISABLE } as ViewerOptions)
+  }
   viewer = view
   links.setViewer(view)
 
@@ -207,7 +256,9 @@ function start(lib: PdfJs, viewerLib: ViewerLib, doc: PDFDocumentProxy) {
   let manager: EditorManager | null = null
   let layerDrawn = false
   const ready = () => {
-    if (current !== generation || !manager || !layerDrawn || editorsReady.value) return
+    if (current !== generation || !manager || !layerDrawn || editorsReady.value || editorsUnavailable.value) return
+    if (!isEditorManager(manager)) return disableEditors('the editor manager lacks a method the fill view uses')
+    clearTimeout(editorsWatchdog)
     editors = manager
     editorsReady.value = true
   }
@@ -220,7 +271,12 @@ function start(lib: PdfJs, viewerLib: ViewerLib, doc: PDFDocumentProxy) {
     ready()
   })
   bus.on('pagesinit', () => {
-    if (current === generation) fitWidth()
+    if (current !== generation) return
+    fitWidth()
+    clearTimeout(editorsWatchdog)
+    editorsWatchdog = setTimeout(() => {
+      if (current === generation && !editorsReady.value) disableEditors('the editors did not start')
+    }, EDITORS_WATCHDOG_MS)
   })
   bus.on('pagechanging', ({ pageNumber: number }: { pageNumber: number }) => {
     pageNumber.value = number
@@ -242,33 +298,48 @@ function start(lib: PdfJs, viewerLib: ViewerLib, doc: PDFDocumentProxy) {
   // pdf.js asks for another mode itself, e.g. when a text box is tapped while choosing: the matching tool, and the
   // request as it is (with the editor to select or edit, which a bare mode switch would unselect).
   bus.on('switchannotationeditormode', ({ source: _source, ...request }: { source: unknown; mode: number; editId?: string | null }) => {
+    if (!editors) return
     if (request.mode === lib.AnnotationEditorType.FREETEXT) tool.value = 'text'
     else if (request.mode === lib.AnnotationEditorType.STAMP) tool.value = 'select'
     else return
-    view.annotationEditorMode = request
+    safely(() => {
+      // New text boxes get the chosen size and colour also when pdf.js chose the text tool: unselected first, so these
+      // become the defaults; pdf.js selects the requested editor again after switching.
+      if (request.mode === lib.AnnotationEditorType.FREETEXT) {
+        ;(editors as { unselectAll?: () => void } | null)?.unselectAll?.()
+        textDefaults(lib)
+      }
+      view.annotationEditorMode = request
+    })
   })
   // Every typed value and every change of an addition counts as unsaved.
   ;(doc.annotationStorage as { onSetModified: (() => void) | null }).onSetModified = () => {
     if (current === generation) touched.value = true
   }
 
-  // Pinching zooms the pages (pdf.js's touch handling of its own viewer app).
+  // Pinching zooms the pages (pdf.js's touch handling of its own viewer app). Without it the zoom buttons remain.
   let pinchFactor = 1
-  new lib.TouchManager({
-    container,
-    signal: abort.signal,
-    onPinching: (origin: [number, number], previous: number, distance: number) => {
-      pinchFactor *= distance / previous
-      const scale = view.currentScale
-      const wanted = Math.min(baseScale * ZOOMS[ZOOMS.length - 1]!, Math.max(baseScale * ZOOMS[0], scale * pinchFactor))
-      if (Math.abs(wanted - scale) < 0.01) return
-      pinchFactor = 1
-      view.updateScale({ scaleFactor: wanted / scale, origin, drawingDelay: 400 })
-    },
-    onPinchEnd: () => {
-      pinchFactor = 1
-    },
-  })
+  try {
+    if (typeof lib.TouchManager !== 'function') throw new Error('TouchManager missing')
+    new lib.TouchManager({
+      container,
+      signal: abort.signal,
+      onPinching: (origin: [number, number], previous: number, distance: number) => {
+        pinchFactor *= distance / previous
+        const scale = view.currentScale
+        const wanted = Math.min(baseScale * ZOOMS[ZOOMS.length - 1]!, Math.max(baseScale * ZOOMS[0], scale * pinchFactor))
+        if (Math.abs(wanted - scale) < 0.01) return
+        pinchFactor = 1
+        view.updateScale({ scaleFactor: wanted / scale, origin, drawingDelay: 400 })
+      },
+      onPinchEnd: () => {
+        pinchFactor = 1
+      },
+    })
+  }
+  catch (error) {
+    console.warn('pdf.js pinch zoom not available:', error)
+  }
 
   view.setDocument(doc)
   links.setDocument(doc, null)
@@ -319,7 +390,7 @@ function editorMode(mode: number): Promise<void> {
   const bus = eventBus
   if (!view || !bus || !editors) return Promise.resolve()
   // The getter gives the mode itself (its types say otherwise).
-  if ((view.annotationEditorMode as unknown as number) === mode) return Promise.resolve()
+  if (safely(() => (view.annotationEditorMode as unknown as number) === mode) !== false) return Promise.resolve()
   return new Promise((resolve) => {
     const done = ({ mode: reached }: { mode: number }) => {
       if (reached !== mode) return
@@ -332,8 +403,21 @@ function editorMode(mode: number): Promise<void> {
       resolve()
     }, 3000)
     bus.on('annotationeditormodechanged', done)
-    view.annotationEditorMode = { mode }
+    safely(() => {
+      view.annotationEditorMode = { mode }
+    })
   })
+}
+
+/** New text boxes: the chosen size, in black (applies to the selected text box instead when one is selected). */
+function textDefaults(lib: PdfJs) {
+  editors?.updateParams(lib.AnnotationEditorParamsType.FREETEXT_SIZE, FONT_SIZES[fontSize.value])
+  editors?.updateParams(lib.AnnotationEditorParamsType.FREETEXT_COLOR, '#000000')
+}
+
+/** pdf.js marks additions it only reopened from the file as changed: `touched` stays only for real changes. */
+function recheckTouched() {
+  if (touched.value && !hasChanges()) touched.value = false
 }
 
 async function useTool(next: AnnotateTool) {
@@ -345,17 +429,16 @@ async function useTool(next: AnnotateTool) {
   }
   tool.value = next
   await editorMode(editorModeFor(next, lib.AnnotationEditorType))
-  // New text boxes: the chosen size, in black (nothing is selected right after switching, so these are the defaults).
-  if (next === 'text') {
-    editors?.updateParams(lib.AnnotationEditorParamsType.FREETEXT_SIZE, FONT_SIZES[fontSize.value])
-    editors?.updateParams(lib.AnnotationEditorParamsType.FREETEXT_COLOR, '#000000')
-  }
+  // Nothing is selected right after switching, so these are the defaults for new text boxes.
+  if (next === 'text') safely(() => textDefaults(lib))
+  recheckTouched()
 }
 
 /** The size of new text boxes, and of the selected one. */
 function chooseFontSize(name: FontSizeName) {
   fontSize.value = name
-  if (pdfjs) editors?.updateParams(pdfjs.AnnotationEditorParamsType.FREETEXT_SIZE, FONT_SIZES[name])
+  const lib = pdfjs
+  if (lib) safely(() => editors?.updateParams(lib.AnnotationEditorParamsType.FREETEXT_SIZE, FONT_SIZES[name]))
 }
 
 /** The picture of a tick or a cross: black lines on a transparent square, sharp enough for print. */
@@ -385,12 +468,20 @@ async function markPicture(kind: MarkKind): Promise<File | null> {
 }
 
 /** Puts a picture centred on a point of a page, at most `box` points large (it can be moved and resized afterwards). */
-function placePicture(layer: EditorLayer, point: { offsetX: number; offsetY: number }, picture: { file: File; width: number; height: number }, box: { width: number; height: number }) {
-  const editor = layer.createAndAddNewEditor(point, true, { bitmapFile: picture.file })
-  if (!editor) return
+function placePicture(
+  layer: EditorLayer, point: { offsetX: number; offsetY: number }, picture: { file: File; width: number; height: number },
+  box: { width: number; height: number },
+): boolean {
+  if (!isEditorLayer(layer)) {
+    disableEditors('the page layer cannot take pictures')
+    return false
+  }
+  const editor = safely(() => layer.createAndAddNewEditor(point, true, { bitmapFile: picture.file }))
+  if (!editor) return false
   const [width, height] = layer.pageDimensions
   // pdf.js would show the picture as large as its pixels; the size it should have, before the picture is read.
   Object.assign(editor, stampSize(picture, { width, height }, box))
+  return true
 }
 
 /**
@@ -411,7 +502,7 @@ async function onPagePointerUp(event: PointerEvent) {
   const kind = tool.value
   if (!tapped || !editors || (kind !== 'check' && kind !== 'cross') || !target || !onFreePage(event)) return
   const number = Number(target.closest('.page')?.getAttribute('data-page-number'))
-  const layer = editors.getLayer(number - 1)
+  const layer = safely(() => editors?.getLayer(number - 1))
   const point = { offsetX: event.offsetX, offsetY: event.offsetY }
   const file = await markPicture(kind)
   if (!layer || !file) return
@@ -431,22 +522,52 @@ function visibleMiddle(layer: EditorLayer): { offsetX: number; offsetY: number }
   return layer.viewport.rotation % 180 === 0 ? { offsetX: x, offsetY: y } : { offsetX: y, offsetY: x }
 }
 
-/** The signature from the pad: on the page in view, in its middle, to be moved to its place. */
+/** The page's editor layer; a page drawn only just now gets its layer a moment later (waits for it once). */
+async function pageLayer(index: number): Promise<EditorLayer | undefined> {
+  const found = safely(() => editors?.getLayer(index))
+  if (found || !eventBus) return found
+  const bus = eventBus
+  await new Promise<void>((resolve) => {
+    const done = () => {
+      bus.off('annotationeditorlayerrendered', done)
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(done, 2000)
+    bus.on('annotationeditorlayerrendered', done)
+  })
+  return safely(() => editors?.getLayer(index))
+}
+
+/** The signature from the pad: on the page in view, in its middle, to be moved to its place (or a message). */
 async function placeSignature(picture: { file: File; width: number; height: number }) {
   const lib = pdfjs
-  if (!lib || !editors) return
-  tool.value = 'select'
-  await editorMode(lib.AnnotationEditorType.STAMP)
-  const layer = editors?.getLayer(pageNumber.value - 1)
-  if (!layer) return
-  placePicture(layer, visibleMiddle(layer), picture, SIGNATURE_POINTS)
+  let placed = false
+  if (lib && editors) {
+    tool.value = 'select'
+    await editorMode(lib.AnnotationEditorType.STAMP)
+    const layer = editors ? await pageLayer(pageNumber.value - 1) : undefined
+    if (layer) placed = placePicture(layer, visibleMiddle(layer), picture, SIGNATURE_POINTS)
+  }
+  if (!placed) toast.add({ title: t.signatureFailed, color: 'error' })
 }
 
 function deleteSelected() {
-  editors?.delete()
+  safely(() => editors?.delete())
 }
 function undo() {
-  editors?.undo()
+  safely(() => editors?.undo())
+}
+
+/**
+ * Enter or Space on the free page would make pdf.js's picture editor ask for any image file; the fill view only
+ * places its own tick, cross and signature.
+ */
+function onViewKeydown(event: KeyboardEvent) {
+  if ((event.key !== 'Enter' && event.key !== ' ') || !['select', 'check', 'cross'].includes(tool.value)) return
+  if (!(event.target as HTMLElement | null)?.classList?.contains('annotationEditorLayer')) return
+  event.preventDefault()
+  event.stopPropagation()
 }
 
 /** A text box being typed in is finished first, so saving and printing take what is on screen. */
@@ -474,7 +595,8 @@ function hasChanges(): boolean {
 
 async function requestClose() {
   if (busy.value) return
-  if (touched.value && hasChanges() && !(await confirm(t.unsavedConfirm, { confirmLabel: t.unsavedLeave, danger: true }))) return
+  recheckTouched()
+  if (touched.value && !(await confirm(t.unsavedConfirm, { confirmLabel: t.unsavedLeave, danger: true }))) return
   touched.value = false
   open.value = false
 }
@@ -675,7 +797,14 @@ const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '
     @close:prevent="requestClose"
   >
     <template #content>
-      <div class="flex h-full min-h-0 flex-col bg-gray-100">
+      <!--
+        pdf.js listens on the whole document while an editing tool is on: copy/cut/paste and dropped files would become
+        pictures on the page and block copying in the inputs. Stopped here (the browser's own copy and paste stay).
+      -->
+      <div
+        class="flex h-full min-h-0 flex-col bg-gray-100" @copy.stop @cut.stop @paste.stop @dragover.prevent.stop @drop.prevent.stop
+        @keydown="onViewKeydown"
+      >
         <header class="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-3 py-2">
           <div class="min-w-0 flex-1">
             <h2 class="truncate font-semibold">{{ source.title }}</h2>
@@ -726,7 +855,8 @@ const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '
         </div>
 
         <UAlert v-if="replace && status === 'ready'" class="rounded-none" color="info" variant="soft" :title="t.replaceHint[replace.kind]" />
-        <UAlert v-if="status === 'ready' && !hasFields" class="rounded-none" color="info" variant="soft" :title="t.noFields" />
+        <UAlert v-if="status === 'ready' && editorsUnavailable" class="rounded-none" color="warning" variant="soft" :title="t.toolsUnavailable" />
+        <UAlert v-else-if="status === 'ready' && !hasFields" class="rounded-none" color="info" variant="soft" :title="t.noFields" />
 
         <div class="relative min-h-0 flex-1">
           <p v-if="status === 'loading'" class="p-4 text-sm text-gray-600">{{ t.opening }}</p>
@@ -745,7 +875,10 @@ const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '
 
       <UModal v-model:open="sheetOpen" :title="t.saveTitle" :dismissible="!busy">
         <template #body>
-          <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="saveFromSheet">
+          <form
+            class="grid gap-3 sm:grid-cols-2" @submit.prevent="saveFromSheet" @copy.stop @cut.stop @paste.stop
+            @dragover.prevent.stop @drop.prevent.stop
+          >
             <p class="text-sm text-gray-600 sm:col-span-2">
               {{ target?.kind === 'child' ? t.saveToChild(target.name) : t.saveToEmployee(target?.name ?? '') }}
             </p>
@@ -788,6 +921,10 @@ const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '
  * always, pinching handled by the viewer (not the browser), and of the editors' small toolbar only the delete button
  * (no colours, alt text or comments).
  */
+/* pdf.js's styles set `:root { color-scheme: light dark }`; the app stays light (doubled for precedence). */
+:root:root {
+  color-scheme: light;
+}
 .pdf-fill-view {
   color-scheme: only light;
   touch-action: pan-x pan-y;

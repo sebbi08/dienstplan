@@ -37,6 +37,13 @@
       "matchPackageNames": ["/^[^/]+\\.[^/]+\\//", "!docker.io/**"],
       "minimumReleaseAgeBehaviour": "timestamp-optional",
       "automerge": false
+    },
+    {
+      "description": "pdf.js internals used by the fill view — test the fill dialog before updating (Dokumente → Vorlagen → Ausfüllen: Felder, Text, Häkchen, Unterschrift, Speichern, Bearbeiten). Eigener PR, nie automatisch gemergt, auch bei Patch-Updates.",
+      "matchPackageNames": ["pdfjs-dist"],
+      "groupName": "pdf.js",
+      "groupSlug": "pdfjs",
+      "automerge": false
     }
   ],
   "customManagers": [

@@ -89,6 +89,42 @@ export const MARK_LINES: Record<MarkKind, [number, number][][]> = {
   cross: [[[0.16, 0.16], [0.84, 0.84]], [[0.84, 0.16], [0.16, 0.84]]],
 }
 
+/**
+ * The methods of pdf.js's editor manager (AnnotationEditorUIManager) the fill view calls. They are not part of pdf.js's
+ * typed API, so the fill view checks them before it offers the tools (tests/services/pdfjsContract.test.ts checks
+ * them on the installed pdfjs-dist).
+ */
+export const EDITOR_MANAGER_METHODS = ['getLayer', 'undo', 'delete', 'commitOrRemove', 'updateParams'] as const
+
+/** Whether an object from pdf.js has all the editor manager methods the fill view needs. */
+export function isEditorManager(value: unknown): boolean {
+  return typeof value === 'object' && value !== null
+    && EDITOR_MANAGER_METHODS.every(name => typeof (value as Record<string, unknown>)[name] === 'function')
+}
+
+/** Whether a page's editor layer from pdf.js can take a new picture (AnnotationEditorLayer.createAndAddNewEditor). */
+export function isEditorLayer(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const layer = value as Record<string, unknown>
+  const dimensions = layer.pageDimensions
+  return typeof layer.createAndAddNewEditor === 'function' && Array.isArray(dimensions) && dimensions.length === 2
+    && layer.div instanceof Object && typeof layer.viewport === 'object' && layer.viewport !== null
+}
+
+/**
+ * Lets an object answer calls of methods it does not have (a newer pdf.js asking its translations for something new):
+ * they do nothing and resolve to undefined instead of throwing. `then` stays undefined, so the object is no promise.
+ */
+export function tolerant<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get(object, name, receiver) {
+      if (name in object) return Reflect.get(object, name, receiver)
+      if (typeof name === 'symbol' || name === 'then') return undefined
+      return async () => undefined
+    },
+  })
+}
+
 /** How far a finger may move during a tap that places a mark (CSS pixels). */
 export const TAP_SLOP = 10
 
@@ -184,7 +220,8 @@ export function createPdfjsL10n() {
     const texts = pdfjsTexts(id, args)
     return texts?.['aria-label'] ?? texts?.title
   }
-  return {
+  // Tolerant: a method a newer pdf.js may call on its translations does nothing instead of breaking the view.
+  return tolerant({
     getLanguage: () => 'de',
     getDirection: () => 'ltr',
     async get(ids: string | string[], args: Record<string, unknown> | null = null, fallback?: string) {
@@ -212,5 +249,5 @@ export function createPdfjsL10n() {
     async destroy() {
       for (const observer of observers.splice(0)) observer.disconnect()
     },
-  }
+  })
 }

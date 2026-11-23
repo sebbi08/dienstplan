@@ -4,7 +4,7 @@ import { assertUploadLength, parseUploadParts } from '../../../lib/documentHttp'
 import { idParams, noFields } from '../../../schemas'
 import { replaceDocumentFile } from '../../../services/childDocuments'
 
-/** „Weiter ausfüllen“: the filled form replaces the document's PDF, with the rights of changing the document. */
+/** „Bearbeiten“ of a PDF: the filled copy replaces the document's PDF, with the rights of changing the document. */
 export default defineServiceHandler(async (event) => {
   const actor = await requireChildPermission(event, 'children.edit')
   const { id } = await getValidatedRouterParams(event, idParams.parse)

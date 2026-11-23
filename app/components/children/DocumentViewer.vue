@@ -2,6 +2,7 @@
 import type { PDFDocumentLoadingTask } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { de } from '~/locales/de'
 import { documentFileUrl } from '~/utils/children'
+import { pdfjsFileOptions } from '~/utils/pdfjsFiles'
 
 /**
  * Shows a child document inside the app (used at the tablet): PDFs page by page and photos, all drawn on canvases. The
@@ -76,7 +77,8 @@ async function renderPdf(data: ArrayBuffer, current: number) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
   if (current !== generation) return
   pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url).toString()
-  const task = pdfjs.getDocument({ data: new Uint8Array(data), enableXfa: false })
+  // pdfjsFileOptions: the decoders for scanned pages (else a scan shows as an empty page).
+  const task = pdfjs.getDocument({ data: new Uint8Array(data), enableXfa: false, ...pdfjsFileOptions })
   loadingTask = task
   const document = await task.promise
   if (current !== generation) return void task.destroy()

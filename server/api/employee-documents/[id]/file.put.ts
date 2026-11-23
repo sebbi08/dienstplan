@@ -3,7 +3,7 @@ import { assertUploadLength, parseUploadParts } from '../../../lib/documentHttp'
 import { idParams, noFields } from '../../../schemas'
 import { replaceEmployeeDocumentFile } from '../../../services/employeeDocuments'
 
-/** „Weiter ausfüllen“: the filled form replaces the document's PDF; the service checks the folder's key (403). */
+/** „Bearbeiten“ of a PDF: the filled copy replaces the document's PDF; the service checks the folder's key (403). */
 export default defineServiceHandler(async (event) => {
   const actor = await requirePermission(event, 'employees.view')
   const { id } = await getValidatedRouterParams(event, idParams.parse)

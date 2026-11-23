@@ -208,7 +208,7 @@ export function updateDocument(
 }
 
 /**
- * A new file for the document („Weiter ausfüllen“: the form filled further), with the rights of changing it
+ * A new file for the document („Bearbeiten“: the PDF filled further), with the rights of changing it
  * (loadEditableDocument). Only a PDF replaces a PDF; type, title, date and confidentiality stay, the file counts as
  * uploaded now by the actor (as a new upload would, also for the required documents).
  */
