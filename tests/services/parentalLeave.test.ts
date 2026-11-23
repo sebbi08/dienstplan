@@ -5,13 +5,14 @@ import { closures, employeeChildren, employees, entries, leaveEntitlements, mate
 import { categoryHasData, deleteCategories } from '../../server/services/employeeDeletion'
 import { listEmployeeListExtras } from '../../server/services/employeeListExtras'
 import { getLeaveAccount } from '../../server/services/leave'
-import { getLeaveForfeitList, getMyLeaveForfeitNotice } from '../../server/services/leaveForfeit'
+import { getLeaveForfeitList, getMyLeaveForfeitNotice, markLeaveForfeitRead } from '../../server/services/leaveForfeit'
 import { getStaffYearCalendar, getYearCalendar } from '../../server/services/calendar'
 import {
   checkParentalLeavePeriod, createParentalLeave, deleteParentalLeave, getEmployeeParentalLeave, getParentalLeaveSettings,
   parentalLeavePlanCells, parentalLeaveReminders, setParentalLeaveSettings, updateParentalLeave,
 } from '../../server/services/parentalLeave'
-import { getMonthPlan } from '../../server/services/plan'
+import { getMonthPlan, getMyPlan } from '../../server/services/plan'
+import { releaseMonth } from '../../server/services/release'
 import { loadEmployee, loadEmployees } from '../../server/services/queries'
 import { listReminders } from '../../server/services/reminders'
 import { computeDay } from '../../shared/domain/balance'
@@ -272,9 +273,48 @@ describe('fix round 1', () => {
     create({ start: '2027-02-01', end: '2028-01-31' })
     expect(getMyLeaveForfeitNotice(db, account, '2027-02-15')).toBeNull()
     expect(getMyLeaveForfeitNotice(db, account, '2029-06-30')).toBeNull()
-    expect(getMyLeaveForfeitNotice(db, account, '2029-07-01')).toMatchObject({ year: 2026, days: 30, forfeitDate: '2029-12-31' })
-    expect(getLeaveForfeitList(db, 1, 2026, '2029-07-01').rows)
-      .toEqual([expect.objectContaining({ employeeId: anna, days: 30, protectedUntil: '2029-12-31', status: 'open' })])
+    // 2026, 2027 and 2028 share the date: one notice of 2028 with everything that lapses then (30 + 30 + 30 days).
+    expect(getMyLeaveForfeitNotice(db, account, '2029-07-01')).toMatchObject({ year: 2028, days: 90, forfeitDate: '2029-12-31' })
+    for (const year of [2026, 2027, 2028]) {
+      expect(getLeaveForfeitList(db, 1, year, '2029-07-01').rows, String(year))
+        .toEqual([expect.objectContaining({ employeeId: anna, days: 90, protectedUntil: '2029-12-31', status: 'open' })])
+    }
+  })
+
+  it('shows the usual notice of the year after the return once the protected one is read, with the right days', () => {
+    db.insert(leaveEntitlements).values({ employeeId: anna, year: 2026, days: 30 }).run()
+    const account = addUser(db, 'anna', 'observer', anna)
+    create({ start: '2027-02-01', end: '2028-01-31' })
+    markLeaveForfeitRead(db, account, 2028, '2029-07-02')
+    expect(getMyLeaveForfeitNotice(db, account, '2029-09-30')).toBeNull()
+    // From 1 October both windows are open: the protected one is read, so the usual one of 2029 shows – its own 30 days,
+    // not the 90 that lapse on 31.12.2029 already.
+    expect(getMyLeaveForfeitNotice(db, account, '2029-10-01')).toMatchObject({ year: 2029, days: 30, forfeitDate: '2030-03-31' })
+    expect(markLeaveForfeitRead(db, account, 2029, '2029-10-01').readAt).toBeTruthy()
+    expect(getMyLeaveForfeitNotice(db, account, '2029-10-02')).toBeNull()
+    // „Gelesen“ is taken for any open year; a year without an open notice is refused.
+    expect(errorCode(() => markLeaveForfeitRead(db, account, 2027, '2029-10-02'))).toBe('leave_forfeit_no_notice')
+    expect(getLeaveForfeitList(db, 1, 2026, '2029-10-02').rows).toEqual([expect.objectContaining({ employeeId: anna, status: 'read' })])
+    expect(getLeaveForfeitList(db, 1, 2029, '2029-10-02').rows).toEqual([expect.objectContaining({ employeeId: anna, days: 30, status: 'read' })])
+    // Before its window the protected leave is not listed, also with a receipt from before the Elternzeit was entered.
+    expect(getLeaveForfeitList(db, 1, 2026, '2028-06-01').rows).toEqual([])
+  })
+
+  it('names the protected notice in the employee list beside the year it has to be taken in', () => {
+    db.insert(leaveEntitlements).values({ employeeId: anna, year: 2026, days: 30 }).run()
+    create({ start: '2027-02-01', end: '2028-01-31' })
+    const forfeit = () => listEmployeeListExtras(db, 1, '2029-07-01', traeger.permissions).find(row => row.employeeId === anna)!.forfeit
+    expect(forfeit()).toEqual({ year: 2028, status: 'no_account', readAt: null, protectedUntil: '2029-12-31' })
+  })
+
+  it('shows the own full Elternzeit in „Mein Dienstplan“, not a part-time one', () => {
+    const account = addUser(db, 'anna', 'observer', anna)
+    create({ start: '2027-01-12', end: '2027-01-20' })
+    create({ start: '2027-01-21', end: '2027-03-31', partTimeWeeklyMinutes: 1200 })
+    releaseMonth(db, leitung, 1, 2027, 1)
+    const days = getMyPlan(db, account, 2027, 1, '2027-01-01').days
+    expect(days.filter(day => day.parentalLeave).map(day => day.date))
+      .toEqual(['2027-01-12', '2027-01-13', '2027-01-14', '2027-01-15', '2027-01-18', '2027-01-19', '2027-01-20'])
   })
 
   it('says „wechselt in Teilzeit-Elternzeit“ when a part-time section follows directly', () => {

@@ -47,9 +47,13 @@ export function listEmployeeListExtras(db: Db, facilityId: number, today: IsoDat
       }
       if (withForfeit) {
         const status = forfeit?.rows.get(employee.id)
-        row.forfeit = forfeit && status
-          ? { year: forfeit.year, status: status.status === 'reopened' ? 'open' : status.status, readAt: status.readAt }
-          : null
+        // Leave an Elternzeit protects has its own notice and date (§ 17 Abs. 2 BEEG): shown when no usual one runs.
+        const moved = forfeit?.protectedRows.get(employee.id)
+        row.forfeit = forfeit && forfeit.year !== null && status
+          ? { year: forfeit.year, status: status.status === 'reopened' ? 'open' : status.status, readAt: status.readAt, protectedUntil: null }
+          : moved
+            ? { year: moved.year, status: moved.status === 'reopened' ? 'open' : moved.status, readAt: moved.readAt, protectedUntil: moved.protectedUntil }
+            : null
       }
       return row
     })

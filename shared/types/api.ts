@@ -2222,7 +2222,11 @@ export interface EmployeeListExtrasDto {
    * window (1 October until the forfeiture date) or when the person has no leave left. `year` is the year whose
    * leave the notice is about. `open` also covers a notice that has to be read again.
    */
-  forfeit?: { year: number; status: 'read' | 'open' | 'no_account'; readAt: string | null } | null
+  forfeit?: {
+    year: number; status: 'read' | 'open' | 'no_account'; readAt: string | null
+    /** The date an Elternzeit moved the forfeiture to (§ 17 Abs. 2 BEEG; the notice of that leave); null = the usual notice. */
+    protectedUntil: IsoDate | null
+  } | null
 }
 
 /** One changed cell of an employee between two releases (texts as shown in the plan). */

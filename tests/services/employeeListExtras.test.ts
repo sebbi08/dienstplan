@@ -115,16 +115,16 @@ describe('the employee list: next level, mandatory appointments, leave notice pe
     })
 
     it('gives „open“ with an account and „no_account“ without one, from 1 October', () => {
-      expect(row(anna).forfeit).toEqual({ year: 2026, status: 'open', readAt: null })
-      expect(row(ben).forfeit).toEqual({ year: 2026, status: 'no_account', readAt: null })
+      expect(row(anna).forfeit).toEqual({ year: 2026, status: 'open', readAt: null, protectedUntil: null })
+      expect(row(ben).forfeit).toEqual({ year: 2026, status: 'no_account', readAt: null, protectedUntil: null })
     })
     it('gives „read“ with the time once the person clicked „Gelesen“', () => {
       markLeaveForfeitRead(db, annaUser, 2026, '2026-11-19', now)
-      expect(row(anna, providerRights, '2026-11-19').forfeit).toEqual({ year: 2026, status: 'read', readAt: now.toISOString() })
+      expect(row(anna, providerRights, '2026-11-19').forfeit).toEqual({ year: 2026, status: 'read', readAt: now.toISOString(), protectedUntil: null })
     })
     it('is null outside the window (before 1 October, after the forfeiture date)', () => {
       expect(row(anna, providerRights, '2026-09-30').forfeit).toBeNull()
-      expect(row(anna, providerRights, '2027-03-31').forfeit).toEqual({ year: 2026, status: 'open', readAt: null })
+      expect(row(anna, providerRights, '2027-03-31').forfeit).toEqual({ year: 2026, status: 'open', readAt: null, protectedUntil: null })
       expect(row(anna, providerRights, '2027-04-01').forfeit).toBeNull()
     })
     it('is null for someone without leave left', () => {

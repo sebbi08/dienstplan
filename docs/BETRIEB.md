@@ -1115,7 +1115,10 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   Krankheitstage) – sie bleiben stehen und zählen weiter (z. B. als Plusstunden); bitte prüfen. **Mit Teilzeit**
   (höchstens 32 Stunden pro Woche) gibst du die **Arbeitstage der Teilzeit** an (Vorgabe: die Arbeitstage laut
   Vertrag): Das Soll verteilt sich auf diese Tage, nur sie zählen als Urlaubstage und erwartete Arbeitstage; davor und
-  danach gelten die normalen Wochenstunden. Auch die Mutterschutz-Hinweise zur vereinbarten Arbeitszeit rechnen in
+  danach gelten die normalen Wochenstunden. Arbeitet die Person an weniger Tagen pro Woche als laut Vertrag, muss der
+  Jahresurlaub für diese Zeit anteilig umgerechnet werden (z. B. 30 → 18 Tage bei 3 statt 5 Tagen; schon erworbener
+  Urlaub bleibt, BAG 14.03.2017 – 9 AZR 7/16, EuGH C-415/12): Der Dialog weist darauf hin, die App rechnet **nicht**
+  um – bitte den Urlaubsanspruch von Hand anpassen. Auch die Mutterschutz-Hinweise zur vereinbarten Arbeitszeit rechnen in
   dieser Zeit mit den Teilzeit-Stunden. Neue Schließzeiten werden in der Elternzeit ohne Teilzeit nicht gebucht.
 - **Wer „Elternzeit“ sieht:** Personen mit dem Recht „Mitarbeiter ansehen“. Alle anderen (Mitarbeiter, Tablet) sehen
   **„abwesend“** – im Dienstplan wie im Jahreskalender. Unter **Einstellungen → Personal → „Elternzeit im
@@ -1131,10 +1134,15 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   sie spätestens am Verfallsdatum dieses Jahres, verfällt der Resturlaub dieses Jahres nicht zum üblichen Datum,
   sondern erst am 31.12. des Jahres nach der Rückkehr. Der Urlaubskasten zeigt „Resturlaub verfällt nicht wegen
   Elternzeit – zu nehmen bis 31.12.JJJJ“. Der **Hinweis auf Resturlaub (Verfall)** nennt dann dieses Datum: Er erscheint
-  ab der Rückkehr, frühestens ab dem 1. Juli des letzten Jahres, bis zu diesem Tag; die Liste in der Urlaubsplanung
-  (Jahr des Urlaubs) zeigt die Person ab dann mit „Elternzeit: verfällt erst am …“. Der Urlaub eines Jahres, das erst
-  nach der Rückkehr beginnt, verfällt wie üblich. Die übrigen Tage berechnet die App wie sonst (Urlaub ab dem
-  Folgejahr verbraucht zuerst den Übertrag) – eine Näherung.
+  ab dem 1. Juli des letzten Jahres bis zu diesem Tag. Schützt eine Elternzeit mehrere Urlaubsjahre (alle mit
+  demselben Datum), gibt es **einen** Hinweis für das letzte dieser Jahre mit allen Tagen, die an diesem Tag verfallen.
+  Laufen zwei Hinweise gleichzeitig (z. B. von Oktober bis Dezember der geschützte und der übliche des Jahres nach der
+  Rückkehr), sieht die Person zuerst den mit dem früheren Datum und nach „Gelesen“ den nächsten. Die Liste in der
+  Urlaubsplanung zeigt die Person ab dem 1. Juli mit „Elternzeit: verfällt erst am …“ – in der Liste **des
+  Urlaubsjahres** (z. B. 2026 im Jahr 2029; das Jahr dort auswählen), vorher gar nicht. In der Mitarbeiterliste steht
+  beim Resturlaub des laufenden Jahres „Resturlaub ‹Jahr› (Elternzeit): Hinweis offen/gelesen“, solange kein üblicher
+  Hinweis läuft. Der Urlaub eines Jahres, das erst nach der Rückkehr beginnt, verfällt wie üblich. Die übrigen Tage
+  berechnet die App wie sonst (Urlaub ab dem Folgejahr verbraucht zuerst den Übertrag) – eine Näherung.
 - **TVöD-Stufen:** Elternzeit ohne Teilzeit zählt nicht als Stufenlaufzeit (§ 17 Abs. 3 TVöD). Die Spalte „Nächste
   Stufe“ verschiebt den Tag um die Elternzeit-Tage seit Beginn der Stufenjahre („Stufe 4 ab … (30 Tage später wegen
   Elternzeit)“); der Abschnitt „Elternzeit“ nennt die Verschiebung ebenfalls. Das ist eine **Näherung, bitte prüfen**:

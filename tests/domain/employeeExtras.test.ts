@@ -40,5 +40,9 @@ describe('the texts of the employee list columns', () => {
     expect(forfeitText({ year: 2026, status: 'no_account', readAt: null }, 2026)).toBe('kein Konto – schriftlich hinweisen')
     // The notice is about one year: beside another year's leave the line stays away.
     expect(forfeitText({ year: 2026, status: 'open', readAt: null }, 2027)).toBeNull()
+    // Leave an Elternzeit protects: beside the year it has to be taken in (the year of its date), naming its own year.
+    const moved = { year: 2028, status: 'open' as const, readAt: null, protectedUntil: '2029-12-31' }
+    expect(forfeitText(moved, 2029)).toBe('Resturlaub 2028 (Elternzeit): Hinweis offen')
+    expect(forfeitText(moved, 2028)).toBeNull()
   })
 })

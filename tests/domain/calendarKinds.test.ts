@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { legendShowsKind, presentKinds } from '../../app/utils/calendarKinds'
+import { absenceDates, legendShowsKind, presentKinds } from '../../app/utils/calendarKinds'
 
 describe('the calendar legend', () => {
   it('lists „Mutterschutz / Beschäftigungsverbot“ only when such a day is in the calendar (only viewers with the right get them)', () => {
@@ -12,5 +12,18 @@ describe('the calendar legend', () => {
     expect(legendShowsKind('maternity', full)).toBe(true)
     expect(legendShowsKind('absent', full)).toBe(false)
     expect(presentKinds(null).size).toBe(0)
+  })
+})
+
+describe('the days an absence over a range lands on', () => {
+  it('skips weekends, holidays, days off, „abwesend“ and a full Elternzeit', () => {
+    const calendar = {
+      holidays: { state: 'BW' as const, assumptionDay: true },
+      freeDays: { 1: ['2027-02-05'] },
+      days: { 1: { '2027-02-01': 'parental_leave' as const, '2027-02-02': 'absent' as const, '2027-02-03': 'vacation' as const } },
+    }
+    // Monday 01.02. to Monday 08.02.2027.
+    expect(absenceDates(calendar, 1, '2027-02-01', '2027-02-08')).toEqual(['2027-02-03', '2027-02-04', '2027-02-08'])
+    expect(absenceDates(null, 1, '2027-02-01', '2027-02-02')).toEqual(['2027-02-01', '2027-02-02'])
   })
 })

@@ -47,7 +47,12 @@ export function requirementBadge(row: EmployeeListExtrasDto['requirements'][numb
  * year, the notice is about one year only: the line shows only beside that year's leave.
  */
 export function forfeitText(forfeit: EmployeeListExtrasDto['forfeit'], selectedYear: number): string | null {
-  if (!forfeit || forfeit.year !== selectedYear) return null
-  if (forfeit.status === 'read') return de.employees.forfeitRead(forfeit.readAt ? formatDateTime(forfeit.readAt).slice(0, 10) : '')
-  return forfeit.status === 'open' ? de.employees.forfeitOpen : de.employees.forfeitNoAccount
+  if (!forfeit) return null
+  // Leave an Elternzeit protects (§ 17 Abs. 2 BEEG): beside the year it has to be taken in, naming its own year.
+  const moved = forfeit.protectedUntil ?? null
+  if (moved === null ? forfeit.year !== selectedYear : Number(moved.slice(0, 4)) !== selectedYear) return null
+  const text = forfeit.status === 'read'
+    ? de.employees.forfeitRead(forfeit.readAt ? formatDateTime(forfeit.readAt).slice(0, 10) : '')
+    : forfeit.status === 'open' ? de.employees.forfeitOpen : de.employees.forfeitNoAccount
+  return moved === null ? text : de.employees.forfeitProtected(forfeit.year, text)
 }

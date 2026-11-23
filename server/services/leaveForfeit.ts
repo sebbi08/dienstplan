@@ -76,38 +76,80 @@ function remainingDays(db: Db, employee: EmployeeRecord, year: number, on: IsoDa
   return Math.max(0, free - countLeaveDays([...new Set(dates)], employee.halfLeaveOnEves))
 }
 
+interface EffectiveForfeit { date: IsoDate; from: IsoDate; protected: boolean }
+
 /**
  * The forfeiture date of the year's remaining leave for the employee and the first day of its notice: the facility's
  * (from 1 October of the year), or – while an Elternzeit keeps the leave from lapsing (§ 17 Abs. 2 BEEG, leave.ts
- * leaveProtectionOf) – 31 December of the year after the return, noticed from the return (at the earliest 1 July of that
- * last year; protectedNoticeFrom). Before that the leave does not lapse and there is no notice.
+ * leaveProtectionOf) – 31 December of the year after the return, noticed from 1 July of that last year
+ * (protectedNoticeFrom). Before that the leave does not lapse and there is no notice.
  */
-function effectiveForfeit(db: Db, employee: EmployeeRecord, year: number, setting: LeaveForfeitDate): { date: IsoDate; from: IsoDate; protected: boolean } {
+function effectiveForfeit(db: Db, employee: EmployeeRecord, year: number, setting: LeaveForfeitDate): EffectiveForfeit {
   const protection = leaveProtectionOf(db, employee, year)
   if (protection) return { date: protection.until, from: protectedNoticeFrom(protection), protected: true }
   return { date: forfeitDateOf(year, setting), from: toIsoDate(year, LEAVE_FORFEIT_NOTICE_MONTH, 1), protected: false }
+}
+
+/**
+ * The year whose notice speaks for `year`: the years one Elternzeit protects share one date, and the carry-over is
+ * cumulative, so the latest of them names everything that lapses on that day (its days include the earlier rest). The
+ * year itself when it is not protected or no later year shares its date.
+ */
+function noticeYearFor(db: Db, employee: EmployeeRecord, year: number, setting: LeaveForfeitDate, forfeit: EffectiveForfeit): number {
+  if (!forfeit.protected) return year
+  let latest = year
+  for (let later = year + 1; later <= Number(forfeit.date.slice(0, 4)); later++) {
+    const other = effectiveForfeit(db, employee, later, setting)
+    if (other.protected && other.date === forfeit.date) latest = later
+  }
+  return latest
 }
 
 /** Years back the notice looks for leave whose (moved) forfeiture date is still ahead: an Elternzeit lasts up to 3 years at a time. */
 const NOTICE_YEARS_BACK = 6
 
 /**
- * The notice of the employee on `today`, whether read or not (null: outside every window or no days left): the earliest
- * year whose notice window (effectiveForfeit) contains today and that has leave left.
+ * The days the notice of `year` (forfeiture `date`) names: what is left of the year (remainingDays, cumulative like the
+ * carry-over) without the protected rest of earlier years that lapses on an earlier day of its own (§ 17 Abs. 2 BEEG,
+ * the notice of the latest of those years): e.g. the usual notice of the year after the return does not count the
+ * Elternzeit leave again that lapses on 31 December before it.
  */
-function noticeOf(db: Db, employee: EmployeeRecord, today: IsoDate): LeaveForfeitNoticeDto | null {
-  if (!isEmployedInRange(employee.info, today, today)) return null
+function noticeDays(db: Db, employee: EmployeeRecord, year: number, on: IsoDate, date: IsoDate, setting: LeaveForfeitDate): number {
+  let days = remainingDays(db, employee, year, on, date)
+  if (days <= 0 || !(employee.info.parentalLeaves ?? []).length) return Math.max(0, days)
+  for (let earlier = year - NOTICE_YEARS_BACK; earlier < year; earlier++) {
+    const forfeit = effectiveForfeit(db, employee, earlier, setting)
+    if (!forfeit.protected || forfeit.date >= date || noticeYearFor(db, employee, earlier, setting, forfeit) !== earlier) continue
+    days -= remainingDays(db, employee, earlier, on < forfeit.date ? on : forfeit.date, forfeit.date)
+  }
+  return Math.max(0, days)
+}
+
+/**
+ * The notices of the employee on `today`, whether read or not, by forfeiture date: per year whose notice window
+ * (effectiveForfeit) contains today and that has leave left – the protected years of one Elternzeit (one date) as one
+ * notice of the latest of them, with the total that lapses then (noticeYearFor). Several can be open at once, e.g. the
+ * protected leave and the usual notice of the year after the return from October to December.
+ */
+function noticesOf(db: Db, employee: EmployeeRecord, today: IsoDate): LeaveForfeitNoticeDto[] {
+  if (!isEmployedInRange(employee.info, today, today)) return []
   const setting = forfeitSetting(db, employee.facilityId)
   const thisYear = Number(today.slice(0, 4))
+  const notices = new Map<number, LeaveForfeitNoticeDto>()
   for (let year = thisYear - NOTICE_YEARS_BACK; year <= thisYear; year++) {
     const forfeit = effectiveForfeit(db, employee, year, setting)
     if (today < forfeit.from || today > forfeit.date) continue
-    const days = remainingDays(db, employee, year, today, forfeit.date)
+    const noticeYear = noticeYearFor(db, employee, year, setting, forfeit)
+    if (notices.has(noticeYear)) continue
+    const days = noticeDays(db, employee, noticeYear, today, forfeit.date, setting)
     if (days <= 0) continue
     const forfeitDate = forfeit.date
-    return { year, days, forfeitDate, text: fillLeaveForfeitText(setting.text ?? DEFAULT_LEAVE_FORFEIT_TEXT, { days, year, forfeitDate }) }
+    notices.set(noticeYear, {
+      year: noticeYear, days, forfeitDate,
+      text: fillLeaveForfeitText(setting.text ?? DEFAULT_LEAVE_FORFEIT_TEXT, { days, year: noticeYear, forfeitDate }),
+    })
   }
-  return null
+  return [...notices.values()].sort((a, b) => (a.forfeitDate < b.forfeitDate ? -1 : a.forfeitDate > b.forfeitDate ? 1 : a.year - b.year))
 }
 
 type Receipt = typeof leaveForfeitReceipts.$inferSelect
@@ -130,32 +172,31 @@ function covers(receipt: Receipt | undefined, days: number, year: number, settin
 }
 
 /**
- * The notice the signed-in employee sees now; null without an employee, outside the window, without days or while a
- * receipt covers it (after more days, another forfeiture date or text it shows again, see covers).
+ * The notice the signed-in employee sees now: the first open notice (noticesOf) that no receipt covers (after more days,
+ * another forfeiture date or text it shows again, see covers); null without an employee or when there is none.
  */
 export function getMyLeaveForfeitNotice(db: Db, user: SessionUser, today: IsoDate): LeaveForfeitNoticeDto | null {
   if (user.employeeId === null) return null
   const employee = loadEmployee(db, user.employeeId)
   if (!employee) return null
-  const notice = noticeOf(db, employee, today)
-  if (!notice) return null
   const setting = forfeitSetting(db, employee.facilityId)
-  return covers(latestReceipt(db, employee.id, notice.year), notice.days, notice.year, setting, notice.forfeitDate) ? null : notice
+  return noticesOf(db, employee, today)
+    .find(notice => !covers(latestReceipt(db, employee.id, notice.year), notice.days, notice.year, setting, notice.forfeitDate)) ?? null
 }
 
 /**
- * „Gelesen“ by the employee themselves (403 no_employee without one): stores the days and the text of the notice as it
- * is shown now. While the latest receipt of the year covers the notice a click stores nothing and answers that
- * receipt's time; after more days or another date/text it adds a new receipt (the earlier ones stay). 409
- * leave_forfeit_no_notice when there is no notice of that year to read (unless it was read before).
+ * „Gelesen“ by the employee themselves (403 no_employee without one) for any open notice of that year (noticesOf):
+ * stores the days and the text as shown now. While the latest receipt of the year covers the notice a click stores
+ * nothing and answers that receipt's time; after more days or another date/text it adds a new receipt (the earlier ones
+ * stay). 409 leave_forfeit_no_notice when there is no open notice of that year (unless it was read before).
  */
 export function markLeaveForfeitRead(db: Db, user: SessionUser, year: number, today: IsoDate, now: Date = new Date()): { readAt: string } {
   if (user.employeeId === null) throw new ServiceError(403, 'no_employee')
   const employee = loadEmployee(db, user.employeeId)
   if (!employee) throw new ServiceError(403, 'no_employee')
   const existing = latestReceipt(db, employee.id, year)
-  const notice = noticeOf(db, employee, today)
-  if (!notice || notice.year !== year) {
+  const notice = noticesOf(db, employee, today).find(candidate => candidate.year === year)
+  if (!notice) {
     // Clicked once more after the notice ended or its days ran out: it stays read.
     if (existing) return { readAt: existing.readAt }
     throw new ServiceError(409, 'leave_forfeit_no_notice')
@@ -170,15 +211,37 @@ export function markLeaveForfeitRead(db: Db, user: SessionUser, year: number, to
 
 /**
  * The notice state per employee today, for the employee list: the year whose notice runs today (1 October until the
- * forfeiture date) and its rows, only of people with leave left; null outside that window.
+ * forfeiture date) and its rows, only of people with leave left (null outside that window); and, for anybody whose
+ * leave an Elternzeit protects, the open notice of that leave (`protectedRows`, keyed by employee, with the notice's
+ * year and date) – the first one no receipt covers, else the first one.
  */
 export function getLeaveForfeitStatuses(
   db: Db, facilityId: number, today: IsoDate,
-): { year: number; rows: Map<number, LeaveForfeitRowDto> } | null {
-  const year = leaveForfeitNoticeYear(today, forfeitSetting(db, facilityId))
-  if (year === null) return null
-  const rows = getLeaveForfeitList(db, facilityId, year, today).rows.filter(row => row.days > 0)
-  return { year, rows: new Map(rows.map(row => [row.employeeId, row])) }
+): { year: number | null; rows: Map<number, LeaveForfeitRowDto>; protectedRows: Map<number, LeaveForfeitRowDto & { year: number }> } {
+  const setting = forfeitSetting(db, facilityId)
+  const year = leaveForfeitNoticeYear(today, setting)
+  const rows = year === null ? [] : getLeaveForfeitList(db, facilityId, year, today).rows.filter(row => row.days > 0)
+  const protectedRows = new Map<number, LeaveForfeitRowDto & { year: number }>()
+  const withAccount = new Set(db.select({ employeeId: users.employeeId }).from(users).where(eq(users.active, true)).all()
+    .map(row => row.employeeId))
+  for (const employee of loadEmployees(db, facilityId)) {
+    if (!(employee.info.parentalLeaves ?? []).length) continue
+    const statuses = noticesOf(db, employee, today)
+      // Only the moved ones: the usual notice is in `rows`.
+      .filter(notice => notice.forfeitDate !== forfeitDateOf(notice.year, setting))
+      .map((notice) => {
+        const receipt = latestReceipt(db, employee.id, notice.year)
+        const read = covers(receipt, notice.days, notice.year, setting, notice.forfeitDate)
+        const status: LeaveForfeitRowDto['status'] = read ? 'read' : !withAccount.has(employee.id) ? 'no_account' : receipt ? 'reopened' : 'open'
+        return {
+          employeeId: employee.id, name: employee.name, days: notice.days, protectedUntil: notice.forfeitDate, status,
+          readAt: receipt?.readAt ?? null, readDays: receipt?.days ?? null, year: notice.year,
+        }
+      })
+    const shown = statuses.find(row => row.status !== 'read') ?? statuses[0]
+    if (shown) protectedRows.set(employee.id, shown)
+  }
+  return { year, rows: new Map(rows.map(row => [row.employeeId, row])), protectedRows }
 }
 
 /**
@@ -186,7 +249,9 @@ export function getLeaveForfeitStatuses(
  * that date) with leave of the year left then, plus anyone who has read the notice of the year, in the staff order.
  * Status: read (the latest receipt covers the notice; with its time and days), reopened (read, but now more days or
  * another date/text, so the box shows again), open (an active account, not read yet) or no_account (no active account:
- * to be told in writing). Before the window of the year (1 October) nobody is listed yet (`started` false).
+ * to be told in writing). Before the window of the year (1 October) nobody is listed yet (`started` false). Leave an
+ * Elternzeit protects is listed only from its own notice window on, under the notice of the latest year sharing its date
+ * (noticeYearFor: its days, its receipt), with that date in `protectedUntil`.
  */
 export function getLeaveForfeitList(db: Db, facilityId: number, year: number, today: IsoDate): LeaveForfeitListDto {
   const setting = forfeitSetting(db, facilityId)
@@ -205,15 +270,17 @@ export function getLeaveForfeitList(db: Db, facilityId: number, year: number, to
     .where(and(eq(users.active, true), inArray(users.employeeId, ids))).all().map(row => row.employeeId))
   const rows: LeaveForfeitRowDto[] = []
   for (const employee of staff) {
-    // An Elternzeit moves the forfeiture date (§ 17 Abs. 2 BEEG): before its notice starts the person is not listed.
+    // An Elternzeit moves the forfeiture date (§ 17 Abs. 2 BEEG): before its notice starts the person is not listed
+    // (a receipt from before the Elternzeit names the old date and says nothing now).
     const forfeit = effectiveForfeit(db, employee, year, setting)
-    const receipt = receipts.get(employee.id)
-    if (forfeit.protected && today < forfeit.from && !receipt) continue
-    const days = remainingDays(db, employee, year, today > forfeit.date ? forfeit.date : today, forfeit.date)
+    if (forfeit.protected && today < forfeit.from) continue
+    const noticeYear = noticeYearFor(db, employee, year, setting, forfeit)
+    const receipt = noticeYear === year ? receipts.get(employee.id) : latestReceipt(db, employee.id, noticeYear)
+    const days = noticeDays(db, employee, noticeYear, today > forfeit.date ? forfeit.date : today, forfeit.date, setting)
     if (days <= 0 && !receipt) continue
     rows.push({
       employeeId: employee.id, name: employee.name, days, protectedUntil: forfeit.protected ? forfeit.date : null,
-      status: receipt && (days <= 0 || covers(receipt, days, year, setting, forfeit.date))
+      status: receipt && (days <= 0 || covers(receipt, days, noticeYear, setting, forfeit.date))
         ? 'read'
         : !withAccount.has(employee.id) ? 'no_account' : receipt ? 'reopened' : 'open',
       readAt: receipt?.readAt ?? null, readDays: receipt?.days ?? null,

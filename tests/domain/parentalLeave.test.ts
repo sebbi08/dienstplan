@@ -138,10 +138,9 @@ describe('the remaining leave before an Elternzeit (§ 17 Abs. 2 BEEG)', () => {
     expect(leaveProtectedUntil([period('2027-02-01', '2028-01-31', { partTimeWeeklyMinutes: 900 })], 2026, '2027-03-31')).toBe('2029-12-31')
   })
 
-  it('is noticed from the return, at the earliest six months before its last day', () => {
+  it('is noticed from 1 July of its last year (six months before; the return always lies before that)', () => {
     expect(protectedNoticeFrom({ until: '2029-12-31', returnDay: '2028-02-01' })).toBe('2029-07-01')
     expect(protectedNoticeFrom({ until: '2027-12-31', returnDay: '2026-09-01' })).toBe('2027-07-01')
-    expect(protectedNoticeFrom({ until: '2027-12-31', returnDay: '2027-10-01' })).toBe('2027-10-01')
   })
 })
 

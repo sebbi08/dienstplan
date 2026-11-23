@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { isValidIsoDate } from '#shared/domain/dates'
+import { workdayCount } from '#shared/domain/targets'
 import {
   PARENTAL_LEAVE_DURATION_MAX_MONTHS, PARENTAL_LEAVE_NOTE_MAX, PARENTAL_LEAVE_PART_TIME_MAX_MINUTES, parentalLeaveEnd, parentalLeaveLength,
 } from '#shared/domain/parentalLeave'
@@ -108,7 +109,10 @@ const errorText = computed(() => (check.value?.error && form.start && end.value 
 const hintTexts = computed(() => (check.value?.hints ?? []).map(hint => (hint === 'sections'
   ? t.hints.sections(check.value!.sections)
   : hint === 'total' ? t.hints.total(formatNumber(check.value!.totalMonths)) : t.hints.afterThird(formatNumber(check.value!.monthsAfterThird)))))
-const ready = computed(() => isValidIsoDate(childBirthDate.value) && isValidIsoDate(form.start) && isValidIsoDate(end.value)
+/** Part time on fewer days a week than the contract: the leave would have to be converted (BAG 9 AZR 7/16). */
+const fewerDays = computed(() => form.partTime && form.partTimeWorkdays > 0
+  && workdayCount(form.partTimeWorkdays) < workdayCount(data.value?.contractWorkdays ?? 0b0011111))
+const ready = computed(() =>isValidIsoDate(childBirthDate.value) && isValidIsoDate(form.start) && isValidIsoDate(end.value)
   && (!form.partTime || (Number(form.partTimeHours) > 0 && Number(form.partTimeHours) * 60 <= PARENTAL_LEAVE_PART_TIME_MAX_MINUTES
     && form.partTimeWorkdays > 0)))
 
@@ -210,6 +214,11 @@ async function remove(item: ParentalLeaveDto) {
             <UFormField :label="t.partTimeWorkdays" :help="t.partTimeWorkdaysHint" required>
               <WorkdayPicker v-model="form.partTimeWorkdays" />
             </UFormField>
+            <!-- Fewer days a week: the yearly leave has to be converted pro rata for this time (a hint, nothing is recalculated). -->
+            <UAlert
+              v-if="fewerDays" color="warning" variant="soft"
+              :title="t.fewerDaysHint(workdayCount(form.partTimeWorkdays), workdayCount(data?.contractWorkdays ?? 0b0011111))"
+            />
           </template>
           <UCheckbox v-else v-model="form.reduceLeave" :label="t.reduceLeave" :description="t.reduceLeaveHint" />
           <UFormField :label="t.note">

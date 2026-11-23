@@ -165,12 +165,11 @@ export function leaveProtectedUntil(
 export const PROTECTED_NOTICE_MONTHS = 6
 
 /**
- * The notice window of a protected year's remaining leave: from the return (at the earliest PROTECTED_NOTICE_MONTHS
- * before the last day, i.e. 1 July of that year) up to and including the last day.
+ * The notice window of a protected year's remaining leave: PROTECTED_NOTICE_MONTHS before the last day (1 July of the
+ * year after the return; the return always lies before it) up to and including the last day.
  */
-export function protectedNoticeFrom(protection: LeaveProtection): IsoDate {
-  const earliest = toIsoDate(parseIsoDate(protection.until).year, 12 - PROTECTED_NOTICE_MONTHS + 1, 1)
-  return protection.returnDay > earliest ? protection.returnDay : earliest
+export function protectedNoticeFrom(protection: Pick<LeaveProtection, 'until'>): IsoDate {
+  return toIsoDate(parseIsoDate(protection.until).year, 12 - PROTECTED_NOTICE_MONTHS + 1, 1)
 }
 
 /**

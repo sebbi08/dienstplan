@@ -773,6 +773,8 @@ export const de = {
     forfeitRead: (date: string) => `Hinweis gelesen am ${date}`,
     forfeitOpen: 'Hinweis offen',
     forfeitNoAccount: 'kein Konto – schriftlich hinweisen',
+    // Remaining leave an Elternzeit kept from lapsing (§ 17 Abs. 2 BEEG): „Resturlaub 2028 (Elternzeit): Hinweis offen“.
+    forfeitProtected: (year: number, text: string) => `Resturlaub ${year} (Elternzeit): ${text}`,
     specialRights: 'Sonderrechte', specialRightGranted: 'zusätzlich erlaubt (einstellen im Reiter „Zugang“)',
     specialRightRevoked: 'weggenommen (einstellen im Reiter „Zugang“)', specialRightRevokedShort: 'weggenommen',
     hoursShort: 'Std.', balanceShort: 'Konto',
@@ -2930,6 +2932,7 @@ export const de = {
     partTimeWorkdays: 'Arbeitstage in der Teilzeit',
     partTimeWorkdaysHint: 'Vorgabe: die Arbeitstage laut Vertrag. Auf diese Tage wird das Soll verteilt, nur sie zählen als Urlaubstage.',
     workdaysLine: (days: string) => `an ${days}`,
+    fewerDaysHint: (days: number, contractDays: number) => `Die Person arbeitet in dieser Zeit an ${days} statt ${contractDays} Tagen pro Woche: Den Jahresurlaub für diese Zeit bitte anteilig umrechnen (z. B. 30 → 18 Tage bei 3 statt 5 Tagen; schon erworbener Urlaub bleibt, BAG 9 AZR 7/16, EuGH C-415/12). Die App rechnet nicht um.`,
     reduceLeave: 'Urlaub kürzen (1/12 je vollem Kalendermonat)',
     reduceLeaveHint: 'Nur wenn der Arbeitgeber die Kürzung erklärt (§ 17 Abs. 1 BEEG). Nicht bei Teilzeit bei uns während der Elternzeit. Gekürzt wird nur der eingetragene Jahresanspruch (keine Zusatztage, kein Zusatzurlaub).',
     note: 'Notiz',

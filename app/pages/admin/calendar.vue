@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { addDays, isWeekend, parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
-import { isHolidayIn } from '#shared/domain/holidays'
+import { parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
 import { formatTime } from '#shared/domain/time'
 import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { absenceDates } from '~/utils/calendarKinds'
 import { calendarPrintItems } from '~/utils/calendarPrint'
 import { SHOW_REQUESTS_KEY, requestCells, requestText, showRequestsFrom } from '~/utils/calendarRequests'
 import { formatDate, formatDayShort } from '~/utils/format'
@@ -67,17 +67,12 @@ function openAbsence(employeeId: number, date: string) {
   Object.assign(absence, { open: true, employeeId, date })
 }
 
-/** Working days of that employee: Mon–Fri without public holidays and without their contractual days off. */
+/**
+ * Working days of that employee: Mon–Fri without public holidays and without their contractual days off; „abwesend“
+ * and a full Elternzeit are left as they are (absenceDates).
+ */
 function workdays(employeeId: number, from: string, to: string): string[] {
-  const free = new Set(calendar.value?.freeDays[employeeId] ?? [])
-  const holidays = calendar.value?.holidays
-  const dates: string[] = []
-  // „abwesend“ (a private absence the viewer may not see or change) is left as it is.
-  const days = calendar.value?.days[employeeId] ?? {}
-  for (let date = from; date <= to; date = addDays(date, 1)) {
-    if (!isWeekend(date) && !(holidays && isHolidayIn(date, holidays)) && !free.has(date) && days[date] !== 'absent') dates.push(date)
-  }
-  return dates
+  return absenceDates(calendar.value, employeeId, from, to)
 }
 
 async function applyAbsence(codeId: number | null, until: string) {
