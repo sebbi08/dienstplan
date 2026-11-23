@@ -2,17 +2,20 @@ import { and, asc, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm'
 import { todayIso } from '../../shared/domain/dates'
 import { FORM_LIMITS } from '../../shared/domain/forms'
 import {
-  KNOWLEDGE_LIMITS, KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, checkedAsOf, checkedKnowledgeUrl, comparableKnowledgeName,
-  confirmState, type KnowledgeConfirmState,
+  KNOWLEDGE_LIMITS, KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES, checkedAsOf, checkedKnowledgeUrl,
+  comparableKnowledgeName, confirmState, type KnowledgeConfirmState,
 } from '../../shared/domain/knowledge'
 import { can } from '../../shared/domain/permissions'
 import { isRichText, plainTextToRichText, richTextLength, sanitizeRichText } from '../../shared/domain/richText'
 import { isEmployedOn } from '../../shared/domain/targets'
-import { seesTemplateCategory, visibleTemplateLevels, type TemplateVisibility } from '../../shared/domain/templateCategories'
+import {
+  categoriesInTreeOrder, categoryNameList, categoryPath, categoryPlacer, compareSpots, seesAll, seesCategoryNode, spotVisibilities,
+  swappedSiblings, visibleTemplateLevels, type CategorySpot, type TemplateVisibility,
+} from '../../shared/domain/templateCategories'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  KnowledgeCategoryDto, KnowledgeCategoryInput, KnowledgeConfirmationRowDto, KnowledgeConfirmationsDto, KnowledgeConfirmResultDto,
-  KnowledgeDto, KnowledgeEntryDto, KnowledgeEntryInput, Role, SessionUser,
+  CategoryNameDto, KnowledgeCategoryDto, KnowledgeCategoryInput, KnowledgeConfirmationRowDto, KnowledgeConfirmationsDto,
+  KnowledgeConfirmResultDto, KnowledgeDto, KnowledgeEntryDto, KnowledgeEntryInput, Role, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, facilities, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeStarterSeeds, users } from '../db/schema'
@@ -48,10 +51,10 @@ function assertManager(actor: Pick<SessionUser, 'permissions'>): void {
 
 // ---- categories ------------------------------------------------------------
 
-/** The facility's categories in their order (ties by id). */
+/** The facility's categories, each category followed by its subcategories, in their order (ties by id). */
 export const facilityKnowledgeCategories = (db: Db, facilityId: number): CategoryRow[] =>
-  db.select().from(knowledgeCategories).where(eq(knowledgeCategories.facilityId, facilityId))
-    .orderBy(asc(knowledgeCategories.sortOrder), asc(knowledgeCategories.id)).all()
+  categoriesInTreeOrder(db.select().from(knowledgeCategories).where(eq(knowledgeCategories.facilityId, facilityId))
+    .orderBy(asc(knowledgeCategories.sortOrder), asc(knowledgeCategories.id)).all())
 
 /** The trimmed category name (at most 60 characters); an empty one is 400 knowledge_category_name_required. */
 function checkedCategoryName(name: string): string {
@@ -61,70 +64,85 @@ function checkedCategoryName(name: string): string {
 }
 
 /**
- * The checked name (unique regardless of case among all the facility's categories, 409 knowledge_category_name_taken)
- * and a visibility the actor sees (403 otherwise: a Leitung cannot make a category the Träger's alone).
+ * The checked name (unique regardless of case among its siblings – the facility's categories, or the subcategories of
+ * the same category –, 409 knowledge_category_name_taken) and a visibility the actor sees (403 otherwise: a Leitung
+ * cannot make a category the Träger's alone).
  */
 function checkedCategoryInput(
-  db: Db, actor: KnowledgeActor, input: KnowledgeCategoryInput, current: CategoryRow | null,
+  actor: KnowledgeActor, all: readonly CategoryRow[], input: KnowledgeCategoryInput, parentId: number | null, current: CategoryRow | null,
 ): { name: string; visibility: TemplateVisibility } {
   const name = checkedCategoryName(input.name)
   if (!visibleTemplateLevels(actor.role).includes(input.visibility)) throw new ServiceError(403, 'forbidden')
-  const clash = facilityKnowledgeCategories(db, actor.facilityId)
-    .some(row => row.id !== current?.id && comparableKnowledgeName(row.name) === comparableKnowledgeName(name))
+  const clash = all.some(row => row.id !== current?.id && row.parentId === parentId
+    && comparableKnowledgeName(row.name) === comparableKnowledgeName(name))
   if (clash) throw new ServiceError(409, 'knowledge_category_name_taken')
   return { name, visibility: input.visibility }
 }
 
-/** A category of the actor's facility they see (else 404 knowledge_category_not_found), for knowledge.manage (else 403). */
-function loadCategory(db: Db, actor: KnowledgeActor, id: number): CategoryRow {
+/**
+ * A category or subcategory of the actor's facility they see (a subcategory with its category; else 404
+ * knowledge_category_not_found), for knowledge.manage (else 403); with all the facility's categories.
+ */
+function loadCategory(db: Db, actor: KnowledgeActor, id: number): { row: CategoryRow; all: CategoryRow[] } {
   assertManager(actor)
-  const row = db.select().from(knowledgeCategories)
-    .where(and(eq(knowledgeCategories.id, id), eq(knowledgeCategories.facilityId, actor.facilityId))).get()
-  if (!row || !seesTemplateCategory(actor.role, row.visibility)) throw new ServiceError(404, 'knowledge_category_not_found')
-  return row
-}
-
-/** A new category at the end of the facility's list; returns its id. */
-export function createKnowledgeCategory(db: Db, actor: KnowledgeActor, input: KnowledgeCategoryInput): number {
-  assertManager(actor)
-  const values = checkedCategoryInput(db, actor, input, null)
-  const last = facilityKnowledgeCategories(db, actor.facilityId).at(-1)
-  return db.insert(knowledgeCategories).values({ ...values, facilityId: actor.facilityId, sortOrder: last ? last.sortOrder + 1 : 0 })
-    .returning({ id: knowledgeCategories.id }).get().id
-}
-
-/** Renames the category and changes who sees it (and its entries). */
-export function updateKnowledgeCategory(db: Db, actor: KnowledgeActor, id: number, input: KnowledgeCategoryInput): void {
-  const current = loadCategory(db, actor, id)
-  db.update(knowledgeCategories).set(checkedCategoryInput(db, actor, input, current)).where(eq(knowledgeCategories.id, id)).run()
+  const all = facilityKnowledgeCategories(db, actor.facilityId)
+  const row = all.find(category => category.id === id)
+  if (!row || !seesCategoryNode(actor.role, row, all)) throw new ServiceError(404, 'knowledge_category_not_found')
+  return { row, all }
 }
 
 /**
- * Swaps the category with its neighbour among those the actor sees (the Leitung's list skips the Träger's hidden ones);
- * at an end nothing changes. The facility's whole list is numbered afresh.
+ * A new category at the end of the facility's list, or with `parentId` a new subcategory at the end of that category's
+ * (a category of the facility the actor sees, not itself a subcategory: else 400 knowledge_category_parent_invalid);
+ * returns its id.
+ */
+export function createKnowledgeCategory(db: Db, actor: KnowledgeActor, input: KnowledgeCategoryInput): number {
+  assertManager(actor)
+  const all = facilityKnowledgeCategories(db, actor.facilityId)
+  const parentId = input.parentId ?? null
+  if (parentId !== null) {
+    const parent = all.find(row => row.id === parentId)
+    if (!parent || parent.parentId !== null || !seesCategoryNode(actor.role, parent, all)) {
+      throw new ServiceError(400, 'knowledge_category_parent_invalid')
+    }
+  }
+  const values = checkedCategoryInput(actor, all, input, parentId, null)
+  const last = all.filter(row => row.parentId === parentId).at(-1)
+  return db.insert(knowledgeCategories).values({ ...values, facilityId: actor.facilityId, parentId, sortOrder: last ? last.sortOrder + 1 : 0 })
+    .returning({ id: knowledgeCategories.id }).get().id
+}
+
+/** Renames the category and changes who sees it (and its entries); where it sits (category or subcategory) stays. */
+export function updateKnowledgeCategory(db: Db, actor: KnowledgeActor, id: number, input: KnowledgeCategoryInput): void {
+  const { row, all } = loadCategory(db, actor, id)
+  db.update(knowledgeCategories).set(checkedCategoryInput(actor, all, input, row.parentId, row)).where(eq(knowledgeCategories.id, id)).run()
+}
+
+/**
+ * Swaps the category with its neighbour among its siblings the actor sees (the facility's categories, or the
+ * subcategories of the same category; the Leitung's list skips the Träger's hidden ones); at an end nothing changes.
+ * The siblings are numbered afresh.
  */
 export function moveKnowledgeCategory(db: Db, actor: KnowledgeActor, id: number, direction: 'up' | 'down'): void {
-  loadCategory(db, actor, id)
-  const all = facilityKnowledgeCategories(db, actor.facilityId)
-  const visible = all.filter(row => seesTemplateCategory(actor.role, row.visibility))
-  const at = visible.findIndex(row => row.id === id)
-  const self = visible[at]!
-  const neighbour = visible[direction === 'up' ? at - 1 : at + 1]
-  if (!neighbour) return
-  const swapped = all.map(row => (row.id === self.id ? neighbour : row.id === neighbour.id ? self : row))
+  const { row, all } = loadCategory(db, actor, id)
+  const siblings = all.filter(other => other.parentId === row.parentId)
+  const swapped = swappedSiblings(siblings, siblings.filter(other => seesCategoryNode(actor.role, other, all)), id, direction)
+  if (!swapped) return
   db.transaction((tx) => {
-    swapped.forEach((row, index) => {
-      if (row.sortOrder !== index) tx.update(knowledgeCategories).set({ sortOrder: index }).where(eq(knowledgeCategories.id, row.id)).run()
+    swapped.forEach((sibling, index) => {
+      if (sibling.sortOrder !== index) tx.update(knowledgeCategories).set({ sortOrder: index }).where(eq(knowledgeCategories.id, sibling.id)).run()
     })
   })
 }
 
 /**
- * Deletes an empty category; one holding entries of the facility is 409 knowledge_category_not_empty. Entries for all
- * facilities filed under its name do not count: they move to „Vom Träger“.
+ * Deletes an empty category: one with subcategories is 409 knowledge_category_has_subcategories, one holding entries of
+ * the facility 409 knowledge_category_not_empty. Entries for all facilities filed under its name do not count: they move
+ * to „Vom Träger“ (from a subcategory: directly into its category).
  */
 export function deleteKnowledgeCategory(db: Db, actor: KnowledgeActor, id: number): void {
-  loadCategory(db, actor, id)
+  const { all } = loadCategory(db, actor, id)
+  if (all.some(row => row.parentId === id)) throw new ServiceError(409, 'knowledge_category_has_subcategories')
   const used = db.select({ id: knowledgeEntries.id }).from(knowledgeEntries).where(eq(knowledgeEntries.categoryId, id)).limit(1).get()
   if (used) throw new ServiceError(409, 'knowledge_category_not_empty')
   db.delete(knowledgeCategories).where(eq(knowledgeCategories.id, id)).run()
@@ -132,22 +150,17 @@ export function deleteKnowledgeCategory(db: Db, actor: KnowledgeActor, id: numbe
 
 /**
  * The category names to offer the Träger for an entry for all facilities (knowledge.global, else 403): every name a
- * facility uses or such an entry carries, once regardless of case, alphabetical.
+ * facility uses or such an entry carries, once regardless of case, alphabetical, each with the subcategory names under it.
  */
-export function globalKnowledgeCategoryNames(db: Db, actor: Pick<SessionUser, 'permissions'>): string[] {
+export function globalKnowledgeCategoryNames(db: Db, actor: Pick<SessionUser, 'permissions'>): CategoryNameDto[] {
   if (!can(actor.permissions, 'knowledge.global')) throw new ServiceError(403, 'forbidden')
-  const names = [
-    ...db.select({ name: knowledgeCategories.name }).from(knowledgeCategories)
-      .orderBy(asc(knowledgeCategories.facilityId), asc(knowledgeCategories.sortOrder), asc(knowledgeCategories.id)).all().map(row => row.name),
-    ...db.select({ name: knowledgeEntries.categoryName }).from(knowledgeEntries).where(isNotNull(knowledgeEntries.categoryName)).all()
-      .map(row => row.name ?? ''),
-  ]
-  const byName = new Map<string, string>()
-  for (const name of names) {
-    const key = comparableKnowledgeName(name)
-    if (key !== '' && !byName.has(key)) byName.set(key, name.trim())
-  }
-  return [...byName.values()].sort((a, b) => a.localeCompare(b, 'de'))
+  const rows = db.select({ id: knowledgeCategories.id, parentId: knowledgeCategories.parentId, name: knowledgeCategories.name })
+    .from(knowledgeCategories)
+    .orderBy(asc(knowledgeCategories.facilityId), asc(knowledgeCategories.sortOrder), asc(knowledgeCategories.id)).all()
+  const names = new Map(rows.map(row => [row.id, row.name]))
+  const filed = db.select({ name: knowledgeEntries.categoryName, subcategoryName: knowledgeEntries.subcategoryName }).from(knowledgeEntries)
+    .where(and(isNull(knowledgeEntries.facilityId), isNotNull(knowledgeEntries.categoryName))).all()
+  return categoryNameList(rows.map(row => ({ name: row.name, parentName: row.parentId === null ? null : names.get(row.parentId) ?? null })), filed)
 }
 
 // ---- placing ---------------------------------------------------------------
@@ -155,8 +168,8 @@ export function globalKnowledgeCategoryNames(db: Db, actor: Pick<SessionUser, 'p
 /** Every column but the file itself (lists never read the PDFs). */
 const ENTRY_COLUMNS = {
   id: knowledgeEntries.id, facilityId: knowledgeEntries.facilityId, categoryId: knowledgeEntries.categoryId,
-  categoryName: knowledgeEntries.categoryName, visibility: knowledgeEntries.visibility, kind: knowledgeEntries.kind,
-  title: knowledgeEntries.title, description: knowledgeEntries.description, asOf: knowledgeEntries.asOf,
+  categoryName: knowledgeEntries.categoryName, subcategoryName: knowledgeEntries.subcategoryName, visibility: knowledgeEntries.visibility,
+  kind: knowledgeEntries.kind, title: knowledgeEntries.title, description: knowledgeEntries.description, asOf: knowledgeEntries.asOf,
   fileMime: knowledgeEntries.fileMime, fileSize: knowledgeEntries.fileSize, url: knowledgeEntries.url, body: knowledgeEntries.body,
   needsConfirmation: knowledgeEntries.needsConfirmation, version: knowledgeEntries.version, versionAt: knowledgeEntries.versionAt, sortOrder: knowledgeEntries.sortOrder,
   starterKey: knowledgeEntries.starterKey, createdAt: knowledgeEntries.createdAt, createdBy: knowledgeEntries.createdBy,
@@ -166,34 +179,33 @@ const ENTRY_COLUMNS = {
 /** The facility's own entries and those for all facilities. */
 const ofFacility = (facilityId: number) => or(eq(knowledgeEntries.facilityId, facilityId), isNull(knowledgeEntries.facilityId))
 
-/** Where an entry shows in the facility: its category there (null = „Vom Träger“) and the visibility that applies. */
-interface Placement { category: CategoryRow | null; name: string; visibility: TemplateVisibility[] }
+/**
+ * Where an entry shows in the facility: its category and subcategory there (category null = „Vom Träger“), the name to
+ * show („Kategorie › Unterkategorie“; for „Vom Träger“ the names the Träger chose) and the visibilities that apply.
+ */
+interface Placement { spot: CategorySpot<CategoryRow>; name: string; subName: string; visibility: TemplateVisibility[] }
 
 /**
- * Places the entries in the facility's categories: a facility's own entry in its category; an entry for all facilities
- * in the facility's category of the same name (regardless of case), otherwise under „Vom Träger“. The visibilities that
- * apply: the category's, for an entry for all facilities its own as well (the stricter one wins).
+ * Places the entries in the facility's categories: a facility's own entry in its category or subcategory; an entry for
+ * all facilities in the facility's category of the same name (regardless of case) – there in its subcategory of the
+ * subcategory name, else directly in the category –, otherwise under „Vom Träger“. The visibilities that apply: the
+ * category's and the subcategory's, for an entry for all facilities its own as well (the strictest one wins).
  */
-function placer(categories: readonly CategoryRow[]): (row: Pick<EntryRow, 'facilityId' | 'categoryId' | 'categoryName' | 'visibility'>) => Placement | null {
-  const byId = new Map(categories.map(category => [category.id, category]))
-  const byName = new Map<string, CategoryRow>()
-  for (const category of categories) {
-    const key = comparableKnowledgeName(category.name)
-    if (!byName.has(key)) byName.set(key, category)
-  }
+function placer(categories: readonly CategoryRow[]):
+(row: Pick<EntryRow, 'facilityId' | 'categoryId' | 'categoryName' | 'subcategoryName' | 'visibility'>) => Placement | null {
+  const place = categoryPlacer(categories)
   return (row) => {
-    if (row.facilityId !== null) {
-      const category = row.categoryId === null ? undefined : byId.get(row.categoryId)
-      return category ? { category, name: category.name, visibility: [category.visibility] } : null
-    }
-    const category = byName.get(comparableKnowledgeName(row.categoryName ?? '')) ?? null
-    return { category, name: category?.name ?? row.categoryName ?? '', visibility: category ? [row.visibility, category.visibility] : [row.visibility] }
+    const own = row.facilityId !== null
+    const spot = own ? place.byId(row.categoryId) : place.byName(row.categoryName, row.subcategoryName)
+    if (!spot) return null
+    const name = spot.category?.name ?? row.categoryName ?? ''
+    const subName = spot.subcategory?.name ?? (spot.category ? '' : row.subcategoryName ?? '')
+    return { spot, name, subName, visibility: [...spotVisibilities(spot), ...(own ? [] : [row.visibility])] }
   }
 }
 
 /** Whether someone of the role sees an entry placed so. */
-const seesPlacement = (role: Role, placement: Placement | null) =>
-  placement !== null && placement.visibility.every(visibility => seesTemplateCategory(role, visibility))
+const seesPlacement = (role: Role, placement: Placement | null) => placement !== null && seesAll(role, placement.visibility)
 
 /** An entry for all facilities is the Träger's (knowledge.global); a facility's own needs knowledge.manage. */
 const mayEdit = (viewer: Pick<SessionUser, 'permissions'>, row: Pick<EntryRow, 'facilityId'>) =>
@@ -201,12 +213,16 @@ const mayEdit = (viewer: Pick<SessionUser, 'permissions'>, row: Pick<EntryRow, '
 
 type Placed = { row: EntryRow; placement: Placement }
 
-/** By category (in the facility's order, „Vom Träger“ last), the facility's own entries first (▲/▼), then by title. */
+/**
+ * By category (in the facility's order, „Vom Träger“ last; within a category the entries directly in it first, then by
+ * subcategory), the facility's own entries first (▲/▼), then by title.
+ */
 function compareEntries(a: Placed, b: Placed): number {
-  const order = (entry: Placed) => entry.placement.category?.sortOrder ?? Infinity
   const own = (entry: Placed) => (entry.row.facilityId === null ? 1 : 0)
-  return order(a) - order(b) || (a.placement.category?.id ?? 0) - (b.placement.category?.id ?? 0)
-    || (a.placement.category === null ? a.placement.name.localeCompare(b.placement.name, 'de') : 0)
+  return compareSpots(a.placement.spot, b.placement.spot)
+    || (a.placement.spot.category === null
+      ? a.placement.name.localeCompare(b.placement.name, 'de') || a.placement.subName.localeCompare(b.placement.subName, 'de')
+      : 0)
     || own(a) - own(b) || (own(a) === 0 ? a.row.sortOrder - b.row.sortOrder : 0)
     || a.row.title.localeCompare(b.row.title, 'de') || a.row.id - b.row.id
 }
@@ -230,26 +246,30 @@ const accountPerson = (viewer: Pick<KnowledgeViewer, 'role' | 'employeeId'>) => 
  */
 export function listKnowledge(db: Db, viewer: KnowledgeViewer): KnowledgeDto {
   const all = facilityKnowledgeCategories(db, viewer.facilityId)
-  const categories = all.filter(row => seesTemplateCategory(viewer.role, row.visibility))
+  const categories = all.filter(row => seesCategoryNode(viewer.role, row, all))
   const entries = visibleEntries(db, viewer, all)
   const person = accountPerson(viewer)
   const confirmations = new Map(person === null || entries.length === 0 ? [] : db.select().from(knowledgeConfirmations)
     .where(and(eq(knowledgeConfirmations.employeeId, person), inArray(knowledgeConfirmations.entryId, entries.map(entry => entry.row.id))))
     .all().map(row => [row.entryId, row]))
+  // Counted where each entry shows directly: in its subcategory, else in its category.
   const counts = new Map<number, number>()
   const owns = new Map<number, number>()
   for (const { row, placement } of entries) {
-    if (!placement.category) continue
-    counts.set(placement.category.id, (counts.get(placement.category.id) ?? 0) + 1)
-    if (row.facilityId !== null) owns.set(placement.category.id, (owns.get(placement.category.id) ?? 0) + 1)
+    const shownIn = placement.spot.subcategory ?? placement.spot.category
+    if (!shownIn) continue
+    counts.set(shownIn.id, (counts.get(shownIn.id) ?? 0) + 1)
+    if (row.facilityId !== null) owns.set(shownIn.id, (owns.get(shownIn.id) ?? 0) + 1)
   }
   const dtos = entries.map(({ row, placement }): KnowledgeEntryDto => {
     const confirmation = confirmations.get(row.id)
     return {
       id: row.id,
-      categoryId: placement.category?.id ?? null,
+      categoryId: placement.spot.category?.id ?? null,
+      subcategoryId: placement.spot.subcategory?.id ?? null,
       global: row.facilityId === null,
       globalCategoryName: row.facilityId === null ? row.categoryName ?? '' : null,
+      globalSubcategoryName: row.facilityId === null ? row.subcategoryName ?? '' : null,
       globalVisibility: row.facilityId === null ? row.visibility : null,
       kind: row.kind,
       title: row.title,
@@ -271,8 +291,8 @@ export function listKnowledge(db: Db, viewer: KnowledgeViewer): KnowledgeDto {
   })
   return {
     categories: categories.map((category): KnowledgeCategoryDto => ({
-      id: category.id, name: category.name, visibility: category.visibility, entryCount: counts.get(category.id) ?? 0,
-      ownCount: owns.get(category.id) ?? 0,
+      id: category.id, parentId: category.parentId, name: category.name, visibility: category.visibility,
+      entryCount: counts.get(category.id) ?? 0, ownCount: owns.get(category.id) ?? 0,
     })),
     entries: dtos,
     canManage: manages(viewer),
@@ -342,21 +362,29 @@ function checkedFields(input: KnowledgeEntryInput) {
   return { kind: input.kind, title, description, asOf, url, body, needsConfirmation: input.needsConfirmation }
 }
 
-/** The category of a facility's entry as the actor chooses it: one of the facility they see, else 400 knowledge_category_invalid. */
+/**
+ * The category or subcategory of a facility's entry as the actor chooses it: one of the facility they see (a
+ * subcategory with its category), else 400 knowledge_category_invalid.
+ */
 function chosenCategory(db: Db, actor: KnowledgeActor, id: number | undefined): number {
-  const row = id === undefined
-    ? undefined
-    : db.select().from(knowledgeCategories).where(and(eq(knowledgeCategories.id, id), eq(knowledgeCategories.facilityId, actor.facilityId))).get()
-  if (!row || !seesTemplateCategory(actor.role, row.visibility)) throw new ServiceError(400, 'knowledge_category_invalid')
+  const all = id === undefined ? [] : facilityKnowledgeCategories(db, actor.facilityId)
+  const row = all.find(category => category.id === id)
+  if (!row || !seesCategoryNode(actor.role, row, all)) throw new ServiceError(400, 'knowledge_category_invalid')
   return row.id
 }
 
-/** Where the entry is filed: a category of the facility, or for all facilities a category name and its visibility. */
+/**
+ * Where the entry is filed: a category or subcategory of the facility, or for all facilities a category name, a
+ * subcategory name (none: directly in the category) and its visibility.
+ */
 function filing(db: Db, actor: KnowledgeActor, global: boolean, input: KnowledgeEntryInput, current?: TemplateVisibility) {
-  if (!global) return { categoryId: chosenCategory(db, actor, input.categoryId), categoryName: null, visibility: 'all' as const }
+  if (!global) {
+    return { categoryId: chosenCategory(db, actor, input.categoryId), categoryName: null, subcategoryName: null, visibility: 'all' as const }
+  }
   const visibility = input.visibility ?? current ?? 'all'
   if (!visibleTemplateLevels(actor.role).includes(visibility)) throw new ServiceError(403, 'forbidden')
-  return { categoryId: null, categoryName: checkedCategoryName(input.categoryName ?? ''), visibility }
+  const subcategoryName = (input.subcategoryName ?? '').trim() === '' ? null : checkedCategoryName(input.subcategoryName!)
+  return { categoryId: null, categoryName: checkedCategoryName(input.categoryName ?? ''), subcategoryName, visibility }
 }
 
 /** The file columns of a file entry (a new PDF), or none for a link or text. */
@@ -366,7 +394,7 @@ function fileColumns(kind: KnowledgeEntryInput['kind'], file: { data: Buffer } |
   return { fileData: file.data, fileMime: checkedPdf(file.data), fileSize: file.data.length }
 }
 
-/** The next place at the end of the facility's own entries in the category. */
+/** The next place at the end of the facility's own entries in the category or subcategory (not counting its subcategories). */
 function nextSortOrder(db: Db, categoryId: number | null): number {
   if (categoryId === null) return 0
   const rows = db.select({ sortOrder: knowledgeEntries.sortOrder }).from(knowledgeEntries).where(eq(knowledgeEntries.categoryId, categoryId)).all()
@@ -405,7 +433,7 @@ function loadEditable(db: Db, actor: KnowledgeActor, id: number): EntryRow {
  * Changes the entry; where it is kept (the facility or all facilities) stays. A new PDF replaces the file (a file entry
  * keeps its PDF without one). A change of the content – another kind, a new file, another link or text – counts the
  * version up, so whoever confirmed an earlier version is asked again; title, description, „Stand vom“ and the category
- * do not.
+ * do not. Filed in another category or subcategory, the facility's entry goes to the end there.
  */
 export function updateKnowledgeEntry(
   db: Db, actor: KnowledgeActor, id: number, input: KnowledgeEntryInput, file: { data: Buffer } | null, now: Date = new Date(),
@@ -432,8 +460,8 @@ export function deleteKnowledgeEntry(db: Db, actor: KnowledgeActor, id: number):
 }
 
 /**
- * ▲/▼: swaps a facility's own entry with its neighbour among the facility's own entries of the same category (the
- * Träger's entries for all facilities follow them, by title); at an end nothing changes. The category's own entries
+ * ▲/▼: swaps a facility's own entry with its neighbour among the facility's own entries of the same category or
+ * subcategory (the Träger's entries for all facilities follow them, by title); at an end nothing changes. Its own entries
  * are numbered afresh.
  */
 export function moveKnowledgeEntry(db: Db, actor: KnowledgeActor, id: number, direction: 'up' | 'down'): void {
@@ -568,7 +596,7 @@ export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, 
   return {
     entry: {
       id: row.id, title: row.title, kind: row.kind, needsConfirmation: row.needsConfirmation, version: row.version,
-      updatedAt: row.updatedAt, versionAt: row.versionAt, asOf: row.asOf, category: placement.name,
+      updatedAt: row.updatedAt, versionAt: row.versionAt, asOf: row.asOf, category: categoryPath(placement.name, placement.subName),
     },
     facilityName: facility?.name ?? '',
     people,
@@ -583,14 +611,26 @@ function seededKeys(db: Db, facilityId: number): Set<string> {
     .where(eq(knowledgeStarterSeeds.facilityId, facilityId)).all().map(row => row.key))
 }
 
-const STARTER_KEYS = [...KNOWLEDGE_STARTER_CATEGORIES, ...KNOWLEDGE_STARTER_LINKS].map(starter => starter.key)
+const STARTER_KEYS = [...KNOWLEDGE_STARTER_CATEGORIES, ...KNOWLEDGE_STARTER_SUBCATEGORIES, ...KNOWLEDGE_STARTER_LINKS].map(starter => starter.key)
+
+/** The facility's category of that name (regardless of case), and with `subName` its subcategory of that name. */
+function starterSpot(db: Db, facilityId: number, name: string, subName?: string): { category?: CategoryRow; subcategory?: CategoryRow } {
+  const all = facilityKnowledgeCategories(db, facilityId)
+  const category = all.find(row => row.parentId === null && comparableKnowledgeName(row.name) === comparableKnowledgeName(name))
+  const subcategory = category && subName !== undefined
+    ? all.find(row => row.parentId === category.id && comparableKnowledgeName(row.name) === comparableKnowledgeName(subName))
+    : undefined
+  return { category, subcategory }
+}
 
 /**
- * Gives the facility every starter category and link (shared/domain/knowledge.ts) it has not been given yet and records
- * each as given, so a deleted or renamed one never comes back while a starter new in a later version still arrives. A
- * category of that name already there is only recorded; a link whose category the facility no longer has, or for
- * another state (Orientierungsplan, KiTaG: Baden-Württemberg), is recorded without being created. Call it inside the
- * caller's transaction.
+ * Gives the facility every starter category, subcategory and link (shared/domain/knowledge.ts) it has not been given yet
+ * and records each as given, so a deleted or renamed one never comes back while a starter new in a later version still
+ * arrives. A category (subcategory) of that name already there is only recorded; a subcategory whose category the
+ * facility no longer has, or a link whose category it no longer has, or one for another state (Orientierungsplan,
+ * KiTaG and the subcategory „Baden-Württemberg“: Baden-Württemberg), is recorded without being created. A link goes into
+ * its starter subcategory when the facility has it, else directly into the category. Call it inside the caller's
+ * transaction.
  */
 export function seedKnowledgeStarters(db: Db, facilityId: number, now: Date = new Date()): void {
   const facility = db.select({ state: facilities.state }).from(facilities).where(eq(facilities.id, facilityId)).get()
@@ -598,23 +638,34 @@ export function seedKnowledgeStarters(db: Db, facilityId: number, now: Date = ne
   const seeded = seededKeys(db, facilityId)
   const at = now.toISOString()
   const record = (starterKey: string) => db.insert(knowledgeStarterSeeds).values({ facilityId, starterKey, seededAt: at }).run()
+  const inState = (states: readonly string[] | undefined) => !states || states.includes(facility.state)
   for (const starter of KNOWLEDGE_STARTER_CATEGORIES) {
     if (seeded.has(starter.key)) continue
-    const categories = facilityKnowledgeCategories(db, facilityId)
-    if (!categories.some(category => comparableKnowledgeName(category.name) === comparableKnowledgeName(starter.name))) {
-      const last = categories.at(-1)
+    if (!starterSpot(db, facilityId, starter.name).category) {
+      const last = facilityKnowledgeCategories(db, facilityId).filter(row => row.parentId === null).at(-1)
       db.insert(knowledgeCategories).values({ facilityId, name: starter.name, sortOrder: last ? last.sortOrder + 1 : 0, visibility: 'all' }).run()
+    }
+    record(starter.key)
+  }
+  for (const starter of KNOWLEDGE_STARTER_SUBCATEGORIES) {
+    if (seeded.has(starter.key)) continue
+    const { category, subcategory } = starterSpot(db, facilityId, starter.category, starter.name)
+    if (category && !subcategory && inState(starter.states)) {
+      const last = facilityKnowledgeCategories(db, facilityId).filter(row => row.parentId === category.id).at(-1)
+      db.insert(knowledgeCategories).values({
+        facilityId, parentId: category.id, name: starter.name, sortOrder: last ? last.sortOrder + 1 : 0, visibility: 'all',
+      }).run()
     }
     record(starter.key)
   }
   for (const link of KNOWLEDGE_STARTER_LINKS) {
     if (seeded.has(link.key)) continue
-    const category = facilityKnowledgeCategories(db, facilityId)
-      .find(row => comparableKnowledgeName(row.name) === comparableKnowledgeName(link.category))
-    if (category && (!link.states || link.states.includes(facility.state))) {
+    const { category, subcategory } = starterSpot(db, facilityId, link.category, link.subcategory)
+    const target = subcategory ?? category
+    if (target && inState(link.states)) {
       db.insert(knowledgeEntries).values({
-        facilityId, categoryId: category.id, kind: 'link', title: link.title, description: link.description, url: link.url,
-        starterKey: link.key, sortOrder: nextSortOrder(db, category.id), versionAt: at, createdAt: at, updatedAt: at,
+        facilityId, categoryId: target.id, kind: 'link', title: link.title, description: link.description, url: link.url,
+        starterKey: link.key, sortOrder: nextSortOrder(db, target.id), versionAt: at, createdAt: at, updatedAt: at,
       }).run()
     }
     record(link.key)

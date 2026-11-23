@@ -739,34 +739,48 @@ export type PrintTemplateScope = 'facility' | 'all'
 
 /**
  * What the user enters about a print template (the file comes with the upload). A facility's template: one of the
- * facility's categories they see (`categoryId`). A template for all facilities (Träger): the name of the category it
- * shows in (each facility's own of that name, else „Vom Träger“) and who sees it at least (`visibility`).
+ * facility's categories or subcategories they see (`categoryId`). A template for all facilities (Träger): the name of
+ * the category it shows in (each facility's own of that name, else „Vom Träger“), optionally the name of a subcategory
+ * there (else directly in the category), and who sees it at least (`visibility`).
  */
 export interface PrintTemplateMeta {
   title: string
   categoryId?: number | null
   categoryName?: string | null
+  subcategoryName?: string | null
   visibility?: TemplateVisibility | null
 }
 
-/** A category of print templates of the facility as the viewer sees it (only those of their visibility level), in its order. */
+/**
+ * A category or subcategory of print templates of the facility as the viewer sees it (only those of their visibility
+ * level, a subcategory only with its category), each category followed by its subcategories, in their order.
+ */
 export interface TemplateCategoryDto {
   id: number
+  /** The category of a subcategory; null for a category. */
+  parentId: number | null
   name: string
   visibility: TemplateVisibility
-  /** The facility's own templates filed in it; while there are any it cannot be deleted. */
+  /** The facility's own templates filed directly in it; while there are any it cannot be deleted. */
   templateCount: number
   /**
-   * The Träger's templates for all facilities shown in it (by its name) that the viewer sees: they move to „Vom Träger“
-   * when it is deleted or renamed (the confirmations name them).
+   * The Träger's templates for all facilities shown directly in it (by its name) that the viewer sees: they move to „Vom
+   * Träger“ (from a subcategory: into its category) when it is deleted or renamed (the confirmations name them).
    */
   globalCount: number
 }
 
-/** What Leitung or Träger enter about a category. */
+/** What Leitung or Träger enter about a category; `parentId` (only when creating) makes it a subcategory of that category. */
 export interface TemplateCategoryInput {
   name: string
   visibility: TemplateVisibility
+  parentId?: number | null
+}
+
+/** A category name the facilities use (or items for all facilities carry) with the subcategory names under it. */
+export interface CategoryNameDto {
+  name: string
+  subcategories: string[]
 }
 
 /** A blank PDF form to open and print (the file itself is served separately). */
@@ -780,10 +794,18 @@ export interface PrintTemplateDto {
   categoryId: number | null
   /** The name of that category (for „Vom Träger“ the name the Träger chose). */
   category: string
+  /** The subcategory it shows in; null when directly in the category („Allgemein“) or under „Vom Träger“. */
+  subcategoryId: number | null
+  /** The name of that subcategory ('' for none; under „Vom Träger“ the name the Träger chose). */
+  subcategory: string
   /** For all facilities (maintained by the Träger). */
   global: boolean
-  /** A template for all facilities: the category name and the visibility the Träger chose (null for a facility's own). */
+  /**
+   * A template for all facilities: the category name, the subcategory name ('' for none) and the visibility the Träger
+   * chose (null for a facility's own).
+   */
   globalCategoryName: string | null
+  globalSubcategoryName: string | null
   globalVisibility: TemplateVisibility | null
   size: number
   uploadedAt: string
@@ -3919,14 +3941,19 @@ export interface SchoolOptionDto {
 
 // ---- „Wissen“ (Dokumente → Wissen) -------------------------------------------
 
-/** A category of „Wissen“ in the viewer's facility (only those the viewer sees, by visibility). */
+/**
+ * A category or subcategory of „Wissen“ in the viewer's facility (only those the viewer sees, by visibility; a
+ * subcategory only with its category), each category followed by its subcategories.
+ */
 export interface KnowledgeCategoryDto {
   id: number
+  /** The category of a subcategory; null for a category. */
+  parentId: number | null
   name: string
   visibility: TemplateVisibility
-  /** The entries the viewer sees in it (the facility's own and the Träger's shown in it by name). */
+  /** The entries the viewer sees directly in it (the facility's own and the Träger's shown in it by name). */
   entryCount: number
-  /** The facility's own entries filed in it; while there are any it cannot be deleted. */
+  /** The facility's own entries filed directly in it; while there are any it cannot be deleted. */
   ownCount: number
 }
 
@@ -3942,10 +3969,16 @@ export interface KnowledgeEntryDto {
   id: number
   /** The facility's category it shows in; null = „Vom Träger“ (for all facilities, no category of its name). */
   categoryId: number | null
+  /** The subcategory it shows in; null when directly in the category („Allgemein“) or under „Vom Träger“. */
+  subcategoryId: number | null
   /** For all facilities (maintained by the Träger). */
   global: boolean
-  /** An entry for all facilities: the category name and the visibility the Träger chose (null for a facility's own). */
+  /**
+   * An entry for all facilities: the category name, the subcategory name ('' for none) and the visibility the Träger
+   * chose (null for a facility's own).
+   */
   globalCategoryName: string | null
+  globalSubcategoryName: string | null
   globalVisibility: TemplateVisibility | null
   kind: KnowledgeKind
   title: string
@@ -3994,18 +4027,21 @@ export interface KnowledgeEntryInput {
   url: string
   body: string
   needsConfirmation: boolean
-  /** A facility's entry: one of its categories (the viewer sees). */
+  /** A facility's entry: one of its categories or subcategories (the viewer sees). */
   categoryId?: number
-  /** An entry for all facilities (Träger): the category name and the visibility. */
+  /** An entry for all facilities (Träger): the category name, optionally a subcategory name, and the visibility. */
   categoryName?: string
+  subcategoryName?: string
   visibility?: TemplateVisibility
   /** On creating: the facility (default) or all facilities (Träger, knowledge.global). */
   scope?: 'facility' | 'all'
 }
 
+/** What the editor enters about a category; `parentId` (only when creating) makes it a subcategory of that category. */
 export interface KnowledgeCategoryInput {
   name: string
   visibility: TemplateVisibility
+  parentId?: number | null
 }
 
 /** One person in the overview of who confirmed an entry and who not yet. */

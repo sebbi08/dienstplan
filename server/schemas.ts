@@ -575,28 +575,35 @@ export const employeeDocumentSchema = z.object({
   note: z.string().max(1000).default(''),
 })
 // Print templates: the change of title and category, and the form fields of the upload (multipart, so all text). A
-// facility's template names one of the facility's categories (`categoryId`), a template for all facilities the category
-// name and its visibility (the service says which one is missing).
+// facility's template names one of the facility's categories or subcategories (`categoryId`), a template for all
+// facilities the category name, optionally a subcategory name, and its visibility (the service says which one is missing).
 export const printTemplateSchema = z.object({
   title: z.string().max(200),
   categoryId: z.number().int().positive().nullish(),
   categoryName: z.string().max(60).nullish(),
+  subcategoryName: z.string().max(60).nullish(),
   visibility: z.enum(TEMPLATE_VISIBILITIES).nullish(),
 })
 export const printTemplateFields = z.object({
   title: z.string().max(200),
   categoryId: z.coerce.number().int().positive().optional(),
   categoryName: z.string().max(60).optional(),
+  subcategoryName: z.string().max(60).optional(),
   visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
   scope: z.enum(['facility', 'all']).default('facility'),
 })
-/** The new order of one sub-tab of „Vorlagen“: a category of the facility, or null for „Vom Träger“. */
+/**
+ * The new order of one list of „Vorlagen“: a subcategory of the facility, the templates directly in a category
+ * („Allgemein“: the category's id), or null for „Vom Träger“.
+ */
 export const printTemplateOrderSchema = z.object({
   categoryId: z.number().int().positive().nullable(),
   ids: z.array(z.number().int().positive()).max(500),
 })
-// The categories of a facility.
-export const templateCategorySchema = z.object({ name: z.string().max(60), visibility: z.enum(TEMPLATE_VISIBILITIES) })
+// The categories of a facility; `parentId` (only when creating) makes a subcategory of that category.
+export const templateCategorySchema = z.object({
+  name: z.string().max(60), visibility: z.enum(TEMPLATE_VISIBILITIES), parentId: z.number().int().positive().nullish(),
+})
 /** Replacing the file sends the file alone. */
 export const noFields = z.object({})
 
@@ -921,11 +928,13 @@ export const knowledgeEntryFields = z.object({
   needsConfirmation: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   categoryId: z.coerce.number().int().positive().optional(),
   categoryName: z.string().max(KNOWLEDGE_LIMITS.categoryName).optional(),
+  subcategoryName: z.string().max(KNOWLEDGE_LIMITS.categoryName).optional(),
   visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
   scope: z.enum(['facility', 'all']).default('facility'),
 })
 export const knowledgeCategorySchema = z.object({
   name: z.string().max(KNOWLEDGE_LIMITS.categoryName), visibility: z.enum(TEMPLATE_VISIBILITIES),
+  parentId: z.number().int().positive().nullish(),
 })
 /**
  * „Gelesen und verstanden“: the version the reader was shown, and at the tablet the person and their PIN (an own account

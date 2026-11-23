@@ -1561,6 +1561,22 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   **nach oben / nach unten** schieben, **„Wer sieht sie?“** ändern und löschen. Löschen geht nur bei einer **leeren**
   Kategorie – liegen noch Vorlagen der Einrichtung darin, verschieb oder lösch sie zuerst. Jeder Name kommt in einer
   Einrichtung nur einmal vor (Groß- und Kleinschreibung zählt nicht); andere Einrichtungen sind davon nicht betroffen.
+- **Unterkategorien** (eine Ebene): In **Kategorien verwalten** legt **Unterkategorie anlegen** (Ordner-Knopf bei einer
+  Kategorie) eine Unterkategorie an. Sie steht eingerückt unter ihrer Kategorie und lässt sich umbenennen, mit den Pfeilen
+  innerhalb ihrer Kategorie verschieben und löschen, solange keine Vorlagen der Einrichtung darin liegen. In eine andere
+  Kategorie verschieben lässt sie sich nicht, und eine Unterkategorie hat keine eigenen Unterkategorien. Eine Kategorie
+  mit Unterkategorien lässt sich erst löschen, wenn ihre Unterkategorien gelöscht sind. Unter einer Kategorie kommt jeder
+  Name nur einmal vor; derselbe Name darf in einer anderen Kategorie stehen. **„Wer sieht sie?“** einer Unterkategorie
+  gilt zusätzlich zu dem ihrer Kategorie – die engere Einstellung zählt (eine Unterkategorie für **Alle** in einer
+  Kategorie „Nur Leitung und Träger“ sehen also auch nur Leitung und Träger). Neue Einrichtungen beginnen ohne
+  Unterkategorien; beim Update auf die Version mit Unterkategorien blieben alle Kategorien und Vorlagen, wie sie waren.
+- **Zweite Reihe**: Hat eine Kategorie Unterkategorien, steht auf ihrem Unterreiter eine zweite Reihe kleiner Reiter:
+  **Alle** (alle Vorlagen der Kategorie, nach Unterkategorien gruppiert, zuerst die direkt in der Kategorie), **Allgemein**
+  (die Vorlagen direkt in der Kategorie – nur, wenn es welche gibt) und die Unterkategorien in ihrer Reihenfolge. Die
+  kleinen Reiter brechen auf dem Handy in die nächste Zeile um. Das Gerät merkt sich je Kategorie die letzte Wahl.
+- **Hochladen und Bearbeiten** mit Unterkategorien: Nach der Kategorie gibt es die Auswahl **Unterkategorie** (nur wenn
+  die gewählte Kategorie welche hat; „Allgemein (keine Unterkategorie)“ legt die Vorlage direkt in die Kategorie). Beim
+  Hochladen ist die Unterkategorie des geöffneten kleinen Reiters vorausgewählt.
 - **Neue Einrichtungen** beginnen mit den Kategorien „Eingewöhnungsmappe“, „Mitarbeitermappe“, „Eltern“, „Gesundheit“
   und „Personal“ (für **Alle**), als eigene Kopien zum Ändern oder Löschen.
 - **Wer sieht sie?** Jede Kategorie hat eine von drei Stufen:
@@ -1585,7 +1601,10 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   sieht**. Jede Einrichtung zeigt die Vorlage in ihrer Kategorie mit diesem Namen (Groß- und Kleinschreibung zählt
   nicht). Hat eine Einrichtung keine solche Kategorie (oder löscht sie sie), steht die Vorlage dort im Unterreiter
   **„Vom Träger“**; den gibt es nur, wenn es solche Vorlagen gibt. Sieht die Kategorie der Einrichtung weniger Leute als
-  die Vorlage, gilt die Kategorie (die engere Einstellung gewinnt).
+  die Vorlage, gilt die Kategorie (die engere Einstellung gewinnt). Freiwillig gibt der Träger auch den Namen einer
+  **Unterkategorie** an: Hat die Kategorie der Einrichtung eine Unterkategorie mit diesem Namen, steht die Vorlage dort
+  (es gilt dann die engste Einstellung von Vorlage, Kategorie und Unterkategorie), sonst direkt in der Kategorie unter
+  „Allgemein“, sonst unter „Vom Träger“ (dort mit „Kategorie › Unterkategorie“ beschriftet).
 - **Ändern**: Mit **Bearbeiten** lassen sich Titel und Kategorie ändern und die Datei durch eine neue ersetzen;
   **Löschen** fragt vorher nach. Die Vorlagen für alle Einrichtungen kann **nur der Träger** ändern oder löschen.
 - **Reihenfolge**: Wer Vorlagen bearbeiten darf, schiebt jede Vorlage mit den Pfeilen **Nach oben / Nach unten** (rechts
@@ -1595,7 +1614,10 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   Einrichtung hat ihre eigene. Eine **neu hochgeladene** Vorlage kommt ans **Ende** ihrer Kategorie (eine für alle
   Einrichtungen in jeder Einrichtung); ebenso eine, die in eine **andere Kategorie** verschoben wird. Nur den Titel oder
   die Datei zu ändern lässt den Platz, wie er ist. Vorlagen, die jemand nicht sieht (z. B. eine Vorlage des Trägers „Nur
-  Träger“), behalten beim Schieben ihren Platz.
+  Träger“), behalten beim Schieben ihren Platz. Mit Unterkategorien hat jede Unterkategorie ihre eigene Reihenfolge,
+  ebenso „Allgemein“ (die Vorlagen direkt in der Kategorie). Unter **Alle** schieben die Pfeile innerhalb der jeweiligen
+  Gruppe – das ist dieselbe Reihenfolge wie im kleinen Reiter der Unterkategorie. Eine Vorlage, die in eine andere
+  Unterkategorie (oder aus einer heraus) kommt, steht dort am Ende.
 - **Beim Update** auf die Version mit der Reihenfolge stehen die Vorlagen wie bisher alphabetisch, bis jemand sie
   verschiebt oder eine neue hochlädt; von da an zählt in diesem Unterreiter die gespeicherte Reihenfolge.
 - **Drucken**: **Öffnen** zeigt das PDF in einem neuen Tab; dort druckst du es mit der Druckfunktion des Browsers.
@@ -1670,14 +1692,26 @@ du außerdem überall **Text**, ein **Häkchen**, ein **Kreuz** und eine **Unter
   am Tablet nicht. Unter **Vorlagen** auf der Startseite (ohne PIN) gibt es deshalb kein **Ausfüllen**.
 - Es gelten dieselben Regeln wie beim Hochladen: nur PDF, höchstens **10 MB**, nur in der eigenen Einrichtung.
 - **Unterschrift**: Eine so gezeichnete Unterschrift ist eine **einfache elektronische Signatur** – keine
-  qualifizierte elektronische Signatur. Wo das Gesetz die Schriftform verlangt (z. B. bei der Kündigung eines
-  Arbeitsverhältnisses), reicht sie nicht; dann bitte auf Papier unterschreiben.
+  qualifizierte elektronische Signatur. Wo das Gesetz die Schriftform verlangt (z. B. Kündigung eines
+  Arbeitsverhältnisses, Befristung eines Arbeitsvertrags, Arbeitszeugnis), reicht sie nicht; dann bitte auf Papier
+  unterschreiben.
   Die Unterschrift steckt nur in dem gespeicherten PDF in der Akte. Die App speichert sie nirgends sonst (auch nicht auf
   dem Gerät) und bietet sie nicht zum Wiederverwenden an; das Unterschriftenfeld wird nach dem Einfügen geleert.
 - Felder mit Rechenformeln oder Prüfungen (Skripte im PDF) rechnet die App nicht aus; solche Felder füllst du von Hand.
   Ist ein PDF verschlüsselt oder sehr ungewöhnlich aufgebaut, erkennt die App die Felder unter Umständen nicht; Text,
   Häkchen, Kreuz und Unterschrift gehen trotzdem. Ob eine Datei Felder hat, prüft die App einmal beim Hochladen bzw.
   Ersetzen.
+- Bilder lassen sich nicht ins PDF einfügen (kein Einfügen aus der Zwischenablage, kein Hineinziehen von Dateien);
+  eingefügt werden nur Text, Häkchen, Kreuz und die gezeichnete Unterschrift.
+- Erscheint oben **„Zusatzwerkzeuge nicht verfügbar – Felder ausfüllen geht weiter“**, konnten Text, Häkchen, Kreuz und
+  Unterschrift auf diesem Gerät nicht starten (z. B. ein sehr alter Browser). Felder ausfüllen, Drucken und Speichern
+  gehen weiter. Bitte der Person melden, die die App betreut.
+- **Für die Betreuung der App**: Die Ansicht nutzt Teile von pdf.js (Paket `pdfjs-dist`), die nicht zur offiziellen
+  Schnittstelle gehören. Darum ist die Version fest eingetragen (derzeit **6.3.289**, `package.json` und
+  `package-lock.json`), und Renovate legt für pdf.js einen eigenen PR an, der nie automatisch gemergt wird. Vor dem
+  Mergen: `npm test` (der Test `pdfjsContract` prüft die genutzten Teile) und die Ansicht von Hand ausprobieren
+  (Vorlage ausfüllen mit Feldern, Text, Häkchen, Unterschrift, Speichern, danach **Bearbeiten** und Drucken; dazu
+  ein eingescanntes PDF ansehen).
 
 ## 20. Personalschlüssel
 
@@ -2714,7 +2748,21 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
   bleiben die Links, wie sie sind (von Hand löschen oder ergänzen). Die Links wurden beim Einbau am 23.11.2026 geprüft; Behörden ändern ihre Adressen manchmal – führt ein
   Link ins Leere, bitte die neue Adresse eintragen.
 - **Kategorien verwalten**: anlegen, umbenennen, „Wer sieht sie?“ ändern, mit den Pfeilen verschieben. Löschen geht nur,
-  solange keine Einträge der Einrichtung darin liegen. Ein Name kommt in einer Einrichtung nur einmal vor.
+  solange keine Einträge der Einrichtung und keine Unterkategorien darin liegen. Ein Name kommt in einer Einrichtung nur
+  einmal vor.
+- **Unterkategorien** (eine Ebene, wie bei den Vorlagen in Abschnitt 19): Bei jeder Kategorie legt **Unterkategorie
+  anlegen** eine Unterkategorie an; sie steht eingerückt unter ihrer Kategorie und lässt sich umbenennen, innerhalb der
+  Kategorie verschieben, mit eigenem „Wer sieht sie?“ einstellen (es gilt zusätzlich das der Kategorie – die engere
+  Einstellung zählt) und löschen, solange sie leer ist. Unter einer Kategorie kommt jeder Name nur einmal vor; derselbe
+  Name darf in einer anderen Kategorie stehen. Auf dem Reiter einer Kategorie mit Unterkategorien gibt es eine zweite Reihe
+  kleiner Reiter: **Alle** (die Einträge nach Unterkategorien gruppiert), **Allgemein** (die Einträge direkt in der
+  Kategorie, nur wenn es welche gibt) und die Unterkategorien. Das Gerät merkt sich die letzte Wahl je Kategorie. Die
+  Suche zeigt bei jedem Treffer „Kategorie › Unterkategorie“, ebenso der gedruckte Nachweis.
+- **Gesetze & Vorgaben** bekommt die Unterkategorien **Bund** (§ 45 und § 47 SGB VIII) und – nur in Baden-Württemberg –
+  **Baden-Württemberg** (KiTaG). Neue Einrichtungen bekommen sie beim Anlegen. Bestehende Einrichtungen bekamen sie mit
+  dem Update auf die Version mit Unterkategorien, wenn es „Gesetze & Vorgaben“ noch gab; dabei wurden nur die Start-Links
+  verschoben, die noch unverändert waren (Titel, Beschreibung und Adresse wie geliefert). Alle anderen Kategorien und
+  Einträge blieben, wie sie waren. Gelöschte Unterkategorien kommen nicht wieder.
 
 ### Einträge
 
@@ -2725,11 +2773,14 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
 - Dazu: **Titel** (bis 120 Zeichen), **Beschreibung** (freiwillig, bis 500 Zeichen) und **„Stand vom“** (freiwillig; steht
   als Hinweis am Eintrag).
 - Das **Suchfeld** sucht in Titel, Beschreibung und Text aller Kategorien.
-- **Reihenfolge**: Die Einträge der Einrichtung lassen sich in ihrer Kategorie mit den Pfeilen **Nach oben / Nach unten**
-  schieben; Einträge des Trägers für alle Einrichtungen stehen danach, nach Titel.
-- **Für alle Einrichtungen** (nur der Träger): wie bei den Vorlagen mit einem **Kategorie-Namen** und eigenem „Wer sieht
-  ihn?“. Jede Einrichtung zeigt den Eintrag in ihrer Kategorie mit diesem Namen, sonst unter **„Vom Träger“**; die engere
-  Einstellung gewinnt. Ändern und löschen kann ihn nur der Träger.
+- **Reihenfolge**: Die Einträge der Einrichtung lassen sich in ihrer Kategorie (bzw. Unterkategorie, oder unter
+  „Allgemein“) mit den Pfeilen **Nach oben / Nach unten** schieben; Einträge des Trägers für alle Einrichtungen stehen
+  danach, nach Titel. Unter **Alle** schieben die Pfeile innerhalb der jeweiligen Gruppe. Ein Eintrag, der in eine andere
+  Kategorie oder Unterkategorie kommt, steht dort am Ende.
+- **Für alle Einrichtungen** (nur der Träger): wie bei den Vorlagen mit einem **Kategorie-Namen**, freiwillig einem
+  **Unterkategorie-Namen**, und eigenem „Wer sieht ihn?“. Jede Einrichtung zeigt den Eintrag in ihrer Unterkategorie mit
+  diesem Namen, sonst direkt in der Kategorie mit diesem Namen (unter „Allgemein“), sonst unter **„Vom Träger“**; die
+  engste Einstellung gewinnt. Ändern und löschen kann ihn nur der Träger.
 
 ### „Gelesen und verstanden“
 

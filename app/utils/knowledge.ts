@@ -1,30 +1,48 @@
 import { knowledgeMatches } from '#shared/domain/knowledge'
+import { categoryPath } from '#shared/domain/templateCategories'
 import type { KnowledgeCategoryDto, KnowledgeConfirmationRowDto, KnowledgeEntryDto } from '#shared/types/api'
+import { subcategoriesOf, topCategories } from './subcategories'
 
 /** The key of the sub-tab „Vom Träger“: entries for all facilities without a category of their name in the facility. */
 export const KNOWLEDGE_PROVIDER_TAB = 'provider'
 
-/** A sub-tab of „Dokumente“ → „Wissen“: a category of the facility, or „Vom Träger“ (`category` null). */
+/**
+ * A sub-tab of „Dokumente“ → „Wissen“: a category of the facility (with its subcategories), or „Vom Träger“ (`category`
+ * null).
+ */
 export interface KnowledgeTab {
   key: string
   category: KnowledgeCategoryDto | null
+  subcategories: KnowledgeCategoryDto[]
+  /** All entries of the category, its subcategories' as well. */
   entries: KnowledgeEntryDto[]
 }
 
 /**
- * The sub-tabs: every category the viewer sees (the server lists only those), in the facility's order, also an empty
- * one; then „Vom Träger“ when entries for all facilities fit no category of the facility. The entries in the server's
- * order (the facility's own by ▲/▼, then the Träger's by title).
+ * The sub-tabs: every category the viewer sees (the server lists only those; subcategories go with their category), in
+ * the facility's order, also an empty one; then „Vom Träger“ when entries for all facilities fit no category of the
+ * facility. The entries in the server's order (by subcategory, the facility's own by ▲/▼, then the Träger's by title).
  */
 export function knowledgeTabs(categories: readonly KnowledgeCategoryDto[], entries: readonly KnowledgeEntryDto[]): KnowledgeTab[] {
-  const tabs: KnowledgeTab[] = categories.map(category => ({
+  const tabs: KnowledgeTab[] = topCategories(categories).map(category => ({
     key: `category-${category.id}`,
     category,
+    subcategories: subcategoriesOf(categories, category.id),
     entries: entries.filter(entry => entry.categoryId === category.id),
   }))
   const fromProvider = entries.filter(entry => entry.categoryId === null)
-  if (fromProvider.length > 0) tabs.push({ key: KNOWLEDGE_PROVIDER_TAB, category: null, entries: fromProvider })
+  if (fromProvider.length > 0) tabs.push({ key: KNOWLEDGE_PROVIDER_TAB, category: null, subcategories: [], entries: fromProvider })
   return tabs
+}
+
+/**
+ * Where an entry shows, to name it in the search results: „Kategorie › Unterkategorie“, „Vom Träger“ for an entry
+ * without a category of its name here (`fromProvider`).
+ */
+export function knowledgePlace(categories: readonly KnowledgeCategoryDto[], entry: Pick<KnowledgeEntryDto, 'categoryId' | 'subcategoryId'>, fromProvider: string): string {
+  if (entry.categoryId === null) return fromProvider
+  const name = (id: number | null) => categories.find(category => category.id === id)?.name
+  return categoryPath(name(entry.categoryId) ?? '', name(entry.subcategoryId))
 }
 
 /** The sub-tab to open: the one asked for (or remembered) when it is there, else the first. */
@@ -37,8 +55,8 @@ export function searchKnowledge(entries: readonly KnowledgeEntryDto[], query: st
   return entries.filter(entry => knowledgeMatches(entry, query))
 }
 
-/** The facility's own entries of a sub-tab, which ▲/▼ moves (the Träger's follow them by title). */
-export const movableEntries = (tab: KnowledgeTab): KnowledgeEntryDto[] => tab.entries.filter(entry => !entry.global)
+/** The facility's own entries of a list (a subcategory, or directly in the category), which ▲/▼ moves (the Träger's follow them by title). */
+export const movableEntries = (entries: readonly KnowledgeEntryDto[]): KnowledgeEntryDto[] => entries.filter(entry => !entry.global)
 
 /** Where the PDF of a file entry is served (shown in the browser). */
 export const knowledgeFileUrl = (id: number): string => `/api/knowledge/${id}/file`

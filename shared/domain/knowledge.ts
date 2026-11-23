@@ -69,10 +69,26 @@ export function confirmState(
 /** A category every facility starts with (visible to all), recorded by its key so it never comes back once deleted. */
 export interface KnowledgeStarterCategory { key: string; name: string }
 
-/** A link every facility (of the named states) starts with, filed in the starter category of that name. */
+/**
+ * A subcategory every facility (of the named states) starts with, in the starter category of that name (visible to all),
+ * recorded by its key like the categories.
+ */
+export interface KnowledgeStarterSubcategory {
+  key: string
+  category: string
+  name: string
+  /** Only facilities in these states get it; all facilities without. */
+  states?: readonly GermanState[]
+}
+
+/**
+ * A link every facility (of the named states) starts with, filed in the starter category of that name – in its starter
+ * subcategory of that name when the facility has it, otherwise directly in the category.
+ */
 export interface KnowledgeStarterLink {
   key: string
   category: string
+  subcategory?: string
   title: string
   description: string
   url: string
@@ -90,6 +106,16 @@ export const KNOWLEDGE_STARTER_CATEGORIES: readonly KnowledgeStarterCategory[] =
   { key: 'category:kinderschutz', name: 'Kinderschutz' },
   { key: 'category:hygiene', name: 'Hygiene & Gesundheit' },
   { key: 'category:gesetze', name: 'Gesetze & Vorgaben' },
+]
+
+/**
+ * The example subcategories, in this order: „Gesetze & Vorgaben“ → „Bund“ and (in Baden-Württemberg) „Baden-Württemberg“.
+ * A new facility gets them when it is created; a facility that already had the starters got them with
+ * 0115_subcategories (when it still had „Gesetze & Vorgaben“), which also recorded them, so they never come back.
+ */
+export const KNOWLEDGE_STARTER_SUBCATEGORIES: readonly KnowledgeStarterSubcategory[] = [
+  { key: 'subcategory:gesetze-bund', category: 'Gesetze & Vorgaben', name: 'Bund' },
+  { key: 'subcategory:gesetze-bw', category: 'Gesetze & Vorgaben', name: 'Baden-Württemberg', states: ['BW'] },
 ]
 
 /**
@@ -129,21 +155,21 @@ export const KNOWLEDGE_STARTER_LINKS: readonly KnowledgeStarterLink[] = [
     url: 'https://www.rki.de/DE/Aktuelles/Publikationen/RKI-Ratgeber/Wiederzulassung/Mbl_Wiederzulassung_schule.html',
   },
   {
-    key: 'link:kitag-bw', category: 'Gesetze & Vorgaben', states: ['BW'],
-    title: 'Kindertagesbetreuungsgesetz Baden-Württemberg (KiTaG)',
-    description: 'Das Landesgesetz über die Betreuung und Förderung von Kindern in Kindertageseinrichtungen (Landesrecht BW).',
-    url: 'https://www.landesrecht-bw.de/bsbw/document/jlr-KiTaGBWrahmen',
-  },
-  {
-    key: 'link:sgb8-45', category: 'Gesetze & Vorgaben',
+    key: 'link:sgb8-45', category: 'Gesetze & Vorgaben', subcategory: 'Bund',
     title: '§ 45 SGB VIII – Erlaubnis für den Betrieb einer Einrichtung',
     description: 'Die Betriebserlaubnis und ihre Voraussetzungen (gesetze-im-internet.de).',
     url: 'https://www.gesetze-im-internet.de/sgb_8/__45.html',
   },
   {
-    key: 'link:sgb8-47', category: 'Gesetze & Vorgaben',
+    key: 'link:sgb8-47', category: 'Gesetze & Vorgaben', subcategory: 'Bund',
     title: '§ 47 SGB VIII – Melde- und Dokumentationspflichten',
     description: 'Was der Träger der Aufsichtsbehörde melden muss, z. B. besondere Ereignisse (gesetze-im-internet.de).',
     url: 'https://www.gesetze-im-internet.de/sgb_8/__47.html',
+  },
+  {
+    key: 'link:kitag-bw', category: 'Gesetze & Vorgaben', subcategory: 'Baden-Württemberg', states: ['BW'],
+    title: 'Kindertagesbetreuungsgesetz Baden-Württemberg (KiTaG)',
+    description: 'Das Landesgesetz über die Betreuung und Förderung von Kindern in Kindertageseinrichtungen (Landesrecht BW).',
+    url: 'https://www.landesrecht-bw.de/bsbw/document/jlr-KiTaGBWrahmen',
   },
 ]

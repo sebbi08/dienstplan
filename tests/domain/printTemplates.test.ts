@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
   berlinDay, chosenTemplateTab, defaultGlobalVisibility, FROM_PROVIDER_TAB, hiddenByVisibility, movedToProvider,
-  readTemplateTabMemory, sameCategoryName, templateTabs, titleFromFileName, writeTemplateTabMemory,
+  readTemplateTabMemory, sameCategoryName, templatePath, templateTabs, titleFromFileName, writeTemplateTabMemory,
 } from '../../app/utils/printTemplates'
 import type { TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { PrintTemplateDto, TemplateCategoryDto } from '../../shared/types/api'
 
 const template = (id: number, categoryId: number | null, title: string, category = ''): PrintTemplateDto => ({
-  id, title, categoryId, category, global: categoryId === null, globalCategoryName: categoryId === null ? category : null,
-  globalVisibility: categoryId === null ? 'all' : null, size: 1, uploadedAt: '', updatedAt: '', canEdit: true,
+  id, title, categoryId, category, subcategoryId: null, subcategory: '', global: categoryId === null,
+  globalCategoryName: categoryId === null ? category : null, globalSubcategoryName: categoryId === null ? '' : null,
+  globalVisibility: categoryId === null ? 'all' : null, size: 1, uploadedAt: '', updatedAt: '', canEdit: true, fillable: false,
 })
 const category = (id: number, name: string, visibility: TemplateVisibility = 'all', templateCount = 2, globalCount = 0): TemplateCategoryDto =>
-  ({ id, name, visibility, templateCount, globalCount })
+  ({ id, parentId: null, name, visibility, templateCount, globalCount })
 
 describe('print template page helpers', () => {
   it('makes a sub-tab of every category the viewer sees, in the facility\'s order, empty ones too, templates in the server\'s order', () => {
@@ -59,13 +60,13 @@ describe('print template page helpers', () => {
   })
 
   it('counts the templates hidden from Leitung, Mitarbeiter and tablet when a category becomes the Träger\'s alone', () => {
-    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 3), 'provider')).toBe(3)
-    expect(hiddenByVisibility(category(1, 'Eltern', 'managers', 2), 'provider')).toBe(2)
-    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 0), 'provider')).toBe(0)
-    expect(hiddenByVisibility(category(1, 'Eltern', 'provider', 3), 'provider')).toBe(0)
-    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 3), 'managers')).toBe(0)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 3), 'provider').count).toBe(3)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'managers', 2), 'provider').count).toBe(2)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 0), 'provider').count).toBe(0)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'provider', 3), 'provider').count).toBe(0)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 3), 'managers').count).toBe(0)
     // The Träger's templates shown in it by name count too (the confirmation names them).
-    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 1, 2), 'provider')).toBe(3)
+    expect(hiddenByVisibility(category(1, 'Eltern', 'all', 1, 2), 'provider').count).toBe(3)
   })
 
   it('names the Träger\'s templates that move to „Vom Träger“ when the category is deleted or renamed', () => {
@@ -101,5 +102,33 @@ describe('print template page helpers', () => {
     expect(titleFromFileName('Einverständnis Ausflug.pdf')).toBe('Einverständnis Ausflug')
     expect(titleFromFileName('Brief.v2.PDF')).toBe('Brief.v2')
     expect(titleFromFileName('ohne')).toBe('ohne')
+  })
+
+  describe('subcategories', () => {
+    const sub = (id: number, parentId: number, name: string, visibility: TemplateVisibility = 'all', templateCount = 0, globalCount = 0): TemplateCategoryDto =>
+      ({ id, parentId, name, visibility, templateCount, globalCount })
+    const inSub = (id: number, categoryId: number, subcategoryId: number | null, title: string): PrintTemplateDto =>
+      ({ ...template(id, categoryId, title), subcategoryId })
+
+    it('makes a sub-tab per category only, carrying its subcategories and all templates of the category', () => {
+      const tabs = templateTabs([category(1, 'Eltern'), sub(11, 1, 'Briefe'), sub(12, 1, 'Ausflüge'), category(2, 'Personal')], [
+        inSub(1, 1, null, 'Direkt'), inSub(2, 1, 11, 'Brief'), inSub(3, 2, null, 'Urlaub'),
+      ])
+      expect(tabs.map(tab => [tab.key, tab.subcategories.map(item => item.name), tab.templates.map(item => item.title)])).toEqual([
+        ['category-1', ['Briefe', 'Ausflüge'], ['Direkt', 'Brief']], ['category-2', [], ['Urlaub']],
+      ])
+      expect(templatePath({ category: 'Küche', subcategory: 'Pläne' })).toBe('Küche › Pläne')
+      expect(templatePath({ category: 'Küche', subcategory: '' })).toBe('Küche')
+    })
+
+    it('counts a category\'s subcategories too when it becomes the Träger\'s alone, or is renamed', () => {
+      const categories = [category(1, 'Eltern', 'all', 1, 1), sub(11, 1, 'Briefe', 'all', 2, 3), sub(12, 1, 'Leer'), category(2, 'Personal', 'all', 5)]
+      expect(hiddenByVisibility(categories[0]!, 'provider', categories)).toEqual({ count: 7, global: 4 })
+      expect(hiddenByVisibility(categories[1]!, 'provider', categories)).toEqual({ count: 5, global: 3 })
+      expect(movedToProvider(categories[0]!, 'Elternbriefe', categories)).toBe(4)
+      // A subcategory's own: they move into its category.
+      expect(movedToProvider(categories[1]!, null, categories)).toBe(3)
+      expect(movedToProvider(categories[1]!, 'BRIEFE', categories)).toBe(0)
+    })
   })
 })

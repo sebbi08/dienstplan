@@ -20,6 +20,10 @@ const onDays = (count: number) => (count === 1 ? 'an 1 Tag' : `an ${count} Tagen
 const providerMoves = (count: number) => (count === 1
   ? 'Die 1 Vorlage des Trägers darin steht danach unter „Vom Träger“ – sichtbar für alle, für die der Träger sie freigegeben hat.'
   : `Die ${count} Vorlagen des Trägers darin stehen danach unter „Vom Träger“ – sichtbar für alle, für die der Träger sie freigegeben hat.`)
+/** Deleting or renaming a subcategory: the Träger's templates in it then show directly in its category. */
+const generalMoves = (count: number) => (count === 1
+  ? 'Die 1 Vorlage des Trägers darin steht danach direkt in der Kategorie („Allgemein“).'
+  : `Die ${count} Vorlagen des Trägers darin stehen danach direkt in der Kategorie („Allgemein“).`)
 /** Jugendarbeitsschutz without a birth year: in the plan's hints (with the name) and on the employee page. */
 const YOUTH_BIRTH_YEAR_MISSING = 'Geburtsjahr fehlt – Jugendarbeitsschutz kann nicht geprüft werden'
 /** A birth year without a birthday in the year of the 18th birthday (the same places). */
@@ -1400,6 +1404,9 @@ export const de = {
       page: (number: number) => `Seite ${number}`,
     },
     tooLarge: 'Das ausgefüllte PDF ist größer als 10 MB und kann deshalb nicht gespeichert werden.',
+    // pdf.js's editors did not start (e.g. after an update of pdf.js): the fields still work.
+    toolsUnavailable: 'Zusatzwerkzeuge nicht verfügbar – Felder ausfüllen geht weiter. Drucken und Speichern auch.',
+    signatureFailed: 'Die Unterschrift konnte nicht eingefügt werden. Bitte noch einmal.',
     page: (number: number, total: number) => `Seite ${number} von ${total}`, previousPage: 'Vorherige Seite', nextPage: 'Nächste Seite',
     zoomIn: 'Größer', zoomOut: 'Kleiner', zoomFit: 'An die Breite anpassen',
     print: 'Drucken', save: 'Speichern', close: 'Schließen', printFailed: 'Das Formular konnte nicht gedruckt werden.',
@@ -1439,11 +1446,25 @@ export const de = {
     categoryNameHint: 'Jede Einrichtung zeigt die Vorlage in ihrer Kategorie mit diesem Namen. Hat sie keine, steht die Vorlage dort unter „Vom Träger“.',
     globalVisibility: 'Wer sieht sie?',
     globalVisibilityHint: 'Gilt überall, wo eine Einrichtung keine Kategorie mit diesem Namen hat (dort unter „Vom Träger“). '
-      + 'Ist die Kategorie einer Einrichtung enger eingestellt, gilt dort die Kategorie.',
+      + 'Ist die Kategorie oder Unterkategorie einer Einrichtung enger eingestellt, gilt dort die engere Einstellung.',
+    // Subcategories (one level): the second row of small tabs on a category, and the choice in the upload form.
+    subTabsLabel: (category: string) => `Unterkategorien von ${category}`,
+    allChip: 'Alle', generalChip: 'Allgemein',
+    emptySubcategory: 'In dieser Unterkategorie gibt es noch keine Vorlagen.',
+    subcategory: 'Unterkategorie', noSubcategory: 'Allgemein (keine Unterkategorie)',
+    subcategoryName: 'Unterkategorie (freiwillig)',
+    subcategoryNameHint: 'Hat die Kategorie einer Einrichtung eine Unterkategorie mit diesem Namen, steht die Vorlage dort, sonst direkt in der Kategorie („Allgemein“).',
     categories: {
-      intro: 'Die Kategorien gelten nur für diese Einrichtung. Löschen lässt sich nur eine leere Kategorie.',
+      intro: 'Die Kategorien gelten nur für diese Einrichtung. Jede Kategorie kann Unterkategorien haben (eine Ebene). '
+        + 'Löschen lässt sich nur eine leere Kategorie ohne Unterkategorien.',
       none: 'Es gibt noch keine Kategorien.',
       add: 'Kategorie anlegen', edit: 'Kategorie ändern', name: 'Name', visibility: 'Wer sieht sie?',
+      addSub: 'Unterkategorie anlegen', addSubIn: (name: string) => `Unterkategorie in „${name}“ anlegen`,
+      editSub: 'Unterkategorie ändern',
+      subVisibilityHint: 'Es gilt zusätzlich „Wer sieht sie?“ der Kategorie – die engere Einstellung zählt.',
+      subcategoryCount: (n: number) => (n === 1 ? '1 Unterkategorie' : `${n} Unterkategorien`),
+      confirmDeleteSub: (name: string, moved = 0) => `Die Unterkategorie „${name}“ löschen?${moved > 0 ? ` ${generalMoves(moved)}` : ''}`,
+      confirmRenameSub: (name: string, moved: number) => `Die Unterkategorie „${name}“ umbenennen? ${generalMoves(moved)}`,
       visibilities: { all: 'Alle (auch Mitarbeiter und Tablet)', managers: 'Nur Leitung und Träger', provider: 'Nur Träger' },
       moveUp: 'Nach oben', moveDown: 'Nach unten',
       templateCount: (n: number) => (n === 1 ? '1 Vorlage' : `${n} Vorlagen`),
@@ -3151,6 +3172,8 @@ export const de = {
     template_category_name_required: 'Bitte einen Namen für die Kategorie angeben.',
     template_category_name_taken: 'Eine Kategorie mit diesem Namen gibt es schon.',
     template_category_not_empty: 'In dieser Kategorie liegen noch Vorlagen (auch in anderen Einrichtungen). Verschieb oder lösch sie zuerst.',
+    template_category_has_subcategories: 'Diese Kategorie hat noch Unterkategorien. Lösch sie zuerst.',
+    template_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung, nicht zu einer anderen Unterkategorie.',
     cash_box_not_found: 'Diese Kasse gibt es nicht (mehr).',
     cash_box_name_required: 'Bitte einen Namen für die Kasse angeben.',
     cash_box_name_too_long: 'Der Name der Kasse darf höchstens 60 Zeichen lang sein.',
@@ -3355,6 +3378,8 @@ export const de = {
     knowledge_category_name_required: 'Bitte gib einen Namen für die Kategorie an.',
     knowledge_category_name_taken: 'Eine Kategorie mit diesem Namen gibt es schon.',
     knowledge_category_not_empty: 'In dieser Kategorie liegen noch Einträge. Verschieb oder lösch sie zuerst.',
+    knowledge_category_has_subcategories: 'Diese Kategorie hat noch Unterkategorien. Lösch sie zuerst.',
+    knowledge_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung, nicht zu einer anderen Unterkategorie.',
     knowledge_entry_not_movable: 'Einträge des Trägers für alle Einrichtungen stehen nach den eigenen, nach Titel.',
     knowledge_no_employee: 'Bestätigen geht nur mit einem Zugang, der mit einem Mitarbeiter verknüpft ist – oder am Tablet mit deiner PIN.',
     knowledge_confirmation_not_needed: 'Für diesen Eintrag ist keine Bestätigung nötig.',
@@ -3413,6 +3438,12 @@ export const de = {
     noMatch: 'Kein Eintrag passt zur Suche.',
     tabsLabel: 'Kategorien', fromProvider: 'Vom Träger',
     fromProviderHint: 'Einträge des Trägers für alle Einrichtungen, für deren Kategorie es hier keine mit gleichem Namen gibt.',
+    // Subcategories (one level): the second row of small tabs on a category.
+    subTabsLabel: (category: string) => `Unterkategorien von ${category}`,
+    allChip: 'Alle', generalChip: 'Allgemein',
+    emptySubcategory: 'In dieser Unterkategorie gibt es noch keine Einträge.',
+    noSubcategory: 'Allgemein (keine Unterkategorie)',
+    subcategoryNameHint: 'Hat die Kategorie einer Einrichtung eine Unterkategorie mit diesem Namen, steht der Eintrag dort, sonst direkt in der Kategorie („Allgemein“).',
     none: 'Es gibt noch keine Einträge.', emptyCategory: 'In dieser Kategorie gibt es noch keine Einträge.',
     visibilityBadge: { all: '', managers: 'nur Leitung und Träger', provider: 'nur Träger' },
     kinds: { file: 'PDF', link: 'Link', text: 'Text' },
@@ -3435,6 +3466,7 @@ export const de = {
       kind: 'Art', title: 'Titel', description: 'Beschreibung (freiwillig)', asOf: 'Stand vom (freiwillig)', url: 'Link',
       body: 'Text', file: 'PDF-Datei (höchstens 10 MB)', replaceFile: 'Neue PDF-Datei (freiwillig)', category: 'Kategorie',
       categoryName: 'Kategorie (Name)', visibility: 'Wer sieht ihn?', scope: 'Gilt für',
+      subcategory: 'Unterkategorie', subcategoryName: 'Unterkategorie (Name, freiwillig)',
       needsConfirmation: '„Gelesen und verstanden“ erforderlich',
     },
     kindLabels: { file: 'PDF hochladen', link: 'Link zu einer Website', text: 'Kurzer Text' },
@@ -3447,9 +3479,15 @@ export const de = {
     scopeFacility: (name: string) => `nur ${name}`, scopeThisFacility: 'nur diese Einrichtung', scopeAll: 'für alle Einrichtungen',
     noCategory: 'Es gibt noch keine Kategorie. Leg unter „Kategorien verwalten“ zuerst eine an.',
     categories: {
-      intro: 'Die Kategorien gelten nur für diese Einrichtung. Löschen geht nur, solange keine eigenen Einträge darin liegen.',
+      intro: 'Die Kategorien gelten nur für diese Einrichtung. Jede Kategorie kann Unterkategorien haben (eine Ebene). '
+        + 'Löschen geht nur, solange keine eigenen Einträge und keine Unterkategorien darin liegen.',
       none: 'Noch keine Kategorien.', name: 'Name der Kategorie', visibility: 'Wer sieht sie?', add: 'Kategorie hinzufügen',
       edit: 'Kategorie ändern', rename: 'Umbenennen',
+      addSub: 'Unterkategorie anlegen', addSubIn: (name: string) => `Unterkategorie in „${name}“ anlegen`, editSub: 'Unterkategorie ändern',
+      subName: 'Name der Unterkategorie',
+      subVisibilityHint: 'Es gilt zusätzlich „Wer sieht sie?“ der Kategorie – die engere Einstellung zählt.',
+      subcategoryCount: (count: number) => (count === 1 ? '1 Unterkategorie' : `${count} Unterkategorien`),
+      confirmDeleteSub: (name: string) => `Unterkategorie „${name}“ löschen?`,
       visibilities: { all: 'alle (auch Mitarbeitende und Tablet)', managers: 'nur Leitung und Träger', provider: 'nur Träger' },
       entryCount: (count: number) => (count === 1 ? '1 Eintrag' : `${count} Einträge`),
       confirmDelete: (name: string) => `Kategorie „${name}“ löschen?`, moveUp: 'Nach oben', moveDown: 'Nach unten',

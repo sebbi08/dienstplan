@@ -2,23 +2,26 @@
 import { KNOWLEDGE_KINDS, KNOWLEDGE_LIMITS, type KnowledgeKind } from '#shared/domain/knowledge'
 import { sameTextAnswer } from '#shared/domain/richText'
 import { TEMPLATE_VISIBILITIES, visibleTemplateLevels, type TemplateVisibility } from '#shared/domain/templateCategories'
-import type { KnowledgeCategoryDto, KnowledgeEntryDto } from '#shared/types/api'
+import type { CategoryNameDto, KnowledgeCategoryDto, KnowledgeEntryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
+import { filedCategoryId, subcategoryItems, subcategoryNamesFor, topCategories } from '~/utils/subcategories'
 
 /**
  * Creating or changing an entry of „Wissen“ (knowledge.manage): a PDF, a link or a short formatted text in one of the
- * facility's categories, or, for the Träger (knowledge.global), for all facilities under a category name with its own
- * visibility. „Gelesen und verstanden erforderlich“ asks the readers to confirm; a change of the file, the link or the
- * text asks them again (the dialog says so before saving). Where an entry is kept is chosen once, when it is created.
+ * facility's categories (and maybe one of its subcategories), or, for the Träger (knowledge.global), for all facilities
+ * under a category name (and maybe a subcategory name) with its own visibility. „Gelesen und verstanden erforderlich“
+ * asks the readers to confirm; a change of the file, the link or the text asks them again (the dialog says so before
+ * saving). Where an entry is kept is chosen once, when it is created. Filed elsewhere, an entry goes to the end there.
  */
 const props = defineProps<{
   /** null = a new entry. */
   entry: KnowledgeEntryDto | null
   categories: KnowledgeCategoryDto[]
   canManageGlobal: boolean
-  /** The category a new entry starts in (the open sub-tab). */
+  /** The category a new entry starts in (the open sub-tab), and the subcategory (the open small tab). */
   presetCategoryId: number | null
+  presetSubcategoryId: number | null
   refresh: () => Promise<unknown>
 }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -30,13 +33,15 @@ const { activeName } = useFacilities()
 const { busy, run } = useBusyAction(props.refresh)
 const toast = useToast()
 
+/** `subcategoryId` 0 = directly in the category („Allgemein“); `subcategoryName` '' = none (an entry for all facilities). */
 interface Form {
   kind: KnowledgeKind; title: string; description: string; asOf: string; url: string; body: string; needsConfirmation: boolean
-  scope: 'facility' | 'all'; categoryId: number | undefined; categoryName: string; visibility: TemplateVisibility
+  scope: 'facility' | 'all'; categoryId: number | undefined; subcategoryId: number; categoryName: string; subcategoryName: string
+  visibility: TemplateVisibility
 }
 const empty = (): Form => ({
   kind: 'link', title: '', description: '', asOf: '', url: '', body: '', needsConfirmation: false, scope: 'facility',
-  categoryId: undefined, categoryName: '', visibility: 'all',
+  categoryId: undefined, subcategoryId: 0, categoryName: '', subcategoryName: '', visibility: 'all',
 })
 const form = reactive<Form>(empty())
 const file = shallowRef<File | null>(null)
@@ -44,7 +49,12 @@ const fileInput = ref<HTMLInputElement | null>(null)
 
 const forAll = computed(() => (props.entry ? props.entry.global : form.scope === 'all'))
 const kindItems = KNOWLEDGE_KINDS.map(kind => ({ label: t.kindLabels[kind], value: kind }))
-const categoryItems = computed(() => props.categories.map(category => ({ label: category.name, value: category.id })))
+const categoryItems = computed(() => topCategories(props.categories).map(category => ({ label: category.name, value: category.id })))
+const subcategoryChoices = computed(() => subcategoryItems(props.categories, form.categoryId, t.noSubcategory))
+// Another category: a subcategory of the one before no longer fits.
+watch(() => form.categoryId, () => {
+  if (!subcategoryChoices.value.some(item => item.value === form.subcategoryId)) form.subcategoryId = 0
+})
 const scopeItems = computed(() => [
   { label: activeName.value ? t.scopeFacility(activeName.value) : t.scopeThisFacility, value: 'facility' },
   { label: t.scopeAll, value: 'all' },
@@ -54,11 +64,13 @@ const visibilityItems = computed(() => TEMPLATE_VISIBILITIES.filter(level => lev
   .map(level => ({ label: t.categories.visibilities[level], value: level })))
 
 // The category names the facilities use, loaded when the Träger files an entry for all facilities.
-const categoryNames = ref<string[]>([])
+const categoryNames = ref<CategoryNameDto[]>([])
 async function loadCategoryNames() {
   if (!props.canManageGlobal) return
-  categoryNames.value = await $fetch<string[]>('/api/knowledge-categories/names').catch(() => categoryNames.value)
+  categoryNames.value = await $fetch<CategoryNameDto[]>('/api/knowledge-categories/names').catch(() => categoryNames.value)
 }
+/** The subcategory names used under the typed category name, as suggestions. */
+const subcategoryNames = computed(() => subcategoryNamesFor(categoryNames.value, form.categoryName))
 watch(forAll, (value) => { if (value && open.value) loadCategoryNames() })
 
 watch(open, (isOpen) => {
@@ -70,13 +82,19 @@ watch(open, (isOpen) => {
     Object.assign(form, {
       kind: entry.kind, title: entry.title, description: entry.description, asOf: entry.asOf ?? '', url: entry.url, body: entry.body,
       needsConfirmation: entry.needsConfirmation, scope: entry.global ? 'all' : 'facility', categoryId: entry.categoryId ?? undefined,
-      categoryName: entry.globalCategoryName ?? '', visibility: entry.globalVisibility ?? 'all',
+      subcategoryId: entry.subcategoryId ?? 0, categoryName: entry.globalCategoryName ?? '',
+      subcategoryName: entry.globalSubcategoryName ?? '', visibility: entry.globalVisibility ?? 'all',
     })
     if (entry.global) loadCategoryNames()
   }
   else {
-    const preset = props.presetCategoryId ?? (props.categories.length === 1 ? props.categories[0]!.id : undefined)
-    Object.assign(form, { ...empty(), categoryId: preset, categoryName: props.categories.find(category => category.id === preset)?.name ?? '' })
+    const tops = topCategories(props.categories)
+    const preset = props.presetCategoryId ?? (tops.length === 1 ? tops[0]!.id : undefined)
+    const sub = props.categories.find(category => category.id === props.presetSubcategoryId && category.parentId === preset)
+    Object.assign(form, {
+      ...empty(), categoryId: preset, subcategoryId: sub?.id ?? 0,
+      categoryName: tops.find(category => category.id === preset)?.name ?? '', subcategoryName: sub?.name ?? '',
+    })
   }
 }, { immediate: true })
 
@@ -101,12 +119,16 @@ async function save() {
   // Fails early instead of after a long upload; the server checks the size and the real file type again.
   if (chosen && form.kind === 'file' && chosen.size > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
   const body = new FormData()
+  // A facility's entry: the subcategory chosen, else the category; for all facilities the names and the visibility.
+  const categoryId = filedCategoryId(form.categoryId, form.subcategoryId)
   const fields: Record<string, string> = {
     kind: form.kind, title: form.title, description: form.description, asOf: form.asOf,
     url: form.kind === 'link' ? form.url : '', body: form.kind === 'text' ? form.body : '',
     needsConfirmation: String(form.needsConfirmation),
     ...(props.entry ? {} : { scope: forAll.value ? 'all' : 'facility' }),
-    ...(forAll.value ? { categoryName: form.categoryName, visibility: form.visibility } : form.categoryId !== undefined ? { categoryId: String(form.categoryId) } : {}),
+    ...(forAll.value
+      ? { categoryName: form.categoryName, subcategoryName: form.subcategoryName, visibility: form.visibility }
+      : categoryId !== undefined ? { categoryId: String(categoryId) } : {}),
   }
   for (const [key, value] of Object.entries(fields)) body.append(key, value)
   if (chosen && form.kind === 'file') body.append('file', chosen)
@@ -132,7 +154,13 @@ async function save() {
           <UFormField :label="f.categoryName" :description="t.categoryNameHint" required>
             <UInput v-model="form.categoryName" :maxlength="KNOWLEDGE_LIMITS.categoryName" class="w-full" list="knowledge-category-names" required autocomplete="off" />
             <datalist id="knowledge-category-names">
-              <option v-for="name in categoryNames" :key="name" :value="name" />
+              <option v-for="option in categoryNames" :key="option.name" :value="option.name" />
+            </datalist>
+          </UFormField>
+          <UFormField :label="f.subcategoryName" :description="t.subcategoryNameHint">
+            <UInput v-model="form.subcategoryName" :maxlength="KNOWLEDGE_LIMITS.categoryName" class="w-full" list="knowledge-subcategory-names" autocomplete="off" />
+            <datalist id="knowledge-subcategory-names">
+              <option v-for="name in subcategoryNames" :key="name" :value="name" />
             </datalist>
           </UFormField>
           <UFormField :label="f.visibility" :description="t.visibilityHint">
@@ -141,9 +169,15 @@ async function save() {
         </template>
         <template v-else>
           <UAlert v-if="!categories.length" color="warning" variant="soft" :title="t.noCategory" />
-          <UFormField v-else :label="f.category" required>
-            <USelect v-model="form.categoryId" :items="categoryItems" :placeholder="t.categoryPlaceholder" class="w-full" required />
-          </UFormField>
+          <template v-else>
+            <UFormField :label="f.category" required>
+              <USelect v-model="form.categoryId" :items="categoryItems" :placeholder="t.categoryPlaceholder" class="w-full" required />
+            </UFormField>
+            <!-- Only when the chosen category has subcategories. -->
+            <UFormField v-if="subcategoryChoices.length > 1" :label="f.subcategory">
+              <USelect v-model="form.subcategoryId" :items="subcategoryChoices" class="w-full" />
+            </UFormField>
+          </template>
         </template>
 
         <UFormField v-if="form.kind === 'file'" :label="entry?.kind === 'file' ? f.replaceFile : f.file" :required="entry?.kind !== 'file'"

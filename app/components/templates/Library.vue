@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { TEMPLATE_VISIBILITIES, visibleTemplateLevels, type TemplateVisibility } from '#shared/domain/templateCategories'
-import type { PrintTemplateDto, PrintTemplateScope, TemplateCategoryDto } from '#shared/types/api'
+import type { CategoryNameDto, PrintTemplateDto, PrintTemplateScope, TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
@@ -9,9 +9,13 @@ import { formatDate } from '~/utils/format'
 import { focusOrderArrow, orderArrowId } from '~/utils/orderArrows'
 import { fillKinds } from '~/utils/pdfFill'
 import {
-  berlinDay, chosenTemplateTab, defaultGlobalVisibility, readTemplateTabMemory, sameCategoryName, templateFileUrl, templateTabs,
+  berlinDay, chosenTemplateTab, defaultGlobalVisibility, readTemplateTabMemory, sameCategoryName, templateFileUrl, templatePath, templateTabs,
   titleFromFileName, writeTemplateTabMemory,
 } from '~/utils/printTemplates'
+import {
+  chosenChip, filedCategoryId, groupHeadings, itemGroups, readChipMemory, shownGroups, subcategoryChip, subcategoryItems,
+  subcategoryNamesFor, subChips, topCategories, writeChipMemory, type ItemGroup,
+} from '~/utils/subcategories'
 
 /**
  * „Dokumente“ → „Vorlagen“: blank PDF forms to open and print, one sub-tab per category of the facility (in its order,
@@ -20,6 +24,9 @@ import {
  * Mitarbeiter with „Vorlagen bearbeiten“) uploads and maintains them and the facility's categories, everyone else and
  * the tablet (no unlock, they are no child data) only open them. The device remembers the last sub-tab. Editors order
  * the templates of a sub-tab with ▲/▼ (this facility's order, also for the Träger's templates); everyone sees that order.
+ * A category with subcategories shows a second row of small tabs („Alle“, „Allgemein“, the subcategories; the device
+ * remembers the last one per category): „Alle“ lists the templates in groups, one per subcategory, and ▲/▼ order within
+ * each group – the same list as the subcategory's own small tab.
  */
 const { user } = useUserSession()
 const { can } = useCan()
@@ -47,7 +54,7 @@ const { data: categoryData, refresh: refreshCategories } = await useFetch<Templa
 const templates = computed(() => data.value ?? [])
 const categories = computed(() => categoryData.value ?? [])
 const tabs = computed(() => templateTabs(categories.value, templates.value))
-const categoryItems = computed(() => categories.value.map(category => ({ label: category.name, value: category.id })))
+const categoryItems = computed(() => topCategories(categories.value).map(category => ({ label: category.name, value: category.id })))
 const refresh = () => Promise.all([refreshTemplates(), refreshCategories()])
 
 // ---- sub-tabs ------------------------------------------------------------
@@ -55,8 +62,14 @@ const wantedTab = ref<string | null>(null)
 const tab = computed(() => chosenTemplateTab(tabs.value, wantedTab.value))
 const current = computed(() => tabs.value.find(entry => entry.key === tab.value) ?? null)
 // The device's memory is read after mounting on a full page load (so the server's page matches), at once otherwise.
-if (import.meta.client && !useNuxtApp().isHydrating) wantedTab.value = readTemplateTabMemory()
-else onMounted(() => { wantedTab.value = readTemplateTabMemory() })
+const CHIP_MEMORY_KEY = 'dienstplan.templatesSubTab'
+const chipMemory = ref<Record<string, string>>({})
+function readMemory() {
+  wantedTab.value = readTemplateTabMemory()
+  chipMemory.value = readChipMemory(CHIP_MEMORY_KEY)
+}
+if (import.meta.client && !useNuxtApp().isHydrating) readMemory()
+else onMounted(readMemory)
 function selectTab(key: string) {
   wantedTab.value = key
   writeTemplateTabMemory(key)
@@ -75,6 +88,30 @@ function onTabKey(event: KeyboardEvent) {
 }
 const tabLabel = (entry: { category: TemplateCategoryDto | null }) => entry.category?.name ?? de.printTemplates.fromProvider
 
+// ---- subcategories: the second row of small tabs -------------------------
+/** The lists of the open sub-tab: the templates directly in the category, then one per subcategory. */
+const groups = computed(() => (current.value ? itemGroups(current.value.category, current.value.subcategories, current.value.templates) : []))
+const chips = computed(() => subChips(groups.value))
+const chip = computed(() => chosenChip(chips.value, current.value ? chipMemory.value[current.value.key] : null))
+/** The lists shown: all of them for „Alle“ (with headings), else the chosen one. */
+const shown = computed(() => shownGroups(groups.value, chip.value))
+const headings = computed(() => groupHeadings(chip.value))
+function selectChip(key: string | null) {
+  const entry = current.value
+  if (!entry || key === null) return
+  chipMemory.value = { ...chipMemory.value, [entry.key]: key }
+  writeChipMemory(CHIP_MEMORY_KEY, entry.key, key)
+}
+const groupName = (group: ItemGroup<TemplateCategoryDto, PrintTemplateDto>) => group.subcategory?.name ?? de.printTemplates.generalChip
+/** The rows shown, each with its list (for ▲/▼) and its place there; in „Alle“ the first of each list carries the heading. */
+const rows = computed(() => shown.value.flatMap(group => group.items.map((template, index) => ({
+  template, index, group, heading: headings.value && index === 0,
+}))))
+/** The note when nothing shows: an empty subcategory, else an empty category. */
+const emptyText = computed(() => (current.value?.subcategories.some(sub => subcategoryChip(sub.id) === chip.value)
+  ? de.printTemplates.emptySubcategory
+  : de.printTemplates.emptyCategory))
+
 // ---- upload and change ---------------------------------------------------
 const { busy, run } = useBusyAction(refresh)
 const confirm = useConfirm()
@@ -86,9 +123,16 @@ const managing = ref(false)
 const editing = ref<PrintTemplateDto | null>(null)
 const file = shallowRef<File | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+/** `subcategoryId` 0 = directly in the category („Allgemein“); `subcategoryName` '' = none (a template for all facilities). */
 const form = reactive<{
-  title: string; categoryId: number | undefined; scope: PrintTemplateScope; categoryName: string; visibility: TemplateVisibility
-}>({ title: '', categoryId: undefined, scope: 'facility', categoryName: '', visibility: 'all' })
+  title: string; categoryId: number | undefined; subcategoryId: number; scope: PrintTemplateScope; categoryName: string
+  subcategoryName: string; visibility: TemplateVisibility
+}>({ title: '', categoryId: undefined, subcategoryId: 0, scope: 'facility', categoryName: '', subcategoryName: '', visibility: 'all' })
+const subcategoryChoices = computed(() => subcategoryItems(categories.value, form.categoryId, de.printTemplates.noSubcategory))
+// Another category: a subcategory of the one before no longer fits.
+watch(() => form.categoryId, () => {
+  if (!subcategoryChoices.value.some(item => item.value === form.subcategoryId)) form.subcategoryId = 0
+})
 /** The title the last chosen file suggested; a title typed by hand is not overwritten by the next file. */
 let suggestedTitle = ''
 /** For all facilities: filed by category name (with the names the facilities use as suggestions) and its visibility. */
@@ -102,11 +146,13 @@ const visibilityItems = computed(() => TEMPLATE_VISIBILITIES.filter(level => cat
   .map(level => ({ label: de.printTemplates.categories.visibilities[level], value: level })))
 // The category names the facilities use, loaded afresh each time the Träger files a template for all facilities (so a
 // name typed for the last upload is offered too).
-const categoryNames = ref<string[]>([])
+const categoryNames = ref<CategoryNameDto[]>([])
 async function loadCategoryNames() {
   if (!canEditGlobal.value) return
-  categoryNames.value = await $fetch<string[]>('/api/template-categories/names').catch(() => categoryNames.value)
+  categoryNames.value = await $fetch<CategoryNameDto[]>('/api/template-categories/names').catch(() => categoryNames.value)
 }
+/** The subcategory names used under the typed category name, as suggestions. */
+const subcategoryNames = computed(() => subcategoryNamesFor(categoryNames.value, form.categoryName))
 watch(forAll, (value) => {
   if (value && open.value) loadCategoryNames()
 })
@@ -114,7 +160,7 @@ watch(forAll, (value) => {
 // so one meant for a restricted category is not shown to everyone where a facility lacks that category. Can be changed.
 watch(() => form.categoryName, (name) => {
   if (editing.value !== null || !open.value) return
-  const match = categories.value.find(category => sameCategoryName(category.name, name))
+  const match = topCategories(categories.value).find(category => sameCategoryName(category.name, name))
   if (match) form.visibility = defaultGlobalVisibility(match, categoryLevels.value)
 })
 
@@ -127,12 +173,18 @@ function resetFile() {
 function openNew() {
   editing.value = null
   resetFile()
-  // The open sub-tab's category is the likely one; with a single category there is nothing to choose.
-  const preset = current.value?.category?.id ?? (categories.value.length === 1 ? categories.value[0]!.id : undefined)
+  // The open sub-tab's category (and small tab's subcategory) is the likely one; with a single category there is nothing
+  // to choose.
+  const tops = topCategories(categories.value)
+  const preset = current.value?.category?.id ?? (tops.length === 1 ? tops[0]!.id : undefined)
   const presetName = current.value?.category?.name ?? current.value?.templates[0]?.category ?? ''
+  const presetSub = current.value?.subcategories.find(sub => subcategoryChip(sub.id) === chip.value)
   // For all facilities: as restricted as the open sub-tab's category (none for „Vom Träger“).
-  const visibility = defaultGlobalVisibility(current.value?.category, categoryLevels.value)
-  Object.assign(form, { title: '', categoryId: preset, scope: 'facility', categoryName: presetName, visibility })
+  const visibility = defaultGlobalVisibility(presetSub ?? current.value?.category, categoryLevels.value)
+  Object.assign(form, {
+    title: '', categoryId: preset, subcategoryId: presetSub?.id ?? 0, scope: 'facility', categoryName: presetName,
+    subcategoryName: presetSub?.name ?? '', visibility,
+  })
   open.value = true
 }
 
@@ -140,8 +192,9 @@ function openEdit(template: PrintTemplateDto) {
   editing.value = template
   resetFile()
   Object.assign(form, {
-    title: template.title, categoryId: template.categoryId ?? undefined, scope: template.global ? 'all' : 'facility',
-    categoryName: template.globalCategoryName ?? '', visibility: template.globalVisibility ?? 'all',
+    title: template.title, categoryId: template.categoryId ?? undefined, subcategoryId: template.subcategoryId ?? 0,
+    scope: template.global ? 'all' : 'facility', categoryName: template.globalCategoryName ?? '',
+    subcategoryName: template.globalSubcategoryName ?? '', visibility: template.globalVisibility ?? 'all',
   })
   open.value = true
   if (template.global) loadCategoryNames()
@@ -169,14 +222,18 @@ function fileBody(chosen: File): FormData {
   return body
 }
 
-/** The category part of the form: a category of the facility, or for all facilities the name and the visibility. */
-function filing(): { categoryId: number } | { categoryName: string; visibility: TemplateVisibility } | null {
+/**
+ * The category part of the form: a category or subcategory of the facility, or for all facilities the category name,
+ * the subcategory name ('' for none) and the visibility.
+ */
+function filing(): { categoryId: number } | { categoryName: string; subcategoryName: string; visibility: TemplateVisibility } | null {
   if (forAll.value) {
-    if (form.categoryName.trim() !== '') return { categoryName: form.categoryName, visibility: form.visibility }
+    if (form.categoryName.trim() !== '') return { categoryName: form.categoryName, subcategoryName: form.subcategoryName, visibility: form.visibility }
     toast.add({ title: de.errors.template_category_name_required, color: 'error' })
     return null
   }
-  if (form.categoryId !== undefined) return { categoryId: form.categoryId }
+  const categoryId = filedCategoryId(form.categoryId, form.subcategoryId)
+  if (categoryId !== undefined) return { categoryId }
   toast.add({ title: de.errors.template_category_invalid, color: 'error' })
   return null
 }
@@ -208,13 +265,15 @@ async function save() {
 }
 
 // ---- order (▲/▼) --------------------------------------------------------
-/** One place up or down in the open sub-tab: the server takes the sub-tab's whole order as the editor sees it. */
-async function move(index: number, direction: -1 | 1) {
-  const entry = current.value
-  const id = entry?.templates[index]?.id
-  const ids = entry ? moveInList(entry.templates.map(template => template.id), index, direction) : null
-  if (!entry || id === undefined || !ids) return
-  const body = { categoryId: entry.category?.id ?? null, ids }
+/**
+ * One place up or down in a list (a subcategory, the templates directly in the category, or „Vom Träger“): the server
+ * takes the list's whole order as the editor sees it.
+ */
+async function move(group: ItemGroup<TemplateCategoryDto, PrintTemplateDto>, index: number, direction: -1 | 1) {
+  const id = group.items[index]?.id
+  const ids = moveInList(group.items.map(template => template.id), index, direction)
+  if (id === undefined || !ids) return
+  const body = { categoryId: group.groupId, ids }
   if (await run(() => $fetch<unknown>('/api/print-templates/order', { method: 'POST', body }))) focusOrderArrow(`template-${id}`, direction)
 }
 
@@ -266,16 +325,31 @@ async function remove(template: PrintTemplateDto) {
           </span>
           <span v-else class="text-gray-600">{{ de.printTemplates.fromProviderHint }}</span>
         </div>
-        <p v-if="!current.templates.length" class="px-4 py-3 text-sm text-gray-500">{{ de.printTemplates.emptyCategory }}</p>
+        <!-- Subcategories: „Alle“, „Allgemein“, each subcategory (wrapping on a narrow screen). -->
+        <div v-if="current.category && chips.length" class="border-b border-gray-100 px-4 py-2">
+          <SubcategoryChips
+            :model-value="chip" :chips="chips" id-prefix="templates-chip" controls="templates-tab-panel"
+            :label="de.printTemplates.subTabsLabel(current.category.name)" :all-label="de.printTemplates.allChip"
+            :general-label="de.printTemplates.generalChip" @update:model-value="selectChip"
+          />
+        </div>
+        <p v-if="!rows.length" class="px-4 py-3 text-sm text-gray-500">{{ emptyText }}</p>
         <ul v-else class="divide-y divide-gray-100">
-          <li v-for="(template, index) in current.templates" :key="template.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+          <li v-for="{ template, index, group, heading } in rows" :key="template.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+            <!-- „Alle“: the first template of each list carries the list's heading (its subcategory, or „Allgemein“). -->
+            <h3 v-if="heading" class="flex basis-full flex-wrap items-center gap-2 text-sm font-semibold text-gray-700">
+              <UIcon name="i-lucide-folder" class="size-4 text-gray-400" aria-hidden="true" />{{ groupName(group) }}
+              <span v-if="group.subcategory && group.subcategory.visibility !== 'all'" class="whitespace-nowrap rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-800">
+                {{ badgeOf(group.subcategory.visibility) }}
+              </span>
+            </h3>
             <UIcon name="i-lucide-file-text" class="size-5 shrink-0 text-gray-500" aria-hidden="true" />
             <!-- At least 12rem for the text; on a narrow screen the buttons move to their own line instead. -->
             <div class="min-w-48 flex-1 space-y-0.5">
               <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span class="font-medium">{{ template.title }}</span>
                 <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ de.printTemplates.global }}</span>
-                <span v-if="!current.category" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ template.category }}</span>
+                <span v-if="!current.category" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ templatePath(template) }}</span>
               </div>
               <p class="text-xs text-gray-500">
                 {{ de.printTemplates.uploadedAt(formatDate(berlinDay(template.uploadedAt))) }}
@@ -301,12 +375,12 @@ async function remove(template: PrintTemplateDto) {
                 <UButton
                   :id="orderArrowId(`template-${template.id}`, -1)" color="neutral" variant="ghost" icon="i-lucide-arrow-up"
                   class="min-h-10 min-w-10 justify-center" :aria-label="`${de.printTemplates.moveUp}: ${template.title}`"
-                  :title="de.printTemplates.moveUp" :disabled="busy || index === 0" @click="move(index, -1)"
+                  :title="de.printTemplates.moveUp" :disabled="busy || index === 0" @click="move(group, index, -1)"
                 />
                 <UButton
                   :id="orderArrowId(`template-${template.id}`, 1)" color="neutral" variant="ghost" icon="i-lucide-arrow-down"
                   class="min-h-10 min-w-10 justify-center" :aria-label="`${de.printTemplates.moveDown}: ${template.title}`"
-                  :title="de.printTemplates.moveDown" :disabled="busy || index === current.templates.length - 1" @click="move(index, 1)"
+                  :title="de.printTemplates.moveDown" :disabled="busy || index === group.items.length - 1" @click="move(group, index, 1)"
                 />
               </span>
             </div>
@@ -336,7 +410,13 @@ async function remove(template: PrintTemplateDto) {
             <UFormField :label="de.printTemplates.categoryName" :description="de.printTemplates.categoryNameHint" required>
               <UInput v-model="form.categoryName" maxlength="60" class="w-full" list="template-category-names" required autocomplete="off" />
               <datalist id="template-category-names">
-                <option v-for="name in categoryNames" :key="name" :value="name" />
+                <option v-for="entry in categoryNames" :key="entry.name" :value="entry.name" />
+              </datalist>
+            </UFormField>
+            <UFormField :label="de.printTemplates.subcategoryName" :description="de.printTemplates.subcategoryNameHint">
+              <UInput v-model="form.subcategoryName" maxlength="60" class="w-full" list="template-subcategory-names" autocomplete="off" />
+              <datalist id="template-subcategory-names">
+                <option v-for="name in subcategoryNames" :key="name" :value="name" />
               </datalist>
             </UFormField>
             <UFormField :label="de.printTemplates.globalVisibility" :description="de.printTemplates.globalVisibilityHint">
@@ -345,9 +425,15 @@ async function remove(template: PrintTemplateDto) {
           </template>
           <template v-else>
             <UAlert v-if="!categories.length" color="warning" variant="soft" :title="de.printTemplates.noCategory" />
-            <UFormField v-else :label="de.printTemplates.category" required>
-              <USelect v-model="form.categoryId" :items="categoryItems" :placeholder="de.printTemplates.categoryPlaceholder" class="w-full" />
-            </UFormField>
+            <template v-else>
+              <UFormField :label="de.printTemplates.category" required>
+                <USelect v-model="form.categoryId" :items="categoryItems" :placeholder="de.printTemplates.categoryPlaceholder" class="w-full" />
+              </UFormField>
+              <!-- Only when the chosen category has subcategories. -->
+              <UFormField v-if="subcategoryChoices.length > 1" :label="de.printTemplates.subcategory">
+                <USelect v-model="form.subcategoryId" :items="subcategoryChoices" class="w-full" />
+              </UFormField>
+            </template>
           </template>
           <div class="flex gap-2">
             <UButton type="submit" :label="editing === null ? de.printTemplates.upload : de.common.save" :loading="busy" :disabled="busy" />

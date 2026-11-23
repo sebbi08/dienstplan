@@ -1388,16 +1388,22 @@ export const groupBookChanges = sqliteTable('group_book_changes', {
 
 /**
  * A category of print templates of one facility (one list for all facilities before 0108_facility_template_categories),
- * in `sortOrder`. The name is unique per facility regardless of case; `visibility` says who sees the category and its
- * templates (shared/domain/templateCategories.ts).
+ * in `sortOrder` among its siblings. One level of subcategories (0115_subcategories): a subcategory names its category in
+ * `parentId` (a category of the same facility without a parent of its own); a category is deleted only without
+ * subcategories. The name is unique per facility and parent regardless of case; `visibility` says who sees the category
+ * and its templates (shared/domain/templateCategories.ts), for a subcategory on top of its category's (the stricter wins).
  */
 export const templateCategories = sqliteTable('template_categories', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): AnySQLiteColumn => templateCategories.id),
   name: text('name').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
   visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
-}, table => [uniqueIndex('template_categories_facility_name').on(table.facilityId, sql`lower(${table.name})`)])
+}, table => [
+  uniqueIndex('template_categories_facility_parent_name').on(table.facilityId, sql`(case when ${table.parentId} is null then 0 else ${table.parentId} end)`, sql`lower(${table.name})`),
+  index('template_categories_parent').on(table.parentId),
+])
 
 /**
  * A blank PDF form (Vorlage) to open and print: of one facility, or for all facilities (`facilityId` null, only the
@@ -1415,6 +1421,8 @@ export const printTemplates = sqliteTable('print_templates', {
   category: text('category').notNull().default(''),
   categoryId: integer('category_id').references(() => templateCategories.id),
   categoryName: text('category_name'),
+  /** A template for all facilities: the subcategory name within `categoryName` (null = directly in the category). */
+  subcategoryName: text('subcategory_name'),
   visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
   mimeType: text('mime_type').notNull(),
   size: integer('size').notNull(),
@@ -1932,17 +1940,22 @@ export const contacts = sqliteTable('contacts', {
 }, table => [index('contacts_facility').on(table.facilityId), index('contacts_category').on(table.categoryId)])
 
 /**
- * A category of „Wissen“ (Dokumente → Wissen), one list per facility like the print template categories: name unique
- * per facility regardless of case, an order, and who sees it and its entries (all / Leitung and Träger / Träger only).
- * Deleted only while the facility has no entry in it.
+ * A category of „Wissen“ (Dokumente → Wissen), one list per facility like the print template categories, with one level
+ * of subcategories (`parentId`, as there): name unique per facility and parent regardless of case, an order among its
+ * siblings, and who sees it and its entries (all / Leitung and Träger / Träger only; a subcategory on top of its
+ * category's). Deleted only while the facility has no entry and no subcategory in it.
  */
 export const knowledgeCategories = sqliteTable('knowledge_categories', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): AnySQLiteColumn => knowledgeCategories.id),
   name: text('name').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
   visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
-}, table => [uniqueIndex('knowledge_categories_facility_name').on(table.facilityId, sql`lower(${table.name})`)])
+}, table => [
+  uniqueIndex('knowledge_categories_facility_parent_name').on(table.facilityId, sql`(case when ${table.parentId} is null then 0 else ${table.parentId} end)`, sql`lower(${table.name})`),
+  index('knowledge_categories_parent').on(table.parentId),
+])
 
 /**
  * An entry of „Wissen“: a PDF (`fileData`, PDF only, at most 10 MB), a link (`url`, http/https only) or a short
@@ -1959,6 +1972,8 @@ export const knowledgeEntries = sqliteTable('knowledge_entries', {
   facilityId: integer('facility_id').references(() => facilities.id, { onDelete: 'cascade' }),
   categoryId: integer('category_id').references(() => knowledgeCategories.id),
   categoryName: text('category_name'),
+  /** An entry for all facilities: the subcategory name within `categoryName` (null = directly in the category). */
+  subcategoryName: text('subcategory_name'),
   visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
   kind: text('kind', { enum: ['file', 'link', 'text'] }).notNull(),
   title: text('title').notNull(),

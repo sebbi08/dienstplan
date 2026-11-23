@@ -76,8 +76,8 @@ describe('print templates', () => {
     it('stores a PDF for the own facility with its title, category, size and upload time', () => {
       const id = upload(leitung, { title: '  Elternbrief  ' })
       expect(listTemplates(db, seer('admin', 1))).toEqual([{
-        id, title: 'Elternbrief', categoryId: cat.Eltern, category: 'Eltern', global: false, globalCategoryName: null,
-        globalVisibility: null, size: pdf().length, uploadedAt: NOW.toISOString(), updatedAt: NOW.toISOString(), canEdit: true,
+        id, title: 'Elternbrief', categoryId: cat.Eltern, category: 'Eltern', subcategoryId: null, subcategory: '', global: false, globalCategoryName: null,
+        globalSubcategoryName: null, globalVisibility: null, size: pdf().length, uploadedAt: NOW.toISOString(), updatedAt: NOW.toISOString(), canEdit: true,
         fillable: false,
       }])
       const row = db.select().from(printTemplates).get()!
@@ -469,6 +469,128 @@ describe('print templates', () => {
       upload(provider, { title: 'Speiseplan', category: 'Küche', scope: 'all' })
       deleteCategory(db, { role: 'admin', permissions: permissionsOf('admin'), facilityId: 1 }, cat.Küche!)
       expect(placed(1)).toEqual([['Speiseplan', null, 'Küche']])
+    })
+  })
+
+  describe('subcategories', () => {
+    /** A subcategory of that name under the named category, in facility 1 and (unless `onlyFirst`) in the other facility. */
+    const subcategory = (parent: string, name: string, visibility: TemplateVisibility = 'all', onlyFirst = false) => {
+      const by = (facilityId: number) => ({ role: 'provider' as const, permissions: permissionsOf('provider'), facilityId })
+      cat[`${parent}/${name}`] = createCategory(db, by(1), { name, visibility, parentId: cat[parent]! })
+      if (!onlyFirst) otherCat[`${parent}/${name}`] = createCategory(db, by(other), { name, visibility, parentId: otherCat[parent]! })
+      return cat[`${parent}/${name}`]!
+    }
+    /** Where each template shows for the role: „Kategorie/Unterkategorie“ (or the category alone, „-“ for „Vom Träger“). */
+    const spots = (facilityId: number, role: Role = 'admin') => listTemplates(db, seer(role, facilityId))
+      .map(template => [template.title, template.categoryId === null ? `-${template.subcategory ? `/${template.subcategory}` : ''}` : template.subcategory ? `${template.category}/${template.subcategory}` : template.category])
+    /** The titles of one list (a subcategory, or the templates directly in a category) as the role sees it. */
+    const list = (facilityId: number, groupId: number, role: Role = 'admin') => listTemplates(db, seer(role, facilityId))
+      .filter(template => (template.subcategoryId ?? template.categoryId) === groupId).map(template => template.title)
+    const idOf = (title: string) => listTemplates(db, seer('provider', 1)).find(template => template.title === title)!.id
+    const into = (by: TemplateActor, title: string, categoryId: number) =>
+      uploadTemplate(db, by, { title, categoryId, scope: 'facility' }, { data: pdf(), filename: 'x.pdf' }, NOW)
+    const forAll = (title: string, categoryName: string, subcategoryName?: string, visibility?: TemplateVisibility) =>
+      uploadTemplate(db, provider, { title, categoryName, subcategoryName, visibility, scope: 'all' }, { data: pdf(), filename: 'x.pdf' }, NOW)
+
+    it('files a facility\'s template in a subcategory and lists the category\'s own templates first, then each subcategory in its order', () => {
+      const ausfluege = subcategory('Eltern', 'Ausflüge')
+      const briefe = subcategory('Eltern', 'Briefe')
+      into(leitung, 'Brief', briefe)
+      into(leitung, 'Wandertag', ausfluege)
+      upload(leitung, { title: 'Direkt' })
+      expect(spots(1)).toEqual([['Direkt', 'Eltern'], ['Wandertag', 'Eltern/Ausflüge'], ['Brief', 'Eltern/Briefe']])
+      const listed = listTemplates(db, seer('admin', 1)).find(template => template.title === 'Brief')!
+      expect(listed).toMatchObject({ categoryId: cat.Eltern, category: 'Eltern', subcategoryId: briefe, subcategory: 'Briefe' })
+      expect(errorCode(() => into(otherLeitung, 'Fremd', briefe))).toBe('template_category_invalid')
+    })
+
+    it('shows a subcategory\'s templates only to those who see the subcategory and its category (Mitarbeiter, tablet)', () => {
+      const leitungen = subcategory('Eltern', 'Leitungen', 'managers')
+      category('Intern', 'managers')
+      const offen = subcategory('Intern', 'Offen')
+      into(provider, 'Für alle', cat.Eltern!)
+      into(provider, 'Für Leitungen', leitungen)
+      into(provider, 'Im internen', offen)
+      expect(spots(1, 'admin').map(([title]) => title)).toEqual(['Für alle', 'Für Leitungen', 'Im internen'])
+      expect(spots(1, 'observer').map(([title]) => title)).toEqual(['Für alle'])
+      expect(spots(1, 'terminal').map(([title]) => title)).toEqual(['Für alle'])
+      expect(errorCode(() => readTemplateFile(db, seer('observer', 1), idOf('Im internen')))).toBe('print_template_not_found')
+      // A Leitung cannot file into a subcategory of the Träger's category.
+      category('Träger', 'provider')
+      const traegerSub = subcategory('Träger', 'Offen')
+      expect(errorCode(() => into(leitung, 'X', traegerSub))).toBe('template_category_invalid')
+    })
+
+    it('shows a template for all facilities by its path: in the subcategory, else directly in the category, else „Vom Träger“', () => {
+      subcategory('Eltern', 'Briefe', 'all', true)
+      forAll('Pfad', 'eltern', 'BRIEFE')
+      forAll('Ohne Unterkategorie', 'Eltern')
+      forAll('Unbekannte Unterkategorie', 'Eltern', 'Ausflüge')
+      forAll('Unbekannte Kategorie', 'Küche', 'Pläne')
+      expect(spots(1)).toEqual([
+        ['Ohne Unterkategorie', 'Eltern'], ['Unbekannte Unterkategorie', 'Eltern'], ['Pfad', 'Eltern/Briefe'], ['Unbekannte Kategorie', '-/Pläne'],
+      ])
+      // The other facility has no subcategory „Briefe“: the template shows directly in „Eltern“.
+      expect(spots(other).find(([title]) => title === 'Pfad')).toEqual(['Pfad', 'Eltern'])
+      expect(listTemplates(db, seer('provider', 1)).find(template => template.title === 'Pfad'))
+        .toMatchObject({ globalCategoryName: 'eltern', globalSubcategoryName: 'BRIEFE' })
+    })
+
+    it('applies the strictest of the template\'s, the category\'s and the subcategory\'s visibility to a template for all facilities', () => {
+      subcategory('Eltern', 'Leitungen', 'managers')
+      forAll('Für alle', 'Eltern', 'Leitungen')
+      expect(spots(1, 'observer')).toEqual([])
+      expect(spots(1, 'admin')).toEqual([['Für alle', 'Eltern/Leitungen']])
+      forAll('Nur Träger', 'Eltern', 'Leitungen', 'provider')
+      expect(spots(1, 'admin').map(([title]) => title)).toEqual(['Für alle'])
+    })
+
+    it('orders within a subcategory and within the category\'s own list, each on its own', () => {
+      const briefe = subcategory('Eltern', 'Briefe')
+      into(leitung, 'A', briefe)
+      into(leitung, 'B', briefe)
+      upload(leitung, { title: 'Direkt 1' })
+      upload(leitung, { title: 'Direkt 2' })
+      forAll('Für alle', 'Eltern', 'Briefe')
+      expect(list(1, briefe)).toEqual(['A', 'B', 'Für alle'])
+      orderTemplates(db, leitung, briefe, [idOf('Für alle'), idOf('B'), idOf('A')])
+      expect(list(1, briefe)).toEqual(['Für alle', 'B', 'A'])
+      expect(list(1, cat.Eltern!)).toEqual(['Direkt 1', 'Direkt 2'])
+      // The category's own list holds only the templates directly in it.
+      expect(errorCode(() => orderTemplates(db, leitung, cat.Eltern!, [idOf('Direkt 2'), idOf('Direkt 1'), idOf('A')]))).toBe('invalid_order')
+      expect(errorCode(() => orderTemplates(db, leitung, briefe, [idOf('A'), idOf('B')]))).toBe('invalid_order')
+      orderTemplates(db, leitung, cat.Eltern!, [idOf('Direkt 2'), idOf('Direkt 1')])
+      expect(spots(1).map(([title]) => title)).toEqual(['Direkt 2', 'Direkt 1', 'Für alle', 'B', 'A'])
+      // Another facility's subcategory, or one the editor does not see: 404.
+      expect(errorCode(() => orderTemplates(db, leitung, otherCat['Eltern/Briefe']!, []))).toBe('template_category_not_found')
+      const geheim = subcategory('Eltern', 'Geheim', 'provider')
+      expect(errorCode(() => orderTemplates(db, leitung, geheim, []))).toBe('template_category_not_found')
+    })
+
+    it('puts a template moved into another subcategory (or out of one) at the end there', () => {
+      const briefe = subcategory('Eltern', 'Briefe')
+      const ausfluege = subcategory('Eltern', 'Ausflüge')
+      into(leitung, 'Zettel', ausfluege)
+      const moved = into(leitung, 'Aaa', briefe)
+      upload(leitung, { title: 'Direkt' })
+      updateTemplate(db, leitung, moved, { title: 'Aaa', categoryId: ausfluege }, LATER)
+      expect(list(1, ausfluege)).toEqual(['Zettel', 'Aaa'])
+      updateTemplate(db, leitung, moved, { title: 'Aaa', categoryId: cat.Eltern! }, LATER)
+      expect(list(1, cat.Eltern!)).toEqual(['Direkt', 'Aaa'])
+      // A template for all facilities filed under another subcategory name goes to the end there, too.
+      const global = forAll('Aaa für alle', 'Eltern')
+      into(leitung, 'Brief', briefe)
+      updateTemplate(db, provider, global, { title: 'Aaa für alle', categoryName: 'Eltern', subcategoryName: 'Briefe' }, LATER)
+      expect(list(1, briefe)).toEqual(['Brief', 'Aaa für alle'])
+      expect(list(1, cat.Eltern!)).toEqual(['Direkt', 'Aaa'])
+    })
+
+    it('moves a template for all facilities into the category when the facility deletes the subcategory of its path', () => {
+      const briefe = subcategory('Eltern', 'Briefe', 'all', true)
+      forAll('Für alle', 'Eltern', 'Briefe')
+      expect(spots(1)).toEqual([['Für alle', 'Eltern/Briefe']])
+      deleteCategory(db, { role: 'admin', permissions: permissionsOf('admin'), facilityId: 1 }, briefe)
+      expect(spots(1)).toEqual([['Für alle', 'Eltern']])
     })
   })
 })

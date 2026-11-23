@@ -14,6 +14,7 @@ import { DEFAULT_TEMPLATE_CATEGORIES, ensureInitialAdmin, resetAdminFromEnv, see
 import { verifyPassword } from '../../server/lib/password'
 import { DEFAULT_CONTACT_CATEGORIES } from '../../shared/domain/contacts'
 import { STARTERS } from '../../shared/domain/forms/starters'
+import { KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES } from '../../shared/domain/knowledge'
 import { addChild, addEmployee, addUser, createTestDb } from '../helpers/fixtures'
 import { CONSENT_COLUMN_OF, insertOverviewSample } from '../helpers/overviewSample'
 
@@ -1238,10 +1239,10 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('PRAGMA table_info(print_templates)').all()
       .map(column => { const { name, notnull } = column as Record<string, unknown>; return [name, notnull] }))
       // 0063_template_categories adds the category reference (and its index, see there); 0108 makes it optional (none
-      // for the templates of all facilities) and adds their category name and visibility; 0112 whether it is a form.
+      // for the templates of all facilities) and adds their category name and visibility; 0112 whether it is a form; 0115 the subcategory name.
       .toEqual([
         ['id', 1], ['facility_id', 0], ['title', 1], ['category', 1], ['category_id', 0], ['category_name', 0], ['visibility', 1],
-        ['mime_type', 1], ['size', 1], ['data', 1], ['uploaded_by', 0], ['uploaded_at', 1], ['updated_at', 1], ['fillable', 0],
+        ['mime_type', 1], ['size', 1], ['data', 1], ['uploaded_by', 0], ['uploaded_at', 1], ['updated_at', 1], ['fillable', 0], ['subcategory_name', 0],
       ])
     expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'print_templates' AND name = 'print_templates_facility'`).all())
       .toEqual([{ name: 'print_templates_facility' }])
@@ -2428,7 +2429,7 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
       INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
       INSERT INTO employees (id, name, short_name, facility_id) VALUES (1, 'Tina', 'TI', 1);
     `)
-    migrateDb(db, MIGRATIONS)
+    migrateThrough(db, '0114')
     // The migration adds no rows: the starters come with the next start (seedDefaults), recorded per key.
     for (const table of ['knowledge_categories', 'knowledge_entries', 'knowledge_confirmations', 'knowledge_starter_seeds']) {
       expect(count(sqlite, table), table).toBe(0)
@@ -2473,6 +2474,94 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT id FROM knowledge_categories').all()).toEqual([{ id: 1 }])
     expect(sqlite.prepare('SELECT id FROM knowledge_entries').all()).toEqual([{ id: 2 }])
     expect(count(sqlite, 'knowledge_starter_seeds')).toBe(0)
+  })
+
+  it('0115 adds one level of subcategories, keeps every category and item as it was, and gives „Gesetze & Vorgaben“ its starter subcategories', () => {
+    const { db, sqlite } = databaseAt('0114')
+    const starter = (key: string) => KNOWLEDGE_STARTER_LINKS.find(link => link.key === key)!
+    const law = (id: number, facilityId: number, categoryId: number, key: string, change: Partial<{ title: string; url: string }> = {}) => {
+      const link = { ...starter(key), ...change }
+      sqlite.prepare(`INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, description, url, starter_key, sort_order, version_at, created_at, updated_at)
+        VALUES (?, ?, ?, 'link', ?, ?, ?, ?, ?, 'a', 'a', 'a')`).run(id, facilityId, categoryId, link.title, link.description, link.url, key, id)
+    }
+    // 1: BW with the starters; 2: Bavaria with the starters; 3: an own „Gesetze & Vorgaben“ but never seeded; 4: renamed it.
+    sqlite.exec(`
+      INSERT INTO facilities (id, name, state) VALUES (2, 'München', 'BY'), (3, 'Neu', 'BW'), (4, 'Umbenannt', 'BW');
+      INSERT INTO knowledge_categories (id, facility_id, name, sort_order) VALUES
+        (10, 1, 'Kinderschutz', 0), (11, 1, 'Gesetze & Vorgaben', 1), (20, 2, 'Gesetze & Vorgaben', 0), (30, 3, 'Gesetze & Vorgaben', 0),
+        (40, 4, 'Recht', 0);
+      INSERT INTO knowledge_starter_seeds (facility_id, starter_key, seeded_at) VALUES
+        (1, 'category:gesetze', 'a'), (2, 'category:gesetze', 'a'), (4, 'category:gesetze', 'a'), (1, 'link:sgb8-45', 'a');
+      INSERT INTO knowledge_entries (id, facility_id, category_name, kind, title, version_at, created_at, updated_at) VALUES
+        (9, NULL, 'Gesetze & Vorgaben', 'link', '§ 45 SGB VIII – Erlaubnis für den Betrieb einer Einrichtung', 'a', 'a', 'a');
+      INSERT INTO print_templates (id, facility_id, title, category_id, mime_type, size, data, uploaded_at, updated_at) VALUES
+        (1, 1, 'Bogen', (SELECT min(id) FROM template_categories), 'application/pdf', 1, x'25', 'a', 'a');
+      INSERT INTO print_templates (id, facility_id, title, category_name, mime_type, size, data, uploaded_at, updated_at) VALUES
+        (2, NULL, 'Für alle', 'Eltern', 'application/pdf', 1, x'25', 'a', 'a');
+    `)
+    law(1, 1, 11, 'link:sgb8-45')
+    law(2, 1, 11, 'link:sgb8-47', { title: 'Meldepflichten (eigener Titel)' })
+    law(3, 1, 11, 'link:kitag-bw')
+    law(4, 1, 10, 'link:sgb8-8a')
+    law(5, 2, 20, 'link:sgb8-47')
+    law(6, 3, 30, 'link:sgb8-45')
+    law(7, 1, 11, 'link:sgb8-45', { url: 'https://www.example.de/45' })
+    const templateCategoriesBefore = sqlite.prepare('SELECT id, facility_id, name, sort_order, visibility FROM template_categories ORDER BY id').all()
+    const templatesBefore = sqlite.prepare('SELECT id, facility_id, title, category_id, category_name, visibility FROM print_templates ORDER BY id').all()
+    migrateThrough(db, '0115')
+
+    // The print templates: every category a category (no parent), every template where it was, no subcategory names.
+    expect(sqlite.prepare('SELECT id, facility_id, name, sort_order, visibility FROM template_categories ORDER BY id').all()).toEqual(templateCategoriesBefore)
+    expect(sqlite.prepare('SELECT count(*) AS n FROM template_categories WHERE parent_id IS NOT NULL').get()).toEqual({ n: 0 })
+    expect(sqlite.prepare('SELECT id, facility_id, title, category_id, category_name, visibility FROM print_templates ORDER BY id').all()).toEqual(templatesBefore)
+    expect(sqlite.prepare('SELECT count(*) AS n FROM print_templates WHERE subcategory_name IS NOT NULL').get()).toEqual({ n: 0 })
+
+    // „Wissen“: the starter subcategories where the starters were given and „Gesetze & Vorgaben“ is still there.
+    const subs = sqlite.prepare('SELECT facility_id, parent_id, name, sort_order, visibility FROM knowledge_categories WHERE parent_id IS NOT NULL ORDER BY facility_id, sort_order').all()
+    expect(subs).toEqual([
+      { facility_id: 1, parent_id: 11, name: 'Bund', sort_order: 0, visibility: 'all' },
+      { facility_id: 1, parent_id: 11, name: 'Baden-Württemberg', sort_order: 1, visibility: 'all' },
+      { facility_id: 2, parent_id: 20, name: 'Bund', sort_order: 0, visibility: 'all' },
+    ])
+    const bund = (facilityId: number) => (sqlite.prepare(`SELECT id FROM knowledge_categories WHERE facility_id = ? AND name = 'Bund'`).get(facilityId) as { id: number }).id
+    const bw = (sqlite.prepare(`SELECT id FROM knowledge_categories WHERE name = 'Baden-Württemberg'`).get() as { id: number }).id
+    // Only the starter links still unchanged move; the others stay where they were.
+    expect(sqlite.prepare('SELECT id, category_id, sort_order FROM knowledge_entries ORDER BY id').all()).toEqual([
+      { id: 1, category_id: bund(1), sort_order: 1 },
+      { id: 2, category_id: 11, sort_order: 2 },
+      { id: 3, category_id: bw, sort_order: 3 },
+      { id: 4, category_id: 10, sort_order: 4 },
+      { id: 5, category_id: bund(2), sort_order: 5 },
+      { id: 6, category_id: 30, sort_order: 6 },
+      { id: 7, category_id: 11, sort_order: 7 },
+      { id: 9, category_id: null, sort_order: 0 },
+    ])
+    // Recorded wherever the starters were given (so they never come back), not where they were not given yet.
+    expect(sqlite.prepare(`SELECT facility_id, starter_key FROM knowledge_starter_seeds WHERE starter_key LIKE 'subcategory:%' ORDER BY facility_id, starter_key`).all())
+      .toEqual([1, 2, 4].flatMap(facility_id => [
+        { facility_id, starter_key: 'subcategory:gesetze-bund' }, { facility_id, starter_key: 'subcategory:gesetze-bw' },
+      ]))
+    expect(KNOWLEDGE_STARTER_SUBCATEGORIES.map(sub => sub.key)).toEqual(['subcategory:gesetze-bund', 'subcategory:gesetze-bw'])
+
+    // Names unique per facility and parent (ASCII case aside); the same name may stand under another category or at the top.
+    sqlite.exec(`INSERT INTO knowledge_categories (facility_id, parent_id, name) VALUES (1, 10, 'Bund'), (1, NULL, 'Bund')`)
+    expect(() => sqlite.exec(`INSERT INTO knowledge_categories (facility_id, parent_id, name) VALUES (1, 11, 'BUND')`)).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec(`INSERT INTO knowledge_categories (facility_id, parent_id, name) VALUES (1, NULL, 'kinderschutz')`)).toThrow(/UNIQUE/)
+    const firstTemplateCategory = (sqlite.prepare('SELECT id, name FROM template_categories WHERE facility_id = 1 ORDER BY id').get() as { id: number; name: string })
+    sqlite.prepare(`INSERT INTO template_categories (facility_id, parent_id, name) VALUES (1, ?, ?)`).run(firstTemplateCategory.id, firstTemplateCategory.name)
+    expect(() => sqlite.prepare(`INSERT INTO template_categories (facility_id, parent_id, name) VALUES (1, NULL, ?)`).run(firstTemplateCategory.name.toUpperCase()))
+      .toThrow(/UNIQUE/)
+    // The parent must exist; a category with subcategories cannot simply go.
+    const fks = (table: string) => sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all()
+      .map(fk => { const { table: to, from, on_delete } = fk as Record<string, string>; return { to, from, on_delete } })
+    expect(fks('template_categories')).toEqual(expect.arrayContaining([{ to: 'template_categories', from: 'parent_id', on_delete: 'NO ACTION' }]))
+    expect(fks('knowledge_categories')).toEqual(expect.arrayContaining([{ to: 'knowledge_categories', from: 'parent_id', on_delete: 'NO ACTION' }]))
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(() => sqlite.exec(`INSERT INTO knowledge_categories (facility_id, parent_id, name) VALUES (1, 999, 'Waise')`)).toThrow(/FOREIGN KEY/)
+    expect(() => sqlite.exec('DELETE FROM knowledge_categories WHERE id = 20')).toThrow(/FOREIGN KEY/)
+    // Gone with the facility, subcategories and all.
+    sqlite.exec('DELETE FROM knowledge_entries WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
+    expect(sqlite.prepare('SELECT count(*) AS n FROM knowledge_categories WHERE facility_id = 2').get()).toEqual({ n: 0 })
   })
 
   it('0109 adds the address book with the example categories for every facility and the future school of a child', () => {

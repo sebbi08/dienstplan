@@ -1,17 +1,22 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { can } from '../../shared/domain/permissions'
-import { seesTemplateCategory, visibleTemplateLevels, type TemplateVisibility } from '../../shared/domain/templateCategories'
-import type { Role, SessionUser, TemplateCategoryDto, TemplateCategoryInput } from '../../shared/types/api'
+import {
+  categoriesInTreeOrder, categoryNameList, categoryPlacer, foldCategoryName, seesAll, seesCategoryNode, spotVisibilities,
+  swappedSiblings, visibleTemplateLevels, type TemplateVisibility,
+} from '../../shared/domain/templateCategories'
+import type { CategoryNameDto, Role, SessionUser, TemplateCategoryDto, TemplateCategoryInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { printTemplates, templateCategories } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 
 /**
- * The categories of the print templates, one list per facility (each facility orders, names and adds its own). Whoever
- * holds printTemplates.edit (Leitung and Träger by default, a Mitarbeiter with the bundle „Vorlagen bearbeiten“)
- * maintains those of the facility they work in, each only those they see (by role): a category for the Träger alone is
- * the Träger's to create, change and delete, and a Leitung can neither see it (404) nor give a category that visibility
- * (403); a Mitarbeiter only those visible to all. Another facility's category is 404 as well.
+ * The categories of the print templates, one list per facility (each facility orders, names and adds its own), with one
+ * level of subcategories: a subcategory belongs to a category of the same facility, never to another subcategory.
+ * Whoever holds printTemplates.edit (Leitung and Träger by default, a Mitarbeiter with the bundle „Vorlagen bearbeiten“)
+ * maintains those of the facility they work in, each only those they see (by role; a subcategory only with its
+ * category): a category for the Träger alone is the Träger's to create, change and delete, and a Leitung can neither
+ * see it (404) nor give a category that visibility (403); a Mitarbeiter only those visible to all. Another facility's
+ * category is 404 as well.
  */
 export type CategoryActor = Pick<SessionUser, 'role' | 'permissions'> & { facilityId: number }
 
@@ -20,48 +25,51 @@ export type CategoryViewer = Pick<SessionUser, 'role'> & { facilityId: number }
 
 type CategoryRow = typeof templateCategories.$inferSelect
 
-/** The facility's categories in their order (ties by id). */
+/** The facility's categories, each category followed by its subcategories, in their order (ties by id). */
 export const facilityCategories = (db: Db, facilityId: number): CategoryRow[] =>
-  db.select().from(templateCategories).where(eq(templateCategories.facilityId, facilityId))
-    .orderBy(asc(templateCategories.sortOrder), asc(templateCategories.id)).all()
+  categoriesInTreeOrder(db.select().from(templateCategories).where(eq(templateCategories.facilityId, facilityId))
+    .orderBy(asc(templateCategories.sortOrder), asc(templateCategories.id)).all())
 
 /** Names that differ only in case (umlauts included) or in ß/ss count as the same; as in 0063_template_categories. */
-export const comparableCategoryName = (name: string) => name.trim().toLocaleLowerCase('de').replace(/ß/g, 'ss')
+export const comparableCategoryName = foldCategoryName
 
 /**
- * The categories of the viewer's facility they see, in their order, with how many of the facility's own templates are
- * filed in them and how many of the Träger's templates for all facilities (that the viewer sees) show in them by name.
- * A name shared by twins from before the categories counts for the first of them, as the templates show there.
+ * The categories and subcategories of the viewer's facility they see (a subcategory only when they see its category
+ * too), each category followed by its subcategories, with how many of the facility's own templates are filed directly
+ * in each and how many of the Träger's templates for all facilities (that the viewer sees) show directly in each by
+ * name. A name shared by twins from before the categories counts for the first of them, as the templates show there.
  */
 export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategoryDto[] {
   const all = facilityCategories(db, viewer.facilityId)
-  const rows = all.filter(row => seesTemplateCategory(viewer.role, row.visibility))
+  const rows = all.filter(row => seesCategoryNode(viewer.role, row, all))
   const counts = new Map(rows.length === 0 ? [] : db.select({ id: printTemplates.categoryId, n: count() }).from(printTemplates)
     .where(inArray(printTemplates.categoryId, rows.map(row => row.id))).groupBy(printTemplates.categoryId).all()
     .map(row => [row.id, row.n]))
-  const firstByName = new Map<string, number>()
-  for (const row of all) {
-    const key = comparableCategoryName(row.name)
-    if (!firstByName.has(key)) firstByName.set(key, row.id)
-  }
+  const place = categoryPlacer(all)
   const globalCounts = new Map<number, number>()
-  const globals = db.select({ name: printTemplates.categoryName, visibility: printTemplates.visibility }).from(printTemplates)
-    .where(isNull(printTemplates.facilityId)).all()
+  const globals = db.select({ name: printTemplates.categoryName, subcategoryName: printTemplates.subcategoryName, visibility: printTemplates.visibility })
+    .from(printTemplates).where(isNull(printTemplates.facilityId)).all()
   for (const global of globals) {
-    const id = firstByName.get(comparableCategoryName(global.name ?? ''))
-    if (id !== undefined && seesTemplateCategory(viewer.role, global.visibility)) globalCounts.set(id, (globalCounts.get(id) ?? 0) + 1)
+    const spot = place.byName(global.name, global.subcategoryName)
+    const shownIn = spot.subcategory ?? spot.category
+    if (shownIn && seesAll(viewer.role, [global.visibility, ...spotVisibilities(spot)])) {
+      globalCounts.set(shownIn.id, (globalCounts.get(shownIn.id) ?? 0) + 1)
+    }
   }
   return rows.map(row => ({
-    id: row.id, name: row.name, visibility: row.visibility, templateCount: counts.get(row.id) ?? 0, globalCount: globalCounts.get(row.id) ?? 0,
+    id: row.id, parentId: row.parentId, name: row.name, visibility: row.visibility,
+    templateCount: counts.get(row.id) ?? 0, globalCount: globalCounts.get(row.id) ?? 0,
   }))
 }
 
-/** The category of a facility's template as the viewer chooses it: one of the facility they see, else 400 template_category_invalid. */
+/**
+ * The category or subcategory of a facility's template as the viewer chooses it: one of the facility they see (a
+ * subcategory with its category), else 400 template_category_invalid.
+ */
 export function chosenCategory(db: Db, role: Role, facilityId: number, id: number | null | undefined): CategoryRow {
-  const row = id == null
-    ? undefined
-    : db.select().from(templateCategories).where(and(eq(templateCategories.id, id), eq(templateCategories.facilityId, facilityId))).get()
-  if (!row || !seesTemplateCategory(role, row.visibility)) throw new ServiceError(400, 'template_category_invalid')
+  const all = id == null ? [] : facilityCategories(db, facilityId)
+  const row = all.find(category => category.id === id)
+  if (!row || !seesCategoryNode(role, row, all)) throw new ServiceError(400, 'template_category_invalid')
   return row
 }
 
@@ -70,12 +78,12 @@ function assertEditor(actor: Pick<CategoryActor, 'permissions'>): void {
 }
 
 /** A category the actor maintains: one of their facility they see (else 404 template_category_not_found). */
-function loadEditable(db: Db, actor: CategoryActor, id: number): CategoryRow {
+function loadEditable(db: Db, actor: CategoryActor, id: number): { row: CategoryRow; all: CategoryRow[] } {
   assertEditor(actor)
-  const row = db.select().from(templateCategories)
-    .where(and(eq(templateCategories.id, id), eq(templateCategories.facilityId, actor.facilityId))).get()
-  if (!row || !seesTemplateCategory(actor.role, row.visibility)) throw new ServiceError(404, 'template_category_not_found')
-  return row
+  const all = facilityCategories(db, actor.facilityId)
+  const row = all.find(category => category.id === id)
+  if (!row || !seesCategoryNode(actor.role, row, all)) throw new ServiceError(404, 'template_category_not_found')
+  return { row, all }
 }
 
 /** The trimmed category name (at most 60 characters); an empty one is 400 template_category_name_required. */
@@ -86,63 +94,74 @@ export function checkedCategoryName(name: string): string {
 }
 
 /**
- * The trimmed name, unique regardless of case among the facility's categories (also those the actor does not see). A
- * category keeping its own name is never a clash, even beside a twin from before the categories.
+ * The trimmed name, unique regardless of case among its siblings (the facility's categories, or the subcategories of
+ * the same category; also those the actor does not see). A category keeping its own name is never a clash, even beside
+ * a twin from before the categories.
  */
 function checkedInput(
-  db: Db, actor: CategoryActor, input: TemplateCategoryInput, current: CategoryRow | null,
+  actor: CategoryActor, all: readonly CategoryRow[], input: TemplateCategoryInput, parentId: number | null, current: CategoryRow | null,
 ): { name: string; visibility: TemplateVisibility } {
   const name = checkedCategoryName(input.name)
   if (!visibleTemplateLevels(actor.role).includes(input.visibility)) throw new ServiceError(403, 'forbidden')
   if (name !== current?.name) {
-    const clash = facilityCategories(db, actor.facilityId)
-      .some(row => row.id !== current?.id && comparableCategoryName(row.name) === comparableCategoryName(name))
+    const clash = all.some(row => row.id !== current?.id && row.parentId === parentId && comparableCategoryName(row.name) === comparableCategoryName(name))
     if (clash) throw new ServiceError(409, 'template_category_name_taken')
   }
   return { name, visibility: input.visibility }
 }
 
-/** A new category at the end of the facility's list; returns its id. */
+/**
+ * A new category at the end of the facility's list, or with `parentId` a new subcategory at the end of that category's
+ * (a category of the facility the actor sees, not itself a subcategory: else 400 template_category_parent_invalid);
+ * returns its id.
+ */
 export function createCategory(db: Db, actor: CategoryActor, input: TemplateCategoryInput): number {
   assertEditor(actor)
-  const values = checkedInput(db, actor, input, null)
-  const last = facilityCategories(db, actor.facilityId).at(-1)
-  return db.insert(templateCategories).values({ ...values, facilityId: actor.facilityId, sortOrder: last ? last.sortOrder + 1 : 0 })
+  const all = facilityCategories(db, actor.facilityId)
+  const parentId = input.parentId ?? null
+  if (parentId !== null) {
+    const parent = all.find(row => row.id === parentId)
+    if (!parent || parent.parentId !== null || !seesCategoryNode(actor.role, parent, all)) {
+      throw new ServiceError(400, 'template_category_parent_invalid')
+    }
+  }
+  const values = checkedInput(actor, all, input, parentId, null)
+  const last = all.filter(row => row.parentId === parentId).at(-1)
+  return db.insert(templateCategories).values({ ...values, facilityId: actor.facilityId, parentId, sortOrder: last ? last.sortOrder + 1 : 0 })
     .returning({ id: templateCategories.id }).get().id
 }
 
-/** Renames the category and changes who sees it (and its templates). */
+/** Renames the category and changes who sees it (and its templates); where it sits (category or subcategory) stays. */
 export function updateCategory(db: Db, actor: CategoryActor, id: number, input: TemplateCategoryInput): void {
-  const current = loadEditable(db, actor, id)
-  db.update(templateCategories).set(checkedInput(db, actor, input, current)).where(eq(templateCategories.id, id)).run()
+  const { row, all } = loadEditable(db, actor, id)
+  db.update(templateCategories).set(checkedInput(actor, all, input, row.parentId, row)).where(eq(templateCategories.id, id)).run()
 }
 
 /**
- * Swaps the category with its neighbour among those the actor sees (the Leitung's list skips the Träger's hidden
- * ones); at an end nothing changes. The facility's whole list is numbered afresh.
+ * Swaps the category with its neighbour among its siblings the actor sees (the facility's categories, or the
+ * subcategories of the same category; the Leitung's list skips the Träger's hidden ones); at an end nothing changes.
+ * The siblings are numbered afresh.
  */
 export function moveCategory(db: Db, actor: CategoryActor, id: number, direction: 'up' | 'down'): void {
-  loadEditable(db, actor, id)
-  const all = facilityCategories(db, actor.facilityId)
-  const visible = all.filter(row => seesTemplateCategory(actor.role, row.visibility))
-  const at = visible.findIndex(row => row.id === id)
-  const self = visible[at]!
-  const neighbour = visible[direction === 'up' ? at - 1 : at + 1]
-  if (!neighbour) return
-  const swapped = all.map(row => (row.id === self.id ? neighbour : row.id === neighbour.id ? self : row))
+  const { row, all } = loadEditable(db, actor, id)
+  const siblings = all.filter(other => other.parentId === row.parentId)
+  const swapped = swappedSiblings(siblings, siblings.filter(other => seesCategoryNode(actor.role, other, all)), id, direction)
+  if (!swapped) return
   db.transaction((tx) => {
-    swapped.forEach((row, index) => {
-      if (row.sortOrder !== index) tx.update(templateCategories).set({ sortOrder: index }).where(eq(templateCategories.id, row.id)).run()
+    swapped.forEach((sibling, index) => {
+      if (sibling.sortOrder !== index) tx.update(templateCategories).set({ sortOrder: index }).where(eq(templateCategories.id, sibling.id)).run()
     })
   })
 }
 
 /**
- * Deletes an empty category; one holding templates of the facility is 409 template_category_not_empty. Templates for all
- * facilities filed under its name do not count: they move to „Vom Träger“.
+ * Deletes an empty category: one with subcategories is 409 template_category_has_subcategories, one holding templates of
+ * the facility 409 template_category_not_empty. Templates for all facilities filed under its name do not count: they
+ * move to „Vom Träger“ (from a subcategory: directly into its category).
  */
 export function deleteCategory(db: Db, actor: CategoryActor, id: number): void {
-  loadEditable(db, actor, id)
+  const { all } = loadEditable(db, actor, id)
+  if (all.some(row => row.parentId === id)) throw new ServiceError(409, 'template_category_has_subcategories')
   const used = db.select({ id: printTemplates.id }).from(printTemplates).where(eq(printTemplates.categoryId, id)).limit(1).get()
   if (used) throw new ServiceError(409, 'template_category_not_empty')
   db.delete(templateCategories).where(eq(templateCategories.id, id)).run()
@@ -150,21 +169,16 @@ export function deleteCategory(db: Db, actor: CategoryActor, id: number): void {
 
 /**
  * The category names to offer the Träger for a template for all facilities (printTemplates.global, else 403): every
- * name a facility uses or a template for all facilities carries, once regardless of case, alphabetical.
+ * name a facility uses or a template for all facilities carries, once regardless of case, alphabetical, each with the
+ * subcategory names under it.
  */
-export function globalCategoryNames(db: Db, actor: Pick<SessionUser, 'permissions'>): string[] {
+export function globalCategoryNames(db: Db, actor: Pick<SessionUser, 'permissions'>): CategoryNameDto[] {
   if (!can(actor.permissions, 'printTemplates.global')) throw new ServiceError(403, 'forbidden')
-  const names = [
-    ...db.select({ name: templateCategories.name }).from(templateCategories)
-      .orderBy(asc(templateCategories.facilityId), asc(templateCategories.sortOrder), asc(templateCategories.id)).all()
-      .map(row => row.name),
-    ...db.select({ name: printTemplates.categoryName }).from(printTemplates).where(isNotNull(printTemplates.categoryName)).all()
-      .map(row => row.name ?? ''),
-  ]
-  const byName = new Map<string, string>()
-  for (const name of names) {
-    const key = comparableCategoryName(name)
-    if (key !== '' && !byName.has(key)) byName.set(key, name.trim())
-  }
-  return [...byName.values()].sort((a, b) => a.localeCompare(b, 'de'))
+  const rows = db.select({ id: templateCategories.id, parentId: templateCategories.parentId, name: templateCategories.name })
+    .from(templateCategories)
+    .orderBy(asc(templateCategories.facilityId), asc(templateCategories.sortOrder), asc(templateCategories.id)).all()
+  const names = new Map(rows.map(row => [row.id, row.name]))
+  const filed = db.select({ name: printTemplates.categoryName, subcategoryName: printTemplates.subcategoryName }).from(printTemplates)
+    .where(and(isNull(printTemplates.facilityId), isNotNull(printTemplates.categoryName))).all()
+  return categoryNameList(rows.map(row => ({ name: row.name, parentName: row.parentId === null ? null : names.get(row.parentId) ?? null })), filed)
 }

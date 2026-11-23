@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chosenKnowledgeTab, knowledgeTabs, linkHost, movableEntries, needsMyConfirmation, peopleByState, searchKnowledge,
+  chosenKnowledgeTab, knowledgePlace, knowledgeTabs, linkHost, movableEntries, needsMyConfirmation, peopleByState, searchKnowledge,
 } from '../../app/utils/knowledge'
 import {
-  KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, checkedAsOf, checkedKnowledgeUrl, confirmState, knowledgeMatches,
+  KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES, checkedAsOf, checkedKnowledgeUrl, confirmState, knowledgeMatches,
 } from '../../shared/domain/knowledge'
 import type { KnowledgeCategoryDto, KnowledgeConfirmationRowDto, KnowledgeEntryDto } from '../../shared/types/api'
 
-const category = (id: number, name: string): KnowledgeCategoryDto => ({ id, name, visibility: 'all', entryCount: 0, ownCount: 0 })
+const category = (id: number, name: string, parentId: number | null = null): KnowledgeCategoryDto =>
+  ({ id, parentId, name, visibility: 'all', entryCount: 0, ownCount: 0 })
 const entry = (id: number, categoryId: number | null, overrides: Partial<KnowledgeEntryDto> = {}): KnowledgeEntryDto => ({
-  id, categoryId, global: categoryId === null, globalCategoryName: null, globalVisibility: null, kind: 'link', title: `Eintrag ${id}`,
+  id, categoryId, subcategoryId: null, global: categoryId === null, globalCategoryName: null, globalSubcategoryName: null, globalVisibility: null,
+  kind: 'link', title: `Eintrag ${id}`,
   description: '', asOf: null, url: 'https://example.de', body: '', fileSize: null, needsConfirmation: false, version: 1, versionAt: '2026-11-23T09:00:00.000Z',
   updatedAt: '2026-11-23T09:00:00.000Z', myConfirmation: null, canEdit: false, ...overrides,
 })
@@ -53,11 +55,18 @@ describe('knowledge fields', () => {
   it('has the five example categories and official starter links, each filed in one of them', () => {
     expect(KNOWLEDGE_STARTER_CATEGORIES.map(starter => starter.name))
       .toEqual(['Orientierungsplan', 'Aufsichtspflicht', 'Kinderschutz', 'Hygiene & Gesundheit', 'Gesetze & Vorgaben'])
-    const keys = [...KNOWLEDGE_STARTER_CATEGORIES, ...KNOWLEDGE_STARTER_LINKS].map(starter => starter.key)
+    const keys = [...KNOWLEDGE_STARTER_CATEGORIES, ...KNOWLEDGE_STARTER_SUBCATEGORIES, ...KNOWLEDGE_STARTER_LINKS].map(starter => starter.key)
     expect(new Set(keys).size).toBe(keys.length)
+    // „Gesetze & Vorgaben“ → „Bund“ (every facility) and „Baden-Württemberg“ (there only).
+    expect(KNOWLEDGE_STARTER_SUBCATEGORIES.map(sub => [sub.category, sub.name, sub.states ?? null])).toEqual([
+      ['Gesetze & Vorgaben', 'Bund', null], ['Gesetze & Vorgaben', 'Baden-Württemberg', ['BW']],
+    ])
     const official = /^https:\/\/(www\.gesetze-im-internet\.de|km\.baden-wuerttemberg\.de|www\.landesrecht-bw\.de|www\.rki\.de)\//
     for (const link of KNOWLEDGE_STARTER_LINKS) {
       expect(KNOWLEDGE_STARTER_CATEGORIES.map(starter => starter.name), link.key).toContain(link.category)
+      if (link.subcategory) {
+        expect(KNOWLEDGE_STARTER_SUBCATEGORIES.filter(sub => sub.category === link.category).map(sub => sub.name), link.key).toContain(link.subcategory)
+      }
       expect(link.url, link.key).toMatch(official)
       expect(checkedKnowledgeUrl(link.url), link.key).toBe(link.url)
       expect(link.title.length, link.key).toBeLessThanOrEqual(120)
@@ -72,12 +81,24 @@ describe('the page „Wissen“', () => {
     const entries = [entry(1, 2), entry(2, 1), entry(3, 2, { global: true })]
     const tabs = knowledgeTabs(categories, entries)
     expect(tabs.map(tab => [tab.key, tab.entries.map(item => item.id)])).toEqual([['category-1', [2]], ['category-2', [1, 3]]])
-    expect(movableEntries(tabs[1]!).map(item => item.id)).toEqual([1])
+    expect(movableEntries(tabs[1]!.entries).map(item => item.id)).toEqual([1])
     const withProvider = knowledgeTabs(categories, [...entries, entry(4, null)])
     expect(withProvider.at(-1)).toMatchObject({ key: 'provider', category: null })
     expect(chosenKnowledgeTab(tabs, 'category-2')).toBe('category-2')
     expect(chosenKnowledgeTab(tabs, 'provider')).toBe('category-1')
     expect(chosenKnowledgeTab([], null)).toBeNull()
+  })
+
+  it('makes sub-tabs of the categories only, with their subcategories, and names an entry\'s place in the search', () => {
+    const categories = [category(1, 'Gesetze'), category(11, 'Bund', 1), category(12, 'Land', 1), category(2, 'Hygiene')]
+    const entries = [entry(1, 1), entry(2, 1, { subcategoryId: 11 }), entry(3, 2), entry(4, null)]
+    const tabs = knowledgeTabs(categories, entries)
+    expect(tabs.map(tab => [tab.key, tab.subcategories.map(sub => sub.name), tab.entries.map(item => item.id)])).toEqual([
+      ['category-1', ['Bund', 'Land'], [1, 2]], ['category-2', [], [3]], ['provider', [], [4]],
+    ])
+    expect(knowledgePlace(categories, entries[1]!, 'Vom Träger')).toBe('Gesetze › Bund')
+    expect(knowledgePlace(categories, entries[0]!, 'Vom Träger')).toBe('Gesetze')
+    expect(knowledgePlace(categories, entries[3]!, 'Vom Träger')).toBe('Vom Träger')
   })
 
   it('searches across all categories', () => {

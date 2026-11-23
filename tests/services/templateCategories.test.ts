@@ -50,8 +50,8 @@ describe('template categories', () => {
       const eltern = create(leitung, '  Eltern ')
       create(provider, 'Personal', 'managers')
       expect(listCategories(db, provider)).toEqual([
-        { id: eltern, name: 'Eltern', visibility: 'all', templateCount: 0, globalCount: 0 },
-        { id: expect.any(Number), name: 'Personal', visibility: 'managers', templateCount: 0, globalCount: 0 },
+        { id: eltern, parentId: null, name: 'Eltern', visibility: 'all', templateCount: 0, globalCount: 0 },
+        { id: expect.any(Number), parentId: null, name: 'Personal', visibility: 'managers', templateCount: 0, globalCount: 0 },
       ])
     })
 
@@ -247,8 +247,140 @@ describe('template categories', () => {
       create(leitung, 'Eltern')
       create(as('admin', krippe), 'eltern')
       create(as('admin', krippe), 'Ärztliches')
-      expect(globalCategoryNames(db, provider)).toEqual(['Ärztliches', 'Eltern', 'Personal'])
+      expect(globalCategoryNames(db, provider).map(entry => entry.name)).toEqual(['Ärztliches', 'Eltern', 'Personal'])
       expect(errorCode(() => globalCategoryNames(db, leitung))).toBe('forbidden')
+    })
+  })
+
+  describe('subcategories (one level)', () => {
+    const sub = (
+      by: { role: Role; permissions: ReadonlySet<PermissionKey>; facilityId: number }, parentId: number, name: string,
+      visibility: TemplateVisibility = 'all',
+    ) => createCategory(db, by, { name, visibility, parentId })
+    const tree = (role: Role, facilityId = 1) => listCategories(db, { role, facilityId })
+      .map(category => (category.parentId === null ? category.name : `  ${category.name}`))
+
+    it('adds a subcategory at the end of its category and lists each category followed by its subcategories', () => {
+      const eltern = create(leitung, 'Eltern')
+      const personal = create(leitung, 'Personal')
+      const briefe = sub(leitung, eltern, 'Briefe')
+      sub(leitung, personal, 'Urlaub')
+      sub(leitung, eltern, 'Ausflüge')
+      expect(tree('admin')).toEqual(['Eltern', '  Briefe', '  Ausflüge', 'Personal', '  Urlaub'])
+      expect(listCategories(db, leitung).find(category => category.id === briefe))
+        .toEqual({ id: briefe, parentId: eltern, name: 'Briefe', visibility: 'all', templateCount: 0, globalCount: 0 })
+      // A new category still goes to the end of the categories.
+      create(leitung, 'Gesundheit')
+      expect(tree('admin').filter(name => !name.startsWith(' '))).toEqual(['Eltern', 'Personal', 'Gesundheit'])
+    })
+
+    it('allows one level only, in a category of the same facility the editor sees', () => {
+      const eltern = create(leitung, 'Eltern')
+      const briefe = sub(leitung, eltern, 'Briefe')
+      expect(errorCode(() => sub(leitung, briefe, 'Enkel'))).toBe('template_category_parent_invalid')
+      expect(errorCode(() => sub(leitung, 999, 'Waise'))).toBe('template_category_parent_invalid')
+      const krippe = addFacility(db, 'Krippe')
+      expect(errorCode(() => sub(as('admin', krippe), eltern, 'Fremd'))).toBe('template_category_parent_invalid')
+      const geheim = create(provider, 'Geheim', 'provider')
+      expect(errorCode(() => sub(leitung, geheim, 'Versteckt'))).toBe('template_category_parent_invalid')
+      expect(errorCode(() => sub(as('observer'), eltern, 'X'))).toBe('forbidden')
+    })
+
+    it('keeps names unique per category regardless of case; the same name may stand under another category or at the top', () => {
+      const eltern = create(leitung, 'Eltern')
+      const personal = create(leitung, 'Personal')
+      sub(leitung, eltern, 'Formulare')
+      expect(errorCode(() => sub(leitung, eltern, ' FORMULARE '))).toBe('template_category_name_taken')
+      sub(leitung, personal, 'Formulare')
+      create(leitung, 'Formulare')
+      expect(errorCode(() => create(leitung, 'formulare'))).toBe('template_category_name_taken')
+      const urlaub = sub(leitung, personal, 'Urlaub')
+      expect(errorCode(() => updateCategory(db, leitung, urlaub, { name: 'formulare', visibility: 'all' }))).toBe('template_category_name_taken')
+      // Renaming keeps it where it is (a subcategory of its category).
+      updateCategory(db, leitung, urlaub, { name: 'Urlaubsanträge', visibility: 'managers' })
+      expect(listCategories(db, leitung).find(category => category.id === urlaub)).toMatchObject({ parentId: personal, name: 'Urlaubsanträge' })
+    })
+
+    it('shows a subcategory only with its category: the stricter visibility of both applies', () => {
+      const eltern = create(provider, 'Eltern', 'managers')
+      sub(provider, eltern, 'Offen')
+      const offen = create(provider, 'Offen')
+      sub(provider, offen, 'Leitung', 'managers')
+      const geheim = create(provider, 'Geheim', 'provider')
+      const drin = sub(provider, geheim, 'Drin')
+      expect(tree('observer')).toEqual(['Offen'])
+      expect(tree('admin')).toEqual(['Eltern', '  Offen', 'Offen', '  Leitung'])
+      expect(tree('provider')).toEqual(['Eltern', '  Offen', 'Offen', '  Leitung', 'Geheim', '  Drin'])
+      // The Leitung cannot touch a subcategory of the Träger's category (404).
+      expect(errorCode(() => updateCategory(db, leitung, drin, { name: 'X', visibility: 'all' }))).toBe('template_category_not_found')
+      expect(errorCode(() => moveCategory(db, leitung, drin, 'up'))).toBe('template_category_not_found')
+      expect(errorCode(() => deleteCategory(db, leitung, drin))).toBe('template_category_not_found')
+    })
+
+    it('moves a subcategory among the subcategories of its category only', () => {
+      const eltern = create(leitung, 'Eltern')
+      const personal = create(leitung, 'Personal')
+      sub(leitung, eltern, 'A')
+      const b = sub(leitung, eltern, 'B')
+      sub(leitung, personal, 'X')
+      moveCategory(db, leitung, b, 'up')
+      expect(tree('admin')).toEqual(['Eltern', '  B', '  A', 'Personal', '  X'])
+      moveCategory(db, leitung, b, 'up')
+      expect(tree('admin')).toEqual(['Eltern', '  B', '  A', 'Personal', '  X'])
+      moveCategory(db, leitung, personal, 'up')
+      expect(tree('admin')).toEqual(['Personal', '  X', 'Eltern', '  B', '  A'])
+    })
+
+    it('deletes a category only without subcategories and a subcategory only without templates', () => {
+      const eltern = create(leitung, 'Eltern')
+      const briefe = sub(leitung, eltern, 'Briefe')
+      const leer = sub(leitung, eltern, 'Leer')
+      const user = addUser(db, 'leitung', 'admin')
+      uploadTemplate(db, { ...user, facilityId: 1 }, { title: 'Brief', categoryId: briefe, scope: 'facility' }, { data: pdf, filename: 'b.pdf' })
+      expect(errorCode(() => deleteCategory(db, leitung, eltern))).toBe('template_category_has_subcategories')
+      expect(errorCode(() => deleteCategory(db, leitung, briefe))).toBe('template_category_not_empty')
+      deleteCategory(db, leitung, leer)
+      expect(tree('admin')).toEqual(['Eltern', '  Briefe'])
+      expect(listCategories(db, leitung).find(category => category.id === briefe)!.templateCount).toBe(1)
+      expect(listCategories(db, leitung).find(category => category.id === eltern)!.templateCount).toBe(0)
+    })
+
+    it('keeps each facility\'s subcategories to itself', () => {
+      const krippe = addFacility(db, 'Krippe')
+      db.delete(templateCategories).run()
+      sub(leitung, create(leitung, 'Eltern'), 'Briefe')
+      sub(as('admin', krippe), create(as('admin', krippe), 'Eltern'), 'Ausflüge')
+      expect(tree('admin')).toEqual(['Eltern', '  Briefe'])
+      expect(tree('admin', krippe)).toEqual(['Eltern', '  Ausflüge'])
+    })
+
+    it('counts the Träger\'s templates where they show: in the subcategory of their path, else directly in the category', () => {
+      const eltern = create(leitung, 'Eltern')
+      const briefe = sub(leitung, eltern, 'Briefe')
+      const traeger = addUser(db, 'traeger', 'provider')
+      const global = (title: string, subcategoryName?: string) => uploadTemplate(db, { ...traeger, facilityId: 1 },
+        { title, categoryName: 'eltern', subcategoryName, scope: 'all' }, { data: pdf, filename: 'x.pdf' })
+      global('In Briefe', 'BRIEFE')
+      global('Unbekannt', 'Ausflüge')
+      global('Direkt')
+      const counts = Object.fromEntries(listCategories(db, leitung).map(category => [category.id, category.globalCount]))
+      expect(counts).toEqual({ [eltern]: 2, [briefe]: 1 })
+    })
+
+    it('offers the Träger the subcategory names under each category name, from the facilities and the templates', () => {
+      const krippe = addFacility(db, 'Krippe')
+      db.delete(templateCategories).run()
+      sub(leitung, create(leitung, 'Eltern'), 'Briefe')
+      sub(as('admin', krippe), create(as('admin', krippe), 'eltern'), 'Ausflüge')
+      sub(as('admin', krippe), create(as('admin', krippe), 'Personal'), 'briefe')
+      const traeger = addUser(db, 'traeger', 'provider')
+      uploadTemplate(db, { ...traeger, facilityId: 1 }, { title: 'X', categoryName: 'Gesundheit', subcategoryName: 'Atteste', scope: 'all' },
+        { data: pdf, filename: 'x.pdf' })
+      expect(globalCategoryNames(db, provider)).toEqual([
+        { name: 'Eltern', subcategories: ['Ausflüge', 'Briefe'] },
+        { name: 'Gesundheit', subcategories: ['Atteste'] },
+        { name: 'Personal', subcategories: ['briefe'] },
+      ])
     })
   })
 })

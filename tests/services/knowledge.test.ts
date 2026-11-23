@@ -10,7 +10,7 @@ import {
   openKnowledgeCount, readKnowledgeFile, seedPendingKnowledgeStarters, updateKnowledgeCategory, updateKnowledgeEntry,
 } from '../../server/services/knowledge'
 import { setPin } from '../../server/services/terminal'
-import { KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS } from '../../shared/domain/knowledge'
+import { KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES } from '../../shared/domain/knowledge'
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { KnowledgeEntryInput, Role } from '../../shared/types/api'
 import { addEmployee, addFacility, addUser, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
@@ -39,7 +39,9 @@ describe('„Wissen“ (knowledge library)', () => {
   const categoryId = (name: string, facilityId = 1) =>
     db.select().from(knowledgeCategories).where(and(eq(knowledgeCategories.facilityId, facilityId), eq(knowledgeCategories.name, name))).get()!.id
   const titles = (viewer: Parameters<typeof listKnowledge>[1]) => listKnowledge(db, viewer).entries.map(entry => entry.title)
-  const categoryNames = (viewer: Parameters<typeof listKnowledge>[1]) => listKnowledge(db, viewer).categories.map(category => category.name)
+  /** The names of the categories (without the subcategories). */
+  const categoryNames = (viewer: Parameters<typeof listKnowledge>[1]) =>
+    listKnowledge(db, viewer).categories.filter(category => category.parentId === null).map(category => category.name)
   /** Drops the starter links of facility 1, so each test sees only its own entries. */
   const clearStarters = () => db.delete(knowledgeEntries).run()
 
@@ -122,7 +124,7 @@ describe('„Wissen“ (knowledge library)', () => {
       // A category for the managers holds back an entry for all facilities filed under its name.
       updateKnowledgeCategory(db, as('admin', krippe), categoryId('Kinderschutz', krippe), { name: 'Kinderschutz', visibility: 'managers' })
       expect(titles(as('observer', krippe))).toEqual(['Leitfaden Träger'])
-      expect(globalKnowledgeCategoryNames(db, provider)).toContain('Qualität')
+      expect(globalKnowledgeCategoryNames(db, provider).map(entry => entry.name)).toContain('Qualität')
       expect(errorCode(() => globalKnowledgeCategoryNames(db, leitung))).toBe('forbidden')
     })
 
@@ -385,6 +387,141 @@ describe('„Wissen“ (knowledge library)', () => {
       expect(db.select().from(knowledgeConfirmations).all().map(row => row.employeeId)).toEqual([ben])
       deleteKnowledgeEntry(db, leitung, entry)
       expect(db.select().from(knowledgeConfirmations).all()).toEqual([])
+    })
+  })
+
+  describe('subcategories', () => {
+    const tree = (viewer: Parameters<typeof listKnowledge>[1]) => listKnowledge(db, viewer).categories
+      .map(category => (category.parentId === null ? category.name : `  ${category.name}`))
+    const subId = (parent: string, name: string, facilityId = 1) => db.select().from(knowledgeCategories)
+      .where(and(eq(knowledgeCategories.parentId, categoryId(parent, facilityId)), eq(knowledgeCategories.name, name))).get()!.id
+    /** Where each entry shows for the viewer: „Kategorie/Unterkategorie“ (or the category alone, „-“ for „Vom Träger“). */
+    const spots = (viewer: Parameters<typeof listKnowledge>[1]) => {
+      const { categories, entries } = listKnowledge(db, viewer)
+      const name = (id: number | null) => categories.find(category => category.id === id)?.name
+      return entries.map(entry => [entry.title, entry.categoryId === null ? '-' : [name(entry.categoryId), name(entry.subcategoryId)].filter(Boolean).join('/')])
+    }
+
+    it('gives a new facility „Gesetze & Vorgaben“ with „Bund“ (and in Baden-Württemberg „Baden-Württemberg“), the laws filed there', () => {
+      expect(tree(leitung).slice(-3)).toEqual(['Gesetze & Vorgaben', '  Bund', '  Baden-Württemberg'])
+      expect(spots(leitung).filter(([, spot]) => String(spot).startsWith('Gesetze'))).toEqual([
+        ['§ 45 SGB VIII – Erlaubnis für den Betrieb einer Einrichtung', 'Gesetze & Vorgaben/Bund'],
+        ['§ 47 SGB VIII – Melde- und Dokumentationspflichten', 'Gesetze & Vorgaben/Bund'],
+        ['Kindertagesbetreuungsgesetz Baden-Württemberg (KiTaG)', 'Gesetze & Vorgaben/Baden-Württemberg'],
+      ])
+      // Every other category starts without subcategories; a facility in Bavaria gets „Bund“ only.
+      expect(tree(leitung).filter(name => name.startsWith(' '))).toEqual(['  Bund', '  Baden-Württemberg'])
+      const bavaria = createFacility(db, 'Kita München', 'BY', TODAY).id
+      expect(tree(as('admin', bavaria)).slice(-2)).toEqual(['Gesetze & Vorgaben', '  Bund'])
+      expect(KNOWLEDGE_STARTER_SUBCATEGORIES.map(starter => starter.key)).toEqual(['subcategory:gesetze-bund', 'subcategory:gesetze-bw'])
+      // Recorded: a deleted starter subcategory does not come back.
+      clearStarters()
+      deleteKnowledgeCategory(db, leitung, subId('Gesetze & Vorgaben', 'Bund'))
+      expect(seedPendingKnowledgeStarters(db, NOW)).toBe(0)
+      expect(tree(leitung).slice(-2)).toEqual(['Gesetze & Vorgaben', '  Baden-Württemberg'])
+    })
+
+    it('files a starter link directly in its category when the facility has no such subcategory', () => {
+      clearStarters()
+      db.delete(knowledgeStarterSeeds).where(eq(knowledgeStarterSeeds.starterKey, 'link:sgb8-45')).run()
+      deleteKnowledgeCategory(db, leitung, subId('Gesetze & Vorgaben', 'Bund'))
+      seedPendingKnowledgeStarters(db, NOW)
+      expect(spots(leitung)).toEqual([['§ 45 SGB VIII – Erlaubnis für den Betrieb einer Einrichtung', 'Gesetze & Vorgaben']])
+    })
+
+    it('keeps one level only, names unique per category, and deletes a category only without subcategories', () => {
+      clearStarters()
+      const hygiene = categoryId('Hygiene & Gesundheit')
+      const plaene = createKnowledgeCategory(db, leitung, { name: 'Pläne', visibility: 'all', parentId: hygiene })
+      expect(errorCode(() => createKnowledgeCategory(db, leitung, { name: 'Enkel', visibility: 'all', parentId: plaene }))).toBe('knowledge_category_parent_invalid')
+      const krippe = addFacility(db, 'Krippe')
+      expect(errorCode(() => createKnowledgeCategory(db, as('admin', krippe), { name: 'X', visibility: 'all', parentId: hygiene })))
+        .toBe('knowledge_category_parent_invalid')
+      expect(errorCode(() => createKnowledgeCategory(db, leitung, { name: ' PLÄNE ', visibility: 'all', parentId: hygiene }))).toBe('knowledge_category_name_taken')
+      // The same name under another category (or at the top) is fine.
+      createKnowledgeCategory(db, leitung, { name: 'Pläne', visibility: 'all', parentId: categoryId('Kinderschutz') })
+      createKnowledgeCategory(db, leitung, { name: 'Bund', visibility: 'all' })
+      expect(errorCode(() => createKnowledgeCategory(db, staff, { name: 'Y', visibility: 'all', parentId: hygiene }))).toBe('forbidden')
+      createKnowledgeEntry(db, leitung, link(plaene, { title: 'Hygieneplan' }), null, NOW)
+      expect(errorCode(() => deleteKnowledgeCategory(db, leitung, hygiene))).toBe('knowledge_category_has_subcategories')
+      expect(errorCode(() => deleteKnowledgeCategory(db, leitung, plaene))).toBe('knowledge_category_not_empty')
+      const counts = listKnowledge(db, leitung).categories.find(category => category.id === plaene)!
+      expect(counts).toMatchObject({ parentId: hygiene, entryCount: 1, ownCount: 1 })
+    })
+
+    it('moves a subcategory among those of its category only', () => {
+      clearStarters()
+      const bw = subId('Gesetze & Vorgaben', 'Baden-Württemberg')
+      moveKnowledgeCategory(db, leitung, bw, 'up')
+      expect(tree(leitung).slice(-3)).toEqual(['Gesetze & Vorgaben', '  Baden-Württemberg', '  Bund'])
+      moveKnowledgeCategory(db, leitung, bw, 'up')
+      expect(tree(leitung).slice(-3)).toEqual(['Gesetze & Vorgaben', '  Baden-Württemberg', '  Bund'])
+      updateKnowledgeCategory(db, leitung, bw, { name: 'Land', visibility: 'managers' })
+      expect(tree(leitung).slice(-3)).toEqual(['Gesetze & Vorgaben', '  Land', '  Bund'])
+    })
+
+    it('shows Mitarbeiter and the tablet a subcategory and its entries only when they see it and its category', () => {
+      clearStarters()
+      const bund = subId('Gesetze & Vorgaben', 'Bund')
+      const bw = subId('Gesetze & Vorgaben', 'Baden-Württemberg')
+      updateKnowledgeCategory(db, leitung, bw, { name: 'Baden-Württemberg', visibility: 'managers' })
+      createKnowledgeEntry(db, leitung, link(bund, { title: 'Im Bund' }), null, NOW)
+      createKnowledgeEntry(db, leitung, link(bw, { title: 'Im Land' }), null, NOW)
+      expect(titles(staff)).toEqual(['Im Bund'])
+      expect(titles(tablet)).toEqual(['Im Bund'])
+      expect(tree(staff)).not.toContain('  Baden-Württemberg')
+      expect(titles(leitung)).toEqual(['Im Bund', 'Im Land'])
+      // The category for the managers hides its subcategories too, even one visible to all.
+      updateKnowledgeCategory(db, leitung, categoryId('Gesetze & Vorgaben'), { name: 'Gesetze & Vorgaben', visibility: 'managers' })
+      expect(titles(staff)).toEqual([])
+      expect(tree(staff)).not.toContain('  Bund')
+      expect(errorCode(() => confirmWithAccount(db, { ...staff, employeeId: 1 }, listKnowledge(db, leitung).entries[0]!.id, 1, NOW)))
+        .toBe('knowledge_entry_not_found')
+    })
+
+    it('files entries for all facilities by path, in the subcategory, else directly in the category, else under „Vom Träger“', () => {
+      clearStarters()
+      const global = { scope: 'all' as const, categoryId: undefined }
+      createKnowledgeEntry(db, provider, link(undefined, { ...global, title: 'Pfad', categoryName: 'gesetze & vorgaben', subcategoryName: 'BUND' }), null, NOW)
+      createKnowledgeEntry(db, provider, link(undefined, { ...global, title: 'Ohne', categoryName: 'Gesetze & Vorgaben' }), null, NOW)
+      createKnowledgeEntry(db, provider, link(undefined, { ...global, title: 'Unbekannt', categoryName: 'Gesetze & Vorgaben', subcategoryName: 'EU' }), null, NOW)
+      createKnowledgeEntry(db, provider, link(undefined, { ...global, title: 'Fremd', categoryName: 'Qualität', subcategoryName: 'Bund' }), null, NOW)
+      createKnowledgeEntry(db, provider, link(undefined, {
+        ...global, title: 'Streng', categoryName: 'Gesetze & Vorgaben', subcategoryName: 'Bund', visibility: 'managers',
+      }), null, NOW)
+      expect(spots(leitung)).toEqual([
+        ['Ohne', 'Gesetze & Vorgaben'], ['Unbekannt', 'Gesetze & Vorgaben'], ['Pfad', 'Gesetze & Vorgaben/Bund'],
+        ['Streng', 'Gesetze & Vorgaben/Bund'], ['Fremd', '-'],
+      ])
+      expect(titles(staff)).toEqual(['Ohne', 'Unbekannt', 'Pfad', 'Fremd'])
+      expect(listKnowledge(db, provider).entries.find(entry => entry.title === 'Pfad'))
+        .toMatchObject({ globalCategoryName: 'gesetze & vorgaben', globalSubcategoryName: 'BUND' })
+      expect(globalKnowledgeCategoryNames(db, provider).find(entry => entry.name === 'Gesetze & Vorgaben'))
+        .toEqual({ name: 'Gesetze & Vorgaben', subcategories: ['Baden-Württemberg', 'Bund', 'EU'] })
+      // The category path in the overview of who confirmed.
+      const pfad = listKnowledge(db, provider).entries.find(entry => entry.title === 'Pfad')!.id
+      updateKnowledgeEntry(db, provider, pfad, link(undefined, {
+        title: 'Pfad', categoryName: 'Gesetze & Vorgaben', subcategoryName: 'Bund', needsConfirmation: true,
+      }), null, NOW)
+      expect(overview(db, leitung, pfad, TODAY).entry.category).toBe('Gesetze & Vorgaben › Bund')
+    })
+
+    it('orders the own entries within a subcategory; one moved to another subcategory goes to the end there', () => {
+      clearStarters()
+      const bund = subId('Gesetze & Vorgaben', 'Bund')
+      const bw = subId('Gesetze & Vorgaben', 'Baden-Württemberg')
+      const a = createKnowledgeEntry(db, leitung, link(bund, { title: 'A' }), null, NOW)
+      createKnowledgeEntry(db, leitung, link(bund, { title: 'B' }), null, NOW)
+      createKnowledgeEntry(db, leitung, link(bw, { title: 'Land' }), null, NOW)
+      createKnowledgeEntry(db, leitung, link(categoryId('Gesetze & Vorgaben'), { title: 'Direkt' }), null, NOW)
+      moveKnowledgeEntry(db, leitung, a, 'down')
+      expect(titles(leitung)).toEqual(['Direkt', 'B', 'A', 'Land'])
+      // At the end of its subcategory nothing changes (the next list is another one).
+      moveKnowledgeEntry(db, leitung, a, 'down')
+      expect(titles(leitung)).toEqual(['Direkt', 'B', 'A', 'Land'])
+      updateKnowledgeEntry(db, leitung, a, link(bw, { title: 'A' }), null, NOW)
+      expect(titles(leitung)).toEqual(['Direkt', 'B', 'Land', 'A'])
+      expect(listKnowledge(db, leitung).entries.find(entry => entry.id === a)).toMatchObject({ categoryId: categoryId('Gesetze & Vorgaben'), subcategoryId: bw })
     })
   })
 })
