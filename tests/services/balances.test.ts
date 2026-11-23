@@ -50,6 +50,8 @@ describe('balances and leave', () => {
       entryRanges: [{ kind: 'vacation', from: '2026-10-05', to: '2026-10-09', days: 5 }],
       extraDays: [],
       closures: [],
+      parentalLeaveCut: 0,
+      parentalLeaveProtectedUntil: null,
     })
     expect(getLeaveOverview(db, 1, 2026, '2026-10-07')).toHaveLength(1)
   })

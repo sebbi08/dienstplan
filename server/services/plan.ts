@@ -32,6 +32,7 @@ import { listHelpers } from './helpOuts'
 import { facilityHolidayRules } from './holidayRules'
 import { maternityPlanWarnings } from './maternity'
 import { loadHoursContext, withOpeningHours } from './openingHours'
+import { parentalLeavePlanCells } from './parentalLeave'
 import {
   closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
   loadTemplates, ownCellFilter, type EmployeeRecord,
@@ -328,10 +329,10 @@ export function getMonthPlan(
   const hours = loadHoursContext(db, facilityId)
   const days = withOpeningHours(dayRows(db, facilityId, year, month, shown.days, facilityHolidayRules(db, facilityId)), hours)
 
+  const { monthStart, monthEnd } = monthBounds(year, month)
+  const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
   let admin: MonthPlanAdminDto | null = null
   if (isAdmin) {
-    const { monthStart, monthEnd } = monthBounds(year, month)
-    const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
     const helpers = listHelpers(db, facilityId, year, month)
     admin = {
       ...buildAdminData(
@@ -365,6 +366,9 @@ export function getMonthPlan(
     codes: showsProtected ? codes : withoutPrivateCodes(codes),
     // „Krank melden“ for an editor who may not see health data (only Krank, on a day without a private code; entries.ts).
     reportSickCodeId: isAdmin && !showsProtected ? codes.find(code => code.key === 'sick')?.id ?? null : null,
+    // A full Elternzeit is marked on the staff's working days without stored entries, as it is now (also in a released
+    // month): „Elternzeit“ or „abwesend“ (server/services/parentalLeave.ts).
+    parentalLeave: parentalLeavePlanCells(db, viewer, facilityId, staff, year, month),
     admin: admin && !showsProtected
       // The acknowledgements of the Mutterschutz hints name the rule, the „Im Dienst erkrankt“ markers tell a sickness:
       // neither for whoever sees only „abwesend“ and „Arbeitszeitgrenze überschritten“.

@@ -868,7 +868,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 | Löschbar ab | Was |
 |---|---|
 | am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
-| „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit den Zusatztagen nur für ein Jahr |
+| „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit den Zusatztagen nur für ein Jahr, Elternzeiten |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz) als Nachweis, dass die Pflichten erfüllt wurden, Lesebestätigungen aus „Wissen“; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Mitarbeiter-Seite beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
@@ -1086,6 +1086,51 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   ebenfalls nicht). Neu wählen lässt sich S 10 nicht mehr. Ist bei einer Person noch S 10 gespeichert, bleibt der Wert
   stehen und wird als **„S 10 (nicht mehr in der Tabelle)“** angezeigt; beim Speichern anderer Angaben bleibt er
   unverändert, bis der Träger eine andere Entgeltgruppe wählt.
+
+### Elternzeit
+
+- **Wo:** Reiter **Vertrag & Lohn**, Abschnitt **„Elternzeit“**. Eintragen und ändern darf, wer die Vertragsangaben
+  bearbeiten darf (der Träger); sehen darf es, wer die Vertragsangaben sieht (die Leitung mit „Vertragsangaben
+  ansehen“).
+- **„Elternzeit eintragen“:** Kind wählen (aus dem Abschnitt „Kinder“ der Personalakte; ohne Recht auf die persönlichen
+  Daten oder für ein anderes Kind das Geburtsdatum eingeben), Beginn, Dauer in Monaten **oder** Enddatum (das andere
+  rechnet die App aus: Ende = Beginn + Monate − 1 Tag, 31.01. + 1 Monat → 28./29.02.). Als Beginn schlägt die App den
+  Tag nach dem Mutterschutz nach dieser Geburt vor (wenn ein Mutterschutz eingetragen ist), sonst den Tag der Geburt.
+- **Prüfungen:** Ende nicht vor dem Beginn, Beginn nicht vor der Geburt, Ende spätestens am Tag vor dem 8. Geburtstag,
+  keine Überschneidung mit einer anderen Elternzeit der Person (Speichern geht dann nicht). **Hinweise** (Speichern
+  geht trotzdem): mehr als drei Abschnitte für ein Kind (ein vierter nur mit Zustimmung des Arbeitgebers, § 16 Abs. 1
+  BEEG), mehr als 36 Monate für ein Kind.
+- **„Erster Arbeitstag danach“** steht im Dialog und in der Liste: der nächste Arbeitstag der Person nach dem Ende
+  (ihre Arbeitstage laut Stunden, ohne Wochenende, Feiertage und Schließzeiten der Einrichtung; schließt eine weitere
+  Elternzeit direkt an, erst danach).
+- **Dienstplan und Stunden:** In einer Elternzeit ohne Teilzeit gibt es **kein Soll** (kein Minus) und keine Warnung
+  „Eintrag fehlt“; der Dienstplan zeigt an den Arbeitstagen **„Elternzeit“** (es wird kein Eintrag gespeichert, auch
+  nicht in der Freigabe). Wer schon Einträge in dieser Zeit hat, bekommt sie beim Eintragen aufgelistet – sie bleiben
+  stehen und zählen weiter (z. B. als Plusstunden); bitte prüfen. **Mit Teilzeit** (höchstens 32 Stunden pro Woche)
+  richtet sich das Soll in dieser Zeit nach den Teilzeit-Stunden, an den üblichen Arbeitstagen; davor und danach gelten
+  die normalen Wochenstunden. Neue Schließzeiten werden in der Elternzeit nicht gebucht.
+- **Wer „Elternzeit“ im Dienstplan sieht:** Personen mit dem Recht „Mitarbeiter ansehen“. Alle anderen (Mitarbeiter,
+  Tablet) sehen **„abwesend“**. Unter **Einstellungen → Personal → „Elternzeit im Dienstplan“** kann der Träger
+  **„Elternzeit für alle sichtbar anzeigen“** einschalten (Standard: aus); dann sehen alle „Elternzeit“.
+- **Urlaub:** Nur wenn der Arbeitgeber die Kürzung erklärt („Urlaub kürzen“, Standard: aus), wird der Jahresanspruch um
+  1/12 je **vollem Kalendermonat** Elternzeit ohne Teilzeit gekürzt (§ 17 Abs. 1 BEEG). Gerundet wird der verbleibende
+  Anspruch wie beim gesetzlichen Teilurlaub: ab einem halben Tag auf einen ganzen Tag aufgerundet, kleinere Bruchteile
+  bleiben (30 Tage, 5 Monate → 17,5 → 18 Tage, gekürzt um 12). Der Urlaubskasten zeigt **„gekürzt wegen Elternzeit:
+  −n Tage“**. Resturlaub aus der Zeit vor der Elternzeit verfällt nicht zum üblichen Verfallsdatum, sondern kann im
+  Jahr der Rückkehr und im Jahr danach genommen werden (§ 17 Abs. 2 BEEG): Der Urlaubskasten zeigt „Resturlaub
+  verfällt nicht wegen Elternzeit – zu nehmen bis 31.12.JJJJ“, und der Hinweis auf Resturlaub (Verfall) erscheint für
+  dieses Jahr nicht.
+- **TVöD-Stufen:** Elternzeit ohne Teilzeit zählt nicht als Stufenlaufzeit (§ 17 Abs. 3 TVöD). Die Spalte „Nächste
+  Stufe“ verschiebt den Tag um die Elternzeit-Tage seit Beginn der Stufenjahre („Stufe 4 ab … (30 Tage später wegen
+  Elternzeit)“); der Abschnitt „Elternzeit“ nennt die Verschiebung ebenfalls.
+- **Erinnerung:** 4 Wochen vor dem ersten Arbeitstag danach erscheint im Kasten „Erinnerungen“ **„‹Name› kommt am
+  ‹TT.MM.JJJJ› aus der Elternzeit zurück“** mit „zur Elternzeit“ – für alle, die die Vertragsangaben sehen (nicht am
+  Tablet), bis zu diesem Tag.
+- **Fristen** (im Dialog aufklappbar): Anmeldung schriftlich spätestens 7 Wochen vor Beginn (Zeit bis zum 3.
+  Geburtstag) bzw. 13 Wochen vor Beginn (zwischen 3. und 8. Geburtstag), § 16 BEEG; Kündigungsschutz ab der Anmeldung,
+  frühestens 8 bzw. 14 Wochen vor Beginn, und während der Elternzeit, § 18 BEEG. Keine Rechtsberatung.
+- **Löschen:** Die Elternzeit bestimmt Soll-Stunden und Urlaubskonto und wird deshalb mit den **Zeitdaten** gelöscht
+  (nicht schon mit den persönlichen Daten), mit der Person endgültig.
 
 ### Gesetzlicher Mindesturlaub (nur ein Hinweis)
 

@@ -371,6 +371,23 @@ describe('API route permissions', () => {
     }
   })
 
+  it('opens the Elternzeit to whoever sees the contract data, changes to whoever edits it, in the active facility', () => {
+    const touching = routes.filter(route => /parental-leave/.test(route) || source(route).includes('services/parentalLeave\''))
+    expect(touching).toEqual([
+      'employees/[id]/parental-leaves/check.post.ts', 'employees/[id]/parental-leaves/index.get.ts',
+      'employees/[id]/parental-leaves/index.post.ts', 'parental-leave-settings.get.ts', 'parental-leave-settings.put.ts',
+      'parental-leaves/[id].delete.ts', 'parental-leaves/[id].put.ts',
+    ])
+    for (const route of touching) {
+      const reads = route.endsWith('.get.ts')
+      expect(permissionCalls(route), route).toEqual([{ key: reads ? 'employees.contractView' : 'employees.contractEdit', options: '' }])
+      expect(source(route), route).toContain('admin.facilityId')
+      expect(source(route), route).not.toMatch(/allowTerminal|facility: 'none'/)
+      // Contract data: the Träger by default; the Leitung only with the bundles „Vertragsangaben ansehen/bearbeiten“.
+      expect(fixture[route], route).toEqual(['provider'])
+    }
+  })
+
   it('lets the Leitung read how 24 and 31 December count as leave; only the Träger changes it (Leitung 403)', () => {
     expect(permissionCalls('leave-counting.get.ts')).toEqual([{ key: 'settings.facility', options: '' }])
     expect(permissionCalls('leave-counting.put.ts')).toEqual([{ key: 'leave.configure', options: '' }])

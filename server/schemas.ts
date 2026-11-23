@@ -11,6 +11,7 @@ import { FORM_LIMITS } from '../shared/domain/forms'
 import { KNOWLEDGE_KINDS, KNOWLEDGE_LIMITS } from '../shared/domain/knowledge'
 import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
 import { EMPLOYMENT_BAN_KINDS, MATERNITY_NOTE_MAX } from '../shared/domain/maternity'
+import { PARENTAL_LEAVE_NOTE_MAX } from '../shared/domain/parentalLeave'
 import { OFFLINE_BATCH_MAX } from '../shared/domain/offlineStamps'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
@@ -284,6 +285,15 @@ export const maternityBookingSchema = z.object({
 })
 /** Deleting a case: also remove the days it booked in the plan. */
 export const maternityDeleteQuery = z.object({ removeEntries: z.enum(['0', '1']).optional() })
+
+/** „Elternzeit eintragen“: the end comes computed from a duration in months when the dialog took one; the service checks. */
+export const parentalLeaveSchema = z.object({
+  childId: z.number().int().positive().nullable(), childBirthDate: isoDate, start: isoDate, end: isoDate,
+  partTimeWeeklyMinutes: z.number().int().nullable(), reduceLeave: z.boolean(), note: z.string().max(PARENTAL_LEAVE_NOTE_MAX + 100),
+})
+/** The dialog's check: the period being changed, if any. */
+export const parentalLeaveCheckSchema = parentalLeaveSchema.extend({ exceptId: z.number().int().positive().nullable() })
+export const parentalLeaveSettingsSchema = z.object({ visibleToAll: z.boolean() })
 
 /** The rights page: bundle ids and scopes stay strings here; the rights service answers 400 with a code for bad ones. */
 export const rightsRoleParams = z.object({ role: z.string().max(40) })

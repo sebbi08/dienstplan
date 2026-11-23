@@ -8,7 +8,9 @@ import type { CodeKey, IsoDate } from '../../shared/domain/types'
 import { planEntryColor } from '../../shared/domain/weekTemplates'
 import type { ClosureDto, CodeDto, ColorKey, CoverageRuleDto, EntryDto, TemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, closures, coverageRules, employeeHours, employees, entries, facilities, helpOuts, shiftTemplates } from '../db/schema'
+import {
+  absenceCodes, closures, coverageRules, employeeHours, employees, entries, facilities, helpOuts, parentalLeaves, shiftTemplates,
+} from '../db/schema'
 import { allFacilityEveRules } from './holidayRules'
 
 export interface EntryFilter {
@@ -146,6 +148,10 @@ const RECORD_COLUMNS = {
 /** Employees with their contract hours and the public-holiday rules of their home facility. */
 function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   const hours = db.select().from(employeeHours).orderBy(asc(employeeHours.validFrom)).all()
+  const leaves = db.select({
+    employeeId: parentalLeaves.employeeId, start: parentalLeaves.start, end: parentalLeaves.end,
+    partTimeWeeklyMinutes: parentalLeaves.partTimeWeeklyMinutes, reduceLeave: parentalLeaves.reduceLeave,
+  }).from(parentalLeaves).orderBy(asc(parentalLeaves.start)).all()
   const eveRules = allFacilityEveRules(db)
   return db.select({
     row: RECORD_COLUMNS, state: facilities.state, assumptionDay: facilities.assumptionDay, balanceFrom: employees.balanceFrom,
@@ -167,6 +173,9 @@ function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
           holidays: { state, assumptionDay, eveRules: rules },
           // „Stundenkonto ab“: only the balance reads it (balanceStart), so every balance follows it.
           balanceFrom,
+          // Elternzeit: no target (full) or the part-time hours; no working days in a full one (targets.ts).
+          parentalLeaves: leaves.filter(leave => leave.employeeId === row.id)
+            .map(({ start, end, partTimeWeeklyMinutes, reduceLeave }) => ({ start, end, partTimeWeeklyMinutes, reduceLeave })),
         },
       }
     })

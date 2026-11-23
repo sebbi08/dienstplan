@@ -32,13 +32,13 @@ describe('the employee list: next level, mandatory appointments, leave notice pe
   describe('„Nächste Stufe“', () => {
     it('names the next level and its day, later than a month away', () => {
       setContract(db, 1, anna, contract, today)
-      expect(row(anna).level).toEqual({ final: false, fromLevel: 3, level: 4, on: '2027-03-01', state: 'later' })
+      expect(row(anna).level).toEqual({ final: false, fromLevel: 3, level: 4, on: '2027-03-01', state: 'later', shiftDays: 0 })
     })
     it('is „soon“ within 30 days and „overdue“ after the day', () => {
       setContract(db, 1, anna, { ...contract, employedSince: '2025-12-10', payLevel: 1 }, today)
-      expect(row(anna).level).toEqual({ final: false, fromLevel: 1, level: 2, on: '2026-12-10', state: 'soon' })
+      expect(row(anna).level).toEqual({ final: false, fromLevel: 1, level: 2, on: '2026-12-10', state: 'soon', shiftDays: 0 })
       setContract(db, 1, anna, { ...contract, payLevel: 2 }, today) // level 3 was due on 2024-03-01
-      expect(row(anna).level).toEqual({ final: false, fromLevel: 2, level: 3, on: '2024-03-01', state: 'overdue' })
+      expect(row(anna).level).toEqual({ final: false, fromLevel: 2, level: 3, on: '2024-03-01', state: 'overdue', shiftDays: 0 })
     })
     it('says „final“ at the top level and null without a level or a start of employment', () => {
       setContract(db, 1, anna, { ...contract, payLevel: 6 }, today)
@@ -50,7 +50,7 @@ describe('the employee list: next level, mandatory appointments, leave notice pe
     })
     it('counts from the end of a training in the facility', () => {
       setContract(db, 1, anna, { ...contract, payLevel: 1, trainingUntil: '2026-07-31' }, today)
-      expect(row(anna).level).toEqual({ final: false, fromLevel: 1, level: 2, on: '2027-08-01', state: 'later' })
+      expect(row(anna).level).toEqual({ final: false, fromLevel: 1, level: 2, on: '2027-08-01', state: 'later', shiftDays: 0 })
     })
     it('is not sent without „Vertragsangaben ansehen“ (the key is absent)', () => {
       setContract(db, 1, anna, contract, today)
@@ -64,7 +64,7 @@ describe('the employee list: next level, mandatory appointments, leave notice pe
       expect(level).toMatchObject({ final: false, level: 3, state: 'overdue' })
       const detail = getEmployee(db, 1, anna, today, providerRights)
       setContract(db, 1, anna, { ...detail.contract!, payLevel: (level as { level: number }).level }, today)
-      expect(row(anna).level).toEqual({ final: false, fromLevel: 3, level: 4, on: '2027-03-01', state: 'later' })
+      expect(row(anna).level).toEqual({ final: false, fromLevel: 3, level: 4, on: '2027-03-01', state: 'later', shiftDays: 0 })
     })
     it('lists no one who left before today', () => {
       const ben = addEmployee(db, 'Ben', { leftOn: '2026-11-01' })

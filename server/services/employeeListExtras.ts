@@ -1,21 +1,23 @@
 import { can } from '../../shared/domain/permissions'
 import { probationRunning } from '../../shared/domain/probation'
-import { levelStart, levelStepState, nextLevelStep } from '../../shared/domain/tvoed'
+import { levelStepState } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
 import type { EmployeeListExtrasDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import type { EmployeeViewer } from './employees'
 import { getLeaveForfeitStatuses } from './leaveForfeit'
+import { shiftedLevelStep } from './parentalLeave'
 import { loadEmployees, type EmployeeRecord } from './queries'
 import { listDueRequirements } from './requirements'
 
-/** The next level step of one employee (null without a level or a start of employment). */
+/** The next level step of one employee, moved by Elternzeit (null without a level or a start of employment). */
 function levelOf(employee: EmployeeRecord, today: IsoDate): EmployeeListExtrasDto['level'] {
   if (!employee.employedSince) return null
   if (employee.payLevel !== null && employee.payLevel >= 6) return { final: true }
-  const since = levelStart(employee.employedSince, employee.trainingUntil, employee.recognitionYearCounts)
-  const next = nextLevelStep(since, employee.payLevel)
-  return next ? { final: false, fromLevel: employee.payLevel!, ...next, state: levelStepState(next.on, today) } : null
+  const next = shiftedLevelStep(employee)
+  return next
+    ? { final: false, fromLevel: employee.payLevel!, level: next.level, on: next.on, state: levelStepState(next.on, today), shiftDays: next.days }
+    : null
 }
 
 /**

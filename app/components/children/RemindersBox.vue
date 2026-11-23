@@ -48,6 +48,7 @@ const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', meeting: 'i-lucide-messages-square', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper',
   leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage', ifsg: 'i-lucide-shield-alert', ifsgCluster: 'i-lucide-users-round',
   offlineStamp: 'i-lucide-wifi-off', bem: 'i-lucide-heart-handshake', maternity: 'i-lucide-baby', probation: 'i-lucide-file-clock',
+  parentalLeave: 'i-lucide-baby',
 }
 
 /** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
@@ -100,6 +101,9 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
     // „Probezeit von ‹Name› endet am ‹dd.mm.yyyy›“.
     case 'probation':
       return r.probation(formatDate(entry.date))
+    // „‹Name› kommt am ‹dd.mm.yyyy› aus der Elternzeit zurück“.
+    case 'parentalLeave':
+      return r.parentalLeave(formatDate(entry.date))
   }
 }
 
@@ -196,6 +200,10 @@ async function markDone(entry: ReminderDto) {
             v-if="entry.kind === 'probation' && entry.probation" :to="`/admin/employees/${entry.probation.employeeId}?tab=contract`"
             class="ml-2 text-xs text-sky-700 hover:underline"
           >{{ r.probationLink }}</NuxtLink>
+          <NuxtLink
+            v-if="entry.kind === 'parentalLeave' && entry.parentalLeave" :to="`/admin/employees/${entry.parentalLeave.employeeId}?tab=contract`"
+            class="ml-2 text-xs text-sky-700 hover:underline"
+          >{{ r.parentalLeaveLink }}</NuxtLink>
         </span>
         <UButton
           v-if="entry.kind === 'maternity' && entry.maternity?.task === 'banCheck'" class="min-h-11" color="neutral" variant="outline"

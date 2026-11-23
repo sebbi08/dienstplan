@@ -70,6 +70,10 @@ const blocks = computed(() => {
           </div>
         </div>
         <p v-if="block.coming && block.dto.carriedAutomatically" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.dto.year - 1) }}</p>
+        <p v-if="block.dto.parentalLeaveCut" class="text-sm text-gray-600">{{ de.parentalLeave.leaveCut(formatNumber(block.dto.parentalLeaveCut)) }}</p>
+        <p v-if="block.dto.parentalLeaveProtectedUntil" class="text-sm text-gray-600">
+          {{ de.parentalLeave.leaveProtected(formatDate(block.dto.parentalLeaveProtectedUntil)) }}
+        </p>
         <!-- „Zusatztag nur für dieses Jahr“ with its reasons (the person sees why). -->
         <section v-if="block.dto.extraDays.length" class="rounded-lg bg-white p-4 ring-1 ring-gray-200">
           <h3 class="mb-2 font-semibold">{{ de.leaveExtraDays.myTitle(block.dto.year) }}</h3>

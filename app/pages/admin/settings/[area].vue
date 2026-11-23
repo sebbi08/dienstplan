@@ -63,6 +63,7 @@ watch(() => route.hash, scrollToTarget)
       <SettingsEmployeeRetentionSection v-else-if="section.key === 'employee-retention'" />
       <SettingsChildSickSection v-else-if="section.key === 'child-sick-days'" />
       <SettingsBemInvitationSection v-else-if="section.key === 'bem-invitation'" />
+      <SettingsParentalLeaveSection v-else-if="section.key === 'parental-leave'" />
     </div>
   </div>
 </template>

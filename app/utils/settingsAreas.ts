@@ -183,6 +183,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       key: 'bem-invitation', title: de.bem.settings.title, replaces: [],
       keywords: ['BEM', 'Eingliederungsmanagement', '§ 167 SGB IX', 'Einladung', 'Krankheitstage', 'sechs Wochen', 'arbeitsunfähig'],
     },
+    {
+      // Whoever sees the contract data (the Träger by default) sees it; whoever edits it changes it.
+      key: 'parental-leave', title: de.parentalLeave.settings.title, permission: 'employees.contractView', replaces: [],
+      keywords: ['Elternzeit', 'BEEG', 'abwesend', 'Dienstplan', 'sichtbar', 'Tablet'],
+    },
   ],
 }
 

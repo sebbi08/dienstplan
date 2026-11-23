@@ -16,6 +16,7 @@ import { bemReminders } from './bem'
 import { ifsgClusterReminders, ifsgReminders } from './ifsg'
 import { maternityReminders } from './maternity'
 import { offlineStampReminders } from './offlineStamps'
+import { parentalLeaveReminders } from './parentalLeave'
 import { probationReminders } from './probation'
 import { meetingsOnDay } from './parentMeetings'
 import { getReminderSettings } from './reminderSettings'
@@ -155,6 +156,8 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   items.push(...maternityReminders(db, viewer, today))
   // Whoever sees the contract data (Träger, Leitung with „Vertragsangaben ansehen“): a Probezeit ending within 4 weeks.
   items.push(...probationReminders(db, viewer, today))
+  // And a return from Elternzeit within 4 weeks (the first working day after it).
+  items.push(...parentalLeaveReminders(db, viewer, today))
   return sortReminders(items)
 }
 

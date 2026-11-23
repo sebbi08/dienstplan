@@ -22,10 +22,11 @@ export interface DocSettings {
  * `maternity`: for Leitung/Träger with employees.sickness, what a Mutterschutz case still needs (server/services/maternity.ts).
  * `probation`: for whoever sees the contract data (employees.contractView), a Probezeit ending within 4 weeks
  * (shared/domain/probation.ts).
+ * `parentalLeave`: for whoever sees the contract data, a return from Elternzeit within 4 weeks (shared/domain/parentalLeave.ts).
  */
 export type ReminderKind =
   | 'doc' | 'meeting' | 'birthday' | 'staffBirthday' | 'leaving' | 'retention' | 'accident' | 'ifsg' | 'ifsgCluster' | 'offlineStamp'
-  | 'bem' | 'maternity' | 'probation'
+  | 'bem' | 'maternity' | 'probation' | 'parentalLeave'
 
 export type ReminderWindow = 'before' | 'upcoming' | 'today' | 'overdue'
 
@@ -105,7 +106,7 @@ export function inWindow(due: IsoDate, leadDays: number, today: IsoDate): Remind
 
 const STATE_ORDER = { overdue: 0, today: 1, upcoming: 2 } as const
 const KIND_ORDER: Record<ReminderKind, number> = {
-  ifsgCluster: -2, ifsg: -1, accident: 0, offlineStamp: 0.5, maternity: 0.6, bem: 0.75, probation: 0.8, doc: 1, meeting: 2, birthday: 3, staffBirthday: 4, leaving: 5, retention: 6,
+  ifsgCluster: -2, ifsg: -1, accident: 0, offlineStamp: 0.5, maternity: 0.6, bem: 0.75, probation: 0.8, parentalLeave: 0.85, doc: 1, meeting: 2, birthday: 3, staffBirthday: 4, leaving: 5, retention: 6,
 }
 
 /**

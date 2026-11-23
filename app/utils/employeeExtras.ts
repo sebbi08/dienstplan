@@ -7,9 +7,11 @@ export type ExtraTone = 'error' | 'warning' | 'neutral'
 
 type Level = NonNullable<EmployeeListExtrasDto['level']>
 
-/** „Stufe 4 ab 01.02.2027“, or „Endstufe“ at the top level. */
+/** „Stufe 4 ab 01.02.2027“ (moved by Elternzeit: „… (30 Tage später wegen Elternzeit)“), or „Endstufe“ at the top level. */
 export function levelText(level: Level): string {
-  return level.final ? de.employees.finalLevel : de.employees.nextLevelText(level.level, formatDate(level.on))
+  if (level.final) return de.employees.finalLevel
+  const text = de.employees.nextLevelText(level.level, formatDate(level.on))
+  return level.shiftDays > 0 ? `${text} (${de.employees.nextLevelShift(level.shiftDays)})` : text
 }
 
 /** Red once the day has passed, amber within a month (the same limit as the former notice), else plain. */

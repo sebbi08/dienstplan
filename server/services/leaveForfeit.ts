@@ -13,7 +13,7 @@ import type {
 import type { Db } from '../db/client'
 import { facilities, leaveForfeitReceipts, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { yearEntitlement } from './leave'
+import { protectedUntil, yearEntitlement } from './leave'
 import { loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 
 /**
@@ -63,10 +63,11 @@ export function setLeaveForfeitSettings(
  * The leave of `year` the employee has left on `on`: until 31 December what is free of the year („frei verfügbar“:
  * entitlement and carry-over minus leave taken and planned in the year); after it the carry-over into the next year
  * minus the leave of the next year up to the forfeiture date (taken or planned: that leave uses the carry-over before
- * it lapses). Never below 0; 0 without an entitlement.
+ * it lapses). Never below 0; 0 without an entitlement, and 0 while an Elternzeit keeps the leave from lapsing on the
+ * forfeiture day (§ 17 Abs. 2 BEEG: it is carried to the year of the return and the year after, so there is no notice).
  */
 function remainingDays(db: Db, employee: EmployeeRecord, year: number, on: IsoDate, setting: LeaveForfeitDate): number {
-  if (yearEntitlement(db, employee, year) === null) return 0
+  if (yearEntitlement(db, employee, year) === null || protectedUntil(db, employee, year) !== null) return 0
   // The carry-over into the next year is exactly what is free of the year (yearEntitlement, leaveAccount.available).
   const free = yearEntitlement(db, employee, year + 1)!.carriedOverDays
   if (on <= `${year}-12-31`) return Math.max(0, free)

@@ -709,6 +709,8 @@ async function onTabKey(event: KeyboardEvent) {
       v-if="employee.contract" :employee-id="id" :contract="employee.contract" :qualification="employee.qualification"
       :editable="canEditContract" @saved="refresh"
     />
+    <!-- Elternzeit: contract data, so only with the contract data (employees.contractView). -->
+    <EmployeesParentalLeaveSection v-if="employee.contract" :employee-id="id" />
 
     <!-- Personalakte: mounted only with the right, loaded in the browser only once the tab is opened. -->
     <div v-if="shows('payroll')" id="employee-section-payroll" class="scroll-mt-32">
@@ -741,6 +743,11 @@ async function onTabKey(event: KeyboardEvent) {
           {{ block.row.extraDays.map(extra => de.leaveExtraDays.item(extra.days, extra.reason)).join(' · ') }}
         </p>
         <p v-if="block.coming && block.row?.carriedAutomatically" class="text-xs text-gray-500">{{ de.leave.carryForecast(block.year - 1) }}</p>
+        <!-- Elternzeit: the cut of the entitlement (§ 17 Abs. 1 BEEG) and the remaining leave that does not lapse (Abs. 2). -->
+        <p v-if="block.row?.parentalLeaveCut" class="text-xs text-gray-600">{{ de.parentalLeave.leaveCut(formatNumber(block.row.parentalLeaveCut)) }}</p>
+        <p v-if="block.row?.parentalLeaveProtectedUntil" class="text-xs text-gray-600">
+          {{ de.parentalLeave.leaveProtected(formatDate(block.row.parentalLeaveProtectedUntil)) }}
+        </p>
         <div v-if="otherRanges(block.entries).length" class="pt-1">
           <p class="text-xs font-medium text-gray-500">{{ de.leaveEntry.ranges }}</p>
           <ul>

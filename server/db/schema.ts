@@ -92,6 +92,12 @@ export const facilities = sqliteTable('facilities', {
   /** Opening hours: the minimum number of staff at opening and until closing (1–20). */
   minAtOpening: integer('min_at_opening').notNull().default(1),
   minAtClosing: integer('min_at_closing').notNull().default(1),
+  /**
+   * „Elternzeit für alle sichtbar anzeigen“ (set by whoever edits contract data, default off): the plan names a full
+   * Elternzeit „Elternzeit“ for everyone; off, only viewers with employees.view see it, everybody else and the tablet
+   * „abwesend“ (server/services/parentalLeave.ts).
+   */
+  parentalLeaveVisible: integer('parental_leave_visible', { mode: 'boolean' }).notNull().default(false),
   /** Development documentation (Entwicklungsdokumentation) of the children without group; see docSettings. */
   ...docSettings(),
   /** Reminders: days before a child's birthday, days before a staff birthday, weeks before a child leaves (0–30, 0–30, 0–12). */
@@ -1792,6 +1798,30 @@ export const maternityCases = sqliteTable('maternity_cases', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 }, table => [index('maternity_cases_employee').on(table.employeeId)])
+
+/**
+ * An Elternzeit (BEEG) of an employee, contract data (server/services/parentalLeave.ts): entered with
+ * employees.contractEdit, seen with employees.contractView. `start` and `end` are inclusive. `childId` links a child of
+ * the personnel file when one was chosen (cleared when the child is removed); `childBirthDate` is always stored (copied
+ * or entered) for the 8th birthday and the sections per child. `partTimeWeeklyMinutes` (at most 32 hours): part-time
+ * work at the facility during it, the target follows these hours; null = full Elternzeit (no target). `reduceLeave`: the
+ * employer cuts the leave by 1/12 per full calendar month (§ 17 Abs. 1 BEEG, off by default). Deleted with the time data
+ * (it decides the target hours and the leave account, server/services/employeeDeletion.ts).
+ */
+export const parentalLeaves = sqliteTable('parental_leaves', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  childId: integer('child_id').references(() => employeeChildren.id, { onDelete: 'set null' }),
+  childBirthDate: text('child_birth_date').notNull(),
+  start: text('start').notNull(),
+  end: text('end').notNull(),
+  partTimeWeeklyMinutes: integer('part_time_weekly_minutes'),
+  reduceLeave: integer('reduce_leave', { mode: 'boolean' }).notNull().default(false),
+  note: text('note').notNull().default(''),
+  createdBy: text('created_by').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, table => [index('parental_leaves_employee').on(table.employeeId)])
 
 /** The forms of a staff talk: the employee's self-assessment (`self`) or an assessment, in the order of `sort`. */
 export const staffTalkForms = sqliteTable('staff_talk_forms', {

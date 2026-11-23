@@ -9,11 +9,13 @@ describe('the texts of the employee list columns', () => {
     expect(probationText(undefined)).toBeNull()
   })
 
-  const next = (state: 'later' | 'soon' | 'overdue') => ({ final: false as const, fromLevel: 3, level: 4, on: '2027-02-01', state })
+  const next = (state: 'later' | 'soon' | 'overdue', shiftDays = 0) => ({ final: false as const, fromLevel: 3, level: 4, on: '2027-02-01', state, shiftDays })
 
   it('names the next level with its day, or the top level', () => {
     expect(levelText(next('later'))).toBe('Stufe 4 ab 01.02.2027')
     expect(levelText({ final: true })).toBe('Endstufe')
+    // Moved by Elternzeit (§ 17 Abs. 3 TVöD).
+    expect(levelText(next('later', 30))).toBe('Stufe 4 ab 01.02.2027 (30 Tage später wegen Elternzeit)')
   })
   it('is amber within a month, red when overdue, plain otherwise; „übernehmen“ only then', () => {
     expect([levelTone(next('later')), levelTone(next('soon')), levelTone(next('overdue')), levelTone({ final: true })])

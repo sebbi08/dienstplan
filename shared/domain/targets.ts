@@ -1,5 +1,6 @@
 import { weekday } from './dates'
 import { isHolidayIn, type HolidayRules } from './holidays'
+import type { ParentalLeavePeriod } from './parentalLeave'
 import type { IsoDate } from './types'
 
 /** Working days as a bitmask: bit 0 = Monday … bit 6 = Sunday. */
@@ -22,6 +23,16 @@ export interface EmploymentInfo {
    * Only the balance reads it (see balanceStart); working days, targets and leave do not.
    */
   balanceFrom?: IsoDate | null
+  /**
+   * Elternzeit (shared/domain/parentalLeave.ts): a full one has no working days and no target; with part-time work the
+   * target follows its weekly hours on the contract's working days (missing = none).
+   */
+  parentalLeaves?: readonly ParentalLeavePeriod[]
+}
+
+/** The Elternzeit on the date (the same lookup as parentalLeaveOn, kept here so targets.ts imports no other module). */
+function parentalLeaveOf(info: EmploymentInfo, date: IsoDate): ParentalLeavePeriod | null {
+  return info.parentalLeaves?.find(period => period.start <= date && date <= period.end) ?? null
 }
 
 function periodOn(info: EmploymentInfo, date: IsoDate): HoursPeriod | null {
@@ -84,13 +95,22 @@ export function isEmployedInRange(info: EmploymentInfo, from: IsoDate, to: IsoDa
   return start !== null && start <= to && (info.leftOn === null || info.leftOn >= from)
 }
 
-/** A day the employee is expected to work: employed, one of the contract's working days, no public holiday of the home facility. */
+/**
+ * A day the employee is expected to work: employed, one of the contract's working days, no public holiday of the home
+ * facility, not in a full Elternzeit (part-time work during it keeps the working days).
+ */
 export function isWorkday(info: EmploymentInfo, date: IsoDate): boolean {
-  return isEmployedOn(info, date) && !isHolidayIn(date, info.holidays) && worksOnWeekday(workdaysOn(info, date), weekday(date))
+  if (!isEmployedOn(info, date) || isHolidayIn(date, info.holidays) || !worksOnWeekday(workdaysOn(info, date), weekday(date))) return false
+  const leave = parentalLeaveOf(info, date)
+  return leave === null || leave.partTimeWeeklyMinutes !== null
 }
 
-/** Weekly hours spread evenly over the working days of the valid period; 0 on all other days. */
+/**
+ * Weekly hours spread evenly over the working days of the valid period (during part-time work in an Elternzeit its
+ * weekly hours); 0 on all other days.
+ */
 export function dailyTarget(info: EmploymentInfo, date: IsoDate): number {
   if (!isWorkday(info, date)) return 0
-  return Math.round(weeklyMinutesOn(info, date)! / workdayCount(workdaysOn(info, date)))
+  const weekly = parentalLeaveOf(info, date)?.partTimeWeeklyMinutes ?? weeklyMinutesOn(info, date)!
+  return Math.round(weekly / workdayCount(workdaysOn(info, date)))
 }

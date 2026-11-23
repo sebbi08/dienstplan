@@ -14,6 +14,7 @@ import type { EmploymentBanKind } from '../domain/maternity'
 import type { DayMeal } from '../domain/meals'
 import type { OfflineStampReason, OfflineTabletStatus } from '../domain/offlineStamps'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
+import type { ParentalLeaveError, ParentalLeaveHint } from '../domain/parentalLeave'
 import type { BundleArea, BundleId, BundleScope, RightsRole } from '../domain/permissionBundles'
 import type { PermissionKey } from '../domain/permissions'
 import type { EmployeeDocumentFolder } from '../domain/personnel'
@@ -484,6 +485,8 @@ export interface ReminderDto {
   }
   /** For a Probezeit ending soon (whoever sees the contract data): the employee; `date` is the last day of the probation. */
   probation?: { employeeId: number }
+  /** For a return from Elternzeit (whoever sees the contract data): the employee; `date` is the first working day after it. */
+  parentalLeave?: { employeeId: number }
 }
 
 /** The record's „Entwicklungsdokumentation“. */
@@ -1308,6 +1311,12 @@ export interface MonthPlanDto {
    */
   reportSickCodeId: number | null
   admin: MonthPlanAdminDto | null
+  /**
+   * The cells (cellKey) of the staff's working days in a full Elternzeit (no stored entry; server/services/parentalLeave.ts),
+   * with the text to show: „Elternzeit“ for viewers with employees.view (not at the tablet) or when the facility shows it to
+   * all, else „abwesend“.
+   */
+  parentalLeave: { cells: string[]; label: 'parental_leave' | 'absent' }
 }
 
 /** An entry in "Mein Dienstplan"; a help-out duty carries the name of the facility it is in. */
@@ -1352,6 +1361,13 @@ export interface LeaveAccountDto {
    * `account.extraDays`); empty without an entitlement, since the account then counts none.
    */
   extraDays: LeaveExtraDaySummary[]
+  /** Days the year's entitlement (`account.entitlement`, already cut) was cut for Elternzeit (§ 17 Abs. 1 BEEG); 0 = none. */
+  parentalLeaveCut: number
+  /**
+   * The remaining leave of the year does not lapse on the forfeiture day because of an Elternzeit (§ 17 Abs. 2 BEEG): the
+   * last day it can still be taken; null = the forfeiture day applies as usual.
+   */
+  parentalLeaveProtectedUntil: IsoDate | null
 }
 
 /** One „Zusatztag nur für dieses Jahr“ entry as the leave account shows it: the days and the reason. */
@@ -2186,7 +2202,11 @@ export interface EmployeeListExtrasDto {
    * employment entered; `final`: the top level is reached; else the next level and its day, with the state (`soon`: within
    * 30 days, `overdue`: the day has passed and the level is not entered yet).
    */
-  level?: { final: true } | { final: false; fromLevel: number; level: number; on: IsoDate; state: 'later' | 'soon' | 'overdue' } | null
+  level?: { final: true } | {
+    final: false; fromLevel: number; level: number; on: IsoDate; state: 'later' | 'soon' | 'overdue'
+    /** Days the step moved because Elternzeit does not count towards the level years (0 = none; § 17 Abs. 3 TVöD). */
+    shiftDays: number
+  } | null
   /** „in Probezeit bis …“: only with employees.contractView (otherwise absent); the last day while it runs, else null. */
   probationUntil?: IsoDate | null
   /** Mandatory appointments that are overdue, missing or due soon (empty = nothing open). */
@@ -4224,3 +4244,70 @@ export type SchoolDistrictMatchDto =
   }
   | { status: 'ambiguous'; codes: string[]; asOf: string; scope: 'facility' | 'global' }
   | { status: 'none'; asOf: string; scope: 'facility' | 'global' }
+
+/** An Elternzeit of an employee (contract data, server/services/parentalLeave.ts). */
+export interface ParentalLeaveDto {
+  id: number
+  /** The child of the personnel file it is for (null: entered by birth date only, or the child was removed). */
+  childId: number | null
+  /** The child's first name, only for viewers of the personal data (employees.personal); null otherwise or without a name. */
+  childName: string | null
+  childBirthDate: IsoDate
+  start: IsoDate
+  end: IsoDate
+  /** Part-time work during it (minutes per week); null = full Elternzeit. */
+  partTimeWeeklyMinutes: number | null
+  /** The employer cuts the leave by 1/12 per full calendar month (§ 17 Abs. 1 BEEG). */
+  reduceLeave: boolean
+  note: string
+  /** „Erster Arbeitstag danach“: the person's next working day after the end (no public holiday, no closure; null: none found). */
+  firstWorkingDay: IsoDate | null
+  createdBy: string
+}
+
+/** The section „Elternzeit“ of the employee page. */
+export interface EmployeeParentalLeaveDto {
+  periods: ParentalLeaveDto[]
+  /** The children of the personnel file to choose from (only with employees.personal, else empty: the birth date is entered). */
+  children: { id: number; firstName: string | null; birthDate: IsoDate }[]
+  /** The viewer may enter and change (employees.contractEdit). */
+  canEdit: boolean
+  /**
+   * The next TVöD level step moved by the Elternzeit (§ 17 Abs. 3 TVöD); null without a level, a start of employment, at
+   * the top level or without any move.
+   */
+  levelShift: { level: number; on: IsoDate; days: number } | null
+}
+
+/** What „Elternzeit eintragen“ saves (the dialog computes the end from a duration in months when given that way). */
+export interface ParentalLeaveInput {
+  childId: number | null
+  childBirthDate: IsoDate
+  start: IsoDate
+  end: IsoDate
+  partTimeWeeklyMinutes: number | null
+  reduceLeave: boolean
+  note: string
+}
+
+/** The dialog's check of a period before saving (nothing is stored). */
+export interface ParentalLeaveCheckDto {
+  /** Suggested start: the day after the Mutterschutz period after this birth, else the birth date. */
+  suggestedStart: IsoDate
+  /** Refuses saving (null = fine). */
+  error: ParentalLeaveError | null
+  /** Hints that never block: a fourth section for the child, more than 36 months for the child. */
+  hints: ParentalLeaveHint[]
+  sections: number
+  totalMonths: number
+  firstWorkingDay: IsoDate | null
+  /** Entries already in the plan on the days of a full Elternzeit (they stay; the dialog lists them before saving). */
+  entries: { date: IsoDate; label: string }[]
+}
+
+/** „Elternzeit für alle sichtbar anzeigen“ of the facility. */
+export interface ParentalLeaveSettingsDto {
+  visibleToAll: boolean
+  /** The viewer may change it (employees.contractEdit). */
+  canEdit: boolean
+}

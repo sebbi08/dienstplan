@@ -1,10 +1,12 @@
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import { countLeaveDays, groupLeaveRanges, leaveAccount, type LeaveDayRule, type LeaveEntitlement } from '../../shared/domain/leave'
+import { forfeitDateOf } from '../../shared/domain/leaveForfeit'
+import { cutEntitlement, leaveCutMonths, leaveProtectedUntil } from '../../shared/domain/parentalLeave'
 import { isEmployedInRange, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureLeaveDto, LeaveAccountDto, LeaveEntryKind, LeaveEntryRange } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { absenceCodes, closures, entries } from '../db/schema'
+import { absenceCodes, closures, entries, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { entitlementFor, firstEntitlementYear, leaveExtraDaysByYear, leaveExtraDaysOf } from './entitlements'
 import { closureColumns, loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
@@ -16,6 +18,16 @@ export interface YearEntitlement extends LeaveEntitlement {
   fromYear: number
   /** True when the carry-over is what was left of the year before (every year after the first recorded one). */
   carriedAutomatically: boolean
+  /** Days of the recorded entitlement cut for Elternzeit (§ 17 Abs. 1 BEEG, only when declared); `days` is already cut. */
+  parentalLeaveCut: number
+}
+
+/**
+ * The entitlement of the year after the Elternzeit cut: 1/12 per full calendar month of a full Elternzeit for which the
+ * employer declared the cut (§ 17 Abs. 1 BEEG; shared/domain/parentalLeave.ts cutEntitlement rounds what is left).
+ */
+function cutFor(employee: EmployeeRecord, days: number, year: number): { days: number; cut: number } {
+  return cutEntitlement(days, leaveCutMonths(employee.info.parentalLeaves, year))
 }
 
 /** Only the employee's own working days count as leave days. */
@@ -27,7 +39,8 @@ function leaveDayRule(employee: EmployeeRecord): LeaveDayRule {
  * Entitlement and carry-over of an employee in a year. The days are the last ones recorded up to that year. The first
  * recorded year keeps the carry-over entered for it; every later year carries over what was left of the year before,
  * a minus too. The one-off extra days of a year („Zusatztag nur für dieses Jahr“) count only in that year: they raise
- * what is available there, so what is left of them carries over like the rest. Null before the first recorded year.
+ * what is available there, so what is left of them carries over like the rest. A declared Elternzeit cut lowers the
+ * days of each year it falls in (cutFor). Null before the first recorded year.
  */
 export function yearEntitlement(db: Db, employee: EmployeeRecord, year: number): YearEntitlement | null {
   const first = firstEntitlementYear(db, employee.id)
@@ -38,7 +51,7 @@ export function yearEntitlement(db: Db, employee: EmployeeRecord, year: number):
   const extraDays = leaveExtraDaysByYear(db, employee.id)
   let carriedOverDays = entitlementFor(db, employee.id, first)!.carriedOverDays
   for (let current = first; current < year; current++) {
-    const days = entitlementFor(db, employee.id, current)!.days
+    const days = cutFor(employee, entitlementFor(db, employee.id, current)!.days, current).days
     // "available" does not depend on the day it is looked at, so any date will do.
     carriedOverDays = leaveAccount(
       { days, carriedOverDays, extraDays: extraDays.get(current) ?? 0 }, vacationDates, current, `${current}-01-01`, isLeaveDay,
@@ -46,8 +59,9 @@ export function yearEntitlement(db: Db, employee: EmployeeRecord, year: number):
     ).available
   }
   const recorded = entitlementFor(db, employee.id, year)!
+  const cut = cutFor(employee, recorded.days, year)
   return {
-    days: recorded.days, extraDays: extraDays.get(year) ?? 0, carriedOverDays, fromYear: recorded.fromYear,
+    days: cut.days, parentalLeaveCut: cut.cut, extraDays: extraDays.get(year) ?? 0, carriedOverDays, fromYear: recorded.fromYear,
     carriedAutomatically: year > first,
   }
 }
@@ -74,7 +88,20 @@ export function getLeaveAccount(db: Db, employeeId: number, year: number, today:
     closures: closureLeave(db, employee, year),
     // Without an entitlement the account counts no extra days, so none are listed either.
     extraDays: entitlement ? leaveExtraDaysOf(db, employeeId, year).map(({ days, reason }) => ({ days, reason })) : [],
+    parentalLeaveCut: entitlement?.parentalLeaveCut ?? 0,
+    parentalLeaveProtectedUntil: entitlement ? protectedUntil(db, employee, year) : null,
   }
+}
+
+/**
+ * The last day the remaining leave of the year can be taken when an Elternzeit keeps it from lapsing on the facility's
+ * forfeiture day (§ 17 Abs. 2 BEEG; null = it lapses as usual). The notice on remaining leave follows it (leaveForfeit.ts).
+ */
+export function protectedUntil(db: Db, employee: EmployeeRecord, year: number): IsoDate | null {
+  if (!(employee.info.parentalLeaves ?? []).length) return null
+  const setting = db.select({ day: facilities.leaveForfeitDay, month: facilities.leaveForfeitMonth }).from(facilities)
+    .where(eq(facilities.id, employee.facilityId)).get()
+  return setting ? leaveProtectedUntil(employee.info.parentalLeaves, forfeitDateOf(year, setting)) : null
 }
 
 const LEAVE_ENTRY_KINDS: LeaveEntryKind[] = ['vacation', 'special_leave', 'overtime_off']
