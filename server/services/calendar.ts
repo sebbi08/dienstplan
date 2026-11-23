@@ -12,7 +12,10 @@ import { ServiceError } from '../lib/errors'
 import { autoEventsFor } from './autoEvents'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
+import { fullParentalLeaveDates, parentalLeaveLabel } from './parentalLeave'
 import { type EmployeeRecord, loadCodes, loadEmployees, loadEntries } from './queries'
+
+type ParentalLeaveLabel = 'parental_leave' | 'absent'
 
 /**
  * Calendar colour group of each absence code; codes not listed (sonstiges, VZ, Büro) are not shown. „Kind krank“ shows as
@@ -62,8 +65,10 @@ export function getSickYear(db: Db, facilityId: number, year: number): SickYearR
  * The year calendar as employees see it (read-only): everyone's leave, special leave, training and school, closures
  * and holidays, but sick days only of the viewer themselves (health data), and only appointments shared with staff.
  */
-export function getStaffYearCalendar(db: Db, facilityId: number, year: number, viewerEmployeeId: number | null): YearCalendarDto {
-  const calendar = getYearCalendar(db, facilityId, year, { sickOnlyOf: viewerEmployeeId })
+export function getStaffYearCalendar(
+  db: Db, facilityId: number, year: number, viewerEmployeeId: number | null, parentalLeaveLabel: ParentalLeaveLabel = 'absent',
+): YearCalendarDto {
+  const calendar = getYearCalendar(db, facilityId, year, { sickOnlyOf: viewerEmployeeId, parentalLeaveLabel })
   return { ...calendar, otherEntries: {}, absenceCodes: [], events: calendar.events.filter(event => event.visibleToStaff) }
 }
 
@@ -73,7 +78,7 @@ export function getMyYearCalendar(db: Db, viewer: SessionUser, year: number): Ye
     ? undefined
     : db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees).where(eq(employees.id, viewer.employeeId)).get()
   if (!employee) throw new ServiceError(403, 'no_employee')
-  return getStaffYearCalendar(db, employee.facilityId, year, employee.id)
+  return getStaffYearCalendar(db, employee.facilityId, year, employee.id, parentalLeaveLabel(db, viewer, employee.facilityId))
 }
 
 /**
@@ -100,11 +105,19 @@ function groupedRows(db: Db, facilityId: number, staff: EmployeeRecord[]) {
 /**
  * The facility's year calendar. With `sickOnlyOf` set, sick days of all other employees are left out (as if not entered).
  * `showsProtected` false (a viewer without employees.sickness): Krank, Kind krank, Mutterschutz and Beschäftigungsverbot
- * show alike as „abwesend“ and are not offered for entering.
+ * show alike as „abwesend“ and are not offered for entering. The working days of a full Elternzeit (no stored entry) show
+ * as `parentalLeaveLabel` („Elternzeit“, default, or „abwesend“ as in the plan; the viewer's own – `sickOnlyOf` – always
+ * „Elternzeit“) where no entry says otherwise, and are no free days.
  */
 export function getYearCalendar(
-  db: Db, facilityId: number, year: number, options: { sickOnlyOf?: number | null; showsProtected?: boolean } = {},
+  db: Db, facilityId: number, year: number,
+  options: {
+    sickOnlyOf?: number | null; showsProtected?: boolean; parentalLeaveLabel?: ParentalLeaveLabel
+    /** The viewer the label follows (parentalLeaveLabel), instead of a fixed `parentalLeaveLabel`. */
+    parentalLeaveViewer?: Pick<SessionUser, 'role' | 'permissions'>
+  } = {},
 ): YearCalendarDto {
+  const leaveLabel = options.parentalLeaveViewer ? parentalLeaveLabel(db, options.parentalLeaveViewer, facilityId) : options.parentalLeaveLabel
   const showsProtected = options.showsProtected ?? true
   const staff = staffOfYear(db, facilityId, year)
   const days: Record<number, Record<IsoDate, CalendarKind>> = Object.fromEntries(staff.map(employee => [employee.id, {}]))
@@ -120,6 +133,11 @@ export function getYearCalendar(
     const current = row[entry.date]
     if (!current || KIND_PRIORITY.indexOf(kind) < KIND_PRIORITY.indexOf(current)) row[entry.date] = kind
   }
+  const leaveDays = new Map(staff.map(employee => [employee.id, new Set(fullParentalLeaveDates(employee.info, `${year}-01-01`, `${year}-12-31`))]))
+  for (const employee of staff) {
+    const kind: CalendarKind = employee.id === options.sickOnlyOf ? 'parental_leave' : leaveLabel ?? 'parental_leave'
+    for (const date of leaveDays.get(employee.id)!) days[employee.id]![date] ??= kind
+  }
   const { rows, groups } = groupedRows(db, facilityId, staff)
   return {
     year,
@@ -131,7 +149,8 @@ export function getYearCalendar(
     // Mon–Fri (no holiday of the person's home facility) on which a part-timer does not work: shown like weekends,
     // skipped when entering absences.
     freeDays: Object.fromEntries(staff.map(employee => [employee.id, dateRange(`${year}-01-01`, `${year}-12-31`)
-      .filter(date => !isWeekend(date) && !isHolidayIn(date, employee.info.holidays) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date))])),
+      .filter(date => !isWeekend(date) && !isHolidayIn(date, employee.info.holidays) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date)
+        && !leaveDays.get(employee.id)!.has(date))])),
     absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key) && (showsProtected || !isPrivateCode(code.key))),
     events: listCalendarEvents(db, facilityId, year),
     // Anonymous (no child names), so the staff calendar keeps them all.

@@ -21,6 +21,7 @@ const COMMON = [
   { class: 'bg-sky-500', label: de.calendar.kinds.training },
   { class: 'bg-pink-400', label: de.calendar.kinds.maternity, kind: 'maternity' as CalendarKind },
   { class: 'bg-stone-400', label: de.calendar.kinds.absent, kind: 'absent' as CalendarKind },
+  { class: 'bg-violet-300', label: de.calendar.kinds.parental_leave, kind: 'parental_leave' as CalendarKind },
   { class: 'bg-gray-400', label: de.calendar.kinds.closed },
   { class: 'bg-gray-100 ring-1 ring-gray-300', label: de.calendar.weekend },
 ]

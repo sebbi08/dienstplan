@@ -10170,6 +10170,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "part_time_workdays": {
+          "name": "part_time_workdays",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "reduce_leave": {
           "name": "reduce_leave",
           "type": "integer",

@@ -62,7 +62,7 @@ export function fullEmploymentMonths(from: IsoDate, to: IsoDate): number {
 }
 
 /** § 5 (2) BUrlG: a fraction of at least half a day is rounded up, a smaller one stays. */
-function roundPart(days: number): number {
+export function roundPart(days: number): number {
   const clean = Math.round(days * 1e6) / 1e6
   const whole = Math.floor(clean)
   return clean - whole >= 0.5 ? whole + 1 : clean

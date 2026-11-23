@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import { countLeaveDays, groupLeaveRanges, leaveAccount, type LeaveDayRule, type LeaveEntitlement } from '../../shared/domain/leave'
 import { forfeitDateOf } from '../../shared/domain/leaveForfeit'
-import { cutEntitlement, leaveCutMonths, leaveProtectedUntil } from '../../shared/domain/parentalLeave'
+import { cutEntitlement, leaveCutMonths, leaveProtection, type LeaveProtection } from '../../shared/domain/parentalLeave'
 import { isEmployedInRange, isWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureLeaveDto, LeaveAccountDto, LeaveEntryKind, LeaveEntryRange } from '../../shared/types/api'
@@ -95,13 +95,19 @@ export function getLeaveAccount(db: Db, employeeId: number, year: number, today:
 
 /**
  * The last day the remaining leave of the year can be taken when an Elternzeit keeps it from lapsing on the facility's
- * forfeiture day (§ 17 Abs. 2 BEEG; null = it lapses as usual). The notice on remaining leave follows it (leaveForfeit.ts).
+ * forfeiture day (§ 17 Abs. 2 BEEG; null = it lapses as usual). The notice on remaining leave uses it as that year's
+ * forfeiture day (leaveForfeit.ts).
  */
 export function protectedUntil(db: Db, employee: EmployeeRecord, year: number): IsoDate | null {
+  return leaveProtectionOf(db, employee, year)?.until ?? null
+}
+
+/** The protection of the year's remaining leave by an Elternzeit with its return day (null = none; see protectedUntil). */
+export function leaveProtectionOf(db: Db, employee: EmployeeRecord, year: number): LeaveProtection | null {
   if (!(employee.info.parentalLeaves ?? []).length) return null
   const setting = db.select({ day: facilities.leaveForfeitDay, month: facilities.leaveForfeitMonth }).from(facilities)
     .where(eq(facilities.id, employee.facilityId)).get()
-  return setting ? leaveProtectedUntil(employee.info.parentalLeaves, forfeitDateOf(year, setting)) : null
+  return setting ? leaveProtection(employee.info.parentalLeaves, year, forfeitDateOf(year, setting)) : null
 }
 
 const LEAVE_ENTRY_KINDS: LeaveEntryKind[] = ['vacation', 'special_leave', 'overtime_off']

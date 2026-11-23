@@ -267,7 +267,7 @@ export const de = {
   calendar: {
     title: 'Jahreskalender', printTitle: (year: number) => `Jahreskalender ${year}`, events: 'Termine', eventList: 'Terminliste',
     printAllGroups: 'Alle Gruppen nacheinander', printGroupLabel: 'Gruppe für den Ausdruck', printNoGroup: 'Ohne Gruppe',
-    kinds: { requested: 'Urlaubswunsch (offen)', sick: 'Krank', maternity: 'Mutterschutz / Beschäftigungsverbot', absent: 'abwesend', vacation: 'Urlaub', overtime_off: 'Überstundenfrei', special_leave: 'Sonderurlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag' },
+    kinds: { requested: 'Urlaubswunsch (offen)', sick: 'Krank', maternity: 'Mutterschutz / Beschäftigungsverbot', absent: 'abwesend', vacation: 'Urlaub', overtime_off: 'Überstundenfrei', special_leave: 'Sonderurlaub', training: 'Fortbildung / Schule', closed: 'Feiertag / Schließtag', parental_leave: 'Elternzeit' },
     weekend: 'Wochenende / frei', addEvent: 'Termin eintragen', editEvent: 'Termin ändern', date: 'Datum',
     visibleToStaff: 'Auch für Mitarbeiter sichtbar?', visibleYes: 'Ja', visibleNo: 'Nein, nur Leitung',
     visibilityRequired: 'Bitte angeben, ob der Termin auch für die Mitarbeiter sichtbar sein soll.',
@@ -2230,6 +2230,7 @@ export const de = {
     probationLink: 'zum Vertrag',
     // „‹Name› kommt am ‹dd.mm.yyyy› aus der Elternzeit zurück“ (whoever sees the contract data, from 4 weeks before).
     parentalLeave: (date: string) => ({ before: '', after: ` kommt am ${date} aus der Elternzeit zurück` }),
+    parentalLeaveToPartTime: (date: string) => ({ before: '', after: ` wechselt am ${date} in Teilzeit-Elternzeit` }),
     parentalLeaveLink: 'zur Elternzeit',
     kinds: {
       doc: 'Entwicklungsdokumentation', meeting: 'Elterngespräch', birthday: 'Geburtstag', staffBirthday: 'Geburtstag',
@@ -2925,9 +2926,12 @@ export const de = {
     ].filter(Boolean).join(' und ') || '0 Tage',
     partTime: 'Teilzeit bei uns während der Elternzeit',
     partTimeHours: 'Stunden pro Woche',
-    partTimeHint: 'Höchstens 32 Stunden pro Woche (§ 15 Abs. 4 BEEG). Das Soll richtet sich in dieser Zeit nach diesen Stunden, an den üblichen Arbeitstagen.',
+    partTimeHint: 'Höchstens 32 Stunden pro Woche (§ 15 Abs. 4 BEEG). Das Soll richtet sich in dieser Zeit nach diesen Stunden und Arbeitstagen.',
+    partTimeWorkdays: 'Arbeitstage in der Teilzeit',
+    partTimeWorkdaysHint: 'Vorgabe: die Arbeitstage laut Vertrag. Auf diese Tage wird das Soll verteilt, nur sie zählen als Urlaubstage.',
+    workdaysLine: (days: string) => `an ${days}`,
     reduceLeave: 'Urlaub kürzen (1/12 je vollem Kalendermonat)',
-    reduceLeaveHint: 'Nur wenn der Arbeitgeber die Kürzung erklärt (§ 17 Abs. 1 BEEG). Nicht bei Teilzeit bei uns während der Elternzeit.',
+    reduceLeaveHint: 'Nur wenn der Arbeitgeber die Kürzung erklärt (§ 17 Abs. 1 BEEG). Nicht bei Teilzeit bei uns während der Elternzeit. Gekürzt wird nur der eingetragene Jahresanspruch (keine Zusatztage, kein Zusatzurlaub).',
     note: 'Notiz',
     firstWorkingDay: (date: string) => `Erster Arbeitstag danach: ${date}`,
     noFirstWorkingDay: 'Erster Arbeitstag danach: nicht gefunden (keine Arbeitstage eingetragen?)',
@@ -2938,7 +2942,8 @@ export const de = {
     createdBy: (name: string) => `Eingetragen von ${name}`,
     hints: {
       sections: (count: number) => `Das ist der ${count}. Abschnitt für dieses Kind. Mehr als drei Abschnitte gehen nur mit Zustimmung des Arbeitgebers (§ 16 Abs. 1 BEEG).`,
-      total: (months: string) => `Für dieses Kind sind es zusammen ${months} Monate – mehr als 36 Monate (§ 15 Abs. 2 BEEG). Bitte prüfen.`,
+      total: (months: string) => `Für dieses Kind sind es zusammen ${months} Monate – mehr als 36 Monate (§ 15 Abs. 2 BEEG; bei der Mutter zählt die Mutterschutzfrist nach der Geburt mit, soweit eingetragen und sichtbar). Bitte prüfen.`,
+      afterThird: (months: string) => `Zwischen dem 3. und 8. Geburtstag sind es ${months} Monate – mehr als 24 Monate (§ 15 Abs. 2 BEEG). Bitte prüfen.`,
     },
     entriesWarning: (count: number) => `Im Dienstplan stehen in dieser Zeit schon ${count} ${count === 1 ? 'Eintrag' : 'Einträge'}. Sie bleiben stehen – bitte prüfen:`,
     entriesMore: (count: number) => `… und ${count} weitere`,
@@ -2948,7 +2953,11 @@ export const de = {
       'Kündigungsschutz ab der Anmeldung, frühestens 8 Wochen vor Beginn (Elternzeit bis zum 3. Geburtstag) bzw. frühestens 14 Wochen vor Beginn (Elternzeit zwischen dem 3. und 8. Geburtstag), und während der Elternzeit.',
       'Bis zu drei Abschnitte je Elternteil und Kind; ein dritter Abschnitt zwischen dem 3. und 8. Geburtstag kann aus dringenden betrieblichen Gründen innerhalb von 8 Wochen abgelehnt werden.',
     ],
-    levelShift: (level: number, date: string, days: number) => `Stufenaufstieg: Stufe ${level} ab ${date} – ${days} Tage später, weil die Elternzeit nicht als Stufenlaufzeit zählt (§ 17 Abs. 3 TVöD).`,
+    levelShift: (level: number, date: string, days: number) => `Stufenaufstieg: Stufe ${level} ab ${date} – ${days} Tage später, weil die Elternzeit nicht als Stufenlaufzeit zählt (§ 17 Abs. 3 TVöD). Näherung, bitte prüfen.`,
+    levelHints: {
+      longBreak: 'Elternzeit von mehr als fünf Jahren am Stück: Nach § 17 Abs. 3 TVöD wird die Person der Stufe vor der erreichten zugeordnet. Das rechnet die App nicht – bitte prüfen.',
+      shortBreak: 'In einem Kalenderjahr weniger als ein Monat Elternzeit: Kurze Unterbrechungen können nach § 17 Abs. 3 Satz 1 lit. e TVöD als Stufenlaufzeit zählen (ob das für Elternzeit gilt, ist umstritten). Die App verschiebt trotzdem – bitte prüfen.',
+    },
     // The plan: the mark of a full Elternzeit (no stored entry).
     planLabel: 'Elternzeit',
     planAbsent: 'abwesend',
@@ -2956,6 +2965,7 @@ export const de = {
     // The leave box.
     leaveCut: (days: string) => `gekürzt wegen Elternzeit: −${days} Tage`,
     leaveProtected: (date: string) => `Resturlaub verfällt nicht wegen Elternzeit – zu nehmen bis ${date} (§ 17 Abs. 2 BEEG)`,
+    forfeitMoved: (date: string) => `Elternzeit: verfällt erst am ${date}`,
     settings: {
       title: 'Elternzeit im Dienstplan',
       visibleToAll: 'Elternzeit für alle sichtbar anzeigen',
@@ -3517,6 +3527,7 @@ export const de = {
     parental_leave_after_eighth_birthday: 'Die Elternzeit endet spätestens am Tag vor dem 8. Geburtstag des Kindes (§ 15 Abs. 2 BEEG).',
     parental_leave_overlap: 'Diese Zeit überschneidet sich mit einer anderen Elternzeit dieser Person.',
     parental_leave_part_time_invalid: 'Teilzeit in der Elternzeit: höchstens 32 Stunden pro Woche (§ 15 Abs. 4 BEEG).',
+    parental_leave_workdays_invalid: 'Bitte mindestens einen Arbeitstag für die Teilzeit wählen.',
     parental_leave_note_too_long: 'Die Notiz ist zu lang (höchstens 2000 Zeichen).',
     maternity_own: 'Deinen eigenen Mutterschutz trägt der Träger ein.',
     maternity_not_found: 'Dieser Eintrag zum Mutterschutz wurde nicht gefunden.',

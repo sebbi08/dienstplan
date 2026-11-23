@@ -32,9 +32,9 @@ import { listHelpers } from './helpOuts'
 import { facilityHolidayRules } from './holidayRules'
 import { maternityPlanWarnings } from './maternity'
 import { loadHoursContext, withOpeningHours } from './openingHours'
-import { parentalLeavePlanCells } from './parentalLeave'
+import { fullParentalLeaveDates, parentalLeavePlanCells } from './parentalLeave'
 import {
-  closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployees, loadEntries,
+  closureOn, groupByEmployee, loadClosures, loadCodes, loadCoverageRules, loadEmployee, loadEmployees, loadEntries,
   loadTemplates, ownCellFilter, type EmployeeRecord,
 } from './queries'
 import { buildSnapshot, loadReleases, type StoredRelease } from './release'
@@ -418,6 +418,9 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
 
   // The person's own plan shows the holidays of their home facility, also on days helping out elsewhere.
   const homeHolidays = facilityHolidayRules(db, employee.facilityId)
+  // The person's own full Elternzeit: „Elternzeit“ on its working days (as it is now, no stored entry).
+  const { monthStart, monthEnd } = monthBounds(year, month)
+  const ownLeave = new Set(fullParentalLeaveDates(loadEmployee(db, employee.id)!.info, monthStart, monthEnd))
   const days: MyPlanDayDto[] = dayRows(db, employee.facilityId, year, month, home?.data.days ?? [], homeHolidays).map((day) => {
     const key = cellKey(employee.id, day.date)
     // One day, one plan: when two releases disagree (one is not re-released yet), the newer release wins.
@@ -431,6 +434,7 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
       entries: newest?.entries ?? [],
       // The day's changes from every plan it was in, e.g. a home duty given up before helping out that day.
       changes: sources.flatMap(source => source.changes[key] ?? []).sort((a, b) => a.changedAt.localeCompare(b.changedAt)),
+      ...(ownLeave.has(day.date) ? { parentalLeave: true } : {}),
     }
   })
   return {

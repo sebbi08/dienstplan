@@ -191,10 +191,10 @@ describe('the notice on remaining leave', () => {
       expect(getLeaveForfeitList(db, 1, 2026, '2026-11-20')).toEqual({
         year: 2026, noticeFrom: '2026-10-01', forfeitDate: '2027-03-31', started: true,
         rows: [
-          { employeeId: anna, name: 'Anna', days: 5, status: 'read', readAt: now.toISOString(), readDays: 5 },
-          { employeeId: ben, name: 'Ben', days: 3, status: 'open', readAt: null, readDays: null },
-          { employeeId: carl, name: 'Carl', days: 3, status: 'no_account', readAt: null, readDays: null },
-          { employeeId: eve, name: 'Eve', days: 2, status: 'no_account', readAt: null, readDays: null },
+          { employeeId: anna, name: 'Anna', days: 5, status: 'read', readAt: now.toISOString(), readDays: 5, protectedUntil: null },
+          { employeeId: ben, name: 'Ben', days: 3, status: 'open', readAt: null, readDays: null, protectedUntil: null },
+          { employeeId: carl, name: 'Carl', days: 3, status: 'no_account', readAt: null, readDays: null, protectedUntil: null },
+          { employeeId: eve, name: 'Eve', days: 2, status: 'no_account', readAt: null, readDays: null, protectedUntil: null },
         ],
       })
     })
@@ -213,7 +213,7 @@ describe('the notice on remaining leave', () => {
       markLeaveForfeitRead(db, annaUser, 2026, '2026-11-19', now)
       setEntitlement(db, 1, anna, 2026, { days: 12, carriedOverDays: 0 })
       expect(getLeaveForfeitList(db, 1, 2026, '2026-11-20').rows)
-        .toEqual([{ employeeId: anna, name: 'Anna', days: 7, status: 'reopened', readAt: now.toISOString(), readDays: 5 }])
+        .toEqual([{ employeeId: anna, name: 'Anna', days: 7, status: 'reopened', readAt: now.toISOString(), readDays: 5, protectedUntil: null }])
       db.update(users).set({ active: false }).where(eq(users.id, annaUser.id)).run()
       expect(getLeaveForfeitList(db, 1, 2026, '2026-11-20').rows).toMatchObject([{ status: 'no_account', readDays: 5 }])
     })

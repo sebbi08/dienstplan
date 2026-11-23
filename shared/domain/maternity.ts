@@ -1,6 +1,6 @@
 import { addDays, dateRange, daysBetween, daysInMonth, toIsoDate, weekday } from './dates'
 import { isPublicHolidayIn, type HolidayRules } from './holidays'
-import { weeklyMinutesOn, type EmploymentInfo } from './targets'
+import { weeklyTargetMinutesOn, type EmploymentInfo } from './targets'
 import type { CodeKey, IsoDate } from './types'
 import { plannedWorkMinutes, plannedWorkWindow, restMinutes, type LawEntry } from './workingTimeLaw'
 
@@ -285,7 +285,7 @@ export function maternityDoubleWeekWarnings(input: {
 /**
  * § 4 Abs. 1 Satz 4: the work may not exceed the contractual weekly hours in the monthly average. `dates` are the days
  * of one calendar month on which the case applies and the person is employed; the work of these days (planned, as the
- * day hints count it) is compared with the contractual hours of the same days (the weekly hours valid on each day / 7).
+ * day hints count it) is compared with the contractual hours of the same days (the weekly hours valid on each day / 7; in a part-time Elternzeit its hours).
  * The hint (on the last of the days) shows both as weekly averages.
  */
 export function maternityMonthWarning(input: {
@@ -296,7 +296,8 @@ export function maternityMonthWarning(input: {
   let contract = 0
   for (const date of input.dates) {
     work += plannedWorkMinutes(input.entriesOf(date))
-    contract += (weeklyMinutesOn(input.info, date) ?? 0) / 7
+    // The agreed hours of the day: during part-time work in an Elternzeit its hours (weeklyTargetMinutesOn).
+    contract += (weeklyTargetMinutesOn(input.info, date) ?? 0) / 7
   }
   if (work <= Math.round(contract)) return null
   const days = input.dates.length

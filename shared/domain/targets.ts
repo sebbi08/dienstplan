@@ -49,7 +49,21 @@ export function weeklyMinutesOn(info: EmploymentInfo, date: IsoDate): number | n
 
 /** Working-day bitmask valid on that date (Monday to Friday when not employed). */
 export function workdaysOn(info: EmploymentInfo, date: IsoDate): number {
+  // During part-time work in an Elternzeit: its own working days when entered.
+  const leave = parentalLeaveOf(info, date)
+  if (leave && leave.partTimeWeeklyMinutes !== null && leave.partTimeWorkdays) return leave.partTimeWorkdays
   return periodOn(info, date)?.workdays ?? MONDAY_TO_FRIDAY
+}
+
+/**
+ * The weekly hours agreed for the date: the contract's; during part-time work in an Elternzeit its hours, 0 in a full
+ * Elternzeit (null when not employed). The one source of dailyTarget and of the MuSchG limit of the agreed working time.
+ */
+export function weeklyTargetMinutesOn(info: EmploymentInfo, date: IsoDate): number | null {
+  const weekly = weeklyMinutesOn(info, date)
+  if (weekly === null) return null
+  const leave = parentalLeaveOf(info, date)
+  return leave === null ? weekly : leave.partTimeWeeklyMinutes ?? 0
 }
 
 export function worksOnWeekday(workdays: number, weekdayIndex: number): boolean {
@@ -111,6 +125,6 @@ export function isWorkday(info: EmploymentInfo, date: IsoDate): boolean {
  */
 export function dailyTarget(info: EmploymentInfo, date: IsoDate): number {
   if (!isWorkday(info, date)) return 0
-  const weekly = parentalLeaveOf(info, date)?.partTimeWeeklyMinutes ?? weeklyMinutesOn(info, date)!
+  const weekly = weeklyTargetMinutesOn(info, date)!
   return Math.round(weekly / workdayCount(workdaysOn(info, date)))
 }

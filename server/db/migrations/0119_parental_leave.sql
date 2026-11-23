@@ -6,6 +6,7 @@ CREATE TABLE `parental_leaves` (
 	`start` text NOT NULL,
 	`end` text NOT NULL,
 	`part_time_weekly_minutes` integer,
+	`part_time_workdays` integer,
 	`reduce_leave` integer DEFAULT false NOT NULL,
 	`note` text DEFAULT '' NOT NULL,
 	`created_by` text DEFAULT '' NOT NULL,

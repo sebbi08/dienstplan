@@ -1095,37 +1095,56 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
 - **„Elternzeit eintragen“:** Kind wählen (aus dem Abschnitt „Kinder“ der Personalakte; ohne Recht auf die persönlichen
   Daten oder für ein anderes Kind das Geburtsdatum eingeben), Beginn, Dauer in Monaten **oder** Enddatum (das andere
   rechnet die App aus: Ende = Beginn + Monate − 1 Tag, 31.01. + 1 Monat → 28./29.02.). Als Beginn schlägt die App den
-  Tag nach dem Mutterschutz nach dieser Geburt vor (wenn ein Mutterschutz eingetragen ist), sonst den Tag der Geburt.
+  Tag nach dem Mutterschutz nach dieser Geburt vor – nur wer die Krankheitstage sehen darf (Mutterschutz ist eine
+  Gesundheitsangabe); sonst und ohne eingetragenen Mutterschutz den Tag der Geburt.
 - **Prüfungen:** Ende nicht vor dem Beginn, Beginn nicht vor der Geburt, Ende spätestens am Tag vor dem 8. Geburtstag,
   keine Überschneidung mit einer anderen Elternzeit der Person (Speichern geht dann nicht). **Hinweise** (Speichern
   geht trotzdem): mehr als drei Abschnitte für ein Kind (ein vierter nur mit Zustimmung des Arbeitgebers, § 16 Abs. 1
-  BEEG), mehr als 36 Monate für ein Kind.
+  BEEG), mehr als 36 Monate für ein Kind (bei der Mutter zählt die Mutterschutzfrist nach der Geburt mit, § 15 Abs. 2
+  Satz 3 – soweit eingetragen und für die Person sichtbar), mehr als 24 Monate zwischen dem 3. und 8. Geburtstag (§ 15
+  Abs. 2 Satz 2). Zwillinge unterscheidet die App am gewählten Kind der Personalakte (nicht am Geburtsdatum).
 - **„Erster Arbeitstag danach“** steht im Dialog und in der Liste: der nächste Arbeitstag der Person nach dem Ende
   (ihre Arbeitstage laut Stunden, ohne Wochenende, Feiertage und Schließzeiten der Einrichtung; schließt eine weitere
   Elternzeit direkt an, erst danach).
 - **Dienstplan und Stunden:** In einer Elternzeit ohne Teilzeit gibt es **kein Soll** (kein Minus) und keine Warnung
-  „Eintrag fehlt“; der Dienstplan zeigt an den Arbeitstagen **„Elternzeit“** (es wird kein Eintrag gespeichert, auch
-  nicht in der Freigabe). Wer schon Einträge in dieser Zeit hat, bekommt sie beim Eintragen aufgelistet – sie bleiben
-  stehen und zählen weiter (z. B. als Plusstunden); bitte prüfen. **Mit Teilzeit** (höchstens 32 Stunden pro Woche)
-  richtet sich das Soll in dieser Zeit nach den Teilzeit-Stunden, an den üblichen Arbeitstagen; davor und danach gelten
-  die normalen Wochenstunden. Neue Schließzeiten werden in der Elternzeit nicht gebucht.
-- **Wer „Elternzeit“ im Dienstplan sieht:** Personen mit dem Recht „Mitarbeiter ansehen“. Alle anderen (Mitarbeiter,
-  Tablet) sehen **„abwesend“**. Unter **Einstellungen → Personal → „Elternzeit im Dienstplan“** kann der Träger
-  **„Elternzeit für alle sichtbar anzeigen“** einschalten (Standard: aus); dann sehen alle „Elternzeit“.
+  „Eintrag fehlt“; der Dienstplan zeigt an den Arbeitstagen **„Elternzeit“**, ebenso die Tagesübersicht, „Mein
+  Dienstplan“ (die eigene Elternzeit), der Jahreskalender und die Urlaubsplanung. Es wird kein Eintrag gespeichert,
+  auch nicht in der Freigabe: Die Markierung gilt so, wie die Elternzeit jetzt eingetragen ist, **auch in schon
+  freigegebenen Monaten** (ohne Änderungsmeldung). Wer schon Einträge in dieser Zeit hat, bekommt sie beim Eintragen
+  aufgelistet (Krank, Kind krank, Mutterschutz, Beschäftigungsverbot als „abwesend“ für alle ohne das Recht auf die
+  Krankheitstage) – sie bleiben stehen und zählen weiter (z. B. als Plusstunden); bitte prüfen. **Mit Teilzeit**
+  (höchstens 32 Stunden pro Woche) gibst du die **Arbeitstage der Teilzeit** an (Vorgabe: die Arbeitstage laut
+  Vertrag): Das Soll verteilt sich auf diese Tage, nur sie zählen als Urlaubstage und erwartete Arbeitstage; davor und
+  danach gelten die normalen Wochenstunden. Auch die Mutterschutz-Hinweise zur vereinbarten Arbeitszeit rechnen in
+  dieser Zeit mit den Teilzeit-Stunden. Neue Schließzeiten werden in der Elternzeit ohne Teilzeit nicht gebucht.
+- **Wer „Elternzeit“ sieht:** Personen mit dem Recht „Mitarbeiter ansehen“. Alle anderen (Mitarbeiter, Tablet) sehen
+  **„abwesend“** – im Dienstplan wie im Jahreskalender. Unter **Einstellungen → Personal → „Elternzeit im
+  Dienstplan“** kann der Träger **„Elternzeit für alle sichtbar anzeigen“** einschalten (Standard: aus); dann sehen alle
+  „Elternzeit“.
 - **Urlaub:** Nur wenn der Arbeitgeber die Kürzung erklärt („Urlaub kürzen“, Standard: aus), wird der Jahresanspruch um
-  1/12 je **vollem Kalendermonat** Elternzeit ohne Teilzeit gekürzt (§ 17 Abs. 1 BEEG). Gerundet wird der verbleibende
-  Anspruch wie beim gesetzlichen Teilurlaub: ab einem halben Tag auf einen ganzen Tag aufgerundet, kleinere Bruchteile
-  bleiben (30 Tage, 5 Monate → 17,5 → 18 Tage, gekürzt um 12). Der Urlaubskasten zeigt **„gekürzt wegen Elternzeit:
-  −n Tage“**. Resturlaub aus der Zeit vor der Elternzeit verfällt nicht zum üblichen Verfallsdatum, sondern kann im
-  Jahr der Rückkehr und im Jahr danach genommen werden (§ 17 Abs. 2 BEEG): Der Urlaubskasten zeigt „Resturlaub
-  verfällt nicht wegen Elternzeit – zu nehmen bis 31.12.JJJJ“, und der Hinweis auf Resturlaub (Verfall) erscheint für
-  dieses Jahr nicht.
+  1/12 je **vollem Kalendermonat** Elternzeit ohne Teilzeit gekürzt (§ 17 Abs. 1 BEEG). Gekürzt wird nur der
+  eingetragene Jahresanspruch – nicht die „Zusatztage nur für dieses Jahr“ und nicht ein Zusatzurlaub (das wäre
+  erlaubt, die App lässt es zugunsten der Person). Gerundet wird der verbleibende Anspruch wie beim gesetzlichen
+  Teilurlaub: ab einem halben Tag auf einen ganzen Tag aufgerundet, kleinere Bruchteile bleiben (30 Tage, 5 Monate →
+  17,5 → 18 Tage, gekürzt um 12). Der Urlaubskasten zeigt **„gekürzt wegen Elternzeit: −n Tage“**.
+- **Resturlaub (§ 17 Abs. 2 BEEG):** Reicht eine Elternzeit (auch mit Teilzeit) in ein Urlaubsjahr hinein und beginnt
+  sie spätestens am Verfallsdatum dieses Jahres, verfällt der Resturlaub dieses Jahres nicht zum üblichen Datum,
+  sondern erst am 31.12. des Jahres nach der Rückkehr. Der Urlaubskasten zeigt „Resturlaub verfällt nicht wegen
+  Elternzeit – zu nehmen bis 31.12.JJJJ“. Der **Hinweis auf Resturlaub (Verfall)** nennt dann dieses Datum: Er erscheint
+  ab der Rückkehr, frühestens ab dem 1. Juli des letzten Jahres, bis zu diesem Tag; die Liste in der Urlaubsplanung
+  (Jahr des Urlaubs) zeigt die Person ab dann mit „Elternzeit: verfällt erst am …“. Der Urlaub eines Jahres, das erst
+  nach der Rückkehr beginnt, verfällt wie üblich. Die übrigen Tage berechnet die App wie sonst (Urlaub ab dem
+  Folgejahr verbraucht zuerst den Übertrag) – eine Näherung.
 - **TVöD-Stufen:** Elternzeit ohne Teilzeit zählt nicht als Stufenlaufzeit (§ 17 Abs. 3 TVöD). Die Spalte „Nächste
   Stufe“ verschiebt den Tag um die Elternzeit-Tage seit Beginn der Stufenjahre („Stufe 4 ab … (30 Tage später wegen
-  Elternzeit)“); der Abschnitt „Elternzeit“ nennt die Verschiebung ebenfalls.
+  Elternzeit)“); der Abschnitt „Elternzeit“ nennt die Verschiebung ebenfalls. Das ist eine **Näherung, bitte prüfen**:
+  Bei mehr als fünf Jahren Elternzeit am Stück wird die Person der Stufe vor der erreichten zugeordnet, und
+  Unterbrechungen von weniger als einem Monat im Kalenderjahr können als Stufenlaufzeit zählen (§ 17 Abs. 3 Satz 1
+  lit. e; ob das für Elternzeit gilt, ist umstritten). Beides rechnet die App nicht, sie zeigt dann einen Hinweis.
 - **Erinnerung:** 4 Wochen vor dem ersten Arbeitstag danach erscheint im Kasten „Erinnerungen“ **„‹Name› kommt am
-  ‹TT.MM.JJJJ› aus der Elternzeit zurück“** mit „zur Elternzeit“ – für alle, die die Vertragsangaben sehen (nicht am
-  Tablet), bis zu diesem Tag.
+  ‹TT.MM.JJJJ› aus der Elternzeit zurück“** (folgt direkt eine Teilzeit-Elternzeit: „‹Name› wechselt am ‹TT.MM.JJJJ› in
+  Teilzeit-Elternzeit“) mit „zur Elternzeit“ – für alle, die die Vertragsangaben sehen (nicht am Tablet), bis zu
+  diesem Tag.
 - **Fristen** (im Dialog aufklappbar): Anmeldung schriftlich spätestens 7 Wochen vor Beginn (Zeit bis zum 3.
   Geburtstag) bzw. 13 Wochen vor Beginn (zwischen 3. und 8. Geburtstag), § 16 BEEG; Kündigungsschutz ab der Anmeldung,
   frühestens 8 bzw. 14 Wochen vor Beginn, und während der Elternzeit, § 18 BEEG. Keine Rechtsberatung.

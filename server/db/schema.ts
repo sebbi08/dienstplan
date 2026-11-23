@@ -1816,6 +1816,8 @@ export const parentalLeaves = sqliteTable('parental_leaves', {
   start: text('start').notNull(),
   end: text('end').notNull(),
   partTimeWeeklyMinutes: integer('part_time_weekly_minutes'),
+  /** The working days of the part-time work (bitmask as employee_hours.workdays); null without part time. */
+  partTimeWorkdays: integer('part_time_workdays'),
   reduceLeave: integer('reduce_leave', { mode: 'boolean' }).notNull().default(false),
   note: text('note').notNull().default(''),
   createdBy: text('created_by').notNull().default(''),

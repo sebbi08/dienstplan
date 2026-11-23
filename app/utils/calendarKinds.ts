@@ -5,7 +5,7 @@ import type { CalendarKind, YearCalendarDto } from '#shared/types/api'
  * reach only viewers with the health data (the server sends everybody else „abwesend“), and „abwesend“ itself only where
  * it occurs, so the legend never explains „abwesend“ to someone without the right.
  */
-export const CONDITIONAL_KINDS: readonly CalendarKind[] = ['sick', 'maternity', 'absent']
+export const CONDITIONAL_KINDS: readonly CalendarKind[] = ['sick', 'maternity', 'absent', 'parental_leave']
 
 /** The kinds that occur in the calendar's days. */
 export function presentKinds(days: YearCalendarDto['days'] | null | undefined): Set<CalendarKind> {

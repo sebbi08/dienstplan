@@ -48,7 +48,11 @@ const STATUS_CLASS: Record<LeaveForfeitRowDto['status'], string> = {
         </thead>
         <tbody>
           <tr v-for="row in data.rows" :key="row.employeeId" class="border-b border-gray-100">
-            <td class="py-1 pr-3">{{ row.name }}</td>
+            <td class="py-1 pr-3">
+              {{ row.name }}
+              <!-- An Elternzeit moved this person's forfeiture date (§ 17 Abs. 2 BEEG). -->
+              <span v-if="row.protectedUntil" class="block text-xs text-gray-500">{{ de.parentalLeave.forfeitMoved(formatDate(row.protectedUntil)) }}</span>
+            </td>
             <td class="py-1 pr-3 text-right tabular-nums">{{ formatNumber(row.days) }}</td>
             <td class="py-1" :class="STATUS_CLASS[row.status]">
               {{ statusText(row) }}

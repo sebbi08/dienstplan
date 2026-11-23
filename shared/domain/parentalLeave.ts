@@ -1,5 +1,5 @@
 import { addDays, daysBetween, parseIsoDate, toIsoDate } from './dates'
-import { monthEnd } from './statutoryLeave'
+import { monthEnd, roundPart } from './statutoryLeave'
 import type { IsoDate } from './types'
 
 /**
@@ -8,12 +8,14 @@ import type { IsoDate } from './types'
  * employees.contractView. Nothing here is legal advice; the hints never block saving except where noted.
  *
  * - A full Elternzeit (no part time): no working days, no target hours (Soll 0), the plan marks the days.
- * - Part time (at most 32 hours a week, § 15 Abs. 4 BEEG): the target follows the part-time hours on the usual working
- *   days of the contract; the weekly hours before and after stay as they are.
+ * - Part time (at most 32 hours a week, § 15 Abs. 4 BEEG): the target follows the part-time hours on its own working
+ *   days (default: the contract's); the weekly hours before and after stay as they are.
  * - Leave (§ 17 Abs. 1 BEEG): only when the employer declares it (`reduceLeave`, off by default) the year's entitlement
  *   is cut by 1/12 per full calendar month of a full Elternzeit (never during part-time work at the facility).
- * - Remaining leave from before the Elternzeit is carried to the year of the return and the year after (§ 17 Abs. 2).
- * - TVöD: the Elternzeit does not count towards the level years (§ 17 Abs. 3 TVöD), so a level step moves by its days.
+ * - Remaining leave of a year the Elternzeit reaches into is carried to the year of the return and the year after
+ *   (§ 17 Abs. 2); the notice on remaining leave moves to that date.
+ * - TVöD: the Elternzeit does not count towards the level years (§ 17 Abs. 3 TVöD), so a level step moves by its days
+ *   (an approximation: more than five years in a row and lit. e are hints only).
  */
 
 export interface ParentalLeavePeriod {
@@ -21,6 +23,11 @@ export interface ParentalLeavePeriod {
   end: IsoDate
   /** Part-time work at the facility during the Elternzeit (minutes per week); null = full Elternzeit. */
   partTimeWeeklyMinutes: number | null
+  /**
+   * The working days of the part-time work (bitmask, bit 0 = Monday; shared/domain/targets.ts); null = the contract's
+   * working days. Only with part time.
+   */
+  partTimeWorkdays?: number | null
   /** The employer cuts the leave (§ 17 Abs. 1 BEEG). */
   reduceLeave: boolean
 }
@@ -114,28 +121,56 @@ const hundredths = (days: number) => Math.round(days * 100) / 100
  */
 export function cutEntitlement(days: number, months: number): { days: number; cut: number } {
   if (months <= 0 || days <= 0) return { days, cut: 0 }
-  const exact = Math.round((days * Math.max(0, 12 - Math.min(12, months))) / 12 * 1e6) / 1e6
-  const whole = Math.floor(exact)
-  const left = hundredths(exact - whole >= 0.5 ? whole + 1 : exact)
+  // The same rounding as the statutory part of a year (statutoryLeave.ts roundPart), shown to hundredths.
+  const left = hundredths(roundPart((days * Math.max(0, 12 - Math.min(12, months))) / 12))
   return { days: left, cut: hundredths(days - left) }
 }
 
+export interface LeaveProtection {
+  /** The last day the remaining leave can be taken: 31 December of the year after the return. */
+  until: IsoDate
+  /** The first day after that Elternzeit (the return). */
+  returnDay: IsoDate
+}
+
 /**
- * The year until which the remaining leave of `year` stays (§ 17 Abs. 2 BEEG: leave not taken before the Elternzeit is
- * granted in the year of the return or the year after): the latest 31 December of the year after a return, over the full
- * Elternzeit periods that begin by the forfeiture day of `year` and whose protection reaches past it. Null when no
- * Elternzeit protects that leave (the forfeiture day applies as usual).
+ * Whether the remaining leave of `year` is kept from lapsing on its forfeiture day (§ 17 Abs. 2 BEEG: leave not taken
+ * before the Elternzeit – and, by the case law, leave arising during it – is granted in the year of the return or the
+ * year after): an Elternzeit (full or part time) that reaches into the year (ends on or after 1 January) and begins by
+ * the year's forfeiture day, and whose protection (31 December of the year after the return) lasts past that day. The
+ * latest such protection wins. Null: the forfeiture day applies as usual (also for the leave of a year that begins only
+ * after the return).
  */
-export function leaveProtectedUntil(
-  periods: readonly ParentalLeavePeriod[] | undefined, forfeitDate: IsoDate,
-): IsoDate | null {
-  let until: IsoDate | null = null
+export function leaveProtection(
+  periods: readonly ParentalLeavePeriod[] | undefined, year: number, forfeitDate: IsoDate,
+): LeaveProtection | null {
+  let found: LeaveProtection | null = null
   for (const period of periods ?? []) {
-    if (period.partTimeWeeklyMinutes !== null || period.start > forfeitDate) continue
-    const protectedUntil = toIsoDate(parseIsoDate(addDays(period.end, 1)).year + 1, 12, 31)
-    if (protectedUntil >= forfeitDate && (until === null || protectedUntil > until)) until = protectedUntil
+    if (period.end < toIsoDate(year, 1, 1) || period.start > forfeitDate) continue
+    const returnDay = addDays(period.end, 1)
+    const until = toIsoDate(parseIsoDate(returnDay).year + 1, 12, 31)
+    if (until >= forfeitDate && (found === null || until > found.until)) found = { until, returnDay }
   }
-  return until
+  return found
+}
+
+/** The last day the remaining leave of `year` can be taken because of an Elternzeit (leaveProtection; null = none). */
+export function leaveProtectedUntil(
+  periods: readonly ParentalLeavePeriod[] | undefined, year: number, forfeitDate: IsoDate,
+): IsoDate | null {
+  return leaveProtection(periods, year, forfeitDate)?.until ?? null
+}
+
+/** The notice on remaining leave starts this many months before a protected year's last day (the usual window is ~6). */
+export const PROTECTED_NOTICE_MONTHS = 6
+
+/**
+ * The notice window of a protected year's remaining leave: from the return (at the earliest PROTECTED_NOTICE_MONTHS
+ * before the last day, i.e. 1 July of that year) up to and including the last day.
+ */
+export function protectedNoticeFrom(protection: LeaveProtection): IsoDate {
+  const earliest = toIsoDate(parseIsoDate(protection.until).year, 12 - PROTECTED_NOTICE_MONTHS + 1, 1)
+  return protection.returnDay > earliest ? protection.returnDay : earliest
 }
 
 /**
@@ -154,6 +189,45 @@ export function levelShiftDays(periods: readonly ParentalLeavePeriod[] | undefin
   }
 }
 
+/** § 17 Abs. 3 Satz 2 TVöD: an Elternzeit of up to five years each interrupts without harm. */
+export const LEVEL_HARMLESS_BREAK_YEARS = 5
+
+/**
+ * Hints on a moved level step (never computed in): `longBreak` – a full Elternzeit (adjoining sections together) of more
+ * than five years within the level years up to the step: the person is put on the level before the one reached
+ * (§ 17 Abs. 3 Satz 3 TVöD); `shortBreak` – a calendar year with less than a month of full Elternzeit: such a short
+ * interruption may count as level time (§ 17 Abs. 3 Satz 1 lit. e TVöD, whether it covers Elternzeit is disputed).
+ */
+export type LevelShiftHint = 'longBreak' | 'shortBreak'
+
+export function levelShiftHints(periods: readonly ParentalLeavePeriod[] | undefined, since: IsoDate, until: IsoDate): LevelShiftHint[] {
+  const full = (periods ?? []).filter(period => period.partTimeWeeklyMinutes === null && period.end >= since && period.start <= until)
+    .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))
+  const spans: { start: IsoDate; end: IsoDate }[] = []
+  for (const period of full) {
+    const last = spans.at(-1)
+    if (last && period.start <= addDays(last.end, 1)) {
+      if (period.end > last.end) last.end = period.end
+    }
+    else spans.push({ start: period.start, end: period.end })
+  }
+  const hints: LevelShiftHint[] = []
+  const tooLong = (span: { start: IsoDate; end: IsoDate }) => span.end > monthEnd(span.start, LEVEL_HARMLESS_BREAK_YEARS * 12)
+  if (spans.some(tooLong)) hints.push('longBreak')
+  const years = new Set(full.flatMap(period => {
+    const list: number[] = []
+    for (let year = parseIsoDate(period.start).year; year <= parseIsoDate(period.end).year; year++) list.push(year)
+    return list
+  }))
+  const short = [...years].some((year) => {
+    const first = toIsoDate(year, 1, 1)
+    const days = coveredDays(full, first > since ? first : since, toIsoDate(year, 12, 31) < until ? toIsoDate(year, 12, 31) : until)
+    return days > 0 && days < 30
+  })
+  if (short) hints.push('shortBreak')
+  return hints
+}
+
 /** The first day after `end` that `isWorkingDay` accepts, looking at most two years ahead (null when none). */
 export function firstWorkingDayAfter(end: IsoDate, isWorkingDay: (date: IsoDate) => boolean): IsoDate | null {
   let date = addDays(end, 1)
@@ -163,34 +237,62 @@ export function firstWorkingDayAfter(end: IsoDate, isWorkingDay: (date: IsoDate)
 
 /** What makes a period invalid (the server refuses to save it). */
 export type ParentalLeaveError = 'end_before_start' | 'before_birth' | 'after_eighth_birthday' | 'overlap'
-/** Hints that never block: more than three sections per child, more than three years per child. */
-export type ParentalLeaveHint = 'sections' | 'total'
+/**
+ * Hints that never block: more than three sections per child, more than three years per child (with the mother's
+ * Mutterschutz after the birth), more than 24 months between the 3rd and the 8th birthday.
+ */
+export type ParentalLeaveHint = 'sections' | 'total' | 'afterThird'
+
+/** § 15 Abs. 2 Satz 2 BEEG: up to 24 months between the 3rd and the 8th birthday. */
+export const PARENTAL_LEAVE_MAX_MONTHS_AFTER_THIRD = 24
 
 export interface ParentalLeaveCheck {
   error: ParentalLeaveError | null
   hints: ParentalLeaveHint[]
   /** Sections of the child including this one. */
   sections: number
-  /** Months of Elternzeit for the child including this one (a day counting 1/30 month), rounded to tenths. */
+  /**
+   * Months of Elternzeit for the child including this one and the Mutterschutz after the birth when given (a day counting
+   * 1/30 month), rounded to tenths.
+   */
   totalMonths: number
+  /** Of them between the 3rd and the 8th birthday, rounded to tenths. */
+  monthsAfterThird: number
+}
+
+interface CheckedPeriod { childId?: number | null; childBirthDate: IsoDate; start: IsoDate; end: IsoDate }
+
+/** The same child: by the child of the personnel file when both name one (twins share a birth date), else by the birth date. */
+const sameChildAs = (a: CheckedPeriod, b: CheckedPeriod) =>
+  a.childId != null && b.childId != null ? a.childId === b.childId : a.childBirthDate === b.childBirthDate
+
+/** Months of the period that lie between the 3rd birthday and the day before the 8th (a day counting 1/30 month). */
+function monthsAfterThirdOf(item: CheckedPeriod): number {
+  const from = monthEnd(item.childBirthDate, 36) < item.start ? item.start : addDays(monthEnd(item.childBirthDate, 36), 1)
+  return item.end < from ? 0 : lengthInMonths(from, item.end)
 }
 
 /**
  * Checks a period against the child's birth and the person's other periods (`others`, without the period itself): the
  * end not before the start, the start not before the birth, the end not after the day before the 8th birthday (§ 15
  * Abs. 2 BEEG), no overlap with another Elternzeit of the person. Hints: more than three sections for the child (§ 16
- * Abs. 1 BEEG, a fourth needs the employer's consent) and more than 36 months for the child in all.
+ * Abs. 1 BEEG, a fourth needs the employer's consent), more than 36 months for the child in all – the mother's
+ * Mutterschutz after the birth counts towards them (§ 15 Abs. 2 Satz 3; `protectionAfterBirth`, from the birth to its last
+ * day, when known) – and more than 24 months between the 3rd and the 8th birthday (§ 15 Abs. 2 Satz 2).
  */
 export function checkParentalLeave(
-  period: { childBirthDate: IsoDate; start: IsoDate; end: IsoDate },
-  others: readonly { childBirthDate: IsoDate; start: IsoDate; end: IsoDate }[],
+  period: CheckedPeriod, others: readonly CheckedPeriod[], protectionAfterBirth: { from: IsoDate; to: IsoDate } | null = null,
 ): ParentalLeaveCheck {
-  const sameChild = others.filter(other => other.childBirthDate === period.childBirthDate)
+  const sameChild = others.filter(other => sameChildAs(other, period))
   const sections = sameChild.length + 1
-  const totalMonths = Math.round([...sameChild, period].reduce((sum, item) => sum + lengthInMonths(item.start, item.end), 0) * 10) / 10
+  const all = [...sameChild, period]
+  const protection = protectionAfterBirth ? lengthInMonths(protectionAfterBirth.from, protectionAfterBirth.to) : 0
+  const totalMonths = Math.round((all.reduce((sum, item) => sum + lengthInMonths(item.start, item.end), 0) + protection) * 10) / 10
+  const monthsAfterThird = Math.round(all.reduce((sum, item) => sum + monthsAfterThirdOf(item), 0) * 10) / 10
   const hints: ParentalLeaveHint[] = []
   if (sections > PARENTAL_LEAVE_MAX_SECTIONS) hints.push('sections')
   if (totalMonths > PARENTAL_LEAVE_MAX_MONTHS) hints.push('total')
+  if (monthsAfterThird > PARENTAL_LEAVE_MAX_MONTHS_AFTER_THIRD) hints.push('afterThird')
   const error: ParentalLeaveError | null = period.end < period.start
     ? 'end_before_start'
     : period.start < period.childBirthDate
@@ -198,7 +300,7 @@ export function checkParentalLeave(
       : period.end > lastParentalLeaveDay(period.childBirthDate)
         ? 'after_eighth_birthday'
         : others.some(other => other.start <= period.end && period.start <= other.end) ? 'overlap' : null
-  return { error, hints, sections, totalMonths }
+  return { error, hints, sections, totalMonths, monthsAfterThird }
 }
 
 /** The reminder „‹Name› kommt am ‹Datum› aus der Elternzeit zurück“: 4 weeks before through the day (null otherwise). */

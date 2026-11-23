@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   checkParentalLeave, coveredDays, cutEntitlement, firstWorkingDayAfter, fullParentalLeaveOn, lastParentalLeaveDay, leaveCutMonths,
-  leaveProtectedUntil, levelShiftDays, parentalLeaveEnd, parentalLeaveLength, returnReminderState, type ParentalLeavePeriod,
+  leaveProtectedUntil, leaveProtection, levelShiftDays, levelShiftHints, parentalLeaveEnd, parentalLeaveLength, protectedNoticeFrom,
+  returnReminderState, type ParentalLeavePeriod,
 } from '../../shared/domain/parentalLeave'
-import { dailyTarget, isWorkday, type EmploymentInfo } from '../../shared/domain/targets'
+import { maternityMonthWarning } from '../../shared/domain/maternity'
+import { dailyTarget, isWorkday, weeklyTargetMinutesOn, type EmploymentInfo } from '../../shared/domain/targets'
 import { isWeekend } from '../../shared/domain/dates'
 import { formatWeekdayDate, lengthText, parentalLeaveCells } from '../../app/utils/parentalLeave'
 
@@ -122,17 +124,24 @@ describe('the leave cut (§ 17 Abs. 1 BEEG)', () => {
 })
 
 describe('the remaining leave before an Elternzeit (§ 17 Abs. 2 BEEG)', () => {
-  it('stays until the end of the year after the return, when the Elternzeit begins by the forfeiture day', () => {
+  it('stays until the end of the year after the return, when the Elternzeit reaches into the year and begins by its forfeiture day', () => {
     // Leave of 2026 (lapsing 31.03.2027); Elternzeit from 01.02.2027 to 31.01.2028 → 31.12.2029.
-    expect(leaveProtectedUntil([period('2027-02-01', '2028-01-31')], '2027-03-31')).toBe('2029-12-31')
+    expect(leaveProtectedUntil([period('2027-02-01', '2028-01-31')], 2026, '2027-03-31')).toBe('2029-12-31')
+    expect(leaveProtection([period('2027-02-01', '2028-01-31')], 2026, '2027-03-31')).toEqual({ until: '2029-12-31', returnDay: '2028-02-01' })
     // Begins after the forfeiture day: the leave of 2026 lapses as usual.
-    expect(leaveProtectedUntil([period('2027-04-01', '2028-01-31')], '2027-03-31')).toBeNull()
-    // Returned in 2026 (last day 31.12.2025 → back 01.01.2026): until 31.12.2027.
-    expect(leaveProtectedUntil([period('2025-01-01', '2025-12-31')], '2027-03-31')).toBe('2027-12-31')
-    // Returned in 2025: protection ended 31.12.2026.
-    expect(leaveProtectedUntil([period('2024-01-01', '2024-12-30')], '2027-03-31')).toBeNull()
-    // Working part time during the Elternzeit: leave can be taken, nothing is protected.
-    expect(leaveProtectedUntil([period('2027-02-01', '2028-01-31', { partTimeWeeklyMinutes: 900 })], '2027-03-31')).toBeNull()
+    expect(leaveProtectedUntil([period('2027-04-01', '2028-01-31')], 2026, '2027-03-31')).toBeNull()
+    // Ended before the leave year began (back on 01.01.2026): the leave of 2026 is earned after the return – no protection.
+    expect(leaveProtectedUntil([period('2025-01-01', '2025-12-31')], 2026, '2027-03-31')).toBeNull()
+    // Ends in the middle of the leave year (back 01.07.2026): protected until 31.12.2027.
+    expect(leaveProtectedUntil([period('2025-07-01', '2026-06-30')], 2026, '2027-03-31')).toBe('2027-12-31')
+    // Part time during the Elternzeit is protected as well (the law makes no exception).
+    expect(leaveProtectedUntil([period('2027-02-01', '2028-01-31', { partTimeWeeklyMinutes: 900 })], 2026, '2027-03-31')).toBe('2029-12-31')
+  })
+
+  it('is noticed from the return, at the earliest six months before its last day', () => {
+    expect(protectedNoticeFrom({ until: '2029-12-31', returnDay: '2028-02-01' })).toBe('2029-07-01')
+    expect(protectedNoticeFrom({ until: '2027-12-31', returnDay: '2026-09-01' })).toBe('2027-07-01')
+    expect(protectedNoticeFrom({ until: '2027-12-31', returnDay: '2027-10-01' })).toBe('2027-10-01')
   })
 })
 
@@ -149,6 +158,67 @@ describe('the TVöD level step', () => {
     expect(levelShiftDays([period('2026-12-01', '2027-01-31')], '2020-01-01', '2027-01-01')).toBe(62)
     // A second section the move reaches counts too.
     expect(levelShiftDays([period('2026-12-01', '2026-12-31'), period('2027-01-15', '2027-01-20')], '2020-01-01', '2027-01-01')).toBe(37)
+  })
+})
+
+describe('the hints on a moved level step (§ 17 Abs. 3 TVöD)', () => {
+  it('names more than five years of Elternzeit in a row and a calendar year with less than a month', () => {
+    // Two children back to back: 01.01.2020–31.12.2022 and 01.01.2023–01.01.2025 = five years and a day.
+    expect(levelShiftHints([period('2020-01-01', '2022-12-31'), period('2023-01-01', '2025-01-01')], '2018-01-01', '2030-01-01'))
+      .toEqual(['longBreak', 'shortBreak'])
+    expect(levelShiftHints([period('2020-01-01', '2022-12-31'), period('2023-01-01', '2024-12-31')], '2018-01-01', '2030-01-01')).toEqual([])
+    // Two weeks in 2026.
+    expect(levelShiftHints([period('2026-03-01', '2026-03-14')], '2020-01-01', '2027-01-15')).toEqual(['shortBreak'])
+    // Part time is no interruption.
+    expect(levelShiftHints([period('2026-03-01', '2026-03-14', { partTimeWeeklyMinutes: 900 })], '2020-01-01', '2027-01-15')).toEqual([])
+  })
+})
+
+describe('more checks per child (§ 15 Abs. 2 BEEG)', () => {
+  const birth = '2026-11-16'
+  it('tells twins apart by the child of the personnel file', () => {
+    const twin = { childId: 1, childBirthDate: birth, start: '2026-11-16', end: '2029-11-15' }
+    expect(checkParentalLeave({ childId: 2, childBirthDate: birth, start: '2029-11-16', end: '2030-01-31' }, [twin]))
+      .toMatchObject({ sections: 1, hints: [] })
+    expect(checkParentalLeave({ childId: 1, childBirthDate: birth, start: '2029-11-16', end: '2030-01-31' }, [twin]))
+      .toMatchObject({ sections: 2, hints: ['total'] })
+  })
+
+  it('counts the Mutterschutz after the birth towards the 36 months and hints at more than 24 months after the 3rd birthday', () => {
+    // 35 months of Elternzeit plus 8 weeks of Mutterschutz after the birth.
+    const check = checkParentalLeave({ childBirthDate: birth, start: '2027-01-11', end: '2029-12-10' }, [], { from: birth, to: '2027-01-10' })
+    expect(check.hints).toEqual(['total'])
+    expect(checkParentalLeave({ childBirthDate: birth, start: '2027-01-11', end: '2029-12-10' }, []).hints).toEqual([])
+    // From the 3rd birthday (16.11.2029) 25 months.
+    const late = checkParentalLeave({ childBirthDate: birth, start: '2029-11-16', end: '2031-12-15' }, [])
+    expect(late).toMatchObject({ hints: ['afterThird'], monthsAfterThird: 25 })
+    expect(checkParentalLeave({ childBirthDate: birth, start: '2029-11-16', end: '2031-11-15' }, []).hints).toEqual([])
+  })
+})
+
+describe('part time on fewer days', () => {
+  const base: EmploymentInfo = { hours: [{ weeklyMinutes: 2340, validFrom: '2026-01-01' }], leftOn: null, holidays: { state: 'BW', assumptionDay: true } }
+  it('spreads its hours over its own working days, and only they are working days', () => {
+    // 20 hours on Monday to Wednesday.
+    const info: EmploymentInfo = { ...base, parentalLeaves: [period('2027-04-01', '2027-06-30', { partTimeWeeklyMinutes: 1200, partTimeWorkdays: 0b0000111 })] }
+    expect(dailyTarget(info, '2027-04-12')).toBe(400)
+    expect(isWorkday(info, '2027-04-15')).toBe(false)
+    expect(dailyTarget(info, '2027-04-15')).toBe(0)
+    expect(weeklyTargetMinutesOn(info, '2027-04-15')).toBe(1200)
+    expect(weeklyTargetMinutesOn(info, '2027-07-01')).toBe(2340)
+    expect(weeklyTargetMinutesOn({ ...base, parentalLeaves: [period('2027-04-01', '2027-06-30')] }, '2027-04-15')).toBe(0)
+    // Thursday 01.04. is no working day of the part time: the first one after a section ending 31.03. is Monday 05.04. (Easter Monday 29.03.).
+    expect(firstWorkingDayAfter('2027-03-31', date => isWorkday(info, date))).toBe('2027-04-05')
+  })
+
+  it('makes the MuSchG limit of the agreed working time follow the part-time hours', () => {
+    const info: EmploymentInfo = { ...base, parentalLeaves: [period('2027-04-01', '2027-06-30', { partTimeWeeklyMinutes: 1200 })] }
+    const dates = ['2027-04-12', '2027-04-13', '2027-04-14', '2027-04-15', '2027-04-16', '2027-04-17', '2027-04-18']
+    // 30 hours planned in a week of 20 contract hours in the part time (39 hours under the contract).
+    const entriesOf = (date: string) => (date <= '2027-04-16' ? [{ kind: 'special' as const, start: 480, end: 840, breakStart: null, breakEnd: null, codeKey: null, creditMode: 'timed' as const }] : [])
+    const warning = maternityMonthWarning({ employeeId: 1, dates, info, entriesOf, phase: 'pregnancy' })
+    expect(warning).not.toBeNull()
+    expect(maternityMonthWarning({ employeeId: 1, dates, info: base, entriesOf, phase: 'pregnancy' })).toBeNull()
   })
 })
 

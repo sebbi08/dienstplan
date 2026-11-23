@@ -14,7 +14,7 @@ import type { EmploymentBanKind } from '../domain/maternity'
 import type { DayMeal } from '../domain/meals'
 import type { OfflineStampReason, OfflineTabletStatus } from '../domain/offlineStamps'
 import type { DayHours, OpeningHours } from '../domain/openingHours'
-import type { ParentalLeaveError, ParentalLeaveHint } from '../domain/parentalLeave'
+import type { LevelShiftHint, ParentalLeaveError, ParentalLeaveHint } from '../domain/parentalLeave'
 import type { BundleArea, BundleId, BundleScope, RightsRole } from '../domain/permissionBundles'
 import type { PermissionKey } from '../domain/permissions'
 import type { EmployeeDocumentFolder } from '../domain/personnel'
@@ -486,7 +486,7 @@ export interface ReminderDto {
   /** For a Probezeit ending soon (whoever sees the contract data): the employee; `date` is the last day of the probation. */
   probation?: { employeeId: number }
   /** For a return from Elternzeit (whoever sees the contract data): the employee; `date` is the first working day after it. */
-  parentalLeave?: { employeeId: number }
+  parentalLeave?: { employeeId: number; toPartTime: boolean }
 }
 
 /** The record's „Entwicklungsdokumentation“. */
@@ -1329,6 +1329,8 @@ export interface MyPlanEntryDto extends EntryDto {
 export interface MyPlanDayDto extends DayRowDto {
   entries: MyPlanEntryDto[]
   changes: ChangeDto[]
+  /** A working day of the person's own full Elternzeit („Elternzeit“; no stored entry). */
+  parentalLeave?: boolean
 }
 
 export interface MyPlanDto {
@@ -2027,6 +2029,8 @@ export interface EarlySickLeaveInput {
 
 /** Colour group of a day in the year calendar. */
 export type CalendarKind = 'sick' | 'maternity' | 'absent' | 'vacation' | 'overtime_off' | 'special_leave' | 'training' | 'closed' | 'requested'
+  /** A working day of a full Elternzeit (no stored entry; „abwesend“ for viewers who see it masked). */
+  | 'parental_leave'
 
 /** Admin's own appointment in the year calendar. */
 export interface CalendarEventDto {
@@ -2349,6 +2353,8 @@ export interface LeaveForfeitRowDto {
   name: string
   /** The days left as of today (after the forfeiture date: as of that day, i.e. what lapsed). */
   days: number
+  /** The person's own forfeiture date when an Elternzeit moved it (§ 17 Abs. 2 BEEG); null = the facility's. */
+  protectedUntil: IsoDate | null
   /**
    * read: „Gelesen“ clicked (the latest receipt still covers the notice); reopened: read, but now more days or another
    * forfeiture date/text, so it shows again; open: has an account, not read yet; no_account: no active account, tell in
@@ -4258,6 +4264,8 @@ export interface ParentalLeaveDto {
   end: IsoDate
   /** Part-time work during it (minutes per week); null = full Elternzeit. */
   partTimeWeeklyMinutes: number | null
+  /** The working days of the part-time work (bitmask, bit 0 = Monday); null without part time. */
+  partTimeWorkdays: number | null
   /** The employer cuts the leave by 1/12 per full calendar month (§ 17 Abs. 1 BEEG). */
   reduceLeave: boolean
   note: string
@@ -4273,11 +4281,13 @@ export interface EmployeeParentalLeaveDto {
   children: { id: number; firstName: string | null; birthDate: IsoDate }[]
   /** The viewer may enter and change (employees.contractEdit). */
   canEdit: boolean
+  /** The contract's working days today (bitmask): the default working days of part time in the dialog. */
+  contractWorkdays: number
   /**
-   * The next TVöD level step moved by the Elternzeit (§ 17 Abs. 3 TVöD); null without a level, a start of employment, at
-   * the top level or without any move.
+   * The next TVöD level step moved by the Elternzeit (§ 17 Abs. 3 TVöD) with its hints (never computed in); null without
+   * a level, a start of employment, at the top level or without any move.
    */
-  levelShift: { level: number; on: IsoDate; days: number } | null
+  levelShift: { level: number; on: IsoDate; days: number; hints: LevelShiftHint[] } | null
 }
 
 /** What „Elternzeit eintragen“ saves (the dialog computes the end from a duration in months when given that way). */
@@ -4287,22 +4297,34 @@ export interface ParentalLeaveInput {
   start: IsoDate
   end: IsoDate
   partTimeWeeklyMinutes: number | null
+  /** The working days of the part time (bitmask); null = the contract's working days at the start. Ignored without part time. */
+  partTimeWorkdays?: number | null
   reduceLeave: boolean
   note: string
 }
 
 /** The dialog's check of a period before saving (nothing is stored). */
 export interface ParentalLeaveCheckDto {
-  /** Suggested start: the day after the Mutterschutz period after this birth, else the birth date. */
+  /**
+   * Suggested start: for viewers of the health data (employees.sickness) the day after the Mutterschutz period after this
+   * birth, else (and without such a case) the birth date.
+   */
   suggestedStart: IsoDate
   /** Refuses saving (null = fine). */
   error: ParentalLeaveError | null
-  /** Hints that never block: a fourth section for the child, more than 36 months for the child. */
+  /** Hints that never block: a fourth section, more than 36 months, more than 24 months after the 3rd birthday. */
   hints: ParentalLeaveHint[]
   sections: number
   totalMonths: number
+  monthsAfterThird: number
   firstWorkingDay: IsoDate | null
-  /** Entries already in the plan on the days of a full Elternzeit (they stay; the dialog lists them before saving). */
+  /** Entries already in the plan on the days of a full Elternzeit (they stay; health codes „abwesend“ without employees.sickness). */
+  entries: { date: IsoDate; label: string }[]
+}
+
+/** Saving a period answers the entries already in the plan on the days of a full Elternzeit (as in the check). */
+export interface ParentalLeaveSaveDto {
+  id: number
   entries: { date: IsoDate; label: string }[]
 }
 

@@ -103,7 +103,8 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
       return r.probation(formatDate(entry.date))
     // „‹Name› kommt am ‹dd.mm.yyyy› aus der Elternzeit zurück“.
     case 'parentalLeave':
-      return r.parentalLeave(formatDate(entry.date))
+      // „‹Name› wechselt am ‹dd.mm.yyyy› in Teilzeit-Elternzeit“ when a part-time Elternzeit follows directly.
+      return entry.parentalLeave?.toPartTime ? r.parentalLeaveToPartTime(formatDate(entry.date)) : r.parentalLeave(formatDate(entry.date))
   }
 }
 

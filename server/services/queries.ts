@@ -150,7 +150,8 @@ function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
   const hours = db.select().from(employeeHours).orderBy(asc(employeeHours.validFrom)).all()
   const leaves = db.select({
     employeeId: parentalLeaves.employeeId, start: parentalLeaves.start, end: parentalLeaves.end,
-    partTimeWeeklyMinutes: parentalLeaves.partTimeWeeklyMinutes, reduceLeave: parentalLeaves.reduceLeave,
+    partTimeWeeklyMinutes: parentalLeaves.partTimeWeeklyMinutes, partTimeWorkdays: parentalLeaves.partTimeWorkdays,
+    reduceLeave: parentalLeaves.reduceLeave,
   }).from(parentalLeaves).orderBy(asc(parentalLeaves.start)).all()
   const eveRules = allFacilityEveRules(db)
   return db.select({
@@ -175,7 +176,7 @@ function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
           balanceFrom,
           // Elternzeit: no target (full) or the part-time hours; no working days in a full one (targets.ts).
           parentalLeaves: leaves.filter(leave => leave.employeeId === row.id)
-            .map(({ start, end, partTimeWeeklyMinutes, reduceLeave }) => ({ start, end, partTimeWeeklyMinutes, reduceLeave })),
+            .map(({ employeeId: _, ...period }) => period),
         },
       }
     })

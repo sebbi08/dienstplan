@@ -1,3 +1,4 @@
+import { todayIso } from '../../../../../shared/domain/dates'
 import { idParams } from '../../../../schemas'
 import { getEmployeeParentalLeave } from '../../../../services/parentalLeave'
 
@@ -5,5 +6,5 @@ import { getEmployeeParentalLeave } from '../../../../services/parentalLeave'
 export default defineServiceHandler(async (event) => {
   const admin = await requirePermission(event, 'employees.contractView')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  return getEmployeeParentalLeave(useDb(), admin, admin.facilityId, id)
+  return getEmployeeParentalLeave(useDb(), admin, admin.facilityId, id, todayIso())
 })

@@ -505,7 +505,9 @@ export function bookLeaveDays(
  */
 export function getLeavePlanning(db: Db, user: SessionUser, facilityId: number, year: number): LeavePlanningDto {
   requirePlanner(db, user, facilityId)
-  const calendar = getYearCalendar(db, facilityId, year, { showsProtected: seesProtectedCodes(user) })
+  const calendar = getYearCalendar(db, facilityId, year, {
+    showsProtected: seesProtectedCodes(user), parentalLeaveViewer: user,
+  })
   const staff = loadEmployees(db, facilityId)
   const closures = loadClosures(db, facilityId)
   const from = `${year}-01-01`

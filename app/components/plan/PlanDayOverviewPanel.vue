@@ -7,6 +7,7 @@ import { slotClasses } from '~/utils/colors'
 import { formatDate } from '~/utils/format'
 import { shownEmployees } from '~/utils/groups'
 import { isMarker } from '~/utils/helpOuts'
+import { parentalLeaveCells } from '~/utils/parentalLeave'
 
 /**
  * groupId: the group chosen above the plan. Then the overview shows the same people as the plan (the group, the
@@ -35,6 +36,8 @@ const overview = computed(() => buildDayOverview(
   })),
   Boolean(day.value?.holidayKey),
 ))
+/** A full Elternzeit on the day: „Elternzeit“ or „abwesend“ beside the name, as in the plan (no stored entry). */
+const parentalLeave = computed(() => parentalLeaveCells(props.plan))
 const gridStyle = computed(() => ({
   gridTemplateColumns: `9rem repeat(${overview.value.slotStarts.length}, minmax(0.9rem, 1fr))`,
 }))
@@ -53,7 +56,10 @@ const gridStyle = computed(() => ({
           {{ start % 60 === 0 ? formatTime(start) : '' }}
         </div>
         <template v-for="row in overview.rows" :key="row.employeeId">
-          <div class="truncate pr-2">{{ names.get(row.employeeId) }}</div>
+          <div class="truncate pr-2">
+            {{ names.get(row.employeeId) }}
+            <span v-if="parentalLeave.get(`${row.employeeId}|${date}`)" class="text-gray-500">· {{ parentalLeave.get(`${row.employeeId}|${date}`) }}</span>
+          </div>
           <div
             v-for="(state, index) in row.states" :key="index" class="h-5"
             :class="slotClasses[state]" :title="`${formatTime(overview.slotStarts[index]!)} · ${de.overview.legend[state]}`"

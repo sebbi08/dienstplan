@@ -6,5 +6,5 @@ export default defineServiceHandler(async (event) => {
   const admin = await requirePermission(event, 'employees.contractEdit')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
   const input = await readValidatedBody(event, parentalLeaveSchema.parse)
-  return updateParentalLeave(useDb(), admin.facilityId, id, input)
+  return updateParentalLeave(useDb(), admin, admin.facilityId, id, input)
 })

@@ -5,7 +5,8 @@ import { closures, employeeChildren, employees, entries, leaveEntitlements, mate
 import { categoryHasData, deleteCategories } from '../../server/services/employeeDeletion'
 import { listEmployeeListExtras } from '../../server/services/employeeListExtras'
 import { getLeaveAccount } from '../../server/services/leave'
-import { getLeaveForfeitList } from '../../server/services/leaveForfeit'
+import { getLeaveForfeitList, getMyLeaveForfeitNotice } from '../../server/services/leaveForfeit'
+import { getStaffYearCalendar, getYearCalendar } from '../../server/services/calendar'
 import {
   checkParentalLeavePeriod, createParentalLeave, deleteParentalLeave, getEmployeeParentalLeave, getParentalLeaveSettings,
   parentalLeavePlanCells, parentalLeaveReminders, setParentalLeaveSettings, updateParentalLeave,
@@ -21,6 +22,8 @@ let db: Db
 let traeger: SessionUser
 let leitung: SessionUser
 let anna: number
+
+const TODAY = '2026-11-23'
 
 const input = (values: Partial<ParentalLeaveInput> = {}): ParentalLeaveInput => ({
   childId: null, childBirthDate: '2026-11-16', start: '2027-01-12', end: '2028-01-11', partTimeWeeklyMinutes: null, reduceLeave: false,
@@ -40,14 +43,14 @@ beforeEach(() => {
 describe('entering an Elternzeit', () => {
   it('stores the period with the child\'s birth date and lists it with the first working day after', () => {
     const { id } = create({ note: '  Antrag vom 01.12.2026 ' })
-    const section = getEmployeeParentalLeave(db, traeger, 1, anna)
+    const section = getEmployeeParentalLeave(db, traeger, 1, anna, TODAY)
     // Tuesday 11.01.2028 → Wednesday 12.01.2028.
     expect(section.periods).toEqual([expect.objectContaining({
       id, childId: null, childBirthDate: '2026-11-16', start: '2027-01-12', end: '2028-01-11', partTimeWeeklyMinutes: null,
       reduceLeave: false, note: 'Antrag vom 01.12.2026', firstWorkingDay: '2028-01-12', createdBy: 'traeger',
     })])
     expect(section.canEdit).toBe(true)
-    expect(getEmployeeParentalLeave(db, leitung, 1, anna).canEdit).toBe(false)
+    expect(getEmployeeParentalLeave(db, leitung, 1, anna, TODAY).canEdit).toBe(false)
   })
 
   it('copies the birth date of a chosen child and names it only for viewers of the personal data', () => {
@@ -55,9 +58,9 @@ describe('entering an Elternzeit', () => {
     create({ childId: child.id, childBirthDate: '2026-11-16', start: '2026-12-01', end: '2027-05-31' })
     const row = db.select().from(parentalLeaves).get()!
     expect(row.childBirthDate).toBe('2026-10-01')
-    expect(getEmployeeParentalLeave(db, traeger, 1, anna)).toMatchObject({ children: [{ id: child.id, firstName: 'Mia' }], periods: [{ childName: 'Mia' }] })
+    expect(getEmployeeParentalLeave(db, traeger, 1, anna, TODAY)).toMatchObject({ children: [{ id: child.id, firstName: 'Mia' }], periods: [{ childName: 'Mia' }] })
     const noPersonal = { permissions: new Set(['employees.contractView'] as const) }
-    expect(getEmployeeParentalLeave(db, noPersonal, 1, anna)).toMatchObject({ children: [], periods: [{ childName: null, childBirthDate: '2026-10-01' }] })
+    expect(getEmployeeParentalLeave(db, noPersonal, 1, anna, TODAY)).toMatchObject({ children: [], periods: [{ childName: null, childBirthDate: '2026-10-01' }] })
     // Removing the child keeps the period and its birth date.
     db.delete(employeeChildren).run()
     expect(db.select().from(parentalLeaves).get()).toMatchObject({ childId: null, childBirthDate: '2026-10-01' })
@@ -76,7 +79,7 @@ describe('entering an Elternzeit', () => {
     create({ partTimeWeeklyMinutes: 1920 })
     expect(errorCode(() => create({ start: '2028-01-11', end: '2028-02-11' }))).toBe('parental_leave_overlap')
     for (const year of [2029, 2030]) create({ start: `${year}-01-01`, end: `${year}-01-31` })
-    const check = checkParentalLeavePeriod(db, 1, anna, input({ start: '2031-01-01', end: '2031-01-31' }), null)
+    const check = checkParentalLeavePeriod(db, traeger, 1, anna, input({ start: '2031-01-01', end: '2031-01-31' }), null)
     expect(check).toMatchObject({ error: null, hints: ['sections'], sections: 4 })
     expect(create({ start: '2031-01-01', end: '2031-01-31' }).id).toBeGreaterThan(0)
     expect(errorCode(() => create({}, 999))).toBe('employee_not_found')
@@ -84,11 +87,11 @@ describe('entering an Elternzeit', () => {
 
   it('changes and deletes a period of the facility only', () => {
     const { id } = create()
-    updateParentalLeave(db, 1, id, input({ end: '2027-06-30', reduceLeave: true }))
+    updateParentalLeave(db, traeger, 1, id, input({ end: '2027-06-30', reduceLeave: true }))
     expect(db.select().from(parentalLeaves).get()).toMatchObject({ end: '2027-06-30', reduceLeave: true })
     // Its own old days are no overlap.
-    updateParentalLeave(db, 1, id, input({ end: '2027-07-31' }))
-    expect(errorCode(() => updateParentalLeave(db, 2, id, input()))).toBe('parental_leave_not_found')
+    updateParentalLeave(db, traeger, 1, id, input({ end: '2027-07-31' }))
+    expect(errorCode(() => updateParentalLeave(db, traeger, 2, id, input()))).toBe('parental_leave_not_found')
     expect(errorCode(() => deleteParentalLeave(db, 2, id))).toBe('parental_leave_not_found')
     deleteParentalLeave(db, 1, id)
     expect(db.select().from(parentalLeaves).all()).toEqual([])
@@ -97,29 +100,29 @@ describe('entering an Elternzeit', () => {
 
 describe('the dialog\'s check', () => {
   it('suggests the day after the Mutterschutz period of that birth, else the birth date', () => {
-    expect(checkParentalLeavePeriod(db, 1, anna, input(), null).suggestedStart).toBe('2026-11-16')
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input(), null).suggestedStart).toBe('2026-11-16')
     db.insert(maternityCases).values({
       employeeId: anna, notifiedOn: '2026-05-04', expectedBirth: '2026-11-20', actualBirth: '2026-11-16', createdAt: 'x', updatedAt: 'x',
     }).run()
     // Born 4 days early: 8 weeks after the birth plus the 4 days not taken before → last day 15.01.2027.
-    expect(checkParentalLeavePeriod(db, 1, anna, input(), null).suggestedStart).toBe('2027-01-16')
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input(), null).suggestedStart).toBe('2027-01-16')
   })
 
   it('lists the entries already planned in a full Elternzeit, none with part time', () => {
     db.insert(entries).values({ employeeId: anna, date: '2027-02-03', kind: 'code', absenceCodeId: codeId(db, 'vacation'), updatedAt: 'x' }).run()
-    expect(checkParentalLeavePeriod(db, 1, anna, input(), null).entries).toEqual([{ date: '2027-02-03', label: 'Urlaub' }])
-    expect(checkParentalLeavePeriod(db, 1, anna, input({ partTimeWeeklyMinutes: 600 }), null).entries).toEqual([])
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input(), null).entries).toEqual([{ date: '2027-02-03', label: 'Urlaub' }])
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input({ partTimeWeeklyMinutes: 600 }), null).entries).toEqual([])
     expect(create().entries).toEqual([{ date: '2027-02-03', label: 'Urlaub' }])
   })
 
   it('finds the first working day after weekends, holidays and closures, and after an adjoining Elternzeit', () => {
     // Friday 31.12.2027 → Monday 03.01.2028.
-    expect(checkParentalLeavePeriod(db, 1, anna, input({ end: '2027-12-31' }), null).firstWorkingDay).toBe('2028-01-03')
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input({ end: '2027-12-31' }), null).firstWorkingDay).toBe('2028-01-03')
     db.insert(closures).values({ facilityId: 1, startDate: '2028-01-03', endDate: '2028-01-05', label: 'Winter', mode: 'vacation' }).run()
     // 06.01. Heilige Drei Könige (BW) → Friday 07.01.2028.
-    expect(checkParentalLeavePeriod(db, 1, anna, input({ end: '2027-12-31' }), null).firstWorkingDay).toBe('2028-01-07')
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input({ end: '2027-12-31' }), null).firstWorkingDay).toBe('2028-01-07')
     create({ start: '2028-01-01', end: '2028-03-31' })
-    expect(checkParentalLeavePeriod(db, 1, anna, input({ end: '2027-12-31' }), null).firstWorkingDay).toBe('2028-04-03')
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input({ end: '2027-12-31' }), null).firstWorkingDay).toBe('2028-04-03')
   })
 })
 
@@ -168,7 +171,7 @@ describe('the leave', () => {
   it('is cut by 1/12 per full calendar month only when declared (§ 17 Abs. 1 BEEG), shown in the account', () => {
     const { id } = create({ start: '2027-01-12', end: '2027-07-31' })
     expect(getLeaveAccount(db, anna, 2027, '2026-11-23')).toMatchObject({ account: { entitlement: 30 }, parentalLeaveCut: 0 })
-    updateParentalLeave(db, 1, id, input({ start: '2027-01-12', end: '2027-07-31', reduceLeave: true }))
+    updateParentalLeave(db, traeger, 1, id, input({ start: '2027-01-12', end: '2027-07-31', reduceLeave: true }))
     // February to July: 6 months → 15 days left.
     expect(getLeaveAccount(db, anna, 2027, '2026-11-23')).toMatchObject({ account: { entitlement: 15, available: 15 }, parentalLeaveCut: 15 })
     // The year after carries the reduced rest over.
@@ -194,7 +197,7 @@ describe('the TVöD level step', () => {
     expect(level()).toMatchObject({ level: 3, on: '2027-01-01', shiftDays: 0 })
     create({ start: '2026-11-16', end: '2026-12-15' })
     expect(level()).toMatchObject({ level: 3, on: '2027-01-31', shiftDays: 30 })
-    expect(getEmployeeParentalLeave(db, traeger, 1, anna).levelShift).toEqual({ level: 3, on: '2027-01-31', days: 30 })
+    expect(getEmployeeParentalLeave(db, traeger, 1, anna, TODAY).levelShift).toEqual({ level: 3, on: '2027-01-31', days: 30, hints: [] })
   })
 })
 
@@ -205,7 +208,7 @@ describe('the reminder', () => {
     const viewer = { facilityId: 1, permissions: traeger.permissions, onTablet: false }
     expect(parentalLeaveReminders(db, viewer, '2027-03-03')).toEqual([])
     expect(parentalLeaveReminders(db, viewer, '2027-03-04')).toEqual([expect.objectContaining({
-      kind: 'parentalLeave', date: '2027-04-01', state: 'upcoming', name: 'Anna Muster', parentalLeave: { employeeId: anna },
+      kind: 'parentalLeave', date: '2027-04-01', state: 'upcoming', name: 'Anna Muster', parentalLeave: { employeeId: anna, toPartTime: false },
     })])
     expect(parentalLeaveReminders(db, { ...viewer, onTablet: true }, '2027-03-04')).toEqual([])
     expect(parentalLeaveReminders(db, { ...viewer, permissions: leitung.permissions }, '2027-03-04')).toEqual([])
@@ -221,5 +224,89 @@ describe('retention', () => {
     expect(db.select().from(parentalLeaves).all()).toHaveLength(1)
     deleteCategories(db, anna, ['time'])
     expect(db.select().from(parentalLeaves).all()).toEqual([])
+  })
+})
+
+describe('fix round 1', () => {
+  /** Whoever edits the contract data but has no health data right (possible on the rights page). */
+  const contractOnly = () => ({ ...traeger, role: 'admin' as const, permissions: new Set(['employees.view', 'employees.contractView', 'employees.contractEdit'] as const) })
+
+  it('lists health codes in the period as „abwesend“ without employees.sickness', () => {
+    db.insert(entries).values({ employeeId: anna, date: '2027-02-03', kind: 'code', absenceCodeId: codeId(db, 'sick'), updatedAt: 'x' }).run()
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input(), null).entries).toEqual([{ date: '2027-02-03', label: 'Krank' }])
+    expect(checkParentalLeavePeriod(db, contractOnly(), 1, anna, input(), null).entries).toEqual([{ date: '2027-02-03', label: 'abwesend' }])
+    expect(createParentalLeave(db, contractOnly(), 1, anna, input()).entries).toEqual([{ date: '2027-02-03', label: 'abwesend' }])
+  })
+
+  it('reads the Mutterschutz for the suggested start only with employees.sickness', () => {
+    db.insert(maternityCases).values({
+      employeeId: anna, notifiedOn: '2026-05-04', expectedBirth: '2026-11-20', actualBirth: '2026-11-16', createdAt: 'x', updatedAt: 'x',
+    }).run()
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input(), null).suggestedStart).toBe('2027-01-16')
+    expect(checkParentalLeavePeriod(db, contractOnly(), 1, anna, input(), null).suggestedStart).toBe('2026-11-16')
+  })
+
+  it('stores the working days of part time (default: the contract\'s) and counts target and leave on them only', () => {
+    const { id } = create({ start: '2027-04-01', end: '2027-06-30', partTimeWeeklyMinutes: 1200 })
+    expect(db.select().from(parentalLeaves).get()).toMatchObject({ partTimeWorkdays: 0b0011111 })
+    expect(getEmployeeParentalLeave(db, traeger, 1, anna, TODAY).contractWorkdays).toBe(0b0011111)
+    updateParentalLeave(db, traeger, 1, id, input({ start: '2027-04-01', end: '2027-06-30', partTimeWeeklyMinutes: 1200, partTimeWorkdays: 0b0000111 }))
+    expect(computeDay(info(), '2027-04-12', []).target).toBe(400)
+    expect(computeDay(info(), '2027-04-15', []).target).toBe(0)
+    // A week of leave Monday to Friday uses three leave days.
+    db.insert(leaveEntitlements).values({ employeeId: anna, year: 2027, days: 30 }).run()
+    for (const date of ['2027-04-12', '2027-04-13', '2027-04-14', '2027-04-15', '2027-04-16']) {
+      db.insert(entries).values({ employeeId: anna, date, kind: 'code', absenceCodeId: codeId(db, 'vacation'), updatedAt: 'x' }).run()
+    }
+    expect(getLeaveAccount(db, anna, 2027, TODAY).account.planned).toBe(3)
+    expect(errorCode(() => updateParentalLeave(db, traeger, 1, id, input({ partTimeWeeklyMinutes: 1200, partTimeWorkdays: 0 }))))
+      .toBe('parental_leave_workdays_invalid')
+    // Without part time no working days are stored.
+    updateParentalLeave(db, traeger, 1, id, input({ partTimeWorkdays: 0b0000111 }))
+    expect(db.select().from(parentalLeaves).get()).toMatchObject({ partTimeWorkdays: null })
+  })
+
+  it('moves the notice on remaining leave to the protected date: none before, the notice in the run-up (§ 17 Abs. 2 BEEG)', () => {
+    db.insert(leaveEntitlements).values({ employeeId: anna, year: 2026, days: 30 }).run()
+    const account = addUser(db, 'anna', 'observer', anna)
+    create({ start: '2027-02-01', end: '2028-01-31' })
+    expect(getMyLeaveForfeitNotice(db, account, '2027-02-15')).toBeNull()
+    expect(getMyLeaveForfeitNotice(db, account, '2029-06-30')).toBeNull()
+    expect(getMyLeaveForfeitNotice(db, account, '2029-07-01')).toMatchObject({ year: 2026, days: 30, forfeitDate: '2029-12-31' })
+    expect(getLeaveForfeitList(db, 1, 2026, '2029-07-01').rows)
+      .toEqual([expect.objectContaining({ employeeId: anna, days: 30, protectedUntil: '2029-12-31', status: 'open' })])
+  })
+
+  it('says „wechselt in Teilzeit-Elternzeit“ when a part-time section follows directly', () => {
+    create({ start: '2027-01-12', end: '2027-03-31' })
+    create({ start: '2027-04-01', end: '2027-06-30', partTimeWeeklyMinutes: 1200 })
+    const viewer = { facilityId: 1, permissions: traeger.permissions, onTablet: false }
+    expect(parentalLeaveReminders(db, viewer, '2027-03-20').map(item => [item.date, item.parentalLeave])).toEqual([
+      ['2027-04-01', { employeeId: anna, toPartTime: true }],
+    ])
+    expect(parentalLeaveReminders(db, viewer, '2027-06-20').map(item => [item.date, item.parentalLeave])).toEqual([
+      ['2027-07-01', { employeeId: anna, toPartTime: false }],
+    ])
+  })
+
+  it('marks a full Elternzeit in the year calendar and the leave planning, „abwesend“ for other staff, never as a free day', () => {
+    create({ start: '2027-01-12', end: '2027-03-31' })
+    const calendar = getYearCalendar(db, 1, 2027)
+    expect(calendar.days[anna]!['2027-02-01']).toBe('parental_leave')
+    expect(calendar.days[anna]!['2027-02-06']).toBeUndefined()
+    expect(calendar.freeDays[anna]).not.toContain('2027-02-01')
+    const ben = addEmployee(db, 'Ben')
+    expect(getStaffYearCalendar(db, 1, 2027, ben).days[anna]!['2027-02-01']).toBe('absent')
+    expect(getStaffYearCalendar(db, 1, 2027, anna).days[anna]!['2027-02-01']).toBe('parental_leave')
+    expect(getYearCalendar(db, 1, 2027, { parentalLeaveViewer: addUser(db, 'mia', 'observer', ben) }).days[anna]!['2027-02-01']).toBe('absent')
+  })
+
+  it('names more than five years of Elternzeit in a row on the moved level step', () => {
+    db.update(employees).set({ employedSince: '2018-01-01', payLevel: 3 }).where(eq(employees.id, anna)).run()
+    db.insert(parentalLeaves).values([
+      { employeeId: anna, childBirthDate: '2019-12-01', start: '2020-01-01', end: '2022-12-31', createdAt: 'x', updatedAt: 'x' },
+      { employeeId: anna, childBirthDate: '2022-12-01', start: '2023-01-01', end: '2025-06-30', createdAt: 'x', updatedAt: 'x' },
+    ]).run()
+    expect(getEmployeeParentalLeave(db, traeger, 1, anna, TODAY).levelShift).toMatchObject({ level: 4, hints: ['longBreak'] })
   })
 })

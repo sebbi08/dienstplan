@@ -4,18 +4,20 @@ import {
   PARENTAL_LEAVE_DURATION_MAX_MONTHS, PARENTAL_LEAVE_NOTE_MAX, PARENTAL_LEAVE_PART_TIME_MAX_MINUTES, parentalLeaveEnd, parentalLeaveLength,
 } from '#shared/domain/parentalLeave'
 import type {
-  EmployeeParentalLeaveDto, ParentalLeaveCheckDto, ParentalLeaveDto, ParentalLeaveInput,
+  EmployeeParentalLeaveDto, ParentalLeaveCheckDto, ParentalLeaveDto, ParentalLeaveInput, ParentalLeaveSaveDto,
 } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatNumber } from '~/utils/format'
 import { formatWeekdayDate, lengthText } from '~/utils/parentalLeave'
+import { workdaysText } from '~/utils/workdays'
 
 /**
- * „Elternzeit“ in the tab „Vertrag und Stunden“ (contract data: shown with employees.contractView, entered with
+ * „Elternzeit“ in the tab „Vertrag & Lohn“ (contract data: shown with employees.contractView, entered with
  * employees.contractEdit): the periods with the first working day after them, and the dialog „Elternzeit eintragen“
- * (child, start, duration in months or end, part time, leave cut, note) with the server's check before saving: what
- * refuses saving, the hints (sections, months per child), the first working day after and the entries already planned.
+ * (child, start, duration in months or end, part time with its working days, leave cut, note) with the server's check
+ * before saving: what refuses saving, the hints (sections, months per child and after the 3rd birthday), the first
+ * working day after and the entries already planned.
  */
 const props = defineProps<{ employeeId: number }>()
 const t = de.parentalLeave
@@ -31,13 +33,14 @@ const childLine = (item: ParentalLeaveDto) => t.childLabel(item.childName, forma
 const OTHER = 'other'
 interface Form {
   child: string; birthDate: string; start: string; mode: 'months' | 'end'; months: number | null; end: string
-  partTime: boolean; partTimeHours: number | null; reduceLeave: boolean; note: string
+  partTime: boolean; partTimeHours: number | null; partTimeWorkdays: number; reduceLeave: boolean; note: string
 }
 const formOpen = ref(false)
 const editing = ref<ParentalLeaveDto | null>(null)
 const emptyForm = (): Form => ({
   child: data.value?.children.at(-1) ? String(data.value.children.at(-1)!.id) : OTHER, birthDate: '', start: '', mode: 'months',
-  months: 12, end: '', partTime: false, partTimeHours: null, reduceLeave: false, note: '',
+  months: 12, end: '', partTime: false, partTimeHours: null, partTimeWorkdays: data.value?.contractWorkdays ?? 0b0011111,
+  reduceLeave: false, note: '',
 })
 const form = reactive<Form>(emptyForm())
 const childItems = computed(() => [
@@ -63,7 +66,8 @@ function openForm(item?: ParentalLeaveDto) {
         child: item.childId !== null && data.value?.children.some(child => child.id === item.childId) ? String(item.childId) : OTHER,
         birthDate: item.childBirthDate, start: item.start, mode: parentalLeaveLength(item.start, item.end).days === 0 ? 'months' : 'end',
         months: parentalLeaveLength(item.start, item.end).months, end: item.end, partTime: item.partTimeWeeklyMinutes !== null,
-        partTimeHours: item.partTimeWeeklyMinutes === null ? null : item.partTimeWeeklyMinutes / 60, reduceLeave: item.reduceLeave, note: item.note,
+        partTimeHours: item.partTimeWeeklyMinutes === null ? null : item.partTimeWeeklyMinutes / 60,
+        partTimeWorkdays: item.partTimeWorkdays ?? data.value?.contractWorkdays ?? 0b0011111, reduceLeave: item.reduceLeave, note: item.note,
       }
     : emptyForm())
   check.value = null
@@ -73,6 +77,7 @@ function openForm(item?: ParentalLeaveDto) {
 const body = (): ParentalLeaveInput => ({
   childId: form.child === OTHER ? null : Number(form.child), childBirthDate: childBirthDate.value, start: form.start, end: end.value,
   partTimeWeeklyMinutes: form.partTime && form.partTimeHours !== null ? Math.round(Number(form.partTimeHours) * 60) : null,
+  partTimeWorkdays: form.partTime ? form.partTimeWorkdays : null,
   reduceLeave: form.reduceLeave && !form.partTime, note: form.note,
 })
 
@@ -81,7 +86,7 @@ const check = ref<ParentalLeaveCheckDto | null>(null)
 let checkTimer: ReturnType<typeof setTimeout> | undefined
 const checkable = computed(() => isValidIsoDate(childBirthDate.value) && isValidIsoDate(form.start || childBirthDate.value)
   && (end.value === '' || isValidIsoDate(end.value)))
-watch(() => [formOpen.value, childBirthDate.value, form.start, end.value, form.partTime, form.partTimeHours], () => {
+watch(() => [formOpen.value, childBirthDate.value, form.start, end.value, form.partTime, form.partTimeHours, form.partTimeWorkdays], () => {
   clearTimeout(checkTimer)
   if (!formOpen.value || !checkable.value) return
   checkTimer = setTimeout(async () => {
@@ -102,22 +107,23 @@ onBeforeUnmount(() => clearTimeout(checkTimer))
 const errorText = computed(() => (check.value?.error && form.start && end.value ? de.errors[`parental_leave_${check.value.error}`] : null))
 const hintTexts = computed(() => (check.value?.hints ?? []).map(hint => (hint === 'sections'
   ? t.hints.sections(check.value!.sections)
-  : t.hints.total(formatNumber(check.value!.totalMonths)))))
+  : hint === 'total' ? t.hints.total(formatNumber(check.value!.totalMonths)) : t.hints.afterThird(formatNumber(check.value!.monthsAfterThird)))))
 const ready = computed(() => isValidIsoDate(childBirthDate.value) && isValidIsoDate(form.start) && isValidIsoDate(end.value)
-  && (!form.partTime || (Number(form.partTimeHours) > 0 && Number(form.partTimeHours) * 60 <= PARENTAL_LEAVE_PART_TIME_MAX_MINUTES)))
+  && (!form.partTime || (Number(form.partTimeHours) > 0 && Number(form.partTimeHours) * 60 <= PARENTAL_LEAVE_PART_TIME_MAX_MINUTES
+    && form.partTimeWorkdays > 0)))
 
 async function save() {
   if (!ready.value) return
   const before = editing.value
-  let saved: { entries: { date: string; label: string }[] } | null = null
+  let saved: ParentalLeaveSaveDto | null = null
   const ok = await run(async () => {
     saved = before === null
-      ? await $fetch<{ id: number; entries: { date: string; label: string }[] }>(`/api/employees/${props.employeeId}/parental-leaves`, { method: 'POST', body: body() })
-      : await $fetch<{ id: number; entries: { date: string; label: string }[] }>(`/api/parental-leaves/${before.id}`, { method: 'PUT', body: body() })
+      ? await $fetch<ParentalLeaveSaveDto>(`/api/employees/${props.employeeId}/parental-leaves`, { method: 'POST', body: body() })
+      : await $fetch<ParentalLeaveSaveDto>(`/api/parental-leaves/${before.id}`, { method: 'PUT', body: body() })
   }, de.common.saved)
   if (!ok) return
   formOpen.value = false
-  const entries = (saved as { entries: { date: string }[] } | null)?.entries ?? []
+  const entries = (saved as ParentalLeaveSaveDto | null)?.entries ?? []
   if (entries.length) toast.add({ title: t.entriesWarning(entries.length), description: entries.slice(0, 5).map(entry => formatDate(entry.date)).join(', '), color: 'warning' })
 }
 
@@ -139,7 +145,10 @@ async function remove(item: ParentalLeaveDto) {
     <UAlert v-if="loadError" color="error" variant="soft" :title="loadError" />
     <p v-else-if="!data" class="text-sm text-gray-500">{{ t.loading }}</p>
     <template v-else>
-      <p v-if="data.levelShift" class="text-sm text-gray-700">{{ t.levelShift(data.levelShift.level, formatDate(data.levelShift.on), data.levelShift.days) }}</p>
+      <template v-if="data.levelShift">
+        <p class="text-sm text-gray-700">{{ t.levelShift(data.levelShift.level, formatDate(data.levelShift.on), data.levelShift.days) }}</p>
+        <UAlert v-for="hint in data.levelShift.hints" :key="hint" color="warning" variant="soft" :title="t.levelHints[hint]" />
+      </template>
       <p v-if="!data.periods.length" class="text-sm text-gray-600">{{ t.none }}</p>
       <div v-for="item in data.periods" :key="item.id" class="space-y-1 rounded-md p-3 text-sm ring-1 ring-gray-200">
         <div class="flex flex-wrap items-center gap-2">
@@ -154,7 +163,10 @@ async function remove(item: ParentalLeaveDto) {
           {{ item.firstWorkingDay ? t.firstWorkingDay(formatWeekdayDate(item.firstWorkingDay)) : t.noFirstWorkingDay }}
         </p>
         <ul class="space-y-0.5 text-gray-700">
-          <li>{{ item.partTimeWeeklyMinutes === null ? t.fullLine : t.partTimeLine(formatNumber(item.partTimeWeeklyMinutes / 60)) }}</li>
+          <li>
+            {{ item.partTimeWeeklyMinutes === null ? t.fullLine : t.partTimeLine(formatNumber(item.partTimeWeeklyMinutes / 60)) }}
+            <template v-if="item.partTimeWorkdays">{{ t.workdaysLine(workdaysText(item.partTimeWorkdays)) }}</template>
+          </li>
           <li v-if="item.reduceLeave">{{ t.reduceLine }}</li>
           <li v-if="item.note" class="whitespace-pre-line break-words text-gray-600">{{ item.note }}</li>
           <li class="text-xs text-gray-500">{{ t.createdBy(item.createdBy) }}</li>
@@ -194,6 +206,9 @@ async function remove(item: ParentalLeaveDto) {
           <template v-if="form.partTime">
             <UFormField :label="t.partTimeHours" :help="t.partTimeHint" required>
               <UInput v-model.number="form.partTimeHours" type="number" min="0.25" max="32" step="0.25" class="w-32" />
+            </UFormField>
+            <UFormField :label="t.partTimeWorkdays" :help="t.partTimeWorkdaysHint" required>
+              <WorkdayPicker v-model="form.partTimeWorkdays" />
             </UFormField>
           </template>
           <UCheckbox v-else v-model="form.reduceLeave" :label="t.reduceLeave" :description="t.reduceLeaveHint" />
