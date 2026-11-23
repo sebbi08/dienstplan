@@ -61,7 +61,7 @@ export function childFormRight(
 }
 
 /**
- * Whoever has childForms.edit, with childForms.group whoever works in the child's group (tablet and own account), or
+ * Whoever has childForms.edit, with childForms.group whoever has the child's group as home group (tablet and own account), or
  * the key educator at the tablet may start a form for the child.
  */
 export function canCreateChildForm(viewer: ChildFormViewer, child: ChildFormChild): boolean {

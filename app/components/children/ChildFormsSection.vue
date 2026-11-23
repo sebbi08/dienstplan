@@ -7,7 +7,7 @@ import { formatDate, formatDateTime } from '~/utils/format'
 
 /**
  * „Beobachtungen“ in the record: the child's observation forms newest first (date, template, „zuletzt geändert“). Who
- * may start one (managers; with „Bögen der eigenen Gruppe“ the staff of the child's group, at the tablet and with the
+ * may start one (managers; with „Bögen der eigenen Gruppe“ the staff whose home group it is, at the tablet and with the
  * own account; the key educator at the tablet) gets „Bogen anlegen“; each form opens here to fill in or to read, as the
  * API says per form. Leitung and Träger also unlock employees for a form („Mitarbeiter freischalten“)
  * and delete it. One form is open at a time; closing it, opening another, deleting it or leaving the page asks first

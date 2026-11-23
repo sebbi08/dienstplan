@@ -8,12 +8,14 @@ import {
   createChildForm, deleteChildForm, getChildForm, listChildFormEditors, listChildForms, saveChildForm, setChildFormEditors,
 } from '../../server/services/childForms'
 import { deleteChild, moveChildToFacility } from '../../server/services/children'
+import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { createTemplate, updateTemplate } from '../../server/services/formTemplates'
 import { setReadAccess } from '../../server/services/groupReadAccess'
 import { addMeeting, deleteMeeting, meetingsOf } from '../../server/services/parentMeetings'
 import { roleBundleRows } from '../../server/services/permissions'
 import { saveRoleRights } from '../../server/services/rights'
-import { resolveChildViewer } from '../../server/services/tabletUnlock'
+import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
+import { setPin } from '../../server/services/terminal'
 import { effectiveRights } from '../../shared/domain/permissionBundles'
 import {
   addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, errorCode, permissionsOf,
@@ -230,6 +232,45 @@ describe('child observation forms', () => {
       expect(createChildForm(db, bertaTablet, kid, { templateId: template, ...header }, NOW)).toBeGreaterThan(0)
     })
 
+    it('reads judge the group of today without applying the change; a save applies it first', () => {
+      const formId = createChildForm(db, leitung, kid, { templateId: template, ...header }, NOW)
+      db.insert(childGroupChanges).values({ childId: kid, groupId: groupB, fromDate: '2026-10-20', createdAt: NOW.toISOString() }).run()
+      // Emil (Bären) still sees the record until the change is applied, but the child is no longer of his group.
+      expect(listChildForms(db, emilTablet, kid, NOW)).toMatchObject({ canCreate: false, forms: [{ id: formId, right: 'read' }] })
+      expect(getChildForm(db, emilTablet, formId, NOW).right).toBe('read')
+      // Berta (Füchse) keeps the child from today on.
+      expect(listChildForms(db, bertaTablet, kid, NOW)).toMatchObject({ canCreate: true, forms: [{ id: formId, right: 'edit' }] })
+      expect(getChildForm(db, bertaTablet, formId, NOW).right).toBe('edit')
+      // Reading changed nothing.
+      expect(db.select({ groupId: children.groupId }).from(children).where(eq(children.id, kid)).get()!.groupId).toBe(groupA)
+      // Saving applies the change: Emil no longer reaches the child, Berta saves.
+      expect(failure(() => save(emilTablet, formId, {}))).toBe('404 child_not_found')
+      expect(save(bertaTablet, formId, {}).updatedBy).toBe('Berta')
+      expect(db.select({ groupId: children.groupId }).from(children).where(eq(children.id, kid)).get()!.groupId).toBe(groupB)
+    })
+
+    it('end to end through the tablet unlock: an employee without account gets the switch from the Mitarbeiter role', () => {
+      setTimeTrackingFrom(db, 1, '2026-10-01')
+      const terminal = addUser(db, 'tablet', 'terminal')
+      const unlockedBy = (employeeId: number) => {
+        setPin(db, 1, employeeId, '123456')
+        const { token } = unlockChildren(db, { id: terminal.id, facilityId: 1 }, employeeId, '123456', NOW)
+        return resolveChildViewer(db, terminal, token, NOW)
+      }
+      const emilUnlocked = unlockedBy(emil)
+      expect(emilUnlocked).toMatchObject({ id: null, employeeId: emil, onTablet: true })
+      expect(emilUnlocked.permissions.has('childForms.group')).toBe(true)
+      const formId = createChildForm(db, emilUnlocked, kid, { templateId: template, ...header }, NOW)
+      expect(save(unlockedBy(emil), formId, {}).updatedBy).toBe('Emil')
+
+      saveRoleRights(db, 'observer', [{ id: 'formsGroup', enabled: false }])
+      const off = unlockedBy(emil)
+      expect(off.permissions.has('childForms.group')).toBe(false)
+      expect(listChildForms(db, off, kid, NOW)).toMatchObject({ canCreate: false, forms: [{ id: formId, right: 'read' }] })
+      expect(failure(() => save(off, formId, {}))).toBe('403 forbidden')
+      expect(failure(() => createChildForm(db, off, kid, { templateId: template, ...header }, NOW))).toBe('403 forbidden')
+    })
+
     it('only the home group counts: staff without a home group and helpers from another facility read only', () => {
       const formId = createChildForm(db, leitung, kid, { templateId: template, ...header }, NOW)
       // Without a home group the viewer sees every group (groups null), but no group is its own for the forms.
@@ -241,7 +282,8 @@ describe('child observation forms', () => {
         expect(failure(() => createChildForm(db, viewer, kid, { templateId: template, ...header }, NOW)), name).toBe('403 forbidden')
         expect(failure(() => save(viewer, formId, {})), name).toBe('403 forbidden')
       }
-      // Unlocked for the form, the helper edits it (as before).
+      // Unlocked for the form, the person without home group edits it (as before; a helper from another facility cannot be
+      // unlocked, see 'unlocking, revoking and deleting are for managers only').
       setChildFormEditors(db, leitung, formId, [floater], NOW)
       expect(save({ id: null, employeeId: floater, name: 'Frieda', ...tablet, groups: null }, formId, {}).updatedBy).toBe('Frieda')
       // A wider attendance scope does not widen it either: Berta (Füchse) keeps the attendance of every group.

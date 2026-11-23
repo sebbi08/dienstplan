@@ -67,7 +67,11 @@ export interface PermissionDef {
   requires: PermissionKey[]
   /** Keys that come with this one (spec §2 „schließt ein“). */
   implies: PermissionKey[]
-  /** Has a group scope: own group (today's `groupRight`), all groups for a person without home group. */
+  /**
+   * Has a group scope: own group (today's `groupRight`), all groups for a person without home group. Exception:
+   * childForms.group is only ever the person's home group (never all groups; server/services/childForms.ts), its bundle
+   * has no scope switch.
+   */
   scoped: boolean
   /** Fixed at the Träger, never grantable (P-fix in the inventory). */
   providerOnly: boolean

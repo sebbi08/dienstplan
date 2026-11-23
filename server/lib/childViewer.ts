@@ -8,7 +8,11 @@ import { ServiceError } from './errors'
  * the person who unlocked it (with the permissions of their own account, the Mitarbeiter defaults without one).
  */
 export interface ChildViewer {
-  /** Account for "changed by"; null for a person without (active) account at the tablet, who cannot change records. */
+  /**
+   * Account for "changed by"; null for a person without (active) account at the tablet, who cannot change the record's
+   * sections (children.edit / children.manage). Observation forms are recorded by name: such a person fills them as key
+   * educator, when unlocked for the form or for a child of the own home group (childForms.group).
+   */
   id: number | null
   /** The person for "changed by" in the attendance log: at the tablet the one who unlocked, else the account's employee. */
   employeeId: number | null

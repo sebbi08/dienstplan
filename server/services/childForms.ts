@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import {
   canCreateChildForm, canManageChildForms, childFormRight, type ChildFormRight, type ChildFormViewer,
 } from '../../shared/domain/childForms'
@@ -12,7 +12,7 @@ import type {
   ChildFormsDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { childParentMeetings, employees, facilities, formEditors, forms, groups } from '../db/schema'
+import { childGroupChanges, childParentMeetings, employees, facilities, formEditors, forms, groups } from '../db/schema'
 import { assertGroupRight, loadChild, type ChildRow } from '../lib/childRecord'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
@@ -36,11 +36,23 @@ interface VisibleChild { row: ChildRow; archived: boolean; ownGroup: boolean }
  * „eigene Gruppe“ of childForms.group. Only that group counts – not the groups a person without home group or a helper
  * from another facility sees, not a wider attendance scope, not a child without group.
  */
-function inHomeGroup(db: Db, viewer: ChildViewer, row: ChildRow): boolean {
-  if (viewer.employeeId === null || row.groupId === null) return false
+function inHomeGroup(db: Db, viewer: ChildViewer, groupId: number | null): boolean {
+  if (viewer.employeeId === null || groupId === null) return false
   const employee = db.select({ groupId: employees.groupId }).from(employees)
     .where(and(eq(employees.id, viewer.employeeId), eq(employees.facilityId, viewer.facilityId))).get()
-  return employee?.groupId === row.groupId
+  return employee?.groupId === groupId
+}
+
+/**
+ * The child's group today without applying anything (for reads, which never write): the group of a planned change whose
+ * day has come but which the hourly run has not applied yet, else the record's. Writes apply it first (`settleDue`).
+ */
+function groupToday(db: Db, row: ChildRow, today: string): number | null {
+  const due = db.select({ groupId: childGroupChanges.groupId }).from(childGroupChanges)
+    .where(and(eq(childGroupChanges.childId, row.id), isNull(childGroupChanges.appliedAt), isNotNull(childGroupChanges.fromDate),
+      lte(childGroupChanges.fromDate, today)))
+    .orderBy(desc(childGroupChanges.fromDate)).get()
+  return due ? due.groupId : row.groupId
 }
 
 /**
@@ -56,11 +68,13 @@ function loadVisibleChild(db: Db, viewer: ChildViewer, childId: number, now: Dat
   if (archived && !can(viewer.permissions, 'children.manage')) throw new ServiceError(404, 'child_not_found')
   if (hiddenFromViewer(row, viewer.visibility, today)) throw new ServiceError(404, 'child_not_found')
   assertGroupRight(viewer, row.groupId, 'read')
-  if (!settle || archived) return { row, archived, ownGroup: inHomeGroup(db, viewer, row) }
+  if (archived) return { row, archived, ownGroup: false }
+  // Reads see the record as it is stored (as `getChild` does) but judge the own group by today's group.
+  if (!settle) return { row, archived, ownGroup: inHomeGroup(db, viewer, groupToday(db, row, today)) }
   settleDue(db, childId, today, now)
   const settled = loadChild(db, viewer.facilityId, childId)
   assertGroupRight(viewer, settled.groupId, 'read')
-  return { row: settled, archived, ownGroup: inHomeGroup(db, viewer, settled) }
+  return { row: settled, archived, ownGroup: inHomeGroup(db, viewer, settled.groupId) }
 }
 
 /** A child form of the viewer's facility (404 form_not_found otherwise) with its child as the viewer sees it. */
@@ -171,7 +185,7 @@ function assertMeetingFree(db: Db, meetingId: number): void {
 
 /**
  * A new form for the child from an active child template of the facility (its content copied, titled like it); returns
- * its id. Managers, with childForms.group whoever works in the child's group, and at the tablet the child's key educator
+ * its id. Managers, with childForms.group whoever has the child's group as home group, and at the tablet the child's key educator
  * may (403 forbidden otherwise). From a parent meeting of
  * the child the header is the meeting's date, start and participants, and the two are linked (one form per meeting).
  */
