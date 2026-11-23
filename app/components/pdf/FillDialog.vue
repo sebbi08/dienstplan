@@ -1,26 +1,36 @@
 <script setup lang="ts">
-import type { AnnotationLayer, PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import type { EventBus, PDFLinkService, PDFViewer } from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
 import { todayIso } from '#shared/domain/dates'
 import type { EmployeeDocumentFolder } from '#shared/domain/personnel'
 import type { DocumentTypeDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
+import {
+  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, FONT_SIZES, fontSizeName, MARK_LINES, MARK_POINTS, nextEditorState, nextZoom,
+  SIGNATURE_POINTS, stampSize, ZOOMS, type AnnotateTool, type EditorState, type FontSizeName, type MarkKind,
+} from '~/utils/pdfAnnotate'
+import { pdfjsFileOptions } from '~/utils/pdfjsFiles'
 import { defaultDocumentType, fillSaveRequest, fillTitle, usableFolders, type FillKind, type FillSave, type FillSource, type FillTarget } from '~/utils/pdfFill'
 
 /**
- * The fill view: a PDF form on screen with its fields editable (pdf.js, annotation layer in forms mode), one page at a
- * time with page buttons and zoom (for phones and tablets). The values live only in the document's annotationStorage;
- * „Speichern“ writes them into a copy (saveDocument) and sends it to the child's record or the personnel file —
- * as a new document (`target`: type or folder, title, date chosen in a small form) or in place of the document it was
- * opened from (`replace`, „Weiter ausfüllen“). „Drucken“ prints the filled pages without saving. The template on the
- * server never changes. Closing (or leaving the page) with unsaved input asks first. The file lives in memory only.
+ * The fill view for any PDF: pdf.js's own viewer (pages one below the other, page buttons, zoom buttons and pinching)
+ * with its form layer for the fields („Felder“) and its annotation editors for what is added anywhere on a page: text
+ * boxes („Text“), a tick or a cross (pictures placed with a tap) and a signature (drawn in a pad, then placed and
+ * resized). Everything lives only in the document's annotationStorage; „Speichern“ writes it into a copy
+ * (saveDocument: the fields with their values, the additions as real PDF annotations) and sends it to the child's
+ * record or the personnel file — as a new document (`target`: type or folder, title, date chosen in a small form) or in
+ * place of the document it was opened from (`replace`, „Bearbeiten“), which then opens with its additions editable
+ * again. „Drucken“ prints the pages with everything on them without saving. The template on the server never changes.
+ * Closing (or leaving the page) with unsaved changes asks first. The file lives in memory only; pdf.js's scripting stays
+ * off.
  */
 const props = defineProps<{
   source: FillSource
   /** A new copy for this child or person. */
   target?: FillTarget
-  /** The document the form was opened from („Weiter ausfüllen“). */
+  /** The document the PDF was opened from („Bearbeiten“). */
   replace?: { kind: FillKind; documentId: number }
 }>()
 const open = defineModel<boolean>('open', { default: false })
@@ -32,69 +42,94 @@ const { can } = useCan()
 const t = de.pdfFill
 
 type PdfJs = typeof import('pdfjs-dist/legacy/build/pdf.mjs')
-const status = ref<'loading' | 'ready' | 'noFields' | 'failed'>('loading')
+type ViewerLib = typeof import('pdfjs-dist/legacy/web/pdf_viewer.mjs')
+const status = ref<'loading' | 'ready' | 'failed'>('loading')
+const hasFields = ref(false)
 const pageNumber = ref(1)
 const pageCount = ref(0)
-/** 1 = the page as wide as the view. */
+/** 1 = the page as wide as the view (at most a comfortable size on a wide screen). */
 const zoom = ref(1)
-const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3]
 const touched = ref(false)
 const busy = ref(false)
 // Unsaved input keeps the page (useUnsavedGuard of the page) from being left without asking.
 useDirty(() => touched.value)
 
-const scrollEl = ref<HTMLElement | null>(null)
-const pageEl = ref<HTMLElement | null>(null)
-const canvasEl = ref<HTMLCanvasElement | null>(null)
-const layerEl = ref<HTMLDivElement | null>(null)
+// ---- tools ---------------------------------------------------------------
+const tool = ref<AnnotateTool>('fields')
+/** pdf.js's editors are ready (they start once the first page is there). */
+const editorsReady = ref(false)
+const editorState = ref<EditorState>({ canUndo: false, hasSelection: false })
+const fontSize = ref<FontSizeName>('normal')
+const padOpen = ref(false)
+const tools = computed(() => annotateTools(hasFields.value))
+const TOOL_ICONS: Record<AnnotateTool, string> = {
+  fields: 'i-lucide-text-cursor-input', select: 'i-lucide-mouse-pointer-2', text: 'i-lucide-type', check: 'i-lucide-check',
+  cross: 'i-lucide-x', signature: 'i-lucide-signature',
+}
+
+const containerEl = ref<HTMLDivElement | null>(null)
+const viewerEl = ref<HTMLDivElement | null>(null)
+
+/** What the fill view uses of pdf.js's editor manager and its per-page layers (not part of pdf.js's typed API). */
+interface EditorLayer {
+  div: HTMLDivElement
+  pageDimensions: [number, number]
+  viewport: { rotation: number }
+  createAndAddNewEditor(point: { offsetX: number; offsetY: number }, isCentered: boolean, data?: Record<string, unknown>):
+    { width: number | null; height: number | null } | null
+}
+interface EditorManager {
+  getLayer(pageIndex: number): EditorLayer | undefined
+  undo(): void
+  delete(): void
+  commitOrRemove(): void
+  updateParams(type: number, value: unknown): void
+}
 
 let pdfjs: PdfJs | null = null
 let loadingTask: PDFDocumentLoadingTask | null = null
 let pdf: PDFDocumentProxy | null = null
-let fieldObjects: Map<string, object[]> | null = null
-let layer: AnnotationLayer | null = null
-let renderTask: RenderTask | null = null
-/** Counts loads and page draws; a draw that finds a newer number stops (closed, other page, other zoom). */
+let viewer: PDFViewer | null = null
+let eventBus: EventBus | null = null
+let linkService: PDFLinkService | null = null
+let editors: EditorManager | null = null
+let l10n: ReturnType<typeof createPdfjsL10n> | null = null
+/** Ends the viewer's listeners (and the pinching) of the open document. */
+let abort: AbortController | null = null
+/** The scale of zoom 1. */
+let baseScale = 1
+/** The pictures of tick and cross (made once per opened document, shared by all marks: one image in the PDF). */
+let marks = new Map<MarkKind, File>()
+/** Counts loads; work that finds a newer number stops (closed or opened again). */
 let generation = 0
-let drawing = 0
 
-/**
- * Links in a form open in a new tab; the form has no outline or attachments to jump to. Only what the annotation layer
- * calls (pdf.js's own link service belongs to its full viewer).
- */
-const linkService = {
-  eventBus: null,
-  addLinkAttributes(link: HTMLAnchorElement, url: string) {
-    if (!url) return
-    link.href = url
-    link.target = '_blank'
-    link.rel = 'noopener noreferrer nofollow'
-  },
-  getDestinationHash: () => '#',
-  getAnchorUrl: () => '#',
-  goToDestination: () => {},
-  executeNamedAction: () => {},
-  executeSetOCGState: () => {},
-  getAttachmentContent: async () => null,
-} as unknown as Parameters<AnnotationLayer['render']>[0]['linkService']
+/** At most this scale for zoom 1: a page on a wide screen stays readable instead of filling the whole width. */
+const MAX_FIT_SCALE = 1.5
 
 function release() {
   generation++
   endPrint()
-  renderTask?.cancel()
-  renderTask = null
-  layer?.destroy()
-  layer = null
-  layerEl.value?.replaceChildren()
-  if (canvasEl.value) {
-    canvasEl.value.width = 0
-    canvasEl.value.height = 0
+  abort?.abort()
+  abort = null
+  editorsReady.value = false
+  editors = null
+  try {
+    // Ends the editors, the drawn pages and the form layers of the document.
+    viewer?.setDocument(null as unknown as PDFDocumentProxy)
   }
-  // Destroying the loading task also destroys its document (and the typed values with it).
+  catch {}
+  viewer = null
+  linkService?.setDocument(null)
+  linkService = null
+  eventBus = null
+  void l10n?.destroy()
+  l10n = null
+  viewerEl.value?.replaceChildren()
+  // Destroying the loading task also destroys its document (and everything typed or added with it).
   void loadingTask?.destroy()
   loadingTask = null
   pdf = null
-  fieldObjects = null
+  marks = new Map()
   pageCount.value = 0
 }
 
@@ -105,27 +140,36 @@ async function load() {
   touched.value = false
   pageNumber.value = 1
   zoom.value = 1
+  editorState.value = { canUndo: false, hasSelection: false }
   try {
     const response = await $fetch.raw<ArrayBuffer>(props.source.url, { responseType: 'arrayBuffer' })
     if (current !== generation) return
     const data = response._data
     if (!data) throw new Error('empty')
-    // The legacy build carries the polyfills older tablet browsers need (as the document viewer).
+    // The legacy build carries the polyfills older tablet browsers need (as the document viewer). pdf.js's viewer
+    // module takes the library from globalThis; its styles must be there before the editors start (they read them).
     const lib = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    if (current !== generation) return
     lib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url).toString()
+    ;(globalThis as { pdfjsLib?: unknown }).pdfjsLib = lib
+    const [viewerLib] = await Promise.all([import('pdfjs-dist/legacy/web/pdf_viewer.mjs'), import('pdfjs-dist/web/pdf_viewer.css')])
+    if (current !== generation) return
     pdfjs = lib
-    const task = lib.getDocument({ data: new Uint8Array(data), enableXfa: false })
+    const task = lib.getDocument({ data: new Uint8Array(data), enableXfa: false, ...pdfjsFileOptions })
     loadingTask = task
     const doc = await task.promise
     if (current !== generation) return
     pdf = doc
-    fieldObjects = await doc.getFieldObjects()
+    const fields = await doc.getFieldObjects()
     if (current !== generation) return
+    hasFields.value = !!fields && fields.size > 0
+    // pdf.js's own mode without editors first (for a PDF without fields no tool is chosen yet): switching right while
+    // the first pages are drawn and fitted would leave additions saved before in the file unusable.
+    tool.value = 'fields'
     pageCount.value = doc.numPages
-    status.value = fieldObjects && fieldObjects.size > 0 ? 'ready' : 'noFields'
+    status.value = 'ready'
     await nextTick()
-    await draw()
+    if (current !== generation) return
+    start(lib, viewerLib, doc)
   }
   catch {
     if (current === generation) {
@@ -135,104 +179,302 @@ async function load() {
   }
 }
 
-/** Draws the current page at the current zoom: the page on a canvas, the fields as inputs above it. */
-async function draw() {
-  const lib = pdfjs
-  const doc = pdf
-  const scroller = scrollEl.value
-  const box = pageEl.value
-  const canvas = canvasEl.value
-  const layerDiv = layerEl.value
-  if (!lib || !doc || !scroller || !box || !canvas || !layerDiv) return
+/** Shows the document in pdf.js's viewer, with its form layer and editors, and follows its events. */
+function start(lib: PdfJs, viewerLib: ViewerLib, doc: PDFDocumentProxy) {
+  const container = containerEl.value
+  const viewerDiv = viewerEl.value
+  if (!container || !viewerDiv) throw new Error('no view')
   const current = generation
-  const mine = ++drawing
-  const stale = () => current !== generation || mine !== drawing
-  renderTask?.cancel()
-  try {
-    const page = await doc.getPage(pageNumber.value)
-    if (stale()) return
-    const base = page.getViewport({ scale: 1 })
-    const available = Math.max(240, scroller.clientWidth - 16)
-    const viewport = page.getViewport({ scale: (available / base.width) * zoom.value })
-    const ratio = Math.min(window.devicePixelRatio || 1, 2)
-    const canvasViewport = page.getViewport({ scale: viewport.scale * ratio })
-    box.style.width = `${Math.floor(viewport.width)}px`
-    box.style.height = `${Math.floor(viewport.height)}px`
-    box.style.setProperty('--scale-factor', String(viewport.scale))
-    box.style.setProperty('--user-unit', String(viewport.userUnit))
-    box.style.setProperty('--total-scale-factor', String(viewport.scale * viewport.userUnit))
-    canvas.width = Math.floor(canvasViewport.width)
-    canvas.height = Math.floor(canvasViewport.height)
-    // Checkboxes and radio buttons draw their looks on canvases of their own, which the annotation layer then places.
-    const annotationCanvasMap = new Map<string, HTMLCanvasElement>()
-    const task = page.render({ canvas, viewport: canvasViewport, annotationMode: lib.AnnotationMode.ENABLE_FORMS, annotationCanvasMap })
-    renderTask = task
-    await task.promise
-    if (stale()) return
-    const annotations = await page.getAnnotations({ intent: 'display' })
-    if (stale()) return
-    layer?.destroy()
-    layerDiv.replaceChildren()
-    const layerViewport = viewport.clone({ dontFlip: true })
-    layer = new lib.AnnotationLayer({
-      div: layerDiv, page, viewport: layerViewport, annotationStorage: doc.annotationStorage, linkService,
-      annotationCanvasMap, accessibilityManager: null, annotationEditorUIManager: null, structTreeLayer: null, commentManager: null,
-    })
-    await layer.render({
-      viewport: layerViewport, div: layerDiv, annotations, page, linkService, annotationStorage: doc.annotationStorage,
-      renderForms: true, enableScripting: false, hasJSActions: false, fieldObjects, imageResourcesPath: '',
-    })
-    // pdf.js sizes the layer with CSS round(), which older tablet browsers lack; the same size in pixels instead (the
-    // unrotated page; a turned page is turned by the rotation rule below).
-    const { pageWidth, pageHeight } = layerViewport.rawDims as { pageWidth: number; pageHeight: number }
-    const total = viewport.scale * viewport.userUnit
-    layerDiv.style.width = `${Math.floor(total * pageWidth)}px`
-    layerDiv.style.height = `${Math.floor(total * pageHeight)}px`
+  const bus = new viewerLib.EventBus()
+  eventBus = bus
+  abort = new AbortController()
+  const links = new viewerLib.PDFLinkService({ eventBus: bus, externalLinkTarget: viewerLib.LinkTarget.BLANK, externalLinkRel: 'noopener noreferrer nofollow' })
+  linkService = links
+  l10n = createPdfjsL10n()
+  // The text layer (pdf.js builds the structure tree with it, which its editors need to reopen pictures added before),
+  // the forms layer for the fields, the editors on (`abortSignal` is missing in its types).
+  const options = {
+    container, viewer: viewerDiv, eventBus: bus, linkService: links, l10n: l10n as never,
+    textLayerMode: 1, annotationMode: lib.AnnotationMode.ENABLE_FORMS, annotationEditorMode: lib.AnnotationEditorType.NONE,
+    enableAutoLinking: false, supportsPinchToZoom: true, abortSignal: abort.signal,
   }
-  catch (error) {
-    if (error instanceof lib.RenderingCancelledException || stale()) return
-    status.value = 'failed'
+  const view = new viewerLib.PDFViewer(options as ConstructorParameters<ViewerLib['PDFViewer']>[0])
+  viewer = view
+  links.setViewer(view)
+
+  // The tools work once pdf.js's editor manager is there and a page has its annotations drawn: switching modes earlier
+  // would not know which annotations of the file (added before) to hand over to the editors.
+  let manager: EditorManager | null = null
+  let layerDrawn = false
+  const ready = () => {
+    if (current !== generation || !manager || !layerDrawn || editorsReady.value) return
+    editors = manager
+    editorsReady.value = true
   }
+  bus.on('annotationeditoruimanager', ({ uiManager }: { uiManager: EditorManager }) => {
+    manager = uiManager
+    ready()
+  })
+  bus.on('annotationlayerrendered', () => {
+    layerDrawn = true
+    ready()
+  })
+  bus.on('pagesinit', () => {
+    if (current === generation) fitWidth()
+  })
+  bus.on('pagechanging', ({ pageNumber: number }: { pageNumber: number }) => {
+    pageNumber.value = number
+  })
+  bus.on('scalechanging', ({ scale }: { scale: number }) => {
+    zoom.value = Math.round((scale / baseScale) * 100) / 100
+  })
+  // What can be undone or deleted (the event's name differs between pdf.js versions).
+  const onStates = ({ details }: { details: { hasSomethingToUndo?: boolean; hasSelectedEditor?: boolean } }) => {
+    editorState.value = nextEditorState(editorState.value, details)
+  }
+  bus.on('editingstateschanged', onStates)
+  bus.on('annotationeditorstateschanged', onStates)
+  bus.on('annotationeditorparamschanged', ({ details }: { details: [number, unknown][] }) => {
+    for (const [type, value] of details) {
+      if (type === lib.AnnotationEditorParamsType.FREETEXT_SIZE && typeof value === 'number') fontSize.value = fontSizeName(value)
+    }
+  })
+  // pdf.js asks for another mode itself, e.g. when a text box is tapped while choosing: the matching tool, and the
+  // request as it is (with the editor to select or edit, which a bare mode switch would unselect).
+  bus.on('switchannotationeditormode', ({ source: _source, ...request }: { source: unknown; mode: number; editId?: string | null }) => {
+    if (request.mode === lib.AnnotationEditorType.FREETEXT) tool.value = 'text'
+    else if (request.mode === lib.AnnotationEditorType.STAMP) tool.value = 'select'
+    else return
+    view.annotationEditorMode = request
+  })
+  // Every typed value and every change of an addition counts as unsaved.
+  ;(doc.annotationStorage as { onSetModified: (() => void) | null }).onSetModified = () => {
+    if (current === generation) touched.value = true
+  }
+
+  // Pinching zooms the pages (pdf.js's touch handling of its own viewer app).
+  let pinchFactor = 1
+  new lib.TouchManager({
+    container,
+    signal: abort.signal,
+    onPinching: (origin: [number, number], previous: number, distance: number) => {
+      pinchFactor *= distance / previous
+      const scale = view.currentScale
+      const wanted = Math.min(baseScale * ZOOMS[ZOOMS.length - 1]!, Math.max(baseScale * ZOOMS[0], scale * pinchFactor))
+      if (Math.abs(wanted - scale) < 0.01) return
+      pinchFactor = 1
+      view.updateScale({ scaleFactor: wanted / scale, origin, drawingDelay: 400 })
+    },
+    onPinchEnd: () => {
+      pinchFactor = 1
+    },
+  })
+
+  view.setDocument(doc)
+  links.setDocument(doc, null)
+}
+
+/** Zoom 1: the page as wide as the view, at most MAX_FIT_SCALE. */
+function fitWidth() {
+  const view = viewer
+  if (!view?.pagesCount) return
+  view.currentScaleValue = 'page-width'
+  baseScale = Math.min(view.currentScale, MAX_FIT_SCALE)
+  if (view.currentScale !== baseScale) view.currentScale = baseScale
+  zoom.value = 1
 }
 
 function goTo(number: number) {
-  if (number < 1 || number > pageCount.value || number === pageNumber.value) return
-  // The field being typed in keeps its value: pdf.js stores every input as it comes.
-  pageNumber.value = number
-  scrollEl.value?.scrollTo({ top: 0, left: 0 })
-  void draw()
+  if (!viewer || number < 1 || number > pageCount.value) return
+  viewer.currentPageNumber = number
 }
-function zoomBy(step: number) {
-  const index = ZOOMS.indexOf(zoom.value)
-  const next = ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, (index === -1 ? 2 : index) + step))]!
+function zoomBy(step: 1 | -1) {
+  if (!viewer) return
+  const next = nextZoom(zoom.value, step)
   if (next === zoom.value) return
-  zoom.value = next
-  void draw()
+  viewer.currentScale = baseScale * next
 }
 function zoomFit() {
-  if (zoom.value === 1) return
-  zoom.value = 1
-  void draw()
+  fitWidth()
 }
 
-// A turned phone or a resized window: the page fits the new width again.
+// A turned phone or a resized window: zoom 1 fits the new width again, another zoom stays relative to it.
 let resizeTimer: ReturnType<typeof setTimeout> | undefined
 function onResize() {
   clearTimeout(resizeTimer)
   resizeTimer = setTimeout(() => {
-    if (status.value === 'ready' || status.value === 'noFields') void draw()
+    const view = viewer
+    if (!view?.pagesCount) return
+    const wanted = zoom.value
+    fitWidth()
+    if (wanted !== 1) view.currentScale = baseScale * wanted
   }, 200)
 }
 onMounted(() => window.addEventListener('resize', onResize))
 
-/** Any input in a field counts as unsaved (the inputs belong to pdf.js; their events bubble up to here). */
-function onInput(event: Event) {
-  if ((event.target as HTMLElement | null)?.closest('.annotationLayer')) touched.value = true
+// ---- adding text, marks and the signature --------------------------------
+/** Switches pdf.js's editor mode and waits until it is there (switching from the fields redraws the pages first). */
+function editorMode(mode: number): Promise<void> {
+  const view = viewer
+  const bus = eventBus
+  if (!view || !bus || !editors) return Promise.resolve()
+  // The getter gives the mode itself (its types say otherwise).
+  if ((view.annotationEditorMode as unknown as number) === mode) return Promise.resolve()
+  return new Promise((resolve) => {
+    const done = ({ mode: reached }: { mode: number }) => {
+      if (reached !== mode) return
+      bus.off('annotationeditormodechanged', done)
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(() => {
+      bus.off('annotationeditormodechanged', done)
+      resolve()
+    }, 3000)
+    bus.on('annotationeditormodechanged', done)
+    view.annotationEditorMode = { mode }
+  })
+}
+
+async function useTool(next: AnnotateTool) {
+  const lib = pdfjs
+  if (!lib || !editors) return
+  if (next === 'signature') {
+    padOpen.value = true
+    return
+  }
+  tool.value = next
+  await editorMode(editorModeFor(next, lib.AnnotationEditorType))
+  // New text boxes: the chosen size, in black (nothing is selected right after switching, so these are the defaults).
+  if (next === 'text') {
+    editors?.updateParams(lib.AnnotationEditorParamsType.FREETEXT_SIZE, FONT_SIZES[fontSize.value])
+    editors?.updateParams(lib.AnnotationEditorParamsType.FREETEXT_COLOR, '#000000')
+  }
+}
+
+/** The size of new text boxes, and of the selected one. */
+function chooseFontSize(name: FontSizeName) {
+  fontSize.value = name
+  if (pdfjs) editors?.updateParams(pdfjs.AnnotationEditorParamsType.FREETEXT_SIZE, FONT_SIZES[name])
+}
+
+/** The picture of a tick or a cross: black lines on a transparent square, sharp enough for print. */
+async function markPicture(kind: MarkKind): Promise<File | null> {
+  const known = marks.get(kind)
+  if (known) return known
+  const size = 96
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+  if (!context) return null
+  context.strokeStyle = '#000000'
+  context.lineWidth = size * 0.11
+  context.lineCap = 'round'
+  context.lineJoin = 'round'
+  for (const line of MARK_LINES[kind]) {
+    context.beginPath()
+    line.forEach(([x, y], index) => (index === 0 ? context.moveTo(x * size, y * size) : context.lineTo(x * size, y * size)))
+    context.stroke()
+  }
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+  if (!blob) return null
+  const file = new File([blob], kind === 'check' ? 'Haekchen.png' : 'Kreuz.png', { type: 'image/png' })
+  marks.set(kind, file)
+  return file
+}
+
+/** Puts a picture centred on a point of a page, at most `box` points large (it can be moved and resized afterwards). */
+function placePicture(layer: EditorLayer, point: { offsetX: number; offsetY: number }, picture: { file: File; width: number; height: number }, box: { width: number; height: number }) {
+  const editor = layer.createAndAddNewEditor(point, true, { bitmapFile: picture.file })
+  if (!editor) return
+  const [width, height] = layer.pageDimensions
+  // pdf.js would show the picture as large as its pixels; the size it should have, before the picture is read.
+  Object.assign(editor, stampSize(picture, { width, height }, box))
+}
+
+/**
+ * A tap on the free page with „Häkchen“ or „Kreuz“ places the mark there (a tap on an addition selects it instead;
+ * pinching, scrolling and dragging place nothing).
+ */
+const taps = createTapTracker()
+const onFreePage = (event: PointerEvent) => (event.target as HTMLElement | null)?.classList?.contains('annotationEditorLayer') ?? false
+function onPagePointerDown(event: PointerEvent) {
+  taps.press(event.pointerId, { x: event.clientX, y: event.clientY }, onFreePage(event) && !(event.pointerType === 'mouse' && event.button !== 0))
+}
+function onPagePointerCancel(event: PointerEvent) {
+  taps.cancel(event.pointerId)
+}
+async function onPagePointerUp(event: PointerEvent) {
+  const tapped = taps.release(event.pointerId, { x: event.clientX, y: event.clientY })
+  const target = event.target as HTMLElement | null
+  const kind = tool.value
+  if (!tapped || !editors || (kind !== 'check' && kind !== 'cross') || !target || !onFreePage(event)) return
+  const number = Number(target.closest('.page')?.getAttribute('data-page-number'))
+  const layer = editors.getLayer(number - 1)
+  const point = { offsetX: event.offsetX, offsetY: event.offsetY }
+  const file = await markPicture(kind)
+  if (!layer || !file) return
+  placePicture(layer, point, { file, width: 96, height: 96 }, { width: MARK_POINTS, height: MARK_POINTS })
+}
+
+/** The middle of the visible part of a page's layer, in the layer's own coordinates (as pdf.js places a new picture). */
+function visibleMiddle(layer: EditorLayer): { offsetX: number; offsetY: number } {
+  const box = layer.div.getBoundingClientRect()
+  const view = containerEl.value?.getBoundingClientRect() ?? box
+  const left = Math.max(box.left, view.left)
+  const right = Math.min(box.right, view.right)
+  const top = Math.max(box.top, view.top)
+  const bottom = Math.min(box.bottom, view.bottom)
+  const x = (left + right) / 2 - box.left
+  const y = (top + bottom) / 2 - box.top
+  return layer.viewport.rotation % 180 === 0 ? { offsetX: x, offsetY: y } : { offsetX: y, offsetY: x }
+}
+
+/** The signature from the pad: on the page in view, in its middle, to be moved to its place. */
+async function placeSignature(picture: { file: File; width: number; height: number }) {
+  const lib = pdfjs
+  if (!lib || !editors) return
+  tool.value = 'select'
+  await editorMode(lib.AnnotationEditorType.STAMP)
+  const layer = editors?.getLayer(pageNumber.value - 1)
+  if (!layer) return
+  placePicture(layer, visibleMiddle(layer), picture, SIGNATURE_POINTS)
+}
+
+function deleteSelected() {
+  editors?.delete()
+}
+function undo() {
+  editors?.undo()
+}
+
+/** A text box being typed in is finished first, so saving and printing take what is on screen. */
+function finishEditing() {
+  try {
+    editors?.commitOrRemove()
+  }
+  catch {}
+}
+
+/** Whether anything was typed or changed (pdf.js also marks additions it only reopened from the file). */
+function hasChanges(): boolean {
+  const storage = pdf?.annotationStorage
+  if (!storage) return false
+  try {
+    finishEditing()
+    const { map, transfer } = storage.serializable as { map: Map<string, unknown> | null; transfer?: { close?: () => void }[] }
+    for (const bitmap of transfer ?? []) bitmap.close?.()
+    return (map?.size ?? 0) > 0
+  }
+  catch {
+    return true
+  }
 }
 
 async function requestClose() {
   if (busy.value) return
-  if (touched.value && !(await confirm(t.unsavedConfirm, { confirmLabel: t.unsavedLeave, danger: true }))) return
+  if (touched.value && hasChanges() && !(await confirm(t.unsavedConfirm, { confirmLabel: t.unsavedLeave, danger: true }))) return
   touched.value = false
   open.value = false
 }
@@ -272,9 +514,9 @@ function endPrint() {
 const printDpi = (pages: number) => (pages <= 10 ? 150 : pages <= 30 ? 110 : 80)
 
 /**
- * Prints the pages with the typed values (drawn as pdf.js prints them), without saving anything. One page at a time is
- * drawn on a canvas, which is emptied right after it became a compressed image; the browser decodes the images only
- * to print them.
+ * Prints the pages with the typed values and the additions (drawn as pdf.js prints them), without saving anything. One
+ * page at a time is drawn on a canvas, which is emptied right after it became a compressed image; the browser decodes
+ * the images only to print them.
  */
 async function print() {
   const lib = pdfjs
@@ -282,6 +524,7 @@ async function print() {
   if (!lib || !doc || busy.value) return
   busy.value = true
   endPrint()
+  finishEditing()
   // Closed (or reopened) meanwhile: the document is gone; stop quietly and drop what was drawn.
   const current = generation
   const stale = () => current !== generation
@@ -302,7 +545,6 @@ async function print() {
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
       canvas.width = 0
       canvas.height = 0
-      page.cleanup()
       if (!blob) throw new Error('no image')
       const url = URL.createObjectURL(blob)
       printUrls.push(url)
@@ -348,6 +590,7 @@ const sheet = reactive({ typeId: 0, folder: 'correspondence' as EmployeeDocument
 
 async function startSave() {
   if (busy.value || !pdf) return
+  finishEditing()
   if (props.replace) return void persist({ mode: 'replace', ...props.replace })
   const target = props.target
   if (!target) return
@@ -391,9 +634,10 @@ async function persist(save: FillSave) {
   if (!doc || busy.value) return
   busy.value = true
   try {
+    finishEditing()
     const bytes = await doc.saveDocument()
     // The server checks the size and the file again.
-    if (bytes.length > MAX_DOCUMENT_BYTES) return void toast.add({ title: de.errors.document_too_large, color: 'error' })
+    if (bytes.length > MAX_DOCUMENT_BYTES) return void toast.add({ title: t.tooLarge, color: 'error' })
     const request = fillSaveRequest(save, new Blob([bytes], { type: 'application/pdf' }))
     await $fetch<unknown>(request.url, { method: request.method, body: request.body })
     touched.value = false
@@ -421,7 +665,8 @@ onBeforeUnmount(() => {
   release()
 })
 
-const subtitle = computed(() => (props.target ? t.forTarget(props.target.name) : props.replace ? t.fillMore : ''))
+const subtitle = computed(() => (props.target ? t.forTarget(props.target.name) : props.replace ? t.editing : ''))
+const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '' : t.toolHint[tool.value]))
 </script>
 
 <template>
@@ -437,34 +682,66 @@ const subtitle = computed(() => (props.target ? t.forTarget(props.target.name) :
             <p v-if="subtitle" class="truncate text-sm text-gray-600">{{ subtitle }}</p>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
-            <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="t.print" :disabled="busy || status === 'loading' || status === 'failed'" @click="print" />
-            <UButton v-if="status === 'ready'" icon="i-lucide-save" :label="t.save" :loading="busy && !sheetOpen" :disabled="busy" @click="startSave" />
+            <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="t.print" :disabled="busy || status !== 'ready'" @click="print" />
+            <UButton icon="i-lucide-save" :label="t.save" :loading="busy && !sheetOpen" :disabled="busy || status !== 'ready'" @click="startSave" />
             <UButton color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="t.close" :title="t.close" :disabled="busy" @click="requestClose" />
           </div>
         </header>
 
-        <div v-if="pageCount" class="flex flex-wrap items-center justify-center gap-1.5 border-b border-gray-200 bg-white px-3 py-1.5 text-sm">
+        <div v-if="status === 'ready'" class="border-b border-gray-200 bg-white px-2 py-1.5">
+          <!-- The tools: one row that scrolls sideways on a phone. -->
+          <div role="toolbar" :aria-label="t.tools" class="flex items-center gap-1 overflow-x-auto">
+            <UButton
+              v-for="entry in tools" :key="entry" size="sm" :icon="TOOL_ICONS[entry]" :label="t.tool[entry]"
+              :color="tool === entry ? 'primary' : 'neutral'" :variant="tool === entry ? 'soft' : 'ghost'" class="shrink-0"
+              :aria-pressed="entry === 'signature' ? undefined : tool === entry" :disabled="!editorsReady && entry !== 'fields'"
+              @click="useTool(entry)"
+            />
+            <span class="mx-1 h-6 w-px shrink-0 bg-gray-200" aria-hidden="true" />
+            <UButton
+              size="sm" color="neutral" variant="ghost" icon="i-lucide-trash-2" :label="t.deleteItem" :title="t.deleteItemHint" class="shrink-0"
+              :disabled="!editorState.hasSelection" @click="deleteSelected"
+            />
+            <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-undo-2" :label="t.undo" class="shrink-0" :disabled="!editorState.canUndo" @click="undo" />
+          </div>
+          <div v-if="tool === 'text'" role="group" :aria-label="t.fontSize" class="mt-1 flex items-center gap-1 text-sm">
+            <span class="px-1 text-gray-600">{{ t.fontSize }}:</span>
+            <UButton
+              v-for="name in (['small', 'normal', 'large'] as const)" :key="name" size="xs" :label="t.fontSizes[name]"
+              :color="fontSize === name ? 'primary' : 'neutral'" :variant="fontSize === name ? 'soft' : 'ghost'" :aria-pressed="fontSize === name"
+              @click="chooseFontSize(name)"
+            />
+          </div>
+          <p v-if="toolHint" class="mt-1 px-1 text-xs text-gray-600" aria-live="polite">{{ toolHint }}</p>
+        </div>
+
+        <div v-if="pageCount" class="flex flex-wrap items-center justify-center gap-1.5 border-b border-gray-200 bg-white px-3 py-1 text-sm">
           <UButton color="neutral" variant="ghost" icon="i-lucide-chevron-left" :aria-label="t.previousPage" :disabled="pageNumber <= 1" @click="goTo(pageNumber - 1)" />
           <span class="min-w-28 text-center tabular-nums" aria-live="polite">{{ t.page(pageNumber, pageCount) }}</span>
           <UButton color="neutral" variant="ghost" icon="i-lucide-chevron-right" :aria-label="t.nextPage" :disabled="pageNumber >= pageCount" @click="goTo(pageNumber + 1)" />
           <span class="mx-2 h-5 w-px bg-gray-200" aria-hidden="true" />
-          <UButton color="neutral" variant="ghost" icon="i-lucide-zoom-out" :aria-label="t.zoomOut" :title="t.zoomOut" :disabled="zoom <= ZOOMS[0]!" @click="zoomBy(-1)" />
+          <UButton color="neutral" variant="ghost" icon="i-lucide-zoom-out" :aria-label="t.zoomOut" :title="t.zoomOut" :disabled="zoom <= ZOOMS[0] + 0.001" @click="zoomBy(-1)" />
           <UButton color="neutral" variant="ghost" :label="`${Math.round(zoom * 100)} %`" :aria-label="t.zoomFit" :title="t.zoomFit" @click="zoomFit" />
-          <UButton color="neutral" variant="ghost" icon="i-lucide-zoom-in" :aria-label="t.zoomIn" :title="t.zoomIn" :disabled="zoom >= ZOOMS[ZOOMS.length - 1]!" @click="zoomBy(1)" />
+          <UButton color="neutral" variant="ghost" icon="i-lucide-zoom-in" :aria-label="t.zoomIn" :title="t.zoomIn" :disabled="zoom >= ZOOMS[ZOOMS.length - 1]! - 0.001" @click="zoomBy(1)" />
         </div>
 
         <UAlert v-if="replace && status === 'ready'" class="rounded-none" color="info" variant="soft" :title="t.replaceHint[replace.kind]" />
-        <UAlert v-if="status === 'noFields'" class="rounded-none" color="warning" variant="soft" :title="t.noFields" />
+        <UAlert v-if="status === 'ready' && !hasFields" class="rounded-none" color="info" variant="soft" :title="t.noFields" />
 
-        <div ref="scrollEl" class="min-h-0 flex-1 overflow-auto p-2" @input="onInput" @change="onInput">
+        <div class="relative min-h-0 flex-1">
           <p v-if="status === 'loading'" class="p-4 text-sm text-gray-600">{{ t.opening }}</p>
           <p v-else-if="status === 'failed'" class="p-4 text-sm text-red-700" role="alert">{{ t.failed }}</p>
-          <div v-show="status === 'ready' || status === 'noFields'" ref="pageEl" class="pdf-fill-page relative mx-auto bg-white shadow ring-1 ring-gray-200">
-            <canvas ref="canvasEl" class="absolute inset-0 size-full" aria-hidden="true" />
-            <div ref="layerEl" class="annotationLayer" />
+          <!-- pdf.js's viewer needs an absolutely placed scroll box with the pages' box as its first child. -->
+          <div
+            v-show="status === 'ready'" ref="containerEl" class="pdf-fill-view absolute inset-0 overflow-auto"
+            @pointerdown="onPagePointerDown" @pointerup="onPagePointerUp" @pointercancel="onPagePointerCancel"
+          >
+            <div ref="viewerEl" class="pdfViewer" />
           </div>
         </div>
       </div>
+
+      <PdfSignaturePad v-model:open="padOpen" @done="placeSignature" />
 
       <UModal v-model:open="sheetOpen" :title="t.saveTitle" :dismissible="!busy">
         <template #body>
@@ -507,104 +784,26 @@ const subtitle = computed(() => (props.target ? t.forTarget(props.target.name) :
 
 <style>
 /*
- * The fields of the form above the page (the part of pdf.js's viewer styles the annotation layer needs). Sizes follow
- * --total-scale-factor, which the page box sets for the zoom.
+ * pdf.js's viewer styles (pdfjs-dist/web/pdf_viewer.css) come with the fill view; here only what differs: light colours
+ * always, pinching handled by the viewer (not the browser), and of the editors' small toolbar only the delete button
+ * (no colours, alt text or comments).
  */
-.pdf-fill-page .annotationLayer {
-  position: absolute;
-  inset: 0 auto auto 0;
-  pointer-events: none;
-  transform-origin: 0 0;
+.pdf-fill-view {
   color-scheme: only light;
+  touch-action: pan-x pan-y;
 }
-.pdf-fill-page .annotationLayer[data-main-rotation="90"] {
-  transform: rotate(90deg) translateY(-100%);
+.pdf-fill-view .editToolbar :is(.colorPicker, .basicColorPicker, .altText, .comment, .divider) {
+  display: none !important;
 }
-.pdf-fill-page .annotationLayer[data-main-rotation="180"] {
-  transform: rotate(180deg) translate(-100%, -100%);
+/* The editor layer's large font size (pdf.js scales text boxes with it) would push the delete icon off its button. */
+.pdf-fill-view .editToolbar {
+  font-size: 12px;
+  line-height: 1;
 }
-.pdf-fill-page .annotationLayer[data-main-rotation="270"] {
-  transform: rotate(270deg) translateX(-100%);
-}
-.pdf-fill-page .annotationLayer section {
-  position: absolute;
-  text-align: initial;
-  pointer-events: auto;
-  box-sizing: border-box;
-  transform-origin: 0 0;
-  user-select: none;
-}
-.pdf-fill-page .annotationLayer .hasOwnCanvas:not(.sandboxModified) :is(input, textarea) {
-  /* A read-only field is drawn on its own canvas; it has nothing to type in. */
-  display: none;
-}
-/* The looks pdf.js drew for a field lie under its input; taps go to the input. */
-.pdf-fill-page .annotationLayer section canvas,
-.pdf-fill-page .annotationLayer .annotationContent {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.pdf-fill-page .annotationLayer :is(.linkAnnotation, .buttonWidgetAnnotation.pushButton) > a {
-  position: absolute;
-  inset: 0;
-}
-.pdf-fill-page .annotationLayer :is(.textWidgetAnnotation :is(input, textarea), .choiceWidgetAnnotation select, .buttonWidgetAnnotation:is(.checkBox, .radioButton) input) {
-  /* As an image: pdf.js sets the field's own background colour inline (often transparent). */
-  background-image: linear-gradient(rgb(0 54 255 / 0.13), rgb(0 54 255 / 0.13));
-  border: 2px solid transparent;
-  box-sizing: border-box;
-  font: calc(9px * var(--total-scale-factor)) sans-serif;
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0 2px;
+.pdf-fill-view .editToolbar .basic::before {
   vertical-align: top;
-  color: black;
 }
-.pdf-fill-page .annotationLayer .textWidgetAnnotation textarea {
-  resize: none;
-}
-.pdf-fill-page .annotationLayer :is(.textWidgetAnnotation :is(input, textarea), .choiceWidgetAnnotation select):focus {
-  background: none;
-  border-color: #0284c7;
-  border-radius: 2px;
-  outline: none;
-}
-.pdf-fill-page .annotationLayer :is(input, textarea, select)[disabled] {
-  background: none;
-  cursor: not-allowed;
-}
-.pdf-fill-page .annotationLayer .textWidgetAnnotation input.comb {
-  font-family: monospace;
-  padding: 0;
-}
-.pdf-fill-page .annotationLayer .buttonWidgetAnnotation:is(.checkBox, .radioButton) input {
-  appearance: none;
-  padding: 0;
-}
-.pdf-fill-page .annotationLayer .buttonWidgetAnnotation.radioButton input {
-  border-radius: 50%;
-}
-.pdf-fill-page .annotationLayer .buttonWidgetAnnotation:is(.checkBox, .radioButton) input:focus {
-  border-color: #0284c7;
-}
-/* The looks pdf.js drew for the two states: only the current one shows. */
-.pdf-fill-page .annotationLayer [data-canvas-name="checked"]:has(~ input:not(:checked)),
-.pdf-fill-page .annotationLayer [data-canvas-name="unchecked"]:has(~ input:checked) {
-  display: none;
-}
-/* A box without drawn looks gets a plain tick. */
-.pdf-fill-page .annotationLayer .buttonWidgetAnnotation:is(.checkBox, .radioButton):not(:has([data-canvas-name])) input:checked {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3 3 7-7' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E"), linear-gradient(rgb(0 54 255 / 0.13), rgb(0 54 255 / 0.13));
-  background-position: center;
-  background-size: contain;
-  background-repeat: no-repeat;
-}
-.pdf-fill-page .annotationLayer .popupAnnotation,
-.pdf-fill-page .annotationLayer .popup {
+.pdf-fill-view .annotationLayer :is(.popupAnnotation, .popup) {
   display: none;
 }
 

@@ -80,8 +80,8 @@ async function remove(document: EmployeeDocumentDto) {
   }
 }
 
-// Filling PDF forms: „Aus Vorlage ausfüllen“ (the facility's fillable templates the viewer sees) into a new document of
-// a folder the viewer may use, „Weiter ausfüllen“ of a document that still has form fields (replaces its file, with the
+// Filling PDFs: „Aus Vorlage ausfüllen“ (the facility's templates the viewer sees) into a new document of a folder the
+// viewer may use, „Bearbeiten“ of a PDF document (fields, text, tick, cross, signature; replaces its file, with the
 // folder's key like every change).
 const { can } = useCan()
 const mayFill = computed(() => can('printTemplates.view'))
@@ -91,7 +91,7 @@ const { data: templateList, execute: loadTemplates, status: templateStatus } = u
 watch(() => props.active && mayFill.value && folders.value.length > 0, (wanted) => {
   if (wanted && templateStatus.value === 'idle') void loadTemplates()
 }, { immediate: true })
-const fillableTemplates = computed(() => (templateList.value ?? []).filter(template => template.fillable))
+const fillTemplates = computed(() => templateList.value ?? [])
 const fillTarget = computed<FillTarget>(() => ({ kind: 'employee', id: props.employeeId, name: props.employeeName }))
 const fromTemplateOpen = ref(false)
 const refilling = ref<EmployeeDocumentDto | null>(null)
@@ -117,7 +117,7 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
       <p class="text-sm text-gray-500">{{ t.hint }}</p>
     </div>
     <UButton
-      v-if="documents && folders.length && fillableTemplates.length" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil-line"
+      v-if="documents && folders.length && fillTemplates.length" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil-line"
       :label="de.pdfFill.fromTemplate" :disabled="busy" @click="fromTemplateOpen = true"
     />
   </div>
@@ -149,8 +149,8 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
             <a :href="employeeDocumentUrl(document.id)" target="_blank" rel="noopener" :class="iconLink" :aria-label="t.open" :title="t.open"><UIcon name="i-lucide-external-link" class="size-4" /></a>
             <a :href="employeeDocumentUrl(document.id, true)" :class="iconLink" :aria-label="t.download" :title="t.download"><UIcon name="i-lucide-download" class="size-4" /></a>
             <UButton
-              v-if="document.fillable" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil-line" :label="de.pdfFill.fillMore"
-              :disabled="busy" @click="refill(document)"
+              v-if="document.mimeType === 'application/pdf'" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil-line"
+              :label="de.pdfFill.edit" :aria-label="de.pdfFill.editLabel(titleOf(document))" :disabled="busy" @click="refill(document)"
             />
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="busy" @click="openEdit(document)" />
             <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(document)" />
@@ -160,7 +160,7 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
     </section>
   </template>
 
-  <PdfFillStart v-if="folders.length" v-model:open="fromTemplateOpen" :target="fillTarget" :templates="fillableTemplates" @saved="afterFill" />
+  <PdfFillStart v-if="folders.length" v-model:open="fromTemplateOpen" :target="fillTarget" :templates="fillTemplates" @saved="afterFill" />
   <PdfFillDialog
     v-if="refilling" v-model:open="refillOpen" :source="{ url: employeeDocumentUrl(refilling.id), title: titleOf(refilling) }"
     :replace="{ kind: 'employee', documentId: refilling.id }" @saved="afterFill" @update:open="onRefillOpen"

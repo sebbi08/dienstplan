@@ -29,8 +29,9 @@ const canEditGlobal = computed(() => can('printTemplates.global'))
 // The visibilities the editor may give a category (or a template for all facilities): those of the own role.
 const categoryLevels = computed(() => (user.value ? visibleTemplateLevels(user.value.role) : []))
 const { activeName } = useFacilities()
-// „Ausfüllen“: a fillable template for a child or a person of the team, where the viewer may add documents (the tablet only
-// while unlocked by such a person). Unsaved input in the fill view asks before the page is left.
+// „Ausfüllen“: any template (all are PDFs: fields, text, tick, cross, signature) for a child or a person of the team,
+// where the viewer may add documents (the tablet only while unlocked by such a person). Unsaved input in the fill view
+// asks before the page is left.
 const { rights, onTablet } = useChildRights()
 const fillTargets = computed(() => fillKinds({ onTablet: onTablet.value, tabletMayEdit: rights.value?.canEdit ?? false, can }))
 const filling = ref<{ id: number; title: string } | undefined>(undefined)
@@ -229,7 +230,7 @@ async function remove(template: PrintTemplateDto) {
     <div class="flex flex-wrap items-center gap-3">
       <p class="min-w-60 flex-1 text-sm text-gray-600">
         {{ de.printTemplates.intro }}
-        <template v-if="fillTargets.length && templates.some(template => template.fillable)"> {{ de.pdfFill.libraryHint }}</template>
+        <template v-if="fillTargets.length && templates.length"> {{ de.pdfFill.libraryHint }}</template>
       </p>
       <div v-if="canEdit" class="flex flex-wrap gap-2">
         <UButton color="neutral" variant="outline" icon="i-lucide-folder-cog" :label="de.printTemplates.manageCategories" @click="managing = true" />
@@ -288,7 +289,7 @@ async function remove(template: PrintTemplateDto) {
                 icon="i-lucide-printer" :label="de.printTemplates.open"
               />
               <UButton
-                v-if="template.fillable && fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
+                v-if="fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
                 :label="de.pdfFill.fill" @click="startFill(template)"
               />
               <template v-if="canEdit && template.canEdit">

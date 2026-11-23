@@ -24,14 +24,14 @@ function view(document: ChildDocumentDto) {
   viewing.value = { id: document.id, title: document.title || document.typeName, mimeType: document.mimeType }
 }
 
-// Filling PDF forms: „Aus Vorlage ausfüllen“ (the facility's fillable templates the viewer sees) into a new document,
-// „Weiter ausfüllen“ of a document that still has form fields (replaces its file). Same rights as uploading and changing.
+// Filling PDFs: „Aus Vorlage ausfüllen“ (the facility's templates the viewer sees) into a new document, „Bearbeiten“ of a
+// PDF document (fields, text, tick, cross, signature; replaces its file). Same rights as uploading and changing.
 const { can } = useCan()
 const mayFill = computed(() => props.child.canEdit && (onTablet.value || can('printTemplates.view')))
 const { data: templateList } = useFetch<PrintTemplateDto[]>('/api/print-templates', {
   key: 'fill-templates', server: false, lazy: true, default: () => [], immediate: mayFill.value,
 })
-const fillableTemplates = computed(() => (mayFill.value ? (templateList.value ?? []).filter(template => template.fillable) : []))
+const fillTemplates = computed(() => (mayFill.value ? templateList.value ?? [] : []))
 const fillTarget = computed<FillTarget>(() => ({ kind: 'child', id: props.child.id, name: `${props.child.master.firstName} ${props.child.master.lastName}` }))
 const fromTemplateOpen = ref(false)
 const refilling = ref<ChildDocumentDto | null>(null)
@@ -114,7 +114,7 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
   <ChildrenChildSection :title="de.children.sections.documents" :can-edit="false">
     <template v-if="child.canEdit" #actions>
       <UButton
-        v-if="fillableTemplates.length" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil-line"
+        v-if="fillTemplates.length" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil-line"
         :label="de.pdfFill.fromTemplate" @click="fromTemplateOpen = true"
       />
       <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-upload" :label="de.childDocuments.upload" @click="openNew" />
@@ -148,8 +148,8 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
           </template>
           <template v-if="child.canEdit && document.canOpen">
             <UButton
-              v-if="document.fillable" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil-line" :label="de.pdfFill.fillMore"
-              :disabled="busy" @click="refill(document)"
+              v-if="document.mimeType === 'application/pdf'" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil-line"
+              :label="de.pdfFill.edit" :aria-label="de.pdfFill.editLabel(document.title || document.typeName)" :disabled="busy" @click="refill(document)"
             />
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="busy" @click="openEdit(document)" />
             <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(document)" />
@@ -158,7 +158,7 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
       </li>
     </ul>
 
-    <PdfFillStart v-if="child.canEdit" v-model:open="fromTemplateOpen" :target="fillTarget" :templates="fillableTemplates" @saved="afterFill" />
+    <PdfFillStart v-if="child.canEdit" v-model:open="fromTemplateOpen" :target="fillTarget" :templates="fillTemplates" @saved="afterFill" />
     <PdfFillDialog
       v-if="refilling" v-model:open="refillOpen" :source="{ url: documentFileUrl(refilling.id), title: refilling.title || refilling.typeName }"
       :replace="{ kind: 'child', documentId: refilling.id }" @saved="afterFill" @update:open="onRefillOpen"

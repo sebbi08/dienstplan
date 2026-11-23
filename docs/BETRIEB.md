@@ -1618,46 +1618,66 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
 
 ### Formulare in der App ausfüllen
 
-Manche PDF-Vorlagen haben **Formularfelder** (Textfelder, Kästchen zum Ankreuzen, Auswahllisten) – z. B. eine
-Einverständniserklärung oder die Unfallanzeige der Unfallkasse. Solche Vorlagen erkennt die App von selbst und zeigt
-neben **Öffnen** den Knopf **Ausfüllen**. Vorlagen ohne Felder (z. B. ein eingescanntes Blatt) haben ihn nicht.
+Jede PDF-Vorlage lässt sich in der App ausfüllen: neben **Öffnen** steht der Knopf **Ausfüllen**. Hat die Vorlage
+**Formularfelder** (Textfelder, Kästchen zum Ankreuzen, Auswahllisten – z. B. eine Einverständniserklärung oder die
+Unfallanzeige der Unfallkasse), füllst du diese aus. Auf jede Vorlage, auch ein eingescanntes Blatt ohne Felder, kannst
+du außerdem überall **Text**, ein **Häkchen**, ein **Kreuz** und eine **Unterschrift** setzen.
 
 - **Für wen**: Nach **Ausfüllen** wählst du **für ein Kind** oder **für eine Person aus dem Team** und suchst das Kind
   bzw. die Person in der Liste (Name eintippen). Angeboten wird nur, wohin du auch Dokumente hochladen darfst: Kinder,
   deren Akte du ändern darfst (wie beim Hochladen eines Dokuments), und Personen, deren Personalakte du siehst und in
   deren Fächer du Dokumente ablegen darfst. Wer beides nicht darf, sieht den Knopf **Ausfüllen** nicht.
-- **Ausfüllen**: Das Formular erscheint groß auf dem Bildschirm, die Felder lassen sich antippen und ausfüllen. Oben
-  wechselst du die **Seite** (Pfeile) und machst die Ansicht **größer oder kleiner** (Lupen; die Prozentzahl stellt
-  wieder auf die volle Breite) – praktisch am Handy und am Tablet.
-- **Drucken** druckt das Formular mit den Eingaben, **ohne** es zu speichern.
-- **Speichern** legt das ausgefüllte Formular als neues Dokument ab:
+- **Ansicht**: Die Vorlage erscheint groß auf dem Bildschirm, die Seiten untereinander. Oben wechselst du die
+  **Seite** (Pfeile) und machst die Ansicht **größer oder kleiner** (Lupen; die Prozentzahl stellt wieder auf die
+  volle Breite). Am Handy und am Tablet geht das auch mit zwei Fingern (auseinanderziehen bzw. zusammenschieben).
+- **Werkzeuge** (Leiste über der Seite; der grüne Knopf ist das gewählte Werkzeug, darunter steht ein kurzer Hinweis):
+  - **Felder** (nur bei Vorlagen mit Formularfeldern): Felder antippen und ausfüllen.
+  - **Text**: Auf die Stelle tippen, an die der Text soll, und schreiben. Die **Schriftgröße** (klein, normal, groß)
+    gilt für neue Texte und für den gerade ausgewählten Text.
+  - **Häkchen** und **Kreuz**: Auf die Stelle tippen – das Zeichen erscheint dort. So kannst du mehrere setzen.
+  - **Unterschrift**: Es öffnet sich ein weißes Feld. Darin mit dem Finger, einem Stift oder der Maus unterschreiben
+    (**Neu anfangen** wischt es leer) und **Einfügen** tippen. Die Unterschrift erscheint in der Mitte der Seite; schieb
+    sie an ihren Platz, an den Ecken änderst du die Größe.
+  - **Auswählen**: Etwas Eingefügtes antippen wählt es aus (bei einem Text wechselt die App dabei zum Werkzeug
+    **Text**). Danach verschiebst du es durch Ziehen, an den Ecken änderst du die Größe, oder du löschst es. Einen Text
+    änderst du, indem du ihn zweimal antippst.
+  - **Löschen** entfernt, was gerade ausgewählt ist (ebenso der kleine Papierkorb daneben), **Rückgängig** nimmt den
+    letzten Schritt beim Einfügen, Verschieben oder Löschen zurück.
+- **Drucken** druckt die Seiten mit allen Eingaben, **ohne** etwas zu speichern.
+- **Speichern** legt die ausgefüllte Vorlage als neues Dokument ab:
   - **bei einem Kind** in der Kinderakte unter **Dokumente**. Du wählst die **Art** (vorgeschlagen: die Art mit dem
     Namen der Vorlage, sonst „Sonstiges“), das **Datum** (heute) und die **Bezeichnung** (vorgeschlagen: Titel der
     Vorlage und Datum, z. B. „Einverständnis Ausflug 20.11.2026“). **Vertraulich** ist es, wenn die Art das so vorsieht;
     das lässt sich ändern.
   - **bei einer Person** in der Personalakte (Reiter **Nachweise** → **Dokumente**) in einem **Fach**, das du nutzen
     darfst, mit Datum und Bezeichnung wie oben.
+  Text, Häkchen, Kreuz und Unterschrift werden als normale PDF-Anmerkungen gespeichert, die jedes PDF-Programm anzeigt
+  und druckt. Wäre die Datei größer als **10 MB**, sagt die App das und speichert nicht.
 - **Schließen** mit noch nicht gespeicherten Eingaben fragt vorher nach; ebenso, wenn du die Seite verlässt.
 - **Die Vorlage selbst ändert sich nie.** Die Eingaben bleiben nur auf dem Gerät, bis du speicherst.
-- **Weiter ausfüllen**: Ein gespeichertes Formular, das noch Felder hat, zeigt in der Kinderakte bzw. Personalakte den
-  Knopf **Weiter ausfüllen**. Es öffnet sich mit den bisherigen Eingaben; **Speichern** ersetzt dann die Datei dieses
+- **Bearbeiten**: Jedes gespeicherte PDF in der Kinderakte bzw. Personalakte hat den Knopf **Bearbeiten**. Es öffnet
+  sich mit den bisherigen Eingaben; was mit der App eingefügt wurde (Text, Häkchen, Kreuz, Unterschrift), lässt sich
+  mit **Auswählen** bzw. **Text** wieder verschieben, ändern oder löschen. **Speichern** ersetzt dann die Datei dieses
   Dokuments. Art, Bezeichnung, das Datum des Dokuments (und das Fach) bleiben, „hochgeladen von … am …“ zeigt danach,
   wer zuletzt gespeichert hat und wann. Das Speichern zählt wie ein neues Hochladen: Muss nach einem Gruppenwechsel
   oder für einen Vertrag ein Dokument dieser Art neu eingereicht werden, gilt es damit als eingereicht. Das darf, wer
   das Dokument auch ändern darf.
 - **Aus Vorlage ausfüllen**: In der Kinderakte (Dokumente) und in der Personalakte (Nachweise → Dokumente) gibt es
-  außerdem den Knopf **Aus Vorlage ausfüllen**. Er zeigt die Vorlagen der Einrichtung mit Feldern, die du sehen darfst;
-  Kind bzw. Person sind schon gewählt.
+  außerdem den Knopf **Aus Vorlage ausfüllen**. Er zeigt die Vorlagen der Einrichtung, die du sehen darfst; Kind bzw.
+  Person sind schon gewählt.
 - **Am Tablet** geht das nur bei Kindern und nur, wenn das Tablet mit einer PIN entsperrt ist, deren Person Dokumente in
-  Kinderakten hochladen darf (in der Kinderakte: **Aus Vorlage ausfüllen** und **Weiter ausfüllen**). Personalakten
-  gibt es am Tablet nicht. Unter **Vorlagen** auf der Startseite (ohne PIN) gibt es deshalb kein **Ausfüllen**.
+  Kinderakten hochladen darf (in der Kinderakte: **Aus Vorlage ausfüllen** und **Bearbeiten**). Personalakten gibt es
+  am Tablet nicht. Unter **Vorlagen** auf der Startseite (ohne PIN) gibt es deshalb kein **Ausfüllen**.
 - Es gelten dieselben Regeln wie beim Hochladen: nur PDF, höchstens **10 MB**, nur in der eigenen Einrichtung.
+- **Unterschrift**: Eine so gezeichnete Unterschrift ist eine **einfache elektronische Signatur** – keine
+  qualifizierte elektronische Signatur. Wo das Gesetz die Schriftform verlangt (z. B. bei der Kündigung eines
+  Arbeitsverhältnisses), reicht sie nicht; dann bitte auf Papier unterschreiben.
+  Die Unterschrift steckt nur in dem gespeicherten PDF in der Akte. Die App speichert sie nirgends sonst (auch nicht auf
+  dem Gerät) und bietet sie nicht zum Wiederverwenden an; das Unterschriftenfeld wird nach dem Einfügen geleert.
 - Felder mit Rechenformeln oder Prüfungen (Skripte im PDF) rechnet die App nicht aus; solche Felder füllst du von Hand.
-  Ist ein PDF verschlüsselt oder sehr ungewöhnlich aufgebaut, erkennt die App die Felder unter Umständen nicht; dann
-  fehlt **Ausfüllen**. Ob eine Datei Felder hat, prüft die App einmal beim Hochladen bzw. Ersetzen.
-- **Nach dem Update**: Vorlagen und Dokumente, die schon vorher da waren, prüft die App nach dem Start im Hintergrund,
-  nach und nach. Bis eine Datei geprüft ist (meist nach wenigen Sekunden bis Minuten), fehlt bei ihr **Ausfüllen** bzw.
-  **Weiter ausfüllen**.
+  Ist ein PDF verschlüsselt oder sehr ungewöhnlich aufgebaut, erkennt die App die Felder unter Umständen nicht; Text,
+  Häkchen, Kreuz und Unterschrift gehen trotzdem. Ob eine Datei Felder hat, prüft die App einmal beim Hochladen bzw.
+  Ersetzen.
 
 ## 20. Personalschlüssel
 

@@ -6,7 +6,7 @@ import { fillKinds, searchTargets, type FillKind, type FillTarget } from '~/util
 import { templateFileUrl } from '~/utils/printTemplates'
 
 /**
- * Starts filling a form: picks what is missing — the template (from the facility's fillable templates the viewer sees,
+ * Starts filling a PDF: picks what is missing — the template (from the facility's templates the viewer sees, all PDFs,
  * e.g. „Aus Vorlage ausfüllen“ in a record) and/or for whom („für ein Kind“ / „für eine Person aus dem Team“, only
  * the kinds and the children or persons the viewer may add documents to, searchable) — and then opens the fill view.
  */
@@ -40,7 +40,7 @@ const template = computed(() => props.template ?? chosenTemplate.value)
 const target = computed(() => props.target ?? chosenTarget.value)
 const step = computed<'template' | 'target' | null>(() => (!template.value ? 'template' : !target.value ? 'target' : null))
 
-const templateEntries = computed<Entry[]>(() => (templates.value ?? []).filter(entry => entry.fillable)
+const templateEntries = computed<Entry[]>(() => (templates.value ?? [])
   .map(entry => ({ id: entry.id, name: entry.title, note: entry.category || null })))
 const shown = computed(() => searchTargets(step.value === 'template' ? templateEntries.value : people.value ?? [], query.value))
 const loading = computed(() => (step.value === 'template' ? templates.value === null : people.value === null) && !loadError.value)

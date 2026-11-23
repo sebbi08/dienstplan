@@ -1354,10 +1354,16 @@ export const de = {
     viewerFailed: 'Das Dokument konnte nicht angezeigt werden.', viewerLoading: 'Das Dokument wird geladen …', takePhoto: 'Foto aufnehmen',
     photoChosen: (name: string) => `Foto ausgewählt: ${name}`,
   },
-  /** Filling PDF forms in the app and saving the filled copy to a child's record or a personnel file. */
+  /**
+   * Filling PDFs in the app (form fields, text, tick, cross, signature) and saving the filled copy to a child's record or
+   * a personnel file.
+   */
   pdfFill: {
-    fill: 'Ausfüllen', fillMore: 'Weiter ausfüllen', fromTemplate: 'Aus Vorlage ausfüllen',
-    libraryHint: '„Ausfüllen“ öffnet ein Formular mit Feldern hier in der App, danach kommt es in die Akte eines Kindes oder einer Person.',
+    fill: 'Ausfüllen', fromTemplate: 'Aus Vorlage ausfüllen',
+    // A saved PDF in a record: opens again with what was added; saving replaces its file.
+    edit: 'Bearbeiten', editLabel: (title: string) => `„${title}“ im PDF bearbeiten`, editing: 'Gespeichertes PDF bearbeiten',
+    libraryHint: '„Ausfüllen“ öffnet eine Vorlage hier in der App: Felder ausfüllen, Text, Häkchen, Kreuz und Unterschrift '
+      + 'einfügen. Danach kommt sie in die Akte eines Kindes oder einer Person.',
     // Start: which template, for whom.
     startTitle: (title: string) => `„${title}“ ausfüllen`,
     forWhom: 'Für wen?', kinds: { child: 'für ein Kind', employee: 'für eine Person aus dem Team' },
@@ -1367,11 +1373,33 @@ export const de = {
       employee: 'Es gibt keine Person, in deren Personalakte du Dokumente ablegen darfst.',
     },
     noMatch: 'Nichts gefunden.', planned: 'noch nicht in der Kita', left: 'ausgeschieden', loading: 'Wird geladen …',
-    noTemplates: 'Es gibt keine Vorlagen zum Ausfüllen. Vorlagen mit Formularfeldern legt die Leitung unter „Dokumente → Vorlagen“ ab.',
+    noTemplates: 'Es gibt keine Vorlagen zum Ausfüllen. PDF-Vorlagen legt die Leitung unter „Dokumente → Vorlagen“ ab.',
     // The fill view.
     forTarget: (name: string) => `für ${name}`,
     opening: 'Das Formular wird geladen …', failed: 'Das Formular konnte nicht geöffnet werden.',
-    noFields: 'Diese Datei hat keine Felder zum Ausfüllen. Du kannst sie nur drucken.',
+    noFields: 'Diese Datei hat keine Formularfelder. Mit „Text“, „Häkchen“, „Kreuz“ und „Unterschrift“ füllst du sie trotzdem aus.',
+    // The tools above the page.
+    tools: 'Werkzeuge',
+    tool: { fields: 'Felder', select: 'Auswählen', text: 'Text', check: 'Häkchen', cross: 'Kreuz', signature: 'Unterschrift' },
+    toolHint: {
+      fields: 'Tippe in ein Feld, um es auszufüllen.',
+      select: 'Tippe auf etwas, das du eingefügt hast, um es auszuwählen. Danach verschiebst du es durch Ziehen, '
+        + 'an den Ecken änderst du die Größe.',
+      text: 'Tippe auf die Stelle, an die der Text soll, und schreib los.',
+      check: 'Tippe auf die Stelle für das Häkchen.', cross: 'Tippe auf die Stelle für das Kreuz.',
+      signature: 'Schieb die Unterschrift an ihren Platz. An den Ecken änderst du die Größe.',
+    },
+    deleteItem: 'Löschen', deleteItemHint: 'Löscht, was gerade ausgewählt ist', undo: 'Rückgängig',
+    fontSize: 'Schriftgröße', fontSizes: { small: 'klein', normal: 'normal', large: 'groß' },
+    // The signature pad (the drawing stays only in the saved PDF).
+    padTitle: 'Unterschreiben', padHint: 'Unterschreib mit dem Finger, einem Stift oder der Maus im weißen Feld.',
+    padLabel: 'Feld zum Unterschreiben', padClear: 'Neu anfangen', padPlace: 'Einfügen', padEmpty: 'Bitte zuerst unterschreiben.',
+    // pdf.js's own labels at what was added (screen readers, tooltips).
+    pdfjs: {
+      remove: 'Löschen', textBox: 'Text', textPlaceholder: 'Text eingeben …', mark: 'Zeichen oder Unterschrift', resize: 'Größe ändern',
+      page: (number: number) => `Seite ${number}`,
+    },
+    tooLarge: 'Das ausgefüllte PDF ist größer als 10 MB und kann deshalb nicht gespeichert werden.',
     page: (number: number, total: number) => `Seite ${number} von ${total}`, previousPage: 'Vorherige Seite', nextPage: 'Nächste Seite',
     zoomIn: 'Größer', zoomOut: 'Kleiner', zoomFit: 'An die Breite anpassen',
     print: 'Drucken', save: 'Speichern', close: 'Schließen', printFailed: 'Das Formular konnte nicht gedruckt werden.',
