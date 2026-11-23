@@ -50,6 +50,13 @@ describe('filledAnswers', () => {
     expect(isBlank('  ')).toBe(true)
     expect(isBlank('x')).toBe(false)
   })
+
+  it('treats formatted text without characters as blank', () => {
+    expect(isBlank('<p></p>')).toBe(true)
+    expect(isBlank('<p> <strong> </strong></p><ul><li><p></p></li></ul>')).toBe(true)
+    expect(isBlank('<ul><li><p>x</p></li></ul>')).toBe(false)
+    expect(isBlank('<b></b>')).toBe(false)
+  })
 })
 
 describe('milestoneColumns', () => {

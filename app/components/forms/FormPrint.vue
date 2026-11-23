@@ -10,7 +10,7 @@ import { isBlank, milestoneColumns, sectionBlocks, sectionHasRating, type FormSh
  * The printout of a form, A4 portrait like the paper form: title, the header fields (two per row), the sections
  * (ratings as a table + / ~ / − / Anmerkungen, choices with ☐/☒, milestones as a table by age — one column per age
  * when the ages are like „3;0 Jahre“ —, empty free texts as writing lines) and the signature lines (or, for a team
- * meeting, „freigegeben am … von …“ in their place). The sheet (see talkSheet, childSheet, teamSheet) says what goes
+ * meeting, „freigegeben am … von …“ in their place). Formatted free texts print with their formatting and lists. The sheet (see talkSheet, childSheet, teamSheet) says what goes
  * into the header and under the form.
  */
 const props = defineProps<{ sheet: FormSheet | null | undefined; error?: unknown }>()
@@ -72,7 +72,7 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
             <p v-if="block.item.kind === 'note'" class="whitespace-pre-line text-gray-700">{{ block.item.text }}</p>
             <div v-else-if="block.item.kind === 'text'" class="break-inside-avoid">
               <p class="font-semibold">{{ block.item.question }}</p>
-              <p v-if="!isBlank(textOf(block.item.id))" class="whitespace-pre-line break-words">{{ textOf(block.item.id) }}</p>
+              <FormsRichText v-if="!isBlank(textOf(block.item.id))" :value="textOf(block.item.id)" />
               <div v-else aria-hidden="true">
                 <div v-for="line in 3" :key="line" class="h-6 border-b border-gray-400" />
               </div>

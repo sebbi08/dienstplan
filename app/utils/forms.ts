@@ -1,6 +1,7 @@
 import {
   emptyAnswer, type AnswerableItem, type FormAnswer, type FormAnswers, type FormContent, type FormItem, type FormSection,
 } from '#shared/domain/forms'
+import { richTextToPlain } from '#shared/domain/richText'
 import { formatTime } from '#shared/domain/time'
 import type {
   AccidentFormDto, ChildFormDto, FormTemplateDto, MyTalkFormDto, TeamMeetingDto, TeamMeetingListItemDto,
@@ -104,8 +105,8 @@ export async function saveAnswers(save: FormPanelSave, answers: FormAnswers, bas
   }
 }
 
-/** Whether a text answer is empty (then print shows writing lines). */
-export const isBlank = (value: unknown) => typeof value !== 'string' || value.trim() === ''
+/** Whether a text answer is empty (then print shows writing lines); formatted text counts by its characters. */
+export const isBlank = (value: unknown) => typeof value !== 'string' || richTextToPlain(value).trim() === ''
 
 /** An age label like „3;0“ or „3;0 Jahre“ (years;months), as on the paper forms. */
 const AGE_LABEL = /^\d{1,2};\d{1,2}(?:\s+Jahre?)?$/

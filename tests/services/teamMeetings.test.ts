@@ -123,6 +123,15 @@ describe('team meetings', () => {
     expect(failure(() => reopenTeamMeeting(db, leitung, id, 'x', LATEST))).toBe('409 team_meeting_state_invalid')
   })
 
+  it('formatted minutes are sanitized on save and read back as stored', () => {
+    const id = create(anna)
+    save(anna, id, '<ol><li>Begrüßung<li><u>Termine</u></ol><p style="x">Ende<img src=x onerror=alert(1)></p>', getTeamMeeting(db, anna, id).updatedAt)
+    const stored = '<ol><li><p>Begrüßung</p></li><li><p><u>Termine</u></p></li></ol><p>Ende</p>'
+    expect(getTeamMeeting(db, anna, id).answers[firstItem(id)]).toBe(stored)
+    save(anna, id, stored, getTeamMeeting(db, anna, id).updatedAt, LATEST)
+    expect(getTeamMeeting(db, leitung, id).answers[firstItem(id)]).toBe(stored)
+  })
+
   it('a reopening needs a reason of 1–200 characters', () => {
     const id = create(leitung)
     releaseTeamMeeting(db, leitung, id, LATER)

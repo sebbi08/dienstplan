@@ -2,15 +2,19 @@
 import { fieldNumber, itemLabel, u1000Fields } from '#shared/domain/accidents'
 import { todayIso } from '#shared/domain/dates'
 import type { ChoicesAnswer, DateAnswer, FormItem } from '#shared/domain/forms'
+import { richTextToPlain } from '#shared/domain/richText'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
+import { isBlank } from '~/utils/forms'
 import { U1000_LAYOUT, type U1000Sheet } from '~/utils/u1000'
 
 /**
  * An Unfallanzeige printed like page 1 of the official form U 1000 (A4 portrait, see app/utils/u1000.ts): numbered
  * boxes, ☒/☐ for the choices, empty boxes to fill in by hand, the signature row with field 29's phone number, then the
- * header ticks, the attachments and the legal hint in small print. Signed and sent to the Unfallkasse.
+ * header ticks, the attachments and the legal hint in small print. Signed and sent to the Unfallkasse. Formatted free
+ * texts keep bold/italic/underline but print their paragraphs and list items as lines (with „• “ / „1. “), so the
+ * fixed boxes keep their layout.
  */
 const props = defineProps<{ sheet: U1000Sheet | null | undefined; error?: unknown }>()
 const { user } = useUserSession()
@@ -27,8 +31,9 @@ const dateOf = (id: string) => (props.sheet?.answers[id] as DateAnswer | undefin
 const box = (on: boolean) => (on ? '☒' : '☐')
 /** The label without the leading number (the box shows its number itself). */
 const labelWithoutNumber = (item: FormItem) => (fieldNumber(item) === null ? itemLabel(item) : itemLabel(item).replace(/^\d{1,2}\s+/, ''))
-/** Field 29: the phone number for questions (the text answers of its items). */
-const phone = computed(() => itemsOf(29).filter(item => item.kind === 'text').map(item => textOf(item.id)).filter(Boolean).join(', '))
+/** Field 29: the phone number for questions (the text answers of its items, as plain text on one line). */
+const phone = computed(() => itemsOf(29).filter(item => item.kind === 'text')
+  .map(item => richTextToPlain(textOf(item.id)).replace(/\s*\n\s*/g, ', ').trim()).filter(Boolean).join(', '))
 // A box never splits across pages; the last boxes (27, 28) stay together with the signature row.
 const cell = 'break-inside-avoid border-r border-b border-gray-700 px-1.5 pt-0.5 pb-1 align-top'
 const LAST_BOXES = new Set([27, 28])
@@ -66,7 +71,7 @@ const parts = [
               <p v-if="item.kind !== 'note' || index > 0" class="text-[10px] leading-tight text-gray-700 print:text-[8px]">
                 <span v-if="index === 0" class="font-bold text-gray-900">{{ entry.field }}</span> {{ labelWithoutNumber(item) }}
               </p>
-              <p v-if="item.kind === 'text' && textOf(item.id)" class="whitespace-pre-line break-words">{{ textOf(item.id) }}</p>
+              <FormsRichText v-if="item.kind === 'text' && !isBlank(textOf(item.id))" :value="textOf(item.id)" inline />
               <p v-else-if="item.kind === 'date' && dateOf(item.id)">{{ formatDate(dateOf(item.id)!) }}</p>
               <p v-else-if="item.kind === 'choices'" class="flex flex-wrap gap-x-3">
                 <span v-for="option in item.options" :key="option.id" class="whitespace-nowrap">{{ box(picked(item.id, option.id)) }} {{ option.label }}</span>
@@ -81,7 +86,7 @@ const parts = [
             <p v-if="item.kind === 'note'" class="whitespace-pre-line text-gray-700">{{ item.text }}</p>
             <template v-else>
               <p class="text-[10px] text-gray-700 print:text-[8px]">{{ itemLabel(item) }}</p>
-              <p v-if="item.kind === 'text'" class="whitespace-pre-line break-words">{{ textOf(item.id) }}</p>
+              <FormsRichText v-if="item.kind === 'text'" :value="textOf(item.id)" inline />
               <p v-else-if="item.kind === 'date' && dateOf(item.id)">{{ formatDate(dateOf(item.id)!) }}</p>
               <p v-else-if="item.kind === 'choices'" class="flex flex-wrap gap-x-3">
                 <span v-for="option in item.options" :key="option.id">{{ box(picked(item.id, option.id)) }} {{ option.label }}</span>

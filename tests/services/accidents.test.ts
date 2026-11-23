@@ -255,6 +255,17 @@ describe('accident reports about an employee', () => {
     expect(fieldAnswer(byTraeger, 25)).toBe('2020-08-01')
   })
 
+  it('formatted answers are sanitized on save; prefilled plain answers stay plain text', () => {
+    const id = createEmployeeAccident(db, manager(leitungUser), anna, { templateId: u1000Template, ...header }, NOW)
+    const form = getEmployeeAccident(db, manager(leitungUser), id)
+    const report = u1000Fields(form.content).fields.get(18)!.find(item => item.kind === 'text')!
+    const answers = { ...form.answers, [report.id]: '<p>Beim <b>Basteln</b> geschnitten<script>x</script></p><ul><li>Pflaster</li></ul>' }
+    saveEmployeeAccident(db, manager(leitungUser), id, { ...header, answers, expectedUpdatedAt: form.updatedAt }, LATER)
+    const saved = getEmployeeAccident(db, manager(leitungUser), id)
+    expect(saved.answers[report.id]).toBe('<p>Beim <strong>Basteln</strong> geschnitten</p><ul><li><p>Pflaster</p></li></ul>')
+    expect(fieldAnswer(saved, 6)).toBe('Hauptstr. 1\n12345 Musterstadt')
+  })
+
   it('a dual student gets „Studierende/r …“ as job title from the qualification', () => {
     db.update(employees).set({ qualification: 'studium_2' }).where(eq(employees.id, anna)).run()
     const form = getEmployeeAccident(db, manager(leitungUser), createEmployeeAccident(db, manager(leitungUser), anna, { templateId: u1000Template, ...header }, NOW))

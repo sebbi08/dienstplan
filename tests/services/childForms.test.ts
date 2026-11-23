@@ -385,6 +385,16 @@ describe('child observation forms', () => {
       .toBe('409 form_changed')
   })
 
+  it('formatted answers are sanitized on save and read back as stored', () => {
+    const formId = createChildForm(db, leitung, kid, { templateId: template, ...header }, NOW)
+    const text = getChildForm(db, leitung, formId, NOW).content.sections.flatMap(section => section.items).find(item => item.kind === 'text')!
+    save(annaTablet, formId, { [text.id]: '<p><i>spielt</i> gern<style>p{}</style></p><ul><li>Bauecke<ul><li>Lego</li></ul></li></ul>' })
+    const stored = '<p><em>spielt</em> gern</p><ul><li><p>Bauecke</p><ul><li><p>Lego</p></li></ul></li></ul>'
+    expect(getChildForm(db, leitung, formId, NOW).answers[text.id]).toBe(stored)
+    save(leitung, formId, { [text.id]: stored }, new Date('2026-10-20T10:00:00Z'))
+    expect(getChildForm(db, annaTablet, formId, NOW).answers[text.id]).toBe(stored)
+  })
+
   it('deleting the meeting keeps the form; deleting the child deletes its forms and grants (Review Focus 4)', () => {
     const meeting = addMeeting(db, leitung, kid, {
       date: '2026-10-05', start: 840, end: null, kind: 'development', participants: '',

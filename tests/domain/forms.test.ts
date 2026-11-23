@@ -192,6 +192,25 @@ describe('checkAnswers', () => {
     expect(code(() => checkAnswers(content, answers))).toBe('form_answer_invalid')
   })
 
+  it('sanitizes formatted text answers and keeps plain ones as they are', () => {
+    expect(checkAnswers(content, { t1: '<p onclick="alert(1)"><b>fett</b><script>alert(2)</script> <a href="javascript:x">Link</a></p>' }))
+      .toEqual({ t1: '<p><strong>fett</strong> Link</p>' })
+    expect(checkAnswers(content, { t1: '<ul><li>eins<li>zwei</ul>' })).toEqual({ t1: '<ul><li><p>eins</p></li><li><p>zwei</p></li></ul>' })
+    expect(checkAnswers(content, { t1: '<p></p>' })).toEqual({ t1: '' })
+    // Plain text (stored before the formatting) is never read as HTML: it is shown escaped.
+    expect(checkAnswers(content, { t1: 'a <b>b</b>\nc' })).toEqual({ t1: 'a <b>b</b>\nc' })
+  })
+
+  it('limits formatted text by its characters and by the size of its HTML', () => {
+    const full = `<p>${'x'.repeat(2000)}</p><p>${'y'.repeat(1999)}</p>`
+    expect(checkAnswers(content, { t1: full })).toEqual({ t1: full })
+    expect(code(() => checkAnswers(content, { t1: `<p>${'x'.repeat(2000)}</p><p>${'y'.repeat(2000)}</p>` }))).toBe('form_answer_too_long')
+    // 1000 characters in a heap of formatting: the HTML is too big.
+    expect(code(() => checkAnswers(content, { t1: `<p>${'<b>x</b><i>y</i><u>z</u>'.repeat(1500)}</p>` }))).toBe('form_answer_too_long')
+    // Huge input is refused before it is parsed.
+    expect(code(() => checkAnswers(content, { t1: `<p class="${'x'.repeat(100_000)}">a</p>` }))).toBe('form_answer_too_long')
+  })
+
   it('validates against the form snapshot, not the current template', () => {
     const snapshot = checkContent(sample())
     let template = checkContent(sample())

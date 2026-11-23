@@ -2394,6 +2394,31 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Schreiblinien und den beiden Unterschriftszeilen; dort gibt es auch **PDF herunterladen**. Mitarbeiter drucken ihre
   freigegebenen Bögen über „Meine Gespräche“.
 
+### Formatierung in Freitexten (alle Bögen)
+
+- Jedes **Freitext**-Feld in allen Bögen (Mitarbeitergespräche, Beobachtungen und Entwicklungsgespräche, Teamsitzungen,
+  Unfallberichte und Unfallanzeigen, auch am Tablet) hat oben eine kleine Leiste: **Fett**, **Kursiv**,
+  **Unterstrichen**, **Aufzählung**, **nummerierte Liste**, **Rückgängig** und **Wiederholen**. Tastenkürzel: Strg+B,
+  Strg+I, Strg+U (Strg+Z / Strg+Y). „- “ bzw. „1. “ am Anfang einer Zeile beginnt eine Aufzählung bzw. eine nummerierte
+  Liste; zweimal Enter beendet die Liste. Auf Handy und Tablet bricht die Leiste um, die Knöpfe sind fingergroß.
+- **Einfügen** aus Word, E-Mails oder Webseiten behält nur diese Formatierungen; Überschriften, Farben, Schriftgrößen,
+  Links und Bilder fallen weg (der Text bleibt).
+- **Höchstens 4000 Zeichen** je Freitext wie bisher (Zeilen- und Absatzwechsel zählen je ein Zeichen; mit sehr viel
+  Formatierung etwas weniger). Kurz vor der Grenze zeigt das Feld „… von 4000 Zeichen“, darüber eine rote Meldung – so
+  lässt sich der Bogen nicht speichern.
+- **Alte Antworten** (vor diesem Update geschrieben) bleiben, wie sie sind, und werden wie bisher mit ihren
+  Zeilenumbrüchen angezeigt und gedruckt. Erst wenn du eine solche Antwort änderst, wird sie im neuen Format gespeichert.
+  Nur Hineinklicken ohne Änderung zählt nicht als Änderung.
+- **Drucken:** Formatierungen und Listen erscheinen auch im Ausdruck und im PDF. In der **Unfallanzeige (U 1000)** mit
+  ihren festen Kästchen bleiben Fett/Kursiv/Unterstrichen, Absätze und Listenpunkte stehen dort als einzelne Zeilen mit
+  „•“ bzw. „1.“ davor.
+- **Technik (für den Betrieb):** Formatierte Antworten werden als kleines HTML gespeichert (nur Absätze, Zeilenumbrüche,
+  fett, kursiv, unterstrichen, Aufzählungen und nummerierte Listen). Der Server bereinigt jede Antwort bei jedem
+  Speichern: alle Attribute, Skripte, Styles, Kommentare und alle anderen Tags fallen weg (deren Text bleibt). Eine
+  gespeicherte Antwort gilt als formatiert, wenn sie mit `<p>`, `<ul>` oder `<ol>` beginnt; alles andere ist alter
+  Klartext und wird nie als HTML gelesen. Beim Anzeigen wird noch einmal bereinigt. Keine Datenbank-Migration; die
+  Datensicherung enthält die Antworten wie bisher.
+
 ### Beobachtungsbögen
 
 - **Wo:** Kinderakte → Bereich **Beobachtungen** (im Büro und am aufgeschlossenen Tablet, nie auf den Handys der

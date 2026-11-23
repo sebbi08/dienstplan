@@ -185,6 +185,22 @@ describe('answers', () => {
     expect(errorCode(() => saveTalkFormAnswers(db, leitung, F1, self.id, { unknown: 'x' }, at(self.id)))).toBe('form_answer_invalid')
     expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: 'submitted' })
   })
+
+  it('formatted answers are sanitized on save and read back as stored; plain ones stay plain', () => {
+    const id = talkFor(annaId)
+    const self = formsOf(id)[0]!
+    const item = firstText(self.content)
+    const stored = '<p><strong>gut</strong> &lt;3</p><ul><li><p>eins</p></li></ul>'
+    saveTalkFormAnswers(db, leitung, F1, self.id, { [item.id]: '<p onclick="x"><b>gut</b><script>alert(1)</script> &lt;3</p><ul><li>eins</li></ul>' }, at(self.id), now)
+    expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: stored })
+    // Saved again unchanged, it stays the same string.
+    saveTalkFormAnswers(db, leitung, F1, self.id, { [item.id]: stored }, at(self.id), new Date('2026-10-26T10:00:00.000Z'))
+    expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: stored })
+    saveTalkFormAnswers(db, leitung, F1, self.id, { [item.id]: 'alt <b>\nZeile' }, at(self.id), new Date('2026-10-26T11:00:00.000Z'))
+    expect(formsOf(id)[0]!.answers).toEqual({ [item.id]: 'alt <b>\nZeile' })
+    expect(errorCode(() => saveTalkFormAnswers(db, leitung, F1, self.id, { [item.id]: `<p>${'x'.repeat(4001)}</p>` }, at(self.id))))
+      .toBe('form_answer_too_long')
+  })
 })
 
 describe('state machine', () => {

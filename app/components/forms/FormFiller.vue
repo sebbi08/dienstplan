@@ -2,7 +2,7 @@
 import { FORM_LIMITS, RATING_LEGEND, type FormAnswer, type FormContent, type MilestoneAnswer, type RatingAnswer, type RatingValue } from '#shared/domain/forms'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
-import { sectionBlocks, sectionHasRating } from '~/utils/forms'
+import { isBlank, sectionBlocks, sectionHasRating } from '~/utils/forms'
 
 /**
  * A form's own content (its copy of the template) with the answers, to fill in (`readonly` false) or to read. The
@@ -68,19 +68,18 @@ const chip = (selected: boolean) => selected
           <p v-if="block.item.kind === 'note'" class="text-sm whitespace-pre-line text-gray-700">{{ block.item.text }}</p>
 
           <div v-else-if="block.item.kind === 'text'" class="space-y-1">
-            <!-- Read-only: the question names the answer's text (a label only belongs to a field). -->
-            <component
-              :is="props.readonly ? 'p' : 'label'" :id="`${fieldId(block.item.id)}-q`" :for="props.readonly ? undefined : fieldId(block.item.id)"
-              class="block text-sm font-medium break-words"
-            >
-              {{ block.item.question }}
-            </component>
-            <p v-if="props.readonly" :aria-labelledby="`${fieldId(block.item.id)}-q`" class="text-sm whitespace-pre-line break-words text-gray-800">
-              {{ textOf(block.item.id) || de.forms.noAnswer }}
-            </p>
-            <UTextarea
-              v-else :id="fieldId(block.item.id)" :model-value="textOf(block.item.id)" autoresize :rows="2"
-              :maxlength="FORM_LIMITS.textAnswer" class="w-full" @update:model-value="setAnswer(block.item.id, String($event ?? ''))"
+            <!-- The question names the answer (the editor is no form field a label could point at). -->
+            <p :id="`${fieldId(block.item.id)}-q`" class="block text-sm font-medium break-words">{{ block.item.question }}</p>
+            <template v-if="props.readonly">
+              <FormsRichText
+                v-if="!isBlank(textOf(block.item.id))" :value="textOf(block.item.id)" role="group"
+                :aria-labelledby="`${fieldId(block.item.id)}-q`" class="text-sm text-gray-800"
+              />
+              <p v-else :aria-labelledby="`${fieldId(block.item.id)}-q`" class="text-sm text-gray-800">{{ de.forms.noAnswer }}</p>
+            </template>
+            <FormsRichTextInput
+              v-else :model-value="textOf(block.item.id)" :labelledby="`${fieldId(block.item.id)}-q`"
+              @update:model-value="setAnswer(block.item.id, $event)"
             />
           </div>
 

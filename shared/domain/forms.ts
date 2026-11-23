@@ -1,4 +1,5 @@
 import { isValidIsoDate } from './dates'
+import { isRichText, richTextLength, sanitizeRichText } from './richText'
 import type { IsoDate } from './types'
 
 /** Form kinds: „Mitarbeitergespräch“, „Kind“, „Teamsitzung“, „Unfall“ (an accident report about a child or an employee). */
@@ -59,6 +60,7 @@ export interface FormContent { sections: FormSection[] }
 export interface SectionDraft { title: string; hint: string }
 
 export type FormAnswers = Record<string, unknown>
+/** Plain text (stored before the formatting) or formatted text as sanitized HTML (shared/domain/richText.ts). */
 export type TextAnswer = string
 /** Ids of the ticked options, no duplicates. */
 export type ChoicesAnswer = string[]
@@ -79,7 +81,10 @@ export const FORM_LIMITS = {
   // 100: the official option „mit der Unternehmerin/dem Unternehmer in eingetragener Lebenspartnerschaft lebend“ (U 1000).
   optionLabel: 100,
   ageLabel: 20,
+  /** Characters of a text answer (of a formatted one: see richTextLength). */
   textAnswer: 4000,
+  /** The HTML of a formatted text answer, before and after sanitizing (room for lists and formatting). */
+  textAnswerHtml: 40000,
   ratingRemark: 500,
   milestoneRemark: 200,
   templateName: 80,
@@ -215,12 +220,29 @@ function remark(value: unknown, max: number): string {
   return value
 }
 
+/**
+ * A text answer: formatted text (HTML, see isRichText) is sanitized to the allowed subset on every save — huge input is
+ * refused before parsing, then the text (richTextLength) and the HTML are limited (400 form_answer_too_long). Plain
+ * text (answers from before the formatting, never read as HTML) keeps its old limit (form_answer_invalid).
+ */
+function checkTextAnswer(value: unknown): TextAnswer {
+  if (typeof value !== 'string') invalidAnswer()
+  if (!isRichText(value)) {
+    if (value.length > FORM_LIMITS.textAnswer) invalidAnswer()
+    return value
+  }
+  if (value.length > FORM_LIMITS.textAnswerHtml) throw new FormError('form_answer_too_long')
+  const html = sanitizeRichText(value)
+  if (html.length > FORM_LIMITS.textAnswerHtml || richTextLength(html) > FORM_LIMITS.textAnswer) {
+    throw new FormError('form_answer_too_long')
+  }
+  return html
+}
+
 function checkAnswer(item: FormItem, value: unknown): FormAnswer {
   switch (item.kind) {
     case 'note': return invalidAnswer()
-    case 'text':
-      if (typeof value !== 'string' || value.length > FORM_LIMITS.textAnswer) invalidAnswer()
-      return value
+    case 'text': return checkTextAnswer(value)
     case 'choices': {
       if (!Array.isArray(value)) invalidAnswer()
       const allowed = new Set(item.options.map((option) => option.id))
