@@ -29,7 +29,7 @@ describe('pdf.js contract of the fill view', () => {
   it('has the viewer events, the mode setter and the options the fill view uses', () => {
     const viewer = source('legacy/web/pdf_viewer.mjs')
     for (const event of ['annotationeditoruimanager', 'annotationeditormodechanged', 'annotationlayerrendered', 'annotationeditorlayerrendered',
-      'pagesinit', 'pagechanging', 'scalechanging']) {
+      'pagesinit', 'pagerendered', 'pagechanging', 'scalechanging']) {
       expect(viewer, event).toContain(`"${event}"`)
     }
     expect(viewer).toContain('set annotationEditorMode({')

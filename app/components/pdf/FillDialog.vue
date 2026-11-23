@@ -115,11 +115,18 @@ const TEXT_LAYER_ENABLE = 1
 /** How long after the pages are there pdf.js's editors may take to start before the tools are given up. */
 const EDITORS_WATCHDOG_MS = 8000
 let editorsWatchdog: ReturnType<typeof setTimeout> | undefined
+/** The tools were turned off only because the editors were slow to start (they may still come: see start()). */
+let offBySlowStart = false
 
 /** Turns the tools off (once) and says why in the console; the fields, printing and saving keep working. */
-function disableEditors(reason: unknown) {
+function disableEditors(reason: unknown, slowStart = false) {
   clearTimeout(editorsWatchdog)
-  if (editorsUnavailable.value) return
+  if (editorsUnavailable.value) {
+    // A real failure after a slow start: no recovery any more.
+    if (!slowStart) offBySlowStart = false
+    return
+  }
+  offBySlowStart = slowStart
   console.warn('pdf.js editors not available:', reason)
   editorsUnavailable.value = true
   editorsReady.value = false
@@ -149,6 +156,7 @@ function release() {
   abort = null
   editorsReady.value = false
   editorsUnavailable.value = false
+  offBySlowStart = false
   clearTimeout(editorsWatchdog)
   editors = null
   try {
@@ -256,9 +264,13 @@ function start(lib: PdfJs, viewerLib: ViewerLib, doc: PDFDocumentProxy) {
   let manager: EditorManager | null = null
   let layerDrawn = false
   const ready = () => {
-    if (current !== generation || !manager || !layerDrawn || editorsReady.value || editorsUnavailable.value) return
+    if (current !== generation || !manager || !layerDrawn || editorsReady.value) return
+    // Turned off for a real failure: stays off. Turned off only by the watchdog (a slow first page): back on now.
+    if (editorsUnavailable.value && !offBySlowStart) return
     if (!isEditorManager(manager)) return disableEditors('the editor manager lacks a method the fill view uses')
     clearTimeout(editorsWatchdog)
+    editorsUnavailable.value = false
+    offBySlowStart = false
     editors = manager
     editorsReady.value = true
   }
@@ -271,11 +283,17 @@ function start(lib: PdfJs, viewerLib: ViewerLib, doc: PDFDocumentProxy) {
     ready()
   })
   bus.on('pagesinit', () => {
-    if (current !== generation) return
-    fitWidth()
+    if (current === generation) fitWidth()
+  })
+  // The watchdog counts from the first drawn page (a big scan on an old tablet can take long to draw; the editors
+  // start only after it). If they come later anyway, ready() turns the tools back on.
+  let watching = false
+  bus.on('pagerendered', () => {
+    if (current !== generation || watching) return
+    watching = true
     clearTimeout(editorsWatchdog)
     editorsWatchdog = setTimeout(() => {
-      if (current === generation && !editorsReady.value) disableEditors('the editors did not start')
+      if (current === generation && !editorsReady.value) disableEditors('the editors did not start in time', true)
     }, EDITORS_WATCHDOG_MS)
   })
   bus.on('pagechanging', ({ pageNumber: number }: { pageNumber: number }) => {
@@ -560,12 +578,15 @@ function undo() {
 }
 
 /**
- * Enter or Space on the free page would make pdf.js's picture editor ask for any image file; the fill view only
- * places its own tick, cross and signature.
+ * Enter or Space in the pages (the free page, a selected tick or signature, the scroll box) would make pdf.js's picture
+ * editor ask for any image file; the fill view only places its own tick, cross and signature. Typing in a field or a
+ * text box is left alone; an editor's own Enter handling runs on the editor before this.
  */
 function onViewKeydown(event: KeyboardEvent) {
   if ((event.key !== 'Enter' && event.key !== ' ') || !['select', 'check', 'cross'].includes(tool.value)) return
-  if (!(event.target as HTMLElement | null)?.classList?.contains('annotationEditorLayer')) return
+  const target = event.target as HTMLElement | null
+  if (!target || !containerEl.value?.contains(target)) return
+  if (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
   event.preventDefault()
   event.stopPropagation()
 }
