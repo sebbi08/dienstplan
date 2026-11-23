@@ -1506,6 +1506,7 @@ export const de = {
     groupsHint: 'Mitarbeitende sehen es nur, wenn ihre Stammgruppe gewählt ist; Leitung und Träger sehen es immer. '
       + 'Am Tablet zählt die Stammgruppe der Person, die es entsperrt hat.',
     pickFacility: 'Bitte wähle mindestens eine Einrichtung.',
+    pickOneGroup: 'Bitte mindestens eine Gruppe wählen (oder „alle Gruppen“).',
     pickGroup: (facility: string) => `Bitte wähle${facility ? ` in ${facility}` : ''} mindestens eine Gruppe oder „alle Gruppen“.`,
     /** `what`: „die Vorlage“ / „der Eintrag“. */
     confirmLosing: (count: number, what: string) => `In ${count === 1 ? '1 Einrichtung' : `${count} Einrichtungen`} ist ${what} danach nicht mehr zu sehen. Trotzdem speichern?`,
@@ -1986,6 +1987,8 @@ export const de = {
       ambiguous: (codes: string) => `nicht eindeutig: ${codes} – bitte von Hand wählen`,
       adopt: 'Übernehmen', adoptHint: (school: string) => `${school} als künftige Schule eintragen`,
       adopted: 'Die künftige Schule wurde eingetragen.',
+      // The district's school no longer is for the facility („Gilt für“ changed): named, not offered to take over.
+      schoolOutOfScope: (school: string) => `Schule des Bezirks: ${school} (gilt nicht mehr für diese Einrichtung)`,
     },
     list: {
       column: 'Schulbezirk', filter: 'Schulbezirk', all: 'alle Bezirke', group: 'nach Schulbezirk gruppieren',
@@ -3567,6 +3570,7 @@ export const de = {
     knowledge_category_has_subcategories: 'Diese Kategorie hat noch Unterkategorien. Lösch sie zuerst.',
     knowledge_not_for_person: 'Dieser Eintrag gilt nicht für deine Gruppe.',
     document_targets_no_facility: 'Bitte unter „Gilt für“ mindestens eine Einrichtung wählen.',
+    document_targets_no_group: 'Bitte unter „Gilt für“ mindestens eine Gruppe wählen (oder „alle Gruppen“).',
     document_targets_invalid: 'Die Auswahl bei „Gilt für“ passt nicht: Bitte wähle mindestens eine Einrichtung und bei eingeschränkten Einrichtungen mindestens eine ihrer Gruppen.',
     knowledge_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung, nicht zu einer anderen Unterkategorie.',
     knowledge_entry_not_movable: 'Einträge des Trägers für alle Einrichtungen stehen nach den eigenen, nach Titel.',

@@ -27,6 +27,13 @@ export const targetsFormOf = (targets: DocumentTargetsDto | null): TargetsForm =
 export const isOrphanTargets = (targets: DocumentTargetsDto | null): boolean =>
   targets !== null && targets.scope === 'selected' && targets.facilityIds.length === 0
 
+/** An item limited to groups in a facility that are all gone („keine Gruppe mehr gewählt“): its dialog asks for one. */
+export const hasEmptyGroupLimit = (targets: DocumentTargetsDto | null): boolean =>
+  targets !== null && targets.groupTargets.some(target => target.groupIds.length === 0)
+
+/** „Gilt für“ must be filled in before the item saves (no facility or no group left): its dialog checks it like a change. */
+export const targetsNeedChoice = (targets: DocumentTargetsDto | null): boolean => isOrphanTargets(targets) || hasEmptyGroupLimit(targets)
+
 /**
  * The facilities in the scope: the own one, every facility offered, or the ones chosen; null while that is not known
  * (the choices not loaded), so nothing is dropped then.

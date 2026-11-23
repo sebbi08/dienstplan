@@ -9,11 +9,13 @@ import type {
   SchoolDistrictDto, SchoolDistrictListDto, SchoolDistrictListInput, SchoolDistrictMatchDto, SchoolDistrictParseDto,
   SchoolDistrictSettingsDto, SchoolOptionDto,
 } from '../../shared/types/api'
+import { isOrphan } from '../../shared/domain/documentTargets'
 import type { Db } from '../db/client'
 import { contacts, schoolDistrictLists, schoolDistrictRows, schoolDistricts, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { pdfTextItems } from '../lib/pdfText'
-import { schoolNames, schoolOptions } from './contacts'
+import { contactForFacility, contactForScope, schoolNames, schoolOptions } from './contacts'
+import { loadTargets } from './documentTargets'
 
 /**
  * Schulbezirke (docs/BETRIEB.md): the street lists of the school districts, one of each facility and one of the Träger
@@ -69,12 +71,15 @@ export async function parseSchoolDistrictFile(file: { data: Buffer; filename: st
 
 // ---- settings -----------------------------------------------------------------
 
-/** The Träger's school contacts for all facilities: global contacts whose category name holds „Schule“. */
+/**
+ * The schools the Träger's list may name: the Träger's school contacts for at least one facility (all or chosen ones);
+ * whether one applies to a child is checked by the child's facility when it is taken over.
+ */
 export function globalSchoolOptions(db: Db): SchoolOptionDto[] {
-  // Only those for all facilities: the Träger's list applies in every facility (a school of chosen facilities would not
-  // be one of the others).
-  return db.select().from(contacts).where(and(isNull(contacts.facilityId), eq(contacts.allFacilities, true))).all()
-    .filter(row => isSchoolCategory(row.categoryName ?? ''))
+  const rows = db.select().from(contacts).where(isNull(contacts.facilityId)).all().filter(row => isSchoolCategory(row.categoryName ?? ''))
+  const targets = loadTargets(db, 'contact', rows)
+  return rows
+    .filter(row => !isOrphan(targets.get(row.id)!))
     .map(row => ({ id: row.id, name: row.city ? `${row.organisation}, ${row.city}` : row.organisation }))
     .sort((a, b) => a.name.localeCompare(b.name, 'de') || a.id - b.id)
 }
@@ -91,8 +96,6 @@ function listDto(db: Db, list: ListRow | null): SchoolDistrictListDto | null {
     }))
   const districts = db.select().from(schoolDistricts).where(eq(schoolDistricts.listId, list.id)).all()
   const names = schoolNames(db, districts.map(district => district.contactId))
-  // A school stored before that is no longer one of the scope's (its „Gilt für“ changed) stays, with a hint.
-  const allowed = allowedContacts(db, list.facilityId)
   const updatedBy = list.updatedBy === null ? null
     : db.select({ username: users.username }).from(users).where(eq(users.id, list.updatedBy)).get()?.username ?? null
   return {
@@ -104,7 +107,8 @@ function listDto(db: Db, list: ListRow | null): SchoolDistrictListDto | null {
       .map((district): SchoolDistrictDto => ({
         code: district.code, name: district.name, contactId: district.contactId,
         contactName: district.contactId === null ? null : names.get(district.contactId) ?? null,
-        contactOutOfScope: district.contactId !== null && !allowed.has(district.contactId),
+        // A school stored before whose „Gilt für“ no longer covers the list's scope stays, with a hint.
+        contactOutOfScope: district.contactId !== null && !contactForScope(db, list.facilityId, district.contactId),
       }))
       .sort((a, b) => a.code.localeCompare(b.code, 'de', { numeric: true })),
     updatedAt: list.updatedAt,
@@ -272,7 +276,12 @@ export function schoolDistrictMatcher(db: Db, facilityId: number): (child: Distr
         const district = districtOf(match.code)
         choices ??= new Set(schoolOptions(db, facilityId).map(option => option.id))
         const canAdopt = district.contactId !== null && child.futureSchoolContactId === null && choices.has(district.contactId)
-        return { status: 'match', code: match.code, name: district.name, asOf: list.asOf, scope, contactId: district.contactId, contactName: district.contactName, canAdopt }
+        // The district's school no longer for the child's facility by its „Gilt für“: named with a hint, never taken over.
+        const contactOutOfScope = district.contactId !== null && !contactForFacility(db, facilityId, district.contactId)
+        return {
+          status: 'match', code: match.code, name: district.name, asOf: list.asOf, scope, contactId: district.contactId,
+          contactName: district.contactName, contactOutOfScope, canAdopt,
+        }
       }
     }
   }

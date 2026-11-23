@@ -525,6 +525,8 @@ export interface UpcomingSchoolChildDto {
   pendingSchoolGroup: string | null
   /** The „künftige Schule“ from the child's record (organisation and city), null = none chosen. */
   futureSchool: string | null
+  /** That school no longer is for the facility (its „Gilt für“ changed): it stays, with a hint. */
+  futureSchoolOutOfScope: boolean
   /** The school district by the facility's street list (null: no list, or no address). */
   schoolDistrict: SchoolDistrictMatchDto | null
 }
@@ -3955,9 +3957,6 @@ export interface ContactCategoryInput {
   name: string
 }
 
-/** Where a contact is kept: in the facility, or for all facilities (the Träger's, contacts.global). */
-export type ContactScope = DocumentScope
-
 /**
  * What Leitung or Träger enter about a contact, with „Gilt für“ (shared/domain/documentTargets.ts): left out on create =
  * the facility's own, left out on a change = as it is; 'all' / 'selected' are the Träger's.
@@ -4239,6 +4238,8 @@ export type SchoolDistrictMatchDto =
     /** The district's school in the address book (null = none mapped). */
     contactId: number | null
     contactName: string | null
+    /** The district's school no longer is for the child's facility (its „Gilt für“ changed): shown with a hint. */
+    contactOutOfScope: boolean
     /** The child has no „künftige Schule“ yet and the district's school is one of the facility's choices. */
     canAdopt: boolean
   }

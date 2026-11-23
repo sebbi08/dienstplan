@@ -3,7 +3,7 @@ import { CONTACT_LIMITS } from '#shared/domain/contacts'
 import type { ContactCategoryDto, ContactDto, ContactInput, DocumentTargetOptionsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import {
-  emptyTargets, facilitiesLost, isOrphanTargets, targetsFormOf, targetsPayload, targetsProblem, type TargetsForm,
+  emptyTargets, facilitiesLost, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
 } from '~/utils/documentTargets'
 
 /**
@@ -77,7 +77,7 @@ watch(open, (isOpen) => {
     // Turned into one for several facilities, it is filed by the name of its category (preselected).
     const categoryName = globalCategoryName ?? props.categories.find(category => category.id === categoryId)?.name ?? ''
     Object.assign(form, { ...fields, targets: targetsFormOf(targets), categoryId: categoryId ?? undefined, categoryName })
-    targetsTouched.value = isOrphanTargets(targets)
+    targetsTouched.value = targetsNeedChoice(targets)
     if (global) loadCategoryNames()
   }
   else {

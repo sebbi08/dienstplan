@@ -11,6 +11,8 @@ import { matchText } from '~/utils/schoolDistricts'
 const props = defineProps<{ child: ChildRecordDto; match: SchoolDistrictMatchDto; reload?: () => Promise<unknown> }>()
 const t = de.schoolDistricts.record
 const shown = computed(() => matchText(props.match))
+/** The district's school that no longer is for the facility („Gilt für“ changed): named with the hint. */
+const outOfScope = computed(() => (props.match.status === 'match' && props.match.contactOutOfScope ? props.match.contactName ?? '' : null))
 const adoptable = computed(() => props.match.status === 'match' && props.match.canAdopt && props.child.canEdit && !!props.reload ? props.match : null)
 const run = useAction(async () => { await props.reload?.() })
 const { busy, guard } = useBusy()
@@ -29,6 +31,7 @@ function adopt() {
     <span v-if="match.status !== 'match'" class="text-xs text-sky-800">{{ t.label }}:</span>
     <span class="font-medium">{{ shown.text }}</span>
     <span class="text-xs text-sky-800">{{ shown.source }}</span>
+    <span v-if="outOfScope !== null" class="text-xs text-amber-800">{{ t.schoolOutOfScope(outOfScope) }}</span>
     <UButton
       v-if="adoptable" size="xs" color="neutral" variant="outline" icon="i-lucide-arrow-down-to-line" :label="t.adopt"
       :title="t.adoptHint(adoptable.contactName ?? adoptable.name)" :aria-label="t.adoptHint(adoptable.contactName ?? adoptable.name)"

@@ -6,7 +6,7 @@ import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import {
-  emptyTargets, facilitiesLost, isOrphanTargets, targetHints, targetsFormOf, targetsPayload, targetsProblem, type TargetsForm,
+  emptyTargets, facilitiesLost, targetHints, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
 } from '~/utils/documentTargets'
 import { errorMessage } from '~/utils/errors'
 import { moveInList } from '~/utils/consentSettings'
@@ -241,8 +241,8 @@ function openEdit(template: PrintTemplateDto) {
     targets: targetsFormOf(template.targets), categoryName: template.globalCategoryName ?? template.category,
     subcategoryName: template.globalSubcategoryName ?? template.subcategory, visibility: template.visibility,
   })
-  // Without a facility left („Keine Einrichtung gewählt“) the section must be filled in: checked like a change.
-  targetsTouched.value = isOrphanTargets(template.targets)
+  // Without a facility or a group left the section must be filled in: checked like a change.
+  targetsTouched.value = targetsNeedChoice(template.targets)
   open.value = true
   loadTargetOptions()
   if (template.global) loadCategoryNames()

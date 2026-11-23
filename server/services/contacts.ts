@@ -426,6 +426,17 @@ export function contactForFacility(db: Db, facilityId: number, contactId: number
 }
 
 /**
+ * Whether a linked school still is for the district list's scope by its „Gilt für“ (its category does not matter): for a
+ * facility's list `contactForFacility`; for the Träger's list a contact of the Träger for at least one facility.
+ */
+export function contactForScope(db: Db, scope: number | null, contactId: number): boolean {
+  if (scope !== null) return contactForFacility(db, scope, contactId)
+  const row = db.select({ id: contacts.id, facilityId: contacts.facilityId, allFacilities: contacts.allFacilities }).from(contacts)
+    .where(eq(contacts.id, contactId)).get()
+  return !!row && row.facilityId === null && !isOrphan(targetsOf(db, 'contact', row))
+}
+
+/**
  * The checked „künftige Schule“ of a child of the facility: none, one of `schoolOptions`, or the stored one even when it
  * no longer is (its category was renamed, or its „Gilt für“ changed); else 400 future_school_invalid.
  */

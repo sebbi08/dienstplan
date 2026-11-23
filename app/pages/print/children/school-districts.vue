@@ -2,6 +2,7 @@
 import { todayIso } from '#shared/domain/dates'
 import type { UpcomingSchoolChildDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { futureSchoolLabel } from '~/utils/contacts'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 import { groupByDistrict } from '~/utils/schoolDistricts'
@@ -54,7 +55,7 @@ const td = 'px-3 py-1.5'
               <td :class="td" class="font-medium">{{ child.name }}</td>
               <td :class="td">{{ groupName(child.groupId) }}</td>
               <td :class="td" class="whitespace-nowrap">{{ formatDate(child.schoolStart) }}</td>
-              <td :class="td">{{ child.futureSchool ?? '' }}</td>
+              <td :class="td">{{ futureSchoolLabel(child) ?? '' }}</td>
             </tr>
           </tbody>
         </table>

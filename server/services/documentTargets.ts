@@ -87,8 +87,8 @@ const invalid = () => new ServiceError(400, 'document_targets_invalid')
 /**
  * The checked „Gilt für“: for a facility's own item (`owner` set) just that facility; for 'all' every facility; for
  * 'selected' the facilities named (at least one, else 400 document_targets_no_facility; each existing). Groups only for
- * facilities in the scope, at least one per limited facility, each a group of that facility. Anything else is 400
- * document_targets_invalid.
+ * facilities in the scope, at least one per limited facility (else 400 document_targets_no_group), each a group of that
+ * facility. Anything else is 400 document_targets_invalid.
  */
 export function checkedTargets(db: Db, scope: DocumentScope, owner: number | null, input: DocumentTargetsInput): CheckedTargets {
   const allFacilityIds = new Set(db.select({ id: facilities.id }).from(facilities).all().map(row => row.id))
@@ -107,7 +107,9 @@ export function checkedTargets(db: Db, scope: DocumentScope, owner: number | nul
   }
   const limited = new Map<number, number[]>()
   for (const target of input.groupTargets ?? []) {
-    if (!inScope.has(target.facilityId) || limited.has(target.facilityId) || target.groupIds.length === 0) throw invalid()
+    if (!inScope.has(target.facilityId) || limited.has(target.facilityId)) throw invalid()
+    // Limited to groups that are all gone (saved as it is): a message of its own; never widened to all groups unasked.
+    if (target.groupIds.length === 0) throw new ServiceError(400, 'document_targets_no_group')
     limited.set(target.facilityId, target.groupIds)
   }
   const groupIds = [...limited.values()].flat()

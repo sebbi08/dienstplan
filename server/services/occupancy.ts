@@ -7,7 +7,7 @@ import type { AgeLimitCountDto, OccupancyCellDto, OccupancyDto, OccupancyNameDto
 import type { Db } from '../db/client'
 import { ServiceError } from '../lib/errors'
 import { ageLimitChildren, facilityAgeRules } from './ageLimits'
-import { schoolNames } from './contacts'
+import { contactForFacility, schoolNames } from './contacts'
 import { facilityCapacity } from './facilities'
 import { listGroups } from './groups'
 import { schoolDistrictMatcher } from './schoolDistricts'
@@ -107,6 +107,7 @@ export function upcomingSchoolChildren(db: Db, facilityId: number, today: IsoDat
       schoolStart,
       pendingSchoolGroup: schoolGroup?.name ?? null,
       futureSchool: row.futureSchoolContactId === null ? null : schools.get(row.futureSchoolContactId) ?? null,
+      futureSchoolOutOfScope: row.futureSchoolContactId !== null && !contactForFacility(db, facilityId, row.futureSchoolContactId),
       schoolDistrict: districtOf(row),
     }))
 }

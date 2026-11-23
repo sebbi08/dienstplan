@@ -233,26 +233,36 @@ describe('school district lists (Schulbezirke)', () => {
       expect(schoolDistrictSettings(db, 1).global!.districts[0]).toMatchObject({ contactId: null, contactName: null })
     })
 
-    it('offers a list only the schools whose „Gilt für“ covers its scope, and keeps a stored one no longer covered with a hint', () => {
+    it('offers a facility\'s list its schools, the Träger\'s list every Träger school for a facility; the hint follows „Gilt für“ only', () => {
       const krippe = addFacility(db, 'Krippe')
       const rows = [row('Ahornweg', 2, 14, '04')]
       const chosen = createContact(db, provider, contact({ scope: 'selected', facilityIds: [1], categoryName: 'Grundschulen', organisation: 'Hierschule' }), NOW)
       const all = createContact(db, provider, contact({ scope: 'all', categoryName: 'Grundschulen', organisation: 'Waldschule' }), NOW)
-      // The Träger's list applies everywhere: only schools for all facilities.
-      expect(globalSchoolOptions(db)).toEqual([{ id: all, name: 'Waldschule' }])
-      expect(errorCode(() => saveSchoolDistrictList(db, provider, null, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW))).toBe('school_district_contact_invalid')
+      // The Träger's list serves every facility without a list of its own: every Träger school for at least one facility
+      // (taking one over checks the child's facility).
+      expect(globalSchoolOptions(db)).toEqual([{ id: chosen, name: 'Hierschule' }, { id: all, name: 'Waldschule' }])
       expect(errorCode(() => saveSchoolDistrictList(db, leitung, krippe, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW))).toBe('school_district_contact_invalid')
       saveSchoolDistrictList(db, leitung, 1, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW)
-      saveSchoolDistrictList(db, provider, null, list(rows, [{ code: '04', name: '', contactId: all }]), NOW)
-      expect(schoolDistrictSettings(db, 1).own!.districts[0]).toMatchObject({ contactId: chosen, contactOutOfScope: false })
-      // The schools move to the Krippe only: still linked, flagged, and the list saves unchanged.
+      saveSchoolDistrictList(db, provider, null, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW)
+      const flags = () => {
+        const settings = schoolDistrictSettings(db, 1)
+        return [settings.own!.districts[0]!.contactOutOfScope, settings.global!.districts[0]!.contactOutOfScope]
+      }
+      expect(flags()).toEqual([false, false])
+      // A category name without „Schule“ is no reason for the hint: only „Gilt für“ counts.
+      updateContact(db, provider, chosen, contact({ scope: 'selected', facilityIds: [1], categoryName: 'Partner', organisation: 'Hierschule' }), NOW)
+      expect(flags()).toEqual([false, false])
+      // For the Krippe only: the hint in facility 1's list, none in the Träger's (still for a facility); both save unchanged.
       updateContact(db, provider, chosen, contact({ scope: 'selected', facilityIds: [krippe], categoryName: 'Grundschulen', organisation: 'Hierschule' }), NOW)
-      updateContact(db, provider, all, contact({ scope: 'selected', facilityIds: [krippe], categoryName: 'Grundschulen', organisation: 'Waldschule' }), NOW)
-      const settings = schoolDistrictSettings(db, 1)
-      expect(settings.own!.districts[0]).toMatchObject({ contactId: chosen, contactName: 'Hierschule', contactOutOfScope: true })
-      expect(settings.global!.districts[0]).toMatchObject({ contactId: all, contactOutOfScope: true })
+      expect(flags()).toEqual([true, false])
+      expect(schoolDistrictSettings(db, 1).own!.districts[0]).toMatchObject({ contactId: chosen, contactName: 'Hierschule' })
       saveSchoolDistrictList(db, leitung, 1, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW)
-      saveSchoolDistrictList(db, provider, null, list(rows, [{ code: '04', name: '', contactId: all }]), NOW)
+      saveSchoolDistrictList(db, provider, null, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW)
+      // A child of facility 1 in that district: the school named with the hint, not to take over; in the Krippe it is.
+      expect(schoolDistrictMatcher(db, 1)({ address: 'Ahornweg 4', futureSchoolContactId: null }))
+        .toMatchObject({ status: 'match', contactId: chosen, contactOutOfScope: true, canAdopt: false })
+      expect(schoolDistrictMatcher(db, krippe)({ address: 'Ahornweg 4', futureSchoolContactId: null }))
+        .toMatchObject({ status: 'match', contactId: chosen, contactOutOfScope: false, canAdopt: true })
     })
   })
 
@@ -269,7 +279,7 @@ describe('school district lists (Schulbezirke)', () => {
       const id = createChild(db, actor, 1, master({ address: 'Bahnhofanlage 3a\n68723 Musterstadt' }), NOW)
       expect(getChild(db, actor, id, TODAY).districtMatch).toEqual({
         status: 'match', code: '02', name: 'Südstadtschule', asOf: '2021', scope: 'facility', contactId: sued,
-        contactName: 'Südstadtschule', canAdopt: true,
+        contactName: 'Südstadtschule', contactOutOfScope: false, canAdopt: true,
       })
       adoptDistrictSchool(db, actor, 1, id, sued, TODAY, NOW)
       const record = getChild(db, actor, id, TODAY)

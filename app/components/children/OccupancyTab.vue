@@ -4,7 +4,7 @@ import { kitaYearLabel, kitaYearOf } from '#shared/domain/kitaYear'
 import type { OccupancyCellDto, OccupancyDto, OccupancyRowDto, SchoolSettingsDto, UpcomingSchoolChildDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { ageLimitCountText } from '~/utils/ageLimits'
-import { groupBySchool } from '~/utils/contacts'
+import { futureSchoolLabel, groupBySchool } from '~/utils/contacts'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, monthTitle } from '~/utils/format'
 import { occupancyCellLabel, occupancyMonthShort, occupancyRowName } from '~/utils/occupancy'
@@ -268,7 +268,7 @@ const stay = (from: string, to: string | null) => de.occupancy.stay(formatDate(f
                   <span v-if="child.schoolStart <= today" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">{{ de.schoolChildren.reached }}</span>
                 </td>
                 <td class="px-2 py-1.5">{{ child.pendingSchoolGroup ?? de.children.noValue }}</td>
-                <td class="px-2 py-1.5">{{ child.futureSchool ?? de.children.noValue }}</td>
+                <td class="px-2 py-1.5">{{ futureSchoolLabel(child) ?? de.children.noValue }}</td>
                 <td v-if="showDistricts" class="px-2 py-1.5">{{ districtLabel(child.schoolDistrict) || de.children.noValue }}</td>
                 <td v-if="manualLeave" class="whitespace-nowrap px-2 py-1.5 text-right">
                   <UButton

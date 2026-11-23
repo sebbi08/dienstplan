@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  contactAddress, contactPrintPath, contactsOfTab, contactTabFromQuery, contactTabs, groupBySchool, printedTab, printSections,
+  contactAddress, contactPrintPath, contactsOfTab, contactTabFromQuery, contactTabs, futureSchoolLabel, groupBySchool, printedTab, printSections,
   tabCategoryName, websiteLabel,
 } from '../../app/utils/contacts'
 import { contactMatches, isEmailAddress, isSchoolCategory, normalizedWebsite, telHref } from '../../shared/domain/contacts'
@@ -117,5 +117,14 @@ describe('the page „Kontakte“', () => {
     expect(groupBySchool(rows).map(group => [group.school, group.rows.map(row => row.id)])).toEqual([
       ['Grundschule Süd', [3]], ['Waldschule', [1, 4]], [null, [2]],
     ])
+  })
+
+  it('names a school no longer for the facility with the hint, in its own section', () => {
+    const moved = { id: 5, futureSchool: 'Waldschule', futureSchoolOutOfScope: true }
+    expect(futureSchoolLabel(moved)).toBe('Waldschule (gilt nicht mehr für diese Einrichtung)')
+    expect(futureSchoolLabel({ futureSchool: 'Waldschule', futureSchoolOutOfScope: false })).toBe('Waldschule')
+    expect(futureSchoolLabel({ futureSchool: null, futureSchoolOutOfScope: true })).toBeNull()
+    expect(groupBySchool([{ id: 1, futureSchool: 'Waldschule' }, moved]).map(group => group.school))
+      .toEqual(['Waldschule', 'Waldschule (gilt nicht mehr für diese Einrichtung)'])
   })
 })

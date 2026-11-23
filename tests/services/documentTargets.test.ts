@@ -207,12 +207,12 @@ describe('„Gilt für“: facilities and groups of Vorlagen and „Wissen“', 
       for (const groupTargets of [
         [{ facilityId: krippe, groupIds: [maeuse] }], // a facility not in the scope
         [{ facilityId: 1, groupIds: [maeuse] }], // another facility's group
-        [{ facilityId: 1, groupIds: [] }], // no group
         [{ facilityId: 1, groupIds: [9999] }],
       ]) {
         expect(errorCode(() => template(leitung(), 'X', { groupTargets })), JSON.stringify(groupTargets)).toBe('document_targets_invalid')
       }
       expect(errorCode(() => template(provider(), 'X', { scope: 'selected', facilityIds: [] }))).toBe('document_targets_no_facility')
+      expect(errorCode(() => template(leitung(), 'X', { groupTargets: [{ facilityId: 1, groupIds: [] }] }))).toBe('document_targets_no_group')
       for (const facilityIds of [[9999], [krippe, krippe]]) {
         expect(errorCode(() => template(provider(), 'X', { scope: 'selected', facilityIds })), JSON.stringify(facilityIds)).toBe('document_targets_invalid')
       }
@@ -291,6 +291,25 @@ describe('„Gilt für“: facilities and groups of Vorlagen and „Wissen“', 
       // The entry still has the Bären.
       expect(entryTitles(as('observer', baeren))).toEqual(['Eulen-Wissen'])
       expect(listKnowledge(db, leitung()).entries[0]!.targets).toMatchObject({ groupNames: ['Bären'] })
+    })
+
+    it('asks for a group when an item whose chosen groups are all gone is saved as it is; never widens it to all groups', () => {
+      const id = template(leitung(), 'Eulen-Brief', { groupTargets: [{ facilityId: 1, groupIds: [eulen] }] })
+      const knowledge = entry(leitung(), 'Eulen-Wissen', { groupTargets: [{ facilityId: 1, groupIds: [eulen] }] })
+      deleteGroup(db, 1, eulen, TODAY)
+      expect(listTemplates(db, leitung()).find(item => item.id === id)!.targets!.groupTargets).toEqual([{ facilityId: 1, groupIds: [] }])
+      expect(errorCode(() => updateTemplate(db, actor(leitung()), id, { title: 'Brief', categoryId: templateCategory, visibility: 'all' }, NOW)))
+        .toBe('document_targets_no_group')
+      const body = {
+        kind: 'text' as const, title: 'Wissen', description: '', asOf: '', url: '', body: '<p>Text</p>', needsConfirmation: false, categoryId: knowledgeCategory,
+      }
+      expect(errorCode(() => updateKnowledgeEntry(db, { ...leitung(), id: 1 }, knowledge, body, null, NOW))).toBe('document_targets_no_group')
+      expect(templateTitles(as('observer', baeren))).toEqual([])
+      // With a group again (or „alle Gruppen“) it saves.
+      updateTemplate(db, actor(leitung()), id, { title: 'Brief', categoryId: templateCategory, visibility: 'all', scope: 'facility', groupTargets: [{ facilityId: 1, groupIds: [baeren] }] }, NOW)
+      updateKnowledgeEntry(db, { ...leitung(), id: 1 }, knowledge, { ...body, scope: 'facility', groupTargets: [] }, null, NOW)
+      expect(templateTitles(as('observer', baeren))).toEqual(['Brief'])
+      expect(entryTitles(as('observer', baeren))).toEqual(['Wissen'])
     })
   })
 

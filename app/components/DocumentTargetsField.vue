@@ -32,12 +32,15 @@ const groupFacilities = computed(() => facilitiesForGroups(props.options, form.v
 /** No facility chosen (also an item whose chosen facilities are all gone): highlighted until one is. */
 const noFacility = computed(() => props.canGlobal && form.value.scope === 'selected' && form.value.facilityIds.length === 0)
 const limited = (facilityId: number) => form.value.groupTargets.some(target => target.facilityId === facilityId)
+/** Limited to groups in the facility but none chosen (also when the chosen ones were all deleted): asks for one. */
+const noGroupIn = (facilityId: number) => form.value.groupTargets.some(target => target.facilityId === facilityId && target.groupIds.length === 0)
+const noGroup = computed(() => groupFacilities.value.some(facility => noGroupIn(facility.id)))
 const chosen = (facilityId: number, groupId: number) =>
   form.value.groupTargets.find(target => target.facilityId === facilityId)?.groupIds.includes(groupId) ?? false
 </script>
 
 <template>
-  <fieldset class="grid gap-3 rounded-md bg-gray-50 p-3" :class="noFacility ? 'ring-2 ring-amber-400' : ''">
+  <fieldset class="grid gap-3 rounded-md bg-gray-50 p-3" :class="noFacility || noGroup ? 'ring-2 ring-amber-400' : ''">
     <legend class="px-1 text-sm font-semibold">{{ t.title }}</legend>
     <p v-if="!options" class="text-sm text-gray-500">{{ t.loading }}</p>
     <template v-else>
@@ -56,7 +59,8 @@ const chosen = (facilityId: number, groupId: number) =>
         <p class="text-xs text-gray-500">{{ t.groupsHint }}</p>
         <div v-for="facility in groupFacilities" :key="facility.id" class="rounded-md bg-white p-2 ring-1 ring-gray-200">
           <p v-if="groupFacilities.length > 1" class="text-sm font-medium">{{ facility.name }}</p>
-          <p v-if="!facility.groups.length" class="text-xs text-gray-500">{{ t.noGroups }}</p>
+          <!-- Still limited although its groups are all gone: the choice stays, to go back to „alle Gruppen“. -->
+          <p v-if="!facility.groups.length && !limited(facility.id)" class="text-xs text-gray-500">{{ t.noGroups }}</p>
           <template v-else>
             <URadioGroup
               :model-value="limited(facility.id) ? 'some' : 'all'" orientation="horizontal"
@@ -71,6 +75,7 @@ const chosen = (facilityId: number, groupId: number) =>
                 @update:model-value="form = toggleGroup(form, facility.id, group.id)"
               />
             </div>
+            <p v-if="noGroupIn(facility.id)" class="mt-1 text-xs font-medium text-amber-700">{{ t.pickOneGroup }}</p>
           </template>
         </div>
       </div>

@@ -1668,7 +1668,9 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   - Beim Bearbeiten wartet **Speichern**, bis die Auswahl geladen ist (klappt das nicht: „Noch einmal laden“). Wer „Gilt
     für“ nicht anfasst, lässt es, wie es ist.
   - Wird eine gewählte Gruppe gelöscht, fällt sie aus der Auswahl. Ist danach keine Gruppe mehr gewählt, sehen nur
-    noch Leitung und Träger die Vorlage („keine Gruppe mehr gewählt“).
+    noch Leitung und Träger die Vorlage („keine Gruppe mehr gewählt“). Beim Bearbeiten ist „Gilt für“ dann markiert;
+    Speichern meldet „Bitte unter ‚Gilt für‘ mindestens eine Gruppe wählen (oder ‚alle Gruppen‘).“ – die App macht
+    daraus nie von selbst „alle Gruppen“. (Gleiches gilt für „Wissen“ und Kontakte.)
   - **Ändern**: Der Träger kann eine Vorlage nachträglich anderen Einrichtungen zuordnen. Für mehrere Einrichtungen wird
     sie nach dem Namen ihrer Kategorie einsortiert (vorbelegt mit der bisherigen); „nur ‹Einrichtung›“ macht sie wieder
     zur Vorlage der oben gewählten Einrichtung (Kategorie auswählen). Ist sie danach in Einrichtungen nicht mehr zu
@@ -2804,7 +2806,8 @@ Beim Anlegen und später mit **Bearbeiten** gibt es **„Gilt für“** – gena
   Kontakt dadurch Einrichtungen, fragt die App vorher nach.
 - Gibt es keine der gewählten Einrichtungen mehr, sieht nur noch der Träger den Kontakt („Keine Einrichtung gewählt“).
   Beim Bearbeiten ist „Gilt für“ dann markiert; Speichern ohne Einrichtung meldet **„Bitte unter ‚Gilt für‘ mindestens
-  eine Einrichtung wählen.“**
+  eine Einrichtung wählen.“** Ebenso, wenn alle gewählten Gruppen gelöscht wurden: dann fehlt eine Gruppe (oder „alle
+  Gruppen“).
 - **Beim Update** auf diese Version blieb alles, wie es war: eigene Kontakte gelten für ihre Einrichtung, die des Trägers
   für alle Einrichtungen, jeweils für alle Gruppen.
 
@@ -2815,10 +2818,16 @@ Beim Anlegen und später mit **Bearbeiten** gibt es **„Gilt für“** – gena
   für“ die Einrichtung des Kindes umfasst (die Gruppen spielen dafür keine Rolle). Am Tablet gilt es wie die übrigen
   Stammdaten (lesen; ändern, wer die Akte ändern darf).
 - Gilt eine bereits gewählte Schule nicht mehr für die Einrichtung (der Träger hat „Gilt für“ geändert), bleibt sie
-  eingetragen und steht mit **„(gilt nicht mehr für diese Einrichtung)“** da; neu auswählen lässt sie sich nicht. Dasselbe
-  gilt für die Zuordnung der Schulbezirke zu Schulen (Abschnitt Schulbezirke): Die Liste der Einrichtung bietet deren
-  Schulen an, die Liste des Trägers nur Schulen für alle Einrichtungen. Wechselt ein Kind die Einrichtung, bleibt eine
-  Schule des Trägers nur, wenn sie auch für die neue Einrichtung gilt.
+  eingetragen und steht mit **„(gilt nicht mehr für diese Einrichtung)“** da – in der Kinderakte, in der Liste der
+  Schulkinder (eigener Abschnitt bei „nach Schule“) und in den Ausdrucken; neu auswählen lässt sie sich nicht.
+  Wechselt ein Kind die Einrichtung, bleibt eine Schule des Trägers nur, wenn sie auch für die neue Einrichtung gilt.
+- **Schulbezirke** (Abschnitt Schulbezirke): Die Liste der Einrichtung bietet deren Schulen an. Die Liste des Trägers
+  gilt für alle Einrichtungen ohne eigene Liste und bietet jede Schule des Trägers an, die für mindestens eine
+  Einrichtung gilt; ob sie zu einem Kind passt, entscheidet erst „Übernehmen“ nach der Einrichtung des Kindes. Gilt die
+  Schule eines Bezirks nicht (mehr) für die Einrichtung des Kindes, nennt die Zeile in der Kinderakte sie mit dem Hinweis
+  und bietet kein „Übernehmen“ an. In den Listen steht der Hinweis nur nach „Gilt für“: in der Liste einer Einrichtung,
+  wenn die Schule nicht mehr für sie gilt, in der Liste des Trägers, wenn sie für keine Einrichtung mehr gilt (eine
+  umbenannte Kategorie allein zählt nicht).
 - Name und Ort einer Schule sieht in der Kinderakte (und in der Liste der Schulkinder) jede Person, die die Akte sehen
   bzw. ändern darf – auch ohne den Haken „auch für Mitarbeitende und am Tablet sichtbar“; Ansprechperson, Telefon,
   E-Mail und Notiz nicht.

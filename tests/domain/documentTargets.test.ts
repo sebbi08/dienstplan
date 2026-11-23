@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  emptyTargets, facilitiesForGroups, facilitiesLost, isOrphanTargets, setGroupLimit, targetHints, targetsFormOf, targetsPayload, targetsProblem,
+  emptyTargets, facilitiesForGroups, facilitiesLost, hasEmptyGroupLimit, isOrphanTargets, setGroupLimit, targetHints, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem,
   toggleGroup, toggleId,
 } from '../../app/utils/documentTargets'
 import {
@@ -88,6 +88,16 @@ describe('„Gilt für“ in the form', () => {
     expect(isOrphanTargets(dto({ scope: 'all', facilityIds: [] }))).toBe(false)
     expect(isOrphanTargets(dto({}))).toBe(false)
     expect(isOrphanTargets(null)).toBe(false)
+  })
+
+  it('knows an item limited to groups that are all gone; both cases make the dialog check „Gilt für“ like a change', () => {
+    const emptied = dto({ groupTargets: [{ facilityId: 1, groupIds: [] }], groupNames: [] })
+    expect(hasEmptyGroupLimit(emptied)).toBe(true)
+    expect(hasEmptyGroupLimit(dto({ groupTargets: [{ facilityId: 1, groupIds: [11] }] }))).toBe(false)
+    expect(hasEmptyGroupLimit(null)).toBe(false)
+    expect([emptied, dto({ scope: 'selected', facilityIds: [] }), dto({}), null].map(targetsNeedChoice)).toEqual([true, true, false, false])
+    // The form asks for a group in that facility before saving.
+    expect(targetsProblem(targetsFormOf(emptied), OPTIONS, 1)).toEqual({ kind: 'group', facility: 'Kita A' })
   })
 
   it('offers the groups of the facilities in the scope and edits the choice', () => {

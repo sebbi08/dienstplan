@@ -1,5 +1,6 @@
 import { contactMatches } from '#shared/domain/contacts'
 import type { ContactCategoryDto, ContactDto } from '#shared/types/api'
+import { de } from '~/locales/de'
 
 /** The sub-tab of „Kontakte“: all contacts, one category (its id), or „Vom Träger“. */
 export type ContactTabKey = 'all' | 'provider' | `${number}`
@@ -77,17 +78,25 @@ export function tabCategoryName(tabs: readonly ContactTab[], key: ContactTabKey)
   return tabs.find(tab => tab.key === key)?.category?.name ?? null
 }
 
+interface SchoolRow { futureSchool: string | null; futureSchoolOutOfScope?: boolean }
+
+/** A child's „künftige Schule“ as shown: with „(gilt nicht mehr für diese Einrichtung)“ when its „Gilt für“ changed. */
+export const futureSchoolLabel = (row: SchoolRow): string | null =>
+  (row.futureSchool !== null && row.futureSchoolOutOfScope ? `${row.futureSchool} (${de.contacts.schoolOutOfScope})` : row.futureSchool)
+
 /**
  * The list of school children grouped by their future school (alphabetical, „ohne“ last); the children keep their order
  * inside a school. Grouped by the shown name („Organisation, Ort“), so a facility's copy of a school and the Träger's
- * contact of the same name and city form one section, on purpose.
+ * contact of the same name and city form one section, on purpose. A school no longer for the facility forms its own
+ * section, named with the hint.
  */
-export function groupBySchool<T extends { futureSchool: string | null }>(rows: readonly T[]): { school: string | null; rows: T[] }[] {
+export function groupBySchool<T extends SchoolRow>(rows: readonly T[]): { school: string | null; rows: T[] }[] {
   const groups = new Map<string | null, T[]>()
   for (const row of rows) {
-    const list = groups.get(row.futureSchool) ?? []
+    const key = futureSchoolLabel(row)
+    const list = groups.get(key) ?? []
     list.push(row)
-    groups.set(row.futureSchool, list)
+    groups.set(key, list)
   }
   return [...groups.entries()]
     .sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : a.localeCompare(b, 'de')))

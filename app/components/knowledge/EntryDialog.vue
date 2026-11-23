@@ -7,7 +7,7 @@ import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import {
-  emptyTargets, facilitiesLost, isOrphanTargets, targetsFormOf, targetsPayload, targetsProblem, type TargetsForm,
+  emptyTargets, facilitiesLost, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
 } from '~/utils/documentTargets'
 import { filedCategoryId, subcategoryItems, subcategoryNamesFor, topCategories } from '~/utils/subcategories'
 
@@ -92,8 +92,8 @@ watch(forAll, (value) => { if (value && open.value) loadCategoryNames() })
 
 watch(open, (isOpen) => {
   if (!isOpen) return
-  // Without a facility left („Keine Einrichtung gewählt“) the section must be filled in: checked like a change.
-  targetsTouched.value = isOrphanTargets(props.entry?.targets ?? null)
+  // Without a facility or a group left the section must be filled in: checked like a change.
+  targetsTouched.value = targetsNeedChoice(props.entry?.targets ?? null)
   loadTargetOptions()
   file.value = null
   if (fileInput.value) fileInput.value.value = ''
