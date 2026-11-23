@@ -39,7 +39,6 @@ export function migrateDb(db: Db, migrationsFolder: string): void {
   try {
     const before = appliedMigrations(db)
     migrate(db as Parameters<typeof migrate>[0], { migrationsFolder })
-    addKnowledgeVersionAt(db)
     if (appliedMigrations(db) === before) return
     const violations = db.all<{ table: string }>(sql`PRAGMA foreign_key_check`)
     if (violations.length > 0) {
@@ -50,20 +49,6 @@ export function migrateDb(db: Db, migrationsFolder: string): void {
   finally {
     db.run(sql`PRAGMA foreign_keys = ON`)
   }
-}
-
-/**
- * 0114_knowledge_library was amended before its release (knowledge_entries.version_at). A test database that ran the
- * earlier text has the table without the column, and drizzle never runs 0114 again: add it there, filled with the last
- * change. A no-op everywhere else.
- */
-function addKnowledgeVersionAt(db: Db): void {
-  const table = db.get(sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'knowledge_entries'`)
-  if (!table) return
-  const columns = db.all<{ name: string }>(sql`PRAGMA table_info(knowledge_entries)`)
-  if (columns.some(column => column.name === 'version_at')) return
-  db.run(sql`ALTER TABLE knowledge_entries ADD version_at text DEFAULT '' NOT NULL`)
-  db.run(sql`UPDATE knowledge_entries SET version_at = updated_at`)
 }
 
 /** Number of migrations drizzle has recorded as applied (0 for a new database). */
