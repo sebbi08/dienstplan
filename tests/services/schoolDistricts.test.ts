@@ -128,16 +128,18 @@ describe('school district lists (Schulbezirke)', () => {
         .rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
     }, 60_000)
 
-    it('checks a stream to the end of its deflate data, not to a fake endstream, and refuses a stream without end', async () => {
+    it('checks a stream to the end of its deflate data, not to a fake endstream, also without any endstream', async () => {
       const hidden = fakeEndstreamBombPdf(200)
       expect(hidden.length).toBeLessThan(400_000)
       await expect(pdfTextItems(hidden)).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
-      // Without a direct length and without any endstream the stream cannot be delimited: refused, not skipped.
-      const endless = Buffer.concat([
-        Buffer.from('%PDF-1.7\n1 0 obj\n<< /Length 2 0 R /Filter /FlateDecode >>\nstream\n', 'latin1'),
-        deflateSync(Buffer.alloc(1000)), Buffer.from('\nendobj\n', 'latin1'),
+      // A stream without a direct length and without any endstream is inflated like any other: a bomb is caught by the
+      // pre-check, a harmless one is left to pdf.js (no refusal of its own any more).
+      const endless = (data: Buffer) => Buffer.concat([
+        Buffer.from('%PDF-1.7\n1 0 obj\n<< /Length 2 0 R /Filter /FlateDecode >>\nstream\n', 'latin1'), data, Buffer.from('\nendobj\n', 'latin1'),
       ])
-      await expect(pdfTextItems(endless)).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'structure' } })
+      await expect(pdfTextItems(endless(deflateSync(Buffer.alloc(160 * 1024 * 1024))))).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
+      const harmless = await pdfTextItems(endless(deflateSync(Buffer.alloc(1000)))).then(() => null, (error: ServiceError) => error)
+      expect(harmless?.details?.reason).not.toBe('structure')
     }, 60_000)
 
     it('takes „stream“ only as the keyword and never skips bytes: harmless words pass, hidden bombs do not', async () => {

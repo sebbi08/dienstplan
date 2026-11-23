@@ -3013,9 +3013,10 @@ Bezirk ordnen und drucken.
   gelesen (ohne Skripte, Schriften oder Formulare, ohne die Umgebungsvariablen des Servers), nie im Server selbst: Vorab
   werden alle mit **Flate** komprimierten Bereiche bis zum Ende ihrer Daten entpackt und nur gezählt (zusammen höchstens
   96 MB, gelesen höchstens die doppelte Dateigröße – eine „Zip-Bombe“ wird so sofort abgelehnt, auch hinter einem falschen
-  „endstream“, einer falschen Längenangabe oder dem Wort „stream“ in einem Text; ein Bereich ohne jedes Ende lehnt die
-  Datei ab). Andere Kompressionen (LZW, RunLength, Ketten, die nicht mit Flate beginnen, ein Filter per Verweis) prüft
-  diese Vorprüfung nicht; für sie wie für alles andere gilt die Speichergrenze: Der Leseprozess prüft alle 15 ms seinen
+  „endstream“, einer falschen Längenangabe oder dem Wort „stream“ in einem Text außerhalb ihrer eigenen Beschreibung).
+  Andere Kompressionen (LZW, RunLength, Ketten, die nicht mit Flate beginnen, ein Filter per Verweis) und Fälle, in denen
+  die Beschreibung eines Bereichs so verschleiert ist, dass die Vorprüfung ihn nicht erkennt, prüft sie nicht; für sie
+  wie für alles andere gilt die Speichergrenze: Der Leseprozess prüft alle 15 ms seinen
   eigenen Speicher und beendet sich über 320 MB selbst. Der Server beendet ihn außerdem, wenn er länger als 20 Sekunden
   braucht oder nicht mehr antwortet; mehr als 300 Seiten
   werden abgelehnt. Es wird immer nur **eine PDF gleichzeitig** gelesen (sonst: „Bitte gleich noch einmal versuchen“).

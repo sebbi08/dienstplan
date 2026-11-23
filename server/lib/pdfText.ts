@@ -13,9 +13,10 @@ import { ServiceError } from './errors'
  *   a decompression bomb, or deflate data chained through the whole file, is refused cheaply ('inflate'). `stream`
  *   counts only as the keyword (after a dictionary's `>>`, followed by a line end); each stream is inflated from its
  *   start to the end of its deflate data, and the search goes on right behind the keyword, so neither a fake
- *   `endstream`, a wrong `/Length` nor the word inside a string makes it skip bytes. A stream keyword without any
- *   `endstream` after it refuses the file ('structure'). Other filters (LZW, RunLength, a chain not starting with
- *   Flate, an indirect `/Filter`) are not pre-checked; the memory watch below bounds them. Then pdf.js reads the file
+ *   `endstream`, a wrong `/Length` nor the word inside a string outside the stream's own dictionary makes it skip
+ *   bytes; a stream without `endstream` is inflated like any other (whether pdf.js reads such a file is up to pdf.js).
+ *   Other filters (LZW, RunLength, a chain not starting with Flate, an indirect `/Filter`) and dictionaries the keyword
+ *   rule misreads are not pre-checked; the memory watch below bounds them. Then pdf.js reads the file
  *   (fonts, scripting and XFA off; only text items and their positions; pages, items and characters capped).
  * - The process's main thread does nothing but watch: every 15 ms it reads its own resident memory (RSS, which also
  *   counts the typed arrays pdf.js decodes into, unlike a heap limit) and exits at once above `rssMb`; every ~90 ms it
@@ -91,7 +92,6 @@ async function precheck(buf, budget) {
   let input = 2 * buf.length + 1024 * 1024
   let pos = 0
   let previous = 0
-  let nextEnd = -2
   let streams = 0
   for (;;) {
     const s = buf.indexOf('stream', pos, 'latin1')
@@ -104,9 +104,6 @@ async function precheck(buf, budget) {
     if (buf[start] === 13 && buf[start + 1] === 10) start += 2
     else if (buf[start] === 10 || buf[start] === 13) start += 1
     else continue
-    // A real stream keyword needs an end somewhere after it (the next one is looked up once and reused).
-    if (nextEnd !== -1 && nextEnd < start) nextEnd = buf.indexOf('endstream', start, 'latin1')
-    if (nextEnd === -1) return 'structure'
     const dictionary = buf.toString('latin1', Math.max(previous, s - 2048), s)
     previous = start
     if (!/FlateDecode|\\/Fl\\b/.test(dictionary)) continue
@@ -296,7 +293,7 @@ function readInChild(data: Uint8Array, limits: PdfTextLimits): { pages: Promise<
 /**
  * The text items of every page, read in a separate process (see above). 429 pdf_busy while another PDF is being read
  * (until its process has ended); 422 pdf_unreadable when the file cannot be read or breaks a limit (details.reason:
- * inflate, structure, memory, time, pages, items, stalled, crashed, …); 422 pdf_no_text when no page holds text (a scan).
+ * inflate, streams, memory, time, pages, items, stalled, crashed, …); 422 pdf_no_text when no page holds text (a scan).
  */
 export async function pdfTextItems(data: Uint8Array, limits: PdfTextLimits = PDF_TEXT_LIMITS): Promise<PdfTextItem[][]> {
   if (running) throw new ServiceError(429, 'pdf_busy')
