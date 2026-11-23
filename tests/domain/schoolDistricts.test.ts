@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildDistrictIndex, decodeCsvBytes, districtCsv, guessAsOf, looksTruncated, matchAddress, normalizeDistrictCode, overlappingRows,
+  buildDistrictIndex, decodeCsvBytes, districtCsv, guessAsOf, looksTruncated, matchAddress, MAX_CSV_RECORDS, normalizeDistrictCode, overlappingRows,
   parseAddress, parseDistrictCsv, parseDistrictLines, pdfLines, rowContains, streetKey, validDistrictCode, type DistrictRow,
 } from '../../shared/domain/schoolDistricts'
 
@@ -220,6 +220,28 @@ describe('CSV import and export', () => {
       expect(result.rows).toEqual([])
       expect(result.skippedCount).toBe(1)
     }
+  })
+
+  it('drops blank records while reading: 10 MB of empty lines or Excel’s „;;;“ rows cost no memory', () => {
+    for (const blank of ['\n'.repeat(10 * 1024 * 1024), ';;;\r\n'.repeat(2 * 1024 * 1024), `Straße;Hausnummer;Bezirk\r\n${';;\r\n'.repeat(2 * 1024 * 1024)}Ahornweg;2-14;04\r\n`]) {
+      const before = process.memoryUsage().heapUsed
+      const started = performance.now()
+      const result = parseDistrictCsv(blank)
+      expect(performance.now() - started).toBeLessThan(3000)
+      expect(process.memoryUsage().heapUsed - before).toBeLessThan(50 * 1024 * 1024)
+      expect(result.skippedCount).toBe(0)
+      expect(result.truncated).toBe(false)
+    }
+    // A row after 100 000 blank ones is still found.
+    expect(parseDistrictCsv(`Straße;Hausnummer;Bezirk\r\n${';;\r\n'.repeat(100_000)}Ahornweg;2-14;04\r\n`).rows).toEqual([row('Ahornweg', 2, 14, '04')])
+  })
+
+  it('reads at most 50 000 records and 20 000 rows, and says so', () => {
+    const lines = parseDistrictCsv('kein Treffer 1\n'.repeat(MAX_CSV_RECORDS + 10))
+    expect(lines).toMatchObject({ rows: [], skippedCount: MAX_CSV_RECORDS, truncated: true })
+    const rows = parseDistrictCsv(Array.from({ length: 20_005 }, (_, index) => `Weg ${index};1-3;01`).join('\n'))
+    expect(rows.rows).toHaveLength(20_000)
+    expect(rows.truncated).toBe(true)
   })
 
   it('keeps district codes to letters, digits, space, dot, hyphen and slash, and never writes a formula', () => {

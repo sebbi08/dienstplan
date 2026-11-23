@@ -117,6 +117,25 @@ describe('reading an upload body', () => {
     expect(parseMultipart(multipartBody(boundary, file).subarray(0, 300), boundary)).toEqual([])
   })
 
+  it('reads the parameters with quoted strings as whole tokens', () => {
+    const body = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; filename="x; name=evil.pdf"; name="file"\r\n\r\nabc\r\n--${boundary}--\r\n`, 'latin1')
+    expect(parseMultipart(body, boundary).map(part => [part.name, part.filename])).toEqual([['file', 'x; name=evil.pdf']])
+    const escaped = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a\\"b.pdf"\r\n\r\nabc\r\n--${boundary}--\r\n`, 'latin1')
+    expect(parseMultipart(escaped, boundary)[0]!.filename).toBe('a"b.pdf')
+  })
+
+  it('reads at most 100 parts and header blocks of at most 16 KB', () => {
+    const field = (index: number) => `--${boundary}\r\nContent-Disposition: form-data; name="f${index}"\r\n\r\n${index}\r\n`
+    const many = Buffer.from(`${Array.from({ length: 150 }, (_, index) => field(index)).join('')}--${boundary}--\r\n`, 'latin1')
+    const parts = parseMultipart(many, boundary)
+    expect(parts).toHaveLength(100)
+    expect(parts.at(-1)!.name).toBe('f99')
+    const longHeaders = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"\r\nX-Pad: ${'a'.repeat(17 * 1024)}\r\n\r\nabc\r\n--${boundary}--\r\n`, 'latin1')
+    expect(parseMultipart(longHeaders, boundary)).toEqual([])
+    const fitting = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"\r\nX-Pad: ${'a'.repeat(15 * 1024)}\r\n\r\nabc\r\n--${boundary}--\r\n`, 'latin1')
+    expect(parseMultipart(fitting, boundary).map(part => part.data.toString())).toEqual(['abc'])
+  })
+
   it('reads a 30 MB upload once: the file is a view into the one body buffer, fast', async () => {
     const file = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(MAX_DOCUMENT_BYTES - 9, 0x41)])
     const body = multipartBody(boundary, file)

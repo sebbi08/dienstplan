@@ -1,3 +1,4 @@
+import { deflateSync } from 'node:zlib'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
@@ -5,7 +6,7 @@ import { children, schoolDistrictLists, schoolDistrictRows } from '../../server/
 import { ServiceError } from '../../server/lib/errors'
 import { lastReadPeakRss, PDF_TEXT_LIMITS, pdfTextItems, type PdfTextLimits } from '../../server/lib/pdfText'
 import { adoptDistrictSchool, createChild, getChild, updateChildMaster } from '../../server/services/children'
-import { createContact, deleteContact, listContacts } from '../../server/services/contacts'
+import { createContact, deleteContact, listContacts, updateContact } from '../../server/services/contacts'
 import { upcomingSchoolChildren } from '../../server/services/occupancy'
 import {
   deleteSchoolDistrictList, globalSchoolOptions, parseSchoolDistrictFile, saveSchoolDistrictList, schoolDistrictMatcher,
@@ -14,7 +15,7 @@ import {
 import type { DistrictRow } from '../../shared/domain/schoolDistricts'
 import type { ChildMasterInput, ContactInput, Role, SchoolDistrictListInput } from '../../shared/types/api'
 import { addFacility, addUser, asChildViewer, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
-import { flateBombPdf, streetListPdf, textPdf } from '../helpers/textPdf'
+import { fakeEndstreamBombPdf, flateBombPdf, streetListPdf, textPdf } from '../helpers/textPdf'
 
 const NOW = new Date('2027-04-01T09:00:00.000Z')
 const TODAY = '2027-04-01'
@@ -118,16 +119,25 @@ describe('school district lists (Schulbezirke)', () => {
       const started = Date.now()
       await expect(pdfTextItems(bomb, { ...PDF_TEXT_LIMITS, inflateMb: 16 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
       expect(Date.now() - started).toBeLessThan(10_000)
-      // With the pre-check out of the way, the memory watchdog stops pdf.js decoding 192 MB in the other process at the
-      // default 320 MB.
+      // With the pre-check out of the way, the reader stops itself (its own memory watch) while pdf.js decodes 192 MB.
       await expect(pdfTextItems(bigger, { ...PDF_TEXT_LIMITS, inflateMb: 1024 })).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'memory' } })
-      expect(lastReadPeakRss()).toBeGreaterThan(320 * 1024 * 1024)
-      expect(lastReadPeakRss()).toBeLessThan(640 * 1024 * 1024)
       // The server process itself never held the inflated data.
       expect(process.memoryUsage.rss() - before).toBeLessThan(64 * 1024 * 1024)
       // With the default limits a bomb beyond 96 MB is refused through the upload as well.
       await expect(parseSchoolDistrictFile({ data: huge, filename: 'bombe.pdf' }))
         .rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
+    }, 60_000)
+
+    it('checks a stream to the end of its deflate data, not to a fake endstream, and refuses a stream without end', async () => {
+      const hidden = fakeEndstreamBombPdf(200)
+      expect(hidden.length).toBeLessThan(400_000)
+      await expect(pdfTextItems(hidden)).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'inflate' } })
+      // Without a direct length and without any endstream the stream cannot be delimited: refused, not skipped.
+      const endless = Buffer.concat([
+        Buffer.from('%PDF-1.7\n1 0 obj\n<< /Length 2 0 R /Filter /FlateDecode >>\nstream\n', 'latin1'),
+        deflateSync(Buffer.alloc(1000)), Buffer.from('\nendobj\n', 'latin1'),
+      ])
+      await expect(pdfTextItems(endless)).rejects.toMatchObject({ code: 'pdf_unreadable', details: { reason: 'structure' } })
     }, 60_000)
 
     it('reads one PDF at a time', async () => {
@@ -155,8 +165,8 @@ describe('school district lists (Schulbezirke)', () => {
         rows: [row('Ahornweg', 2, 14, '04'), row('Bahnhofanlage', 1, 3, '02', { toSuffix: 'a', side: 'odd', flags: ['unclear'], note: 'Quelle' })],
         // Every code the rows use, unused ones dropped.
         districts: [
-          { code: '02', name: 'Südstadtschule', contactId: sued, contactName: 'Südstadtschule, Musterstadt' },
-          { code: '04', name: '', contactId: null, contactName: null },
+          { code: '02', name: 'Südstadtschule', contactId: sued, contactName: 'Südstadtschule, Musterstadt', contactOutOfScope: false },
+          { code: '04', name: '', contactId: null, contactName: null, contactOutOfScope: false },
         ],
         updatedAt: NOW.toISOString(), updatedBy: 'leitung',
       })
@@ -221,6 +231,28 @@ describe('school district lists (Schulbezirke)', () => {
       // A school deleted from the address book leaves the district without it.
       deleteContact(db, provider, global)
       expect(schoolDistrictSettings(db, 1).global!.districts[0]).toMatchObject({ contactId: null, contactName: null })
+    })
+
+    it('offers a list only the schools whose „Gilt für“ covers its scope, and keeps a stored one no longer covered with a hint', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const rows = [row('Ahornweg', 2, 14, '04')]
+      const chosen = createContact(db, provider, contact({ scope: 'selected', facilityIds: [1], categoryName: 'Grundschulen', organisation: 'Hierschule' }), NOW)
+      const all = createContact(db, provider, contact({ scope: 'all', categoryName: 'Grundschulen', organisation: 'Waldschule' }), NOW)
+      // The Träger's list applies everywhere: only schools for all facilities.
+      expect(globalSchoolOptions(db)).toEqual([{ id: all, name: 'Waldschule' }])
+      expect(errorCode(() => saveSchoolDistrictList(db, provider, null, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW))).toBe('school_district_contact_invalid')
+      expect(errorCode(() => saveSchoolDistrictList(db, leitung, krippe, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW))).toBe('school_district_contact_invalid')
+      saveSchoolDistrictList(db, leitung, 1, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW)
+      saveSchoolDistrictList(db, provider, null, list(rows, [{ code: '04', name: '', contactId: all }]), NOW)
+      expect(schoolDistrictSettings(db, 1).own!.districts[0]).toMatchObject({ contactId: chosen, contactOutOfScope: false })
+      // The schools move to the Krippe only: still linked, flagged, and the list saves unchanged.
+      updateContact(db, provider, chosen, contact({ scope: 'selected', facilityIds: [krippe], categoryName: 'Grundschulen', organisation: 'Hierschule' }), NOW)
+      updateContact(db, provider, all, contact({ scope: 'selected', facilityIds: [krippe], categoryName: 'Grundschulen', organisation: 'Waldschule' }), NOW)
+      const settings = schoolDistrictSettings(db, 1)
+      expect(settings.own!.districts[0]).toMatchObject({ contactId: chosen, contactName: 'Hierschule', contactOutOfScope: true })
+      expect(settings.global!.districts[0]).toMatchObject({ contactId: all, contactOutOfScope: true })
+      saveSchoolDistrictList(db, leitung, 1, list(rows, [{ code: '04', name: '', contactId: chosen }]), NOW)
+      saveSchoolDistrictList(db, provider, null, list(rows, [{ code: '04', name: '', contactId: all }]), NOW)
     })
   })
 

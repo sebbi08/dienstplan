@@ -288,27 +288,41 @@ function separatorOf(text: string): string {
 /** Cells kept per record; a record with more is no row anyway (it is then reported as not recognised). */
 const MAX_CELLS = 1000
 
+/** Non-blank records read from one file at most (a list has up to 20 000 rows); the rest is left out (`truncated`). */
+export const MAX_CSV_RECORDS = 50_000
+
 /**
  * The records of a CSV text (quotes with "" inside, separators and line breaks inside quotes), read by slices between
- * separators, so a 10 MB file takes one pass.
+ * separators in one pass and handed out one at a time; blank records (empty lines, Excel's „;;;“ rows) are dropped as
+ * they are read, so 10 MB of empty lines cost no memory. After MAX_CSV_RECORDS non-blank records `limit.reached` is
+ * set and reading stops.
  */
-function csvRecords(text: string, sep: string): string[][] {
-  const records: string[][] = []
+function* csvRecords(text: string, sep: string, limit: { reached: boolean }): Generator<string[]> {
+  let yielded = 0
   const length = text.length
+  const sepCode = sep.charCodeAt(0)
+  // The end of an unquoted field; whether it holds anything but white space is noted on the way.
+  let filled = false
   const endOfField = (from: number) => {
     let at = from
     while (at < length) {
       const char = text.charCodeAt(at)
-      if (char === 10 || char === 13 || text[at] === sep) break
+      if (char === 10 || char === 13 || char === sepCode) break
+      if (char > 32 && char !== 160) filled = true
       at++
     }
     return at
   }
   let record: string[] = []
+  let cells = 0
+  let blank = true
   let i = 0
   while (i < length) {
     let field: string
-    if (text[i] === '"') {
+    filled = false
+    const first = text.charCodeAt(i)
+    if (first === 10 || first === 13 || first === sepCode) field = ''
+    else if (first === 34) {
       field = ''
       let from = i + 1
       for (;;) {
@@ -331,26 +345,48 @@ function csvRecords(text: string, sep: string): string[][] {
       const end = endOfField(i)
       field += text.slice(i, end)
       i = end
+      if (/\S/.test(field)) filled = true
     }
     else {
       const end = endOfField(i)
       field = text.slice(i, end)
       i = end
     }
-    if (record.length < MAX_CELLS) record.push(field)
-    if (i < length && text[i] === sep) {
+    if (filled) blank = false
+    // Empty cells are only counted; they are filled in when a cell with content follows (or the record is kept).
+    if (field !== '' && cells < MAX_CELLS) {
+      while (record.length < cells) record.push('')
+      record.push(field)
+    }
+    cells++
+    if (i < length && text.charCodeAt(i) === sepCode) {
       i++
-      if (i === length && record.length < MAX_CELLS) record.push('')
+      if (i === length) cells++
       continue
     }
     // A line break (CRLF, LF or CR) or the end of the text ends the record.
     if (text.charCodeAt(i) === 13 && text.charCodeAt(i + 1) === 10) i++
     i++
-    records.push(record)
-    record = []
+    if (!blank) {
+      if (yielded >= MAX_CSV_RECORDS) {
+        limit.reached = true
+        return
+      }
+      yielded++
+      while (record.length < Math.min(cells, MAX_CELLS)) record.push('')
+      yield record
+      blank = true
+    }
+    if (record.length > 0) record = []
+    cells = 0
   }
-  if (record.length > 0) records.push(record)
-  return records.filter(cells => cells.some(cell => cell.trim() !== ''))
+  if (!blank) {
+    if (yielded >= MAX_CSV_RECORDS) limit.reached = true
+    else {
+      while (record.length < Math.min(cells, MAX_CELLS)) record.push('')
+      yield record
+    }
+  }
 }
 
 type Column = 'street' | 'numbers' | 'from' | 'to' | 'side' | 'district' | 'school' | 'check' | 'note'
@@ -423,20 +459,29 @@ function csvRow(cells: readonly string[], columns: Map<Column, number>, into: Co
  * columns, without one each record like a line of text.
  */
 export function parseDistrictCsv(text: string): DistrictParseResult {
-  const records = csvRecords(text, separatorOf(text))
+  const limit = { reached: false }
+  const records = csvRecords(text, separatorOf(text), limit)
   const into = new Collector()
-  let headerAt = -1
-  let columns: Map<Column, number> | null = null
-  for (let index = 0; index < Math.min(5, records.length) && !columns; index++) {
-    // A header line is short; a long record is no header (and not worth comparing).
-    if (records[index]!.length <= 30 && records[index]!.every(cell => cell.length <= 60)) columns = headerColumns(records[index]!)
-    if (columns) headerAt = index
-  }
-  for (const cells of columns ? records.slice(headerAt + 1) : records) {
+  const readRecord = (cells: string[], columns: Map<Column, number> | null) => {
     if (columns) csvRow(cells, columns, into)
     else readLine(cells.length === 3 ? cells.map(plain) : [cells.map(plain).join(' ')], into)
   }
-  return into.result()
+  // The header is looked for in the first five records (title lines above it are left out); only these are held.
+  // (Read with next(): leaving a for…of loop early would close the generator.)
+  const first: string[][] = []
+  let columns: Map<Column, number> | null = null
+  while (!columns && first.length < 5) {
+    const next = records.next()
+    if (next.done) break
+    const cells = next.value
+    // A header line is short; a long record is no header (and not worth comparing).
+    if (cells.length <= 30 && cells.every(cell => cell.length <= 60)) columns = headerColumns(cells)
+    if (!columns) first.push(cells)
+  }
+  if (!columns) for (const cells of first) readRecord(cells, null)
+  for (let next = records.next(); !next.done; next = records.next()) readRecord(next.value, columns)
+  const result = into.result()
+  return limit.reached ? { ...result, truncated: true } : result
 }
 
 function csvField(value: string): string {

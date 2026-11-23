@@ -31,11 +31,18 @@ export interface UploadPart {
 const MAX_PARTS = 100
 const MAX_PART_HEADERS = 16 * 1024
 
-/** A parameter of the Content-Disposition header (quoted or not), decoded like browsers send it (UTF-8 bytes). */
-function dispositionParameter(headers: string, name: string): string | undefined {
-  const match = new RegExp(`;\\s*${name}=(?:"([^"]*)"|([^;\\r\\n]*))`, 'i').exec(headers)
-  const value = match ? (match[1] ?? match[2] ?? '').trim() : undefined
-  return value === undefined ? undefined : Buffer.from(value, 'latin1').toString('utf8')
+/**
+ * The parameters of a Content-Disposition header, read left to right with quoted strings as whole tokens (so
+ * `filename="a; name=b"` cannot fake a `name`), decoded like browsers send them (UTF-8 bytes); the first of a name wins.
+ */
+function dispositionParameters(header: string): Map<string, string> {
+  const parameters = new Map<string, string>()
+  for (const match of header.matchAll(/;\s*([^=;\s]+)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;]*))/g)) {
+    const name = match[1]!.toLowerCase()
+    const raw = match[2] !== undefined ? match[2].replace(/\\(.)/g, '$1') : (match[3] ?? '').trim()
+    if (!parameters.has(name)) parameters.set(name, Buffer.from(raw, 'latin1').toString('utf8'))
+  }
+  return parameters
 }
 
 /**
@@ -57,10 +64,10 @@ export function parseMultipart(body: Buffer, boundary: string): UploadPart[] {
     const end = body.indexOf(next, headerEnd + 4)
     if (end < 0) break
     const headers = body.toString('latin1', start, headerEnd)
-    const disposition = /^content-disposition:(.*)$/im.exec(headers)?.[1] ?? ''
+    const disposition = dispositionParameters(/^content-disposition:(.*)$/im.exec(headers)?.[1] ?? '')
     const type = /^content-type:\s*(.*)$/im.exec(headers)?.[1]?.trim()
     parts.push({
-      name: dispositionParameter(disposition, 'name'), filename: dispositionParameter(disposition, 'filename'),
+      name: disposition.get('name'), filename: disposition.get('filename'),
       ...(type ? { type } : {}), data: body.subarray(headerEnd + 4, end),
     })
     at = end + 2
@@ -68,12 +75,16 @@ export function parseMultipart(body: Buffer, boundary: string): UploadPart[] {
   return parts
 }
 
-/** The body of a request read once into a buffer of the announced size; more bytes than announced: 413 `tooLargeCode`. */
+/**
+ * The body of a request read once into a buffer of the announced size, allocated when the first bytes arrive (a client
+ * that sends nothing holds nothing); more bytes than announced: 413 `tooLargeCode`.
+ */
 function readBodyOnce(request: IncomingMessage, length: number, tooLargeCode: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const body = Buffer.allocUnsafe(length)
+    let body: Buffer | null = null
     let filled = 0
     request.on('data', (chunk: Buffer) => {
+      body ??= Buffer.allocUnsafe(length)
       if (filled + chunk.length > length) {
         request.removeAllListeners('data')
         request.resume()
@@ -83,7 +94,7 @@ function readBodyOnce(request: IncomingMessage, length: number, tooLargeCode: st
       chunk.copy(body, filled)
       filled += chunk.length
     })
-    request.on('end', () => resolve(body.subarray(0, filled)))
+    request.on('end', () => resolve(body ? body.subarray(0, filled) : Buffer.alloc(0)))
     request.on('error', reject)
   })
 }

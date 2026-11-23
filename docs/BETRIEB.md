@@ -2891,9 +2891,9 @@ Bezirk ordnen und drucken.
   kann außerdem eine **Liste für alle Einrichtungen** hinterlegen (Recht „Einstellungen anderer Einrichtungen“); sie gilt
   für jede Einrichtung ohne eigene Liste. Die Leitung sieht die Liste des Trägers und kann sie herunterladen.
 - **Hochladen:** PDF mit Text (z. B. die Liste der Stadtverwaltung) oder CSV (Semikolon oder Komma, UTF-8 oder
-  Windows-Zeichensatz). Eine **Excel-Datei** bitte zuerst als CSV speichern. Höchstens 10 MB (weniger als die 30 MB anderer Dateien: so bleibt das Lesen einer PDF im Speicher des
-  Leseprozesses) und 20 000 Zeilen. Eine
-  gescannte PDF ohne Text lässt sich nicht lesen.
+  Windows-Zeichensatz). Eine **Excel-Datei** bitte zuerst als CSV speichern. Höchstens 10 MB (weniger als die 30 MB anderer
+  Dateien: so bleibt das Lesen einer PDF im Speicher des Leseprozesses) und 20 000 Zeilen. Eine gescannte PDF ohne Text
+  lässt sich nicht lesen.
 - **CSV-Spalten** (erste Zeile): `Straße; von; bis; Seite; Bezirk; Schule; Prüfen; Hinweis` – so sieht auch der
   Download aus. Es geht auch kürzer: `Straße; Hausnummer; Bezirk` mit Hausnummern wie `2-14` oder `1-3 A`. „Seite“ ist
   `gerade`, `ungerade` oder `alle`; leer heißt: aus den Hausnummern (beide gerade → gerade Seite, beide ungerade →
@@ -2912,13 +2912,16 @@ Bezirk ordnen und drucken.
 - **Speichern** ersetzt die gespeicherte Liste vollständig (mit Rückfrage), mit Name und **Stand** (z. B. „2021“ oder
   „01.09.2021“). **Als CSV herunterladen** liefert die gespeicherte Liste im Format, das das Hochladen wieder liest.
 - **Sicherheit:** Hochgeladene Dateien gelten als nicht vertrauenswürdig. Eine PDF wird in einem **eigenen Node-Prozess**
-  gelesen (ohne Skripte, Schriften oder Formulare), nie im Server selbst: Vorab werden alle komprimierten Bereiche mit
-  einer Obergrenze entpackt (zusammen höchstens 96 MB – eine „Zip-Bombe“ wird so sofort abgelehnt); danach beendet der
-  Server den Leseprozess, sobald er mehr als 320 MB Speicher belegt, länger als 20 Sekunden braucht oder nicht mehr
-  antwortet; mehr als 300 Seiten werden abgelehnt. Es wird immer nur **eine PDF gleichzeitig** gelesen (sonst: „Bitte
-  gleich noch einmal versuchen“). Zeilen über 300 Zeichen gelten als „nicht erkannt“. Die hochgeladene Datei selbst wird
-  nicht gespeichert. Der Server muss als `node .output/server/index.mjs` gestartet werden (wie im Docker-Image), sonst
-  findet er pdf.js nicht und meldet das im Log.
+  gelesen (ohne Skripte, Schriften oder Formulare, ohne die Umgebungsvariablen des Servers), nie im Server selbst: Vorab
+  werden alle komprimierten Bereiche bis zum Ende ihrer Daten entpackt und nur gezählt (zusammen höchstens 96 MB – eine
+  „Zip-Bombe“ wird so sofort abgelehnt, auch wenn sie ein falsches „endstream“ enthält; ein Bereich ohne erkennbares Ende
+  lehnt die Datei ab). Der Leseprozess prüft alle 15 ms seinen eigenen Speicher und beendet sich über 320 MB selbst; der
+  Server beendet ihn außerdem, wenn er länger als 20 Sekunden braucht oder nicht mehr antwortet; mehr als 300 Seiten
+  werden abgelehnt. Es wird immer nur **eine PDF gleichzeitig** gelesen (sonst: „Bitte gleich noch einmal versuchen“).
+  Zeilen über 300 Zeichen gelten als „nicht erkannt“; leere Zeilen (auch die „;;;“-Zeilen aus Excel) werden beim Lesen
+  übersprungen, und mehr als 50 000 Zeilen mit Inhalt werden nicht gelesen (Hinweis in der Vorschau). Die hochgeladene
+  Datei selbst wird nicht gespeichert. Der Server muss als `node .output/server/index.mjs` gestartet werden (wie im
+  Docker-Image), sonst findet er pdf.js nicht und meldet das im Log.
 - **Speicher des Containers:** Die App läuft mit höchstens **1024 MB** für alles. Der Server selbst braucht etwa
   150–300 MB; der Leseprozess für eine PDF darf höchstens 320 MB belegen (JavaScript-Speicher 160 MB) und wird darüber
   sofort beendet – so bleibt auch mit einer großen Hochladung genug Luft, damit der Container nie den Server selbst

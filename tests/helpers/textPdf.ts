@@ -1,4 +1,4 @@
-import { deflateSync } from 'node:zlib'
+import { deflateRawSync, deflateSync } from 'node:zlib'
 
 /** A text item placed on a page: left edge and baseline in PDF points (origin bottom left). */
 export interface PdfText { text: string; x: number; y: number }
@@ -70,6 +70,22 @@ export function flateBombPdf(megabytes: number): Buffer {
   parts.push(Buffer.from(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}`
     + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${length}\n%%EOF\n`))
   return Buffer.concat(parts)
+}
+
+/**
+ * A bomb that hides behind a fake `endstream`: the content stream's length is an indirect reference, and its deflate
+ * data starts with a stored block holding the bytes „endstream“, followed by `megabytes` of compressed zeros. A check
+ * that stops at the first `endstream` sees only the harmless start.
+ */
+export function fakeEndstreamBombPdf(megabytes: number): Buffer {
+  const hidden = Buffer.from('\nendstream\nendobj\n', 'latin1')
+  const stored = Buffer.concat([Buffer.from([0x00, hidden.length & 0xFF, hidden.length >> 8, ~hidden.length & 0xFF, (~hidden.length >> 8) & 0xFF]), hidden])
+  const data = Buffer.concat([Buffer.from([0x78, 0x01]), stored, deflateRawSync(Buffer.alloc(megabytes * 1024 * 1024), { level: 9 }), Buffer.from([0, 0, 0, 0])])
+  const head = Buffer.from('%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'
+    + '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >>\nendobj\n'
+    + '4 0 obj\n<< /Length 5 0 R /Filter /FlateDecode >>\nstream\n', 'latin1')
+  const tail = Buffer.from(`\nendstream\nendobj\n5 0 obj\n${data.length}\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n`, 'latin1')
+  return Buffer.concat([head, data, tail])
 }
 
 /** The street list as a PDF: the three columns at the x positions of the real list, one row every 15 points. */
