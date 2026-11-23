@@ -3,6 +3,7 @@ import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
 import { hashPassword, MIN_PASSWORD_LENGTH } from '../lib/password'
 import { normalizeUsername } from '../lib/username'
 import { seedPendingStarterTemplates } from '../services/formTemplates'
+import { seedPendingKnowledgeStarters } from '../services/knowledge'
 import type { Db } from './client'
 import { absenceCodes, coverageRules, documentTypes, shiftTemplates, users } from './schema'
 
@@ -95,6 +96,8 @@ export function seedDefaults(db: Db): void {
   }
   // Every facility gets each starter template once (per key, form_starter_seeds), also a starter new in this version.
   seedPendingStarterTemplates(db)
+  // The same for the example categories and links of „Wissen“ (per key, knowledge_starter_seeds).
+  seedPendingKnowledgeStarters(db)
 }
 
 /** Creates the first account (as Träger) from environment variables when no user exists yet. */

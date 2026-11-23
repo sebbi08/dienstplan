@@ -4,21 +4,24 @@ import type { Role } from '#shared/types/api'
 
 /**
  * „Dokumente“ (/documents): the form templates („Bögen“, formTemplates.manage) and the blank forms to print („Vorlagen“,
- * printTemplates.view; the tablet without a permission of its own), each a tab. `?tab=forms|templates` opens one.
+ * printTemplates.view; the tablet without a permission of its own) and „Wissen“ (knowledge.view: every account and the
+ * tablet), each a tab. `?tab=forms|templates|knowledge` opens one.
  */
-export const DOCUMENT_TABS = ['forms', 'templates'] as const
+export const DOCUMENT_TABS = ['forms', 'templates', 'knowledge'] as const
 export type DocumentTab = typeof DOCUMENT_TABS[number]
 
-const TAB_KEYS: Record<DocumentTab, PermissionKey> = { forms: 'formTemplates.manage', templates: 'printTemplates.view' }
+const TAB_KEYS: Record<DocumentTab, PermissionKey> = {
+  forms: 'formTemplates.manage', templates: 'printTemplates.view', knowledge: 'knowledge.view',
+}
 
 export interface DocumentsViewer {
   role: Role
   can: (key: PermissionKey) => boolean
 }
 
-/** The tabs the viewer may use, in their order; the tablet has the print templates only. */
+/** The tabs the viewer may use, in their order; the tablet has the print templates and „Wissen“ (read only). */
 export function documentTabs(viewer: DocumentsViewer): DocumentTab[] {
-  if (viewer.role === 'terminal') return ['templates']
+  if (viewer.role === 'terminal') return ['templates', 'knowledge']
   return DOCUMENT_TABS.filter(tab => viewer.can(TAB_KEYS[tab]))
 }
 

@@ -792,9 +792,9 @@ describe('API route permissions', () => {
     }
   })
 
-  it('lets the tablet into the general plan, the team meetings, the notes and the contacts (reading) and the print templates (with their categories) only', () => {
+  it('lets the tablet into the general plan, the team meetings, the notes and the contacts (reading), „Wissen“ (reading, confirming with the PIN) and the print templates (with their categories) only', () => {
     const allowing = routes.filter(route => source(route).includes('allowTerminal: true'))
-    expect(allowing).toEqual(['contacts/index.get.ts', 'notes/index.get.ts', 'plan/[year]/[month].get.ts', 'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts',
+    expect(allowing).toEqual(['contacts/index.get.ts', 'knowledge/[id]/confirm.post.ts', 'knowledge/[id]/file.get.ts', 'knowledge/index.get.ts', 'notes/index.get.ts', 'plan/[year]/[month].get.ts', 'print-templates/[id]/file.get.ts', 'print-templates/index.get.ts',
       'team-meetings/[id].get.ts', 'team-meetings/[id].put.ts', 'team-meetings/[id]/sign.post.ts', 'team-meetings/index.get.ts',
       'team-meetings/index.post.ts', 'template-categories/index.get.ts'])
   })

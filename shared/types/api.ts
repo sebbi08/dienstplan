@@ -7,6 +7,7 @@ import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { IfsgAnchor, IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifsg'
 import type { IfsgDifference, IfsgLocalDateRule, IfsgLocalRule } from '../domain/ifsgLocal'
+import type { KnowledgeConfirmState, KnowledgeKind } from '../domain/knowledge'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
 import type { EmploymentBanKind } from '../domain/maternity'
 import type { DayMeal } from '../domain/meals'
@@ -3914,4 +3915,121 @@ export interface SchoolOptionDto {
   id: number
   /** The organisation, with the city when there is one („Grundschule Süd, Heidelberg“). */
   name: string
+}
+
+// ---- „Wissen“ (Dokumente → Wissen) -------------------------------------------
+
+/** A category of „Wissen“ in the viewer's facility (only those the viewer sees, by visibility). */
+export interface KnowledgeCategoryDto {
+  id: number
+  name: string
+  visibility: TemplateVisibility
+  /** The entries the viewer sees in it (the facility's own and the Träger's shown in it by name). */
+  entryCount: number
+  /** The facility's own entries filed in it; while there are any it cannot be deleted. */
+  ownCount: number
+}
+
+/** The viewer's own „Gelesen und verstanden“ of an entry (with an own account linked to an employee). */
+export interface KnowledgeMyConfirmationDto {
+  state: KnowledgeConfirmState
+  /** When the person confirmed last (also an earlier version: „frühere Fassung bestätigt am …“); null when never. */
+  confirmedAt: string | null
+}
+
+/** An entry of „Wissen“ as the viewer sees it. */
+export interface KnowledgeEntryDto {
+  id: number
+  /** The facility's category it shows in; null = „Vom Träger“ (for all facilities, no category of its name). */
+  categoryId: number | null
+  /** For all facilities (maintained by the Träger). */
+  global: boolean
+  /** An entry for all facilities: the category name and the visibility the Träger chose (null for a facility's own). */
+  globalCategoryName: string | null
+  globalVisibility: TemplateVisibility | null
+  kind: KnowledgeKind
+  title: string
+  description: string
+  /** „Stand vom“ (null = not given). */
+  asOf: IsoDate | null
+  /** The link of a link entry ('' otherwise). */
+  url: string
+  /** The sanitized formatted text of a text entry ('' otherwise). */
+  body: string
+  /** The PDF's size in bytes (null for links and texts). */
+  fileSize: number | null
+  /** „Gelesen und verstanden erforderlich“. */
+  needsConfirmation: boolean
+  /** Counts up with every change of the content (file, link, text); older confirmations then are „frühere Fassung“. */
+  version: number
+  updatedAt: string
+  /** The viewer's own confirmation; null at the tablet (the person confirms with the PIN) and without a linked employee. */
+  myConfirmation: KnowledgeMyConfirmationDto | null
+  /** Whether the viewer may change, move and delete it. */
+  canEdit: boolean
+}
+
+/** „Wissen“ of the viewer's facility: the categories in their order and the entries the viewer sees, in order. */
+export interface KnowledgeDto {
+  categories: KnowledgeCategoryDto[]
+  entries: KnowledgeEntryDto[]
+  /** knowledge.manage: maintains the entries and categories of the facility and sees who confirmed. */
+  canManage: boolean
+  /** knowledge.global: also entries for all facilities. */
+  canManageGlobal: boolean
+  /** How the viewer confirms: with the own account (linked employee), at the tablet with name and PIN, or not at all. */
+  confirmVia: 'account' | 'tablet' | null
+  /** The entries the viewer (own account) still has to confirm (0 at the tablet). */
+  openCount: number
+}
+
+/** The fields of a new or changed entry (sent as multipart form fields, with the PDF as `file` for a file entry). */
+export interface KnowledgeEntryInput {
+  kind: KnowledgeKind
+  title: string
+  description: string
+  asOf: string
+  url: string
+  body: string
+  needsConfirmation: boolean
+  /** A facility's entry: one of its categories (the viewer sees). */
+  categoryId?: number
+  /** An entry for all facilities (Träger): the category name and the visibility. */
+  categoryName?: string
+  visibility?: TemplateVisibility
+  /** On creating: the facility (default) or all facilities (Träger, knowledge.global). */
+  scope?: 'facility' | 'all'
+}
+
+export interface KnowledgeCategoryInput {
+  name: string
+  visibility: TemplateVisibility
+}
+
+/** One person in the overview of who confirmed an entry and who not yet. */
+export interface KnowledgeConfirmationRowDto {
+  employeeId: number
+  name: string
+  state: KnowledgeConfirmState
+  /** Last confirmation (also of an earlier version); null when never. */
+  confirmedAt: string | null
+  /** At the tablet (with the PIN) or with the own account (null when never). */
+  via: 'tablet' | 'account' | null
+  /** Active staff of the facility who see the entry; false for a person who confirmed but left or no longer sees it. */
+  expected: boolean
+}
+
+/** Who of the facility confirmed an entry and who not yet (knowledge.manage; also printed as „Nachweis“). */
+export interface KnowledgeConfirmationsDto {
+  entry: Pick<KnowledgeEntryDto, 'id' | 'title' | 'kind' | 'needsConfirmation' | 'version' | 'updatedAt' | 'asOf'> & { category: string }
+  facilityName: string
+  /** Open first, then an earlier version confirmed, then confirmed; each by name. */
+  people: KnowledgeConfirmationRowDto[]
+}
+
+/** The answer to „Gelesen und verstanden“: who confirmed when. */
+export interface KnowledgeConfirmResultDto {
+  name: string
+  confirmedAt: string
+  version: number
 }

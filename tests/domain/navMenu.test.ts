@@ -93,6 +93,12 @@ describe('navMenu', () => {
     expect(menu.mine.at(-1)!.to).toBe('/documents')
   })
 
+  it('shows „Dokumente“ for „Wissen“ alone, with the entries still to confirm', () => {
+    const menu = navMenu({ ...base, role: 'observer', can: key => key === 'knowledge.view', employeeId: 9, knowledgeOpen: 2 })
+    expect(menu.mine.at(-1)).toEqual({ label: 'Dokumente (2)', to: '/documents', match: '/documents' })
+    expect(navMenu({ ...base, role: 'observer', can: key => key === 'knowledge.view', employeeId: 9 }).mine.at(-1)!.label).toBe('Dokumente')
+  })
+
   it('puts „Dokumente“ under „Mehr“ for an account that maintains the form templates only (tab „Bögen“)', () => {
     const menu = navMenu({ ...base, role: 'observer', can: key => key === 'formTemplates.manage', employeeId: 9 })
     expect(menu.more).toEqual([{ label: 'Dokumente', to: '/documents', match: '/documents' }])

@@ -26,8 +26,8 @@ const PERSONNEL_KEYS: PermissionKey[] = ['employees.personal', 'employees.sensit
 const PERSONNEL_TRAEGER_ONLY = PERSONNEL_KEYS.filter(key => key !== 'employees.personal' && key !== 'employees.docs.qualifications')
 
 describe('permission catalog', () => {
-  it('has the 72 keys of the inventory, the personnel file, the notes, the accidents, the contacts and the own group\'s forms, each once and in catalog order', () => {
-    expect(PERMISSIONS).toHaveLength(72)
+  it('has the 75 keys of the inventory, the personnel file, the notes, the accidents, the contacts, the own group\'s forms and „Wissen“, each once and in catalog order', () => {
+    expect(PERMISSIONS).toHaveLength(75)
     expect(PERMISSIONS.map(def => def.key)).toEqual([...PERMISSION_KEYS])
     expect(new Set(PERMISSION_KEYS).size).toBe(PERMISSION_KEYS.length)
   })
@@ -81,6 +81,8 @@ describe('permission catalog', () => {
       'printTemplates.global', 'settings.absenceCodes', 'settings.groups',
       // The contacts for all facilities (like the print templates for all facilities).
       'contacts.global',
+      // „Wissen“ for all facilities (likewise).
+      'knowledge.global',
       // Teil 2: „nur Träger“ on the rights page (spec §2); the Leitung never had them.
       'settings.staffing', 'children.schoolSettings',
     ]))
@@ -146,6 +148,8 @@ describe('permission catalog', () => {
       'notes.write requires notes.view',
       'contacts.manage requires contacts.view',
       'contacts.global requires contacts.manage',
+      'knowledge.manage requires knowledge.view',
+      'knowledge.global requires knowledge.manage',
       'cash.book requires cash.view',
       'cash.close requires cash.view',
       'cash.reopen requires cash.close',
@@ -180,13 +184,13 @@ describe('role defaults', () => {
       'settings.staffing', 'employees.contractView', 'leave.plan', ...PERSONNEL_TRAEGER_ONLY]
     const expected = PERMISSIONS.filter(def => !def.providerOnly && !notDefault.includes(def.key)).map(def => def.key)
     expect(sorted(ROLE_DEFAULTS.admin)).toEqual(sorted(expected))
-    expect(ROLE_DEFAULTS.admin).toHaveLength(43)
+    expect(ROLE_DEFAULTS.admin).toHaveLength(45)
   })
 
   it('gives the Mitarbeiter the own data, the released plan, team meetings, the child keys of the tablet, the print templates to read and the own group\'s forms', () => {
     expect(sorted(ROLE_DEFAULTS.observer)).toEqual(sorted(['plan.view', 'leave.request', 'time.own', 'talks.own',
       'teamMeetings.write', 'calendar.own', 'children.view', 'children.attendance', 'printTemplates.view', 'notes.view',
-      'contacts.view', 'childForms.group']))
+      'contacts.view', 'childForms.group', 'knowledge.view']))
     // Every form of every child (and deleting, unlocking) stays with Leitung and Träger.
     expect(ROLE_DEFAULTS.observer).not.toContain('childForms.edit')
     // Reading only: changing the templates and their categories stays with Leitung and Träger.
@@ -252,6 +256,7 @@ describe('catalog edges', () => {
       'talks.manage requires employees.view', 'accidents.manage requires employees.view',
       'accidents.manage requires children.view', 'teamMeetings.manage implies teamMeetings.write',
       'notes.write requires notes.view', 'contacts.manage requires contacts.view', 'contacts.global requires contacts.manage',
+      'knowledge.manage requires knowledge.view', 'knowledge.global requires knowledge.manage',
       'cash.book requires cash.view', 'cash.close requires cash.view', 'cash.reopen requires cash.close',
       'settings.staffing requires settings.facility', 'settings.groups requires settings.facility',
     ])
@@ -292,7 +297,7 @@ describe('notes rights', () => {
 describe('effectivePermissions with the old flags moved into bundles', () => {
   it('gives the Träger every key, whatever the flags', () => {
     expect(sorted(rights({ role: 'provider' }))).toEqual(sorted(PERMISSION_KEYS))
-    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(72)
+    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(75)
   })
 
   it('gives the tablet role nothing, whatever the flags', () => {
@@ -353,7 +358,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
   const actors = ACTORS as string[]
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(455)
+    expect(routes).toHaveLength(469)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 

@@ -5,8 +5,9 @@ import { chosenDocumentTab, documentTabs, type DocumentTab } from '~/utils/docum
 /**
  * „Dokumente“ (under „Mehr“ for the managers, under „Meins“ for Mitarbeiter, from the start page at the tablet): the tab
  * „Bögen“ with the form templates of the active facility (formTemplates.manage) and the tab „Vorlagen“ with the blank
- * forms to print (printTemplates.view; the tablet without an unlock). Only the tabs the viewer may use show; `?tab=`
- * opens one (the old addresses /templates and /admin/forms send here with it).
+ * forms to print (printTemplates.view; the tablet without an unlock) and the tab „Wissen“ with the knowledge library
+ * (knowledge.view: every account, the tablet; with „Gelesen und verstanden“, the open ones counted in the tab). Only the
+ * tabs the viewer may use show; `?tab=` opens one (the old addresses /templates and /admin/forms send here with it).
  */
 useHead({ title: de.documents.title })
 const { user } = useUserSession()
@@ -35,7 +36,10 @@ function onTabKey(event: KeyboardEvent) {
   selectTab(keys[next])
   nextTick(() => document.getElementById(`documents-tab-${keys[next]}`)?.focus())
 }
-const TAB_ICONS: Record<DocumentTab, string> = { forms: 'i-lucide-clipboard-list', templates: 'i-lucide-printer' }
+const TAB_ICONS: Record<DocumentTab, string> = { forms: 'i-lucide-clipboard-list', templates: 'i-lucide-printer', knowledge: 'i-lucide-book-open' }
+/** The entries the account's employee still has to confirm (loaded by the layout for the menu). */
+const { data: knowledgeOpen } = useNuxtData<{ count: number }>('knowledge-open-count')
+const tabLabel = (key: DocumentTab) => (key === 'knowledge' ? de.knowledge.tabLabel(knowledgeOpen.value?.count ?? 0) : de.documents.tabs[key])
 </script>
 
 <template>
@@ -48,7 +52,10 @@ const TAB_ICONS: Record<DocumentTab, string> = { forms: 'i-lucide-clipboard-list
       />
     </div>
 
-    <div v-if="tabs.length > 1" role="tablist" :aria-label="de.documents.tabsLabel" class="grid grid-cols-2 gap-2 sm:max-w-md">
+    <div
+      v-if="tabs.length > 1" role="tablist" :aria-label="de.documents.tabsLabel" class="grid gap-2"
+      :class="tabs.length > 2 ? 'grid-cols-3 sm:max-w-xl' : 'grid-cols-2 sm:max-w-md'"
+    >
       <button
         v-for="key in tabs" :id="`documents-tab-${key}`" :key="key" type="button" role="tab"
         :aria-selected="tab === key" :tabindex="tab === key ? 0 : -1" aria-controls="documents-tab-panel"
@@ -57,7 +64,7 @@ const TAB_ICONS: Record<DocumentTab, string> = { forms: 'i-lucide-clipboard-list
         @click="selectTab(key)" @keydown="onTabKey"
       >
         <UIcon :name="TAB_ICONS[key]" class="size-5 shrink-0" aria-hidden="true" />
-        <span class="truncate">{{ de.documents.tabs[key] }}</span>
+        <span class="truncate">{{ tabLabel(key) }}</span>
       </button>
     </div>
     <h2 v-else-if="tab" class="sr-only">{{ de.documents.tabs[tab] }}</h2>
@@ -65,6 +72,7 @@ const TAB_ICONS: Record<DocumentTab, string> = { forms: 'i-lucide-clipboard-list
     <div id="documents-tab-panel" :role="tabs.length > 1 ? 'tabpanel' : undefined" :aria-labelledby="tabs.length > 1 && tab ? `documents-tab-${tab}` : undefined">
       <FormsTemplateEditor v-if="tab === 'forms'" />
       <TemplatesLibrary v-else-if="tab === 'templates'" class="max-w-3xl" />
+      <KnowledgeLibrary v-else-if="tab === 'knowledge'" class="max-w-3xl" />
     </div>
   </div>
 </template>

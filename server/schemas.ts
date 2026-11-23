@@ -6,6 +6,8 @@ import {
 import { CHILD_SORTS } from '../shared/domain/childSort'
 import { CONTACT_LIMITS } from '../shared/domain/contacts'
 import { isValidIsoDate } from '../shared/domain/dates'
+import { FORM_LIMITS } from '../shared/domain/forms'
+import { KNOWLEDGE_KINDS, KNOWLEDGE_LIMITS } from '../shared/domain/knowledge'
 import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
 import { EMPLOYMENT_BAN_KINDS, MATERNITY_NOTE_MAX } from '../shared/domain/maternity'
 import { OFFLINE_BATCH_MAX } from '../shared/domain/offlineStamps'
@@ -905,3 +907,25 @@ export const contactSchema = z.object({
   visibleToStaff: z.boolean(),
 })
 export const contactCategorySchema = z.object({ name: z.string().max(CONTACT_LIMITS.categoryName) })
+
+// „Wissen“: an entry as multipart form fields (all strings; the PDF of a file entry as `file`). The service checks the
+// lengths (title, description, text), the link, „Stand vom“ and the category with its own German messages, so the
+// limits here only keep out what is far too big.
+export const knowledgeEntryFields = z.object({
+  kind: z.enum(KNOWLEDGE_KINDS),
+  title: z.string().max(KNOWLEDGE_LIMITS.title + 100),
+  description: z.string().max(KNOWLEDGE_LIMITS.description + 100).default(''),
+  asOf: z.string().max(20).default(''),
+  url: z.string().max(KNOWLEDGE_LIMITS.url + 100).default(''),
+  body: z.string().max(FORM_LIMITS.textAnswerHtml + 1000).default(''),
+  needsConfirmation: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
+  categoryId: z.coerce.number().int().positive().optional(),
+  categoryName: z.string().max(KNOWLEDGE_LIMITS.categoryName).optional(),
+  visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
+  scope: z.enum(['facility', 'all']).default('facility'),
+})
+export const knowledgeCategorySchema = z.object({
+  name: z.string().max(KNOWLEDGE_LIMITS.categoryName), visibility: z.enum(TEMPLATE_VISIBILITIES),
+})
+/** „Gelesen und verstanden“: at the tablet the person and their PIN; with an own account nothing (the linked employee). */
+export const knowledgeConfirmSchema = z.object({ employeeId: z.number().int().positive().optional(), pin: z.string().max(10).optional() })

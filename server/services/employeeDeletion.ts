@@ -11,7 +11,7 @@ import type { Db } from '../db/client'
 import {
   balanceAdjustments, bemProcesses, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
-  formAttachments, formEditors, forms, maternityCases,
+  formAttachments, formEditors, forms, knowledgeConfirmations, maternityCases,
   groupBookChanges, helpOuts, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
   releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
@@ -206,6 +206,8 @@ const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
   { table: weekTemplateEntries, column: weekTemplateEntries.employeeId },
   { table: formEditors, column: formEditors.employeeId },
   { table: terminalUnlocks, column: terminalUnlocks.employeeId },
+  // „Gelesen und verstanden“ in „Wissen“: who read what is personal data of the same kind.
+  { table: knowledgeConfirmations, column: knowledgeConfirmations.employeeId },
 ]
 /** References that stay: the child loses its Bezugserzieher, the logs keep the name. */
 const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
@@ -235,7 +237,7 @@ const specialLeaveReasonsOf = (employeeId: number) => and(
  * „Sofort“: birthday, PIN and lock, qualification and share, contract fields, the personnel file's personal and
  * sensitive fields and „befristet bis“ (the row keeps name, short name, group and leaving day), the children with
  * „alleinerziehend“, the reasons of Sonderurlaub (the entries stay), emergency contacts with the consent to show them at the tablet and its log, mandatory appointments, leave requests, notifications, week template rows, form editor
- * grants and the tablet unlock. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
+ * grants, the tablet unlock and the read confirmations of „Wissen“. The weekly hours and help-outs stay with the time data (deleteTimeData). A child keeps no Bezugserzieher; logs keep the name, without the id. A linked
  * Leitung or Mitarbeiter account is deleted, a Träger account only unlinked.
  */
 export function deleteImmediateData(tx: Db, employeeId: number): number {

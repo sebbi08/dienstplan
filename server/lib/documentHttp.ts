@@ -29,14 +29,22 @@ export interface UploadPart {
 export function parseUploadParts<T>(
   parts: UploadPart[], schema: z.ZodType<T>,
 ): { file: { data: Buffer; filename: string }; fields: T } {
+  if (!parts.some(part => part.name === 'file' && part.filename !== undefined)) throw new ServiceError(400, 'file_required')
+  const { file, fields } = parseOptionalUploadParts(parts, schema)
+  return { file: file!, fields }
+}
+
+/** Like parseUploadParts, but the file may be left out (null): e.g. an entry of „Wissen“ that is a link or a text. */
+export function parseOptionalUploadParts<T>(
+  parts: UploadPart[], schema: z.ZodType<T>,
+): { file: { data: Buffer; filename: string } | null; fields: T } {
   const file = parts.find(part => part.name === 'file' && part.filename !== undefined)
-  if (!file) throw new ServiceError(400, 'file_required')
   const fields = schema.safeParse(Object.fromEntries(
     parts.filter(part => part.filename === undefined && part.name !== undefined)
       .map(part => [part.name, part.data.toString('utf8')]),
   ))
   if (!fields.success) throw new ServiceError(400, 'invalid_input')
-  return { file: { data: file.data, filename: file.filename ?? '' }, fields: fields.data }
+  return { file: file ? { data: file.data, filename: file.filename ?? '' } : null, fields: fields.data }
 }
 
 /** The file and the document fields of a child document upload. */

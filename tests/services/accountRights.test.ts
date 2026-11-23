@@ -84,7 +84,7 @@ describe('accountRights', () => {
     expect(rolePermissions(db, 'admin').has('employees.contractView')).toBe(false)
     saveRoleBundle(db, 'admin', 'contractView', true)
     expect(rolePermissions(db, 'admin').has('employees.contractView')).toBe(true)
-    expect(rolePermissions(db, 'provider').size).toBe(72)
+    expect(rolePermissions(db, 'provider').size).toBe(75)
   })
 
   it('stores one row per role and bundle and per account and bundle', () => {

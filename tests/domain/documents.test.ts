@@ -13,11 +13,12 @@ function as(role: Role) {
 }
 
 describe('„Dokumente“', () => {
-  it('shows each viewer the tabs they may use: managers both, Mitarbeiter and the tablet „Vorlagen“ only', () => {
-    expect(documentTabs(as('provider'))).toEqual(['forms', 'templates'])
-    expect(documentTabs(as('admin'))).toEqual(['forms', 'templates'])
-    expect(documentTabs(as('observer'))).toEqual(['templates'])
-    expect(documentTabs(as('terminal'))).toEqual(['templates'])
+  it('shows each viewer the tabs they may use: managers all three, Mitarbeiter and the tablet „Vorlagen“ and „Wissen“', () => {
+    expect(documentTabs(as('provider'))).toEqual(['forms', 'templates', 'knowledge'])
+    expect(documentTabs(as('admin'))).toEqual(['forms', 'templates', 'knowledge'])
+    expect(documentTabs(as('observer'))).toEqual(['templates', 'knowledge'])
+    expect(documentTabs(as('terminal'))).toEqual(['templates', 'knowledge'])
+    expect(documentTabs({ role: 'observer', can: key => key === 'knowledge.view' })).toEqual(['knowledge'])
     expect(documentTabs({ role: 'observer', can: key => key === 'formTemplates.manage' })).toEqual(['forms'])
     expect(documentTabs({ role: 'observer', can: () => false })).toEqual([])
   })
@@ -36,10 +37,11 @@ describe('„Dokumente“', () => {
       .toEqual({ path: '/documents', query: { x: '1', tab: 'forms' }, hash: '#unfaelle' })
   })
 
-  it('redirects /templates to „Vorlagen“ and /admin/forms to „Bögen“; the tablet\'s start page links to „Vorlagen“', () => {
+  it('redirects /templates to „Vorlagen“ and /admin/forms to „Bögen“; the tablet\'s start page links to „Vorlagen“ and „Wissen“', () => {
     const page = (path: string) => readFileSync(join(process.cwd(), 'app', 'pages', path), 'utf8')
     expect(page('templates.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('templates', to) })")
     expect(page('admin/forms.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('forms', to) })")
     expect(page('terminal.vue')).toContain('to="/documents?tab=templates"')
+    expect(page('terminal.vue')).toContain('to="/documents?tab=knowledge"')
   })
 })

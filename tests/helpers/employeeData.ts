@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
-  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps,
+  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, knowledgeConfirmations, knowledgeEntries, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps,
   teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
@@ -149,6 +149,12 @@ export function fillEmployeeData(
     }
     const tablet = addUser(db, `tablet-${id}`, 'terminal')
     db.insert(terminalUnlocks).values({ id: `unlock-${id}`, terminalUserId: tablet.id, facilityId: 1, employeeId: id, createdAt: at, lastActiveAt: at }).run()
+    // „Gelesen und verstanden“ of an entry of „Wissen“.
+    const entryId = db.insert(knowledgeEntries).values({
+      facilityId: null, categoryName: 'Kinderschutz', kind: 'link', title: `Konzept ${id}`, url: 'https://example.de', needsConfirmation: true,
+      createdAt: at, updatedAt: at,
+    }).returning({ id: knowledgeEntries.id }).get().id
+    db.insert(knowledgeConfirmations).values({ entryId, employeeId: id, entryVersion: 1, confirmedAt: at, via: 'tablet' }).run()
     db.insert(childDevelopmentDocs).values({ childId, doneOn: '2026-10-01', doneByEmployeeId: id, doneByName: 'am Tablet', createdAt: at }).run()
     db.insert(childParentMeetings).values({
       childId, date: '2026-10-02', start: 600, kind: 'development', createdAt: at, createdByEmployeeId: id, createdByName: 'am Tablet',

@@ -47,6 +47,8 @@ const OFFICE = [
   '/admin/print/emergency-contacts', '/admin/print/form-templates/1', '/admin/print/forms/1',
   '/admin/print/sick-days/2026', '/admin/print/time/1/2026/10', '/admin/settings', '/admin/settings/groups/1',
   '/admin/settings/roster', '/admin/settings/roster/week-templates/1', '/admin/sick-days', '/admin/time', '/admin/users', '/cash', '/cash/1/2026/10',
+  // The proof of reading of an entry of „Wissen“ (knowledge.manage).
+  '/print/knowledge/1',
 ]
 /** The tablet's start page: the terminal routes answer only the tablet, so every account goes to the start page. */
 const TABLET_ONLY = '/terminal'
@@ -113,12 +115,13 @@ describe('route access per role (unchanged by the permissions)', () => {
     expect(accountRedirect(NOTES, { mustChangePassword: false, can: () => false })).toBe('/')
   })
 
-  it('opens „Dokumente“ with either key (tab „Vorlagen“ or tab „Bögen“), and to no account without both', () => {
+  it('opens „Dokumente“ with any of its keys (tab „Vorlagen“, „Bögen“ or „Wissen“), and to no account without one', () => {
     expect(accountRedirect(DOCUMENTS, viewerOf('observer'))).toBeUndefined()
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'printTemplates.view' })).toBeUndefined()
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'formTemplates.manage' })).toBeUndefined()
+    expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'knowledge.view' })).toBeUndefined()
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: () => false })).toBe('/')
-    expect(pageKeys(DOCUMENTS)).toEqual(['printTemplates.view', 'formTemplates.manage'])
+    expect(pageKeys(DOCUMENTS)).toEqual(['printTemplates.view', 'formTemplates.manage', 'knowledge.view'])
     expect(pageKeys('/notes')).toEqual(['notes.view'])
     expect(pageKeys('/')).toEqual([])
   })

@@ -6,8 +6,8 @@ export const isChildPagePath = (path: string): boolean => path === '/children' |
 
 /**
  * The pages the shared tablet opens without an unlock: stamping, the general plan and its printout
- * (/print/<year>/<month>), the print templates („Dokumente“, only its tab „Vorlagen“ there; /templates is the old
- * address), the team meetings, the notes and the contacts marked for the staff (no child data). No other /print page:
+ * (/print/<year>/<month>), the print templates and „Wissen“ („Dokumente“, only its tabs „Vorlagen“ and „Wissen“ there;
+ * /templates is the old address), the team meetings, the notes and the contacts marked for the staff (no child data). No other /print page:
  * the team meetings' and the contacts' printouts are for the staff's and the managers' own devices. The tablet role is
  * not part of the permission catalog, so this stays a rule of its own.
  */
@@ -62,7 +62,9 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   // „Dokumente“: the tab „Bögen“ (formTemplates.manage) or the tab „Vorlagen“ (printTemplates.view: managers and, read
   // only, the categories visible to all, Mitarbeiter accounts; the tablet by tabletMayOpen). The page shows the tabs the
   // account may use.
-  ['=/documents', ['printTemplates.view', 'formTemplates.manage']],
+  // The tab „Wissen“ (knowledge.view, every account) as well; its proof of reading („Nachweis“) only for knowledge.manage.
+  ['=/documents', ['printTemplates.view', 'formTemplates.manage', 'knowledge.view']],
+  ['/print/knowledge', 'knowledge.manage'],
   // The old address of the print templates (the page sends on to „Dokumente“ → „Vorlagen“).
   ['=/templates', 'printTemplates.view'],
   // The facility's notes: every account has the key (the tablet reads them by tabletMayOpen).

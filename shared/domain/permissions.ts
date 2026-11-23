@@ -10,8 +10,8 @@
 
 /** The areas of the catalog, in the order the rights page lists them. */
 export const PERMISSION_AREAS = [
-  'plan', 'leave', 'time', 'employees', 'children', 'forms', 'teamMeetings', 'notes', 'contacts', 'cash', 'calendar', 'settings',
-  'users',
+  'plan', 'leave', 'time', 'employees', 'children', 'forms', 'teamMeetings', 'notes', 'contacts', 'knowledge', 'cash', 'calendar',
+  'settings', 'users',
   'facilities',
 ] as const
 export type PermissionArea = typeof PERMISSION_AREAS[number]
@@ -26,6 +26,7 @@ export const AREA_LABELS: Record<PermissionArea, string> = {
   teamMeetings: 'Teamsitzungen',
   notes: 'Notizen',
   contacts: 'Kontakte',
+  knowledge: 'Wissen',
   cash: 'Kasse',
   calendar: 'Kalender und Schließzeiten',
   settings: 'Einstellungen',
@@ -49,6 +50,7 @@ export const PERMISSION_KEYS = [
   'teamMeetings.write', 'teamMeetings.manage',
   'notes.view', 'notes.write',
   'contacts.view', 'contacts.manage', 'contacts.global',
+  'knowledge.view', 'knowledge.manage', 'knowledge.global',
   'cash.view', 'cash.book', 'cash.close', 'cash.reopen', 'cash.purge',
   'calendar.own', 'calendar.edit', 'closures.manage',
   'settings.facility', 'settings.staffing', 'settings.absenceCodes', 'settings.groups', 'settings.retention',
@@ -178,6 +180,13 @@ export const PERMISSIONS: readonly PermissionDef[] = [
     { requires: ['contacts.view'] }),
   def('contacts.global', 'contacts', 'Kontakte für alle Einrichtungen', { requires: ['contacts.manage'], ...fixed }),
 
+  // „Wissen“ (Dokumente → Wissen): every account reads the entries of the categories it sees (the tablet too, by its own
+  // rule) and confirms „Gelesen und verstanden“; knowledge.manage maintains them and sees who confirmed.
+  def('knowledge.view', 'knowledge', 'Wissen lesen und „Gelesen und verstanden“ bestätigen'),
+  def('knowledge.manage', 'knowledge', 'Wissen der Einrichtung: Einträge und Kategorien pflegen, Lesebestätigungen sehen',
+    { requires: ['knowledge.view'] }),
+  def('knowledge.global', 'knowledge', 'Wissen für alle Einrichtungen', { requires: ['knowledge.manage'], ...fixed }),
+
   def('cash.view', 'cash', 'Kassen ansehen, Ausdruck, Excel'),
   def('cash.book', 'cash', 'Kasse führen (Kassen anlegen/archivieren, buchen, Belege)', { requires: ['cash.view'] }),
   def('cash.close', 'cash', 'Monate abschließen', { requires: ['cash.view'] }),
@@ -226,6 +235,7 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
     'teamMeetings.write', 'teamMeetings.manage',
     'notes.view', 'notes.write',
     'contacts.view', 'contacts.manage',
+    'knowledge.view', 'knowledge.manage',
     'cash.view', 'cash.book', 'cash.close',
     'calendar.own', 'calendar.edit', 'closures.manage',
     'settings.facility',
@@ -233,7 +243,7 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
   ],
   observer: [
     'plan.view', 'leave.request', 'time.own', 'talks.own', 'teamMeetings.write', 'calendar.own', 'children.view',
-    'children.attendance', 'notes.view', 'contacts.view',
+    'children.attendance', 'notes.view', 'contacts.view', 'knowledge.view',
     // The print templates to read (the categories visible to all), since the template categories; not to change.
     'printTemplates.view',
     // The observation forms and Entwicklungsgespräche of the own group's children (since 2026-11-20).

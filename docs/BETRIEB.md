@@ -856,7 +856,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 
 | Löschbar ab | Was |
 |---|---|
-| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
+| am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Pflichttermine, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen, Lesebestätigungen aus „Wissen“; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit den Zusatztagen nur für ein Jahr |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Mitarbeiter-Seite beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
@@ -1547,10 +1547,10 @@ Fällt das Internet oder der Server aus, kann am **Kita-Tablet** (Konto „Table
 
 ## 19. Dokumente: Vorlagen (leere Formulare zum Ausdrucken) und Bögen
 
-Im Menü gibt es **Dokumente** (Leitung und Träger unter **Mehr**, Mitarbeiter unter **Meins**). Die Seite hat zwei
+Im Menü gibt es **Dokumente** (Leitung und Träger unter **Mehr**, Mitarbeiter unter **Meins**). Die Seite hat drei
 Reiter: **Bögen** (die Vorlagen für Mitarbeitergespräche, Beobachtungsbögen, Teamsitzungen und Unfallberichte, siehe
-Abschnitt 25; nur wer Bögen pflegen darf) und **Vorlagen**. Jeder sieht nur die Reiter, die er nutzen darf – Mitarbeiter
-und das Tablet nur **Vorlagen**. Alte Lesezeichen auf „Vorlagen“ oder „Bögen“ führen automatisch zum passenden Reiter.
+Abschnitt 25; nur wer Bögen pflegen darf), **Vorlagen** und **Wissen** (siehe Abschnitt 28). Jeder sieht nur die Reiter,
+die er nutzen darf – Mitarbeiter und das Tablet **Vorlagen** und **Wissen**. Alte Lesezeichen auf „Vorlagen“ oder „Bögen“ führen automatisch zum passenden Reiter.
 
 Unter **Vorlagen** liegen leere PDF-Formulare, die man immer wieder ausdruckt – z. B. Elternbriefe,
 Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsantrag.
@@ -2671,3 +2671,79 @@ Kontakte einer Einrichtung (und ihre Kategorien) gehören zur Einrichtung und w�
 sind sie wie alle Daten enthalten. Wer einen Kontakt zuletzt geändert hat (Benutzername, Datum), sehen nur Leitung und
 Träger, nicht die Mitarbeiter und nicht das Tablet. E-Mail-Adressen dürfen keine Zusätze wie „?bcc=“ enthalten, damit ein
 Klick darauf keine weiteren Empfänger einträgt.
+
+## 28. Wissen (Dokumente → Wissen) mit „Gelesen und verstanden“
+
+Unter **Dokumente → Wissen** sammelt jede Einrichtung, was das Team nachlesen soll: Konzepte und Pläne als **PDF**,
+**Links** zu offiziellen Seiten (Gesetze, Orientierungsplan, RKI) und **kurze Texte** (mit Fett, Kursiv, Unterstrichen
+und Listen wie bei den Freitexten der Bögen). Bei wichtigen Einträgen bestätigt jede Person **„Gelesen und verstanden“**;
+Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
+
+### Kategorien
+
+- Jede Einrichtung hat **eigene Kategorien**, mit **„Wer sieht sie?“** wie bei den Vorlagen: **Alle** (auch Mitarbeiter
+  und Tablet), **nur Leitung und Träger** oder **nur Träger**. Mitarbeiter und das Tablet sehen nur die Kategorien für
+  **Alle**.
+- Zum Start bekommt jede Einrichtung (bestehende beim ersten Start nach dem Update, neue beim Anlegen) die Kategorien
+  **Orientierungsplan, Aufsichtspflicht, Kinderschutz, Hygiene & Gesundheit, Gesetze & Vorgaben** mit Links zu
+  offiziellen Seiten: Orientierungsplan Baden-Württemberg (Kultusministerium), § 832 BGB (Aufsichtspflicht), § 8a SGB VIII
+  (Kinderschutz), § 34 IfSG und der RKI-Ratgeber zur Wiederzulassung, das Kindertagesbetreuungsgesetz Baden-Württemberg
+  (KiTaG) sowie § 45 und § 47 SGB VIII. Orientierungsplan und KiTaG bekommen nur Einrichtungen in Baden-Württemberg. Alles
+  lässt sich ändern oder löschen; **Gelöschtes kommt nicht wieder** (die App merkt sich je Einrichtung, was sie schon
+  bekommen hat). Die Links wurden beim Einbau am 23.11.2026 geprüft; Behörden ändern ihre Adressen manchmal – führt ein
+  Link ins Leere, bitte die neue Adresse eintragen.
+- **Kategorien verwalten**: anlegen, umbenennen, „Wer sieht sie?“ ändern, mit den Pfeilen verschieben. Löschen geht nur,
+  solange keine Einträge der Einrichtung darin liegen. Ein Name kommt in einer Einrichtung nur einmal vor.
+
+### Einträge
+
+- **PDF**: nur PDF-Dateien bis 10 MB (die App prüft, ob es wirklich ein PDF ist); **Öffnen** zeigt es in einem neuen Tab.
+- **Link**: nur Adressen mit http:// oder https:// (ohne wird https:// vorangestellt; andere Arten wie „javascript:“ sind
+  nicht erlaubt). Der Link öffnet sich in einem neuen Tab.
+- **Text**: höchstens 4000 Zeichen; **Lesen** klappt ihn auf. Beim Speichern bleibt nur die erlaubte Formatierung übrig.
+- Dazu: **Titel** (bis 120 Zeichen), **Beschreibung** (freiwillig, bis 500 Zeichen) und **„Stand vom“** (freiwillig; steht
+  als Hinweis am Eintrag).
+- Das **Suchfeld** sucht in Titel, Beschreibung und Text aller Kategorien.
+- **Reihenfolge**: Die Einträge der Einrichtung lassen sich in ihrer Kategorie mit den Pfeilen **Nach oben / Nach unten**
+  schieben; Einträge des Trägers für alle Einrichtungen stehen danach, nach Titel.
+- **Für alle Einrichtungen** (nur der Träger): wie bei den Vorlagen mit einem **Kategorie-Namen** und eigenem „Wer sieht
+  ihn?“. Jede Einrichtung zeigt den Eintrag in ihrer Kategorie mit diesem Namen, sonst unter **„Vom Träger“**; die engere
+  Einstellung gewinnt. Ändern und löschen kann ihn nur der Träger.
+
+### „Gelesen und verstanden“
+
+- Wer einen Eintrag anlegt, kann **„Gelesen und verstanden“ erforderlich** ankreuzen. Dann zeigt der Eintrag den Knopf
+  **Gelesen und verstanden**.
+- **Mit dem eigenen Zugang** bestätigt die Person für sich – dafür muss der Zugang mit ihrem Mitarbeiter-Eintrag
+  verknüpft sein. Danach steht dort **„Bestätigt am …“**. Unter **Dokumente** zeigt das Menü die Zahl der noch offenen
+  Einträge („Dokumente (2)“), ebenso der Reiter **Wissen**.
+- **Am Tablet** (Kachel **Wissen** auf der Startseite; lesen geht ohne PIN) tippt die Person nach **Gelesen und
+  verstanden** auf ihren Namen und gibt ihre **PIN** ein (wie beim Stempeln; falsche Versuche zählen
+  wie beim Stempeln). Die Bestätigung gilt für diese Person.
+- **Geändert**: Wird die **Datei, der Link oder der Text** eines Eintrags geändert, gilt das als neue Fassung – alle
+  müssen neu bestätigen; bei den Personen steht dann „Frühere Fassung bestätigt am …“. Titel, Beschreibung, „Stand vom“
+  oder die Kategorie zu ändern fragt nicht neu.
+- **Wer hat bestätigt?** (Leitung und Träger): je Eintrag die Mitarbeitenden der Einrichtung, die heute angestellt sind
+  und den Eintrag sehen (bei „nur Leitung und Träger“ nur diese), aufgeteilt in **noch nicht bestätigt**, **nur frühere
+  Fassung** und **bestätigt** (mit Datum und ob am Tablet oder mit eigenem Zugang). Wer bestätigt hat und inzwischen
+  ausgeschieden ist, steht mit Hinweis dabei. **Nachweis drucken** gibt die Liste als Ausdruck bzw. PDF aus.
+  Aushilfen aus anderen Einrichtungen erscheinen in dieser Liste nicht.
+
+### Wer was darf
+
+| Wer | Was |
+|---|---|
+| Träger | alles, in der gewählten Einrichtung; zusätzlich Einträge **für alle Einrichtungen** |
+| Leitung (Recht „Wissen: pflegen“, voreingestellt an) | Einträge und Kategorien der Einrichtung pflegen, sehen, wer bestätigt hat |
+| Mitarbeiter, Gruppenleitung (Recht „Wissen lesen“ hat jedes Konto), Tablet | lesen und „Gelesen und verstanden“ bestätigen |
+
+Das Recht „Wissen: pflegen“ steht auf der Seite **Rechte und Rollen** (Bereich „Wissen“).
+
+### Datenschutz und Löschen
+
+- Die Einträge selbst enthalten keine Daten von Kindern oder Mitarbeitern; sie gehören zur Einrichtung und würden mit ihr
+  gelöscht. Ein gelöschter Eintrag nimmt seine Lesebestätigungen mit.
+- Die **Lesebestätigungen** sind personenbezogen (wer hat was wann gelesen). Sie gehören zu den **„Persönlichen Daten“**
+  einer ausgeschiedenen Person und dürfen ab dem Tag nach dem Ausscheiden gelöscht werden (Mehr → Löschfristen, siehe
+  Abschnitt „Löschfristen“); „Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sie mit. Wer einen Nachweis
+  länger braucht (z. B. für eine Belehrung), druckt ihn vorher aus.

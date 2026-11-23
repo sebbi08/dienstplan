@@ -13,6 +13,7 @@ import { seedConsentDefaults } from './childConsents'
 import { bookFreedClosureDays } from './closures'
 import { seedContactCategories } from './contacts'
 import { seedStarterTemplates } from './formTemplates'
+import { seedKnowledgeStarters } from './knowledge'
 import { facilityHolidayRules } from './holidayRules'
 import { seedDefaultMeals } from './meals'
 import { seedBuiltinRequirementTypes } from './requirements'
@@ -133,6 +134,8 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW', 
     }))).run()
     // The address book's example categories as the facility's own copies.
     seedContactCategories(tx, facility.id)
+    // „Wissen“: the example categories with the starter links (recorded, so deleted ones do not come back).
+    seedKnowledgeStarters(tx, facility.id)
     // The consent questions and the overview tabs as the facility's own (to change, hide, add).
     seedConsentDefaults(tx, facility.id)
     // Only the accident report starters; the others are recorded as given, so they do not arrive later either.

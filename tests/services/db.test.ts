@@ -2422,6 +2422,57 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT facility_id, template_id FROM print_template_order').all()).toEqual([{ facility_id: 1, template_id: 2 }])
   })
 
+  it('0114 adds „Wissen“: categories per facility, entries, confirmations per person and the starter record, gone with their owners', () => {
+    const { db, sqlite } = databaseAt('0113')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO employees (id, name, short_name, facility_id) VALUES (1, 'Tina', 'TI', 1);
+    `)
+    migrateDb(db, MIGRATIONS)
+    // The migration adds no rows: the starters come with the next start (seedDefaults), recorded per key.
+    for (const table of ['knowledge_categories', 'knowledge_entries', 'knowledge_confirmations', 'knowledge_starter_seeds']) {
+      expect(count(sqlite, table), table).toBe(0)
+    }
+    sqlite.exec(`
+      INSERT INTO knowledge_categories (id, facility_id, name) VALUES (1, 1, 'Kinderschutz'), (2, 2, 'Kinderschutz');
+      INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, created_at, updated_at) VALUES (1, 1, 1, 'link', 'Konzept', 'a', 'a');
+      INSERT INTO knowledge_entries (id, facility_id, category_name, kind, title, created_at, updated_at) VALUES (2, NULL, 'Hygiene', 'text', 'Für alle', 'a', 'a');
+      INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, created_at, updated_at) VALUES (3, 2, 2, 'link', 'Krippe', 'a', 'a');
+      INSERT INTO knowledge_confirmations (entry_id, employee_id, entry_version, confirmed_at, via) VALUES (1, 1, 1, 'a', 'account'), (2, 1, 1, 'a', 'tablet');
+      INSERT INTO knowledge_starter_seeds (facility_id, starter_key, seeded_at) VALUES (2, 'category:kinderschutz', 'a');
+    `)
+    expect(sqlite.prepare('SELECT visibility, description, as_of, url, body, needs_confirmation, version, sort_order, file_data FROM knowledge_entries WHERE id = 1').get())
+      .toEqual({ visibility: 'all', description: '', as_of: null, url: '', body: '', needs_confirmation: 0, version: 1, sort_order: 0, file_data: null })
+    expect(sqlite.prepare('SELECT sort_order, visibility FROM knowledge_categories WHERE id = 1').get()).toEqual({ sort_order: 0, visibility: 'all' })
+    // Names unique per facility regardless of (ASCII) case; one confirmation per entry and person.
+    expect(() => sqlite.exec(`INSERT INTO knowledge_categories (facility_id, name) VALUES (1, 'KINDERSCHUTZ')`)).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec(`INSERT INTO knowledge_confirmations (entry_id, employee_id, entry_version, confirmed_at, via) VALUES (1, 1, 2, 'b', 'account')`)).toThrow(/UNIQUE|PRIMARY/)
+    const fks = (table: string) => sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all()
+      .map(fk => { const { table: to, from, on_delete } = fk as Record<string, string>; return { to, from, on_delete } })
+    expect(fks('knowledge_categories')).toEqual([{ to: 'facilities', from: 'facility_id', on_delete: 'CASCADE' }])
+    expect(fks('knowledge_entries')).toEqual(expect.arrayContaining([
+      { to: 'facilities', from: 'facility_id', on_delete: 'CASCADE' },
+      { to: 'knowledge_categories', from: 'category_id', on_delete: 'NO ACTION' },
+      { to: 'users', from: 'created_by', on_delete: 'SET NULL' },
+      { to: 'users', from: 'updated_by', on_delete: 'SET NULL' },
+    ]))
+    expect(fks('knowledge_confirmations')).toEqual(expect.arrayContaining([
+      { to: 'knowledge_entries', from: 'entry_id', on_delete: 'CASCADE' },
+      { to: 'employees', from: 'employee_id', on_delete: 'CASCADE' },
+    ]))
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    // Confirmations go with their entry and with the employee.
+    sqlite.exec('DELETE FROM knowledge_entries WHERE id = 1')
+    expect(sqlite.prepare('SELECT entry_id FROM knowledge_confirmations').all()).toEqual([{ entry_id: 2 }])
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(count(sqlite, 'knowledge_confirmations')).toBe(0)
+    // Categories, entries and the starter record go with their facility; entries for all facilities stay.
+    sqlite.exec('DELETE FROM facilities WHERE id = 2')
+    expect(sqlite.prepare('SELECT id FROM knowledge_categories').all()).toEqual([{ id: 1 }])
+    expect(sqlite.prepare('SELECT id FROM knowledge_entries').all()).toEqual([{ id: 2 }])
+    expect(count(sqlite, 'knowledge_starter_seeds')).toBe(0)
+  })
+
   it('0109 adds the address book with the example categories for every facility and the future school of a child', () => {
     const { db, sqlite } = databaseAt('0108')
     sqlite.exec(`

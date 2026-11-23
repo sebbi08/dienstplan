@@ -43,6 +43,7 @@ const SPEC_TABLE: Record<BundleId, PermissionKey[]> = {
   teamMeetingsRelease: ['teamMeetings.manage'],
   notesWrite: ['notes.write'],
   contactsManage: ['contacts.manage'],
+  knowledgeManage: ['knowledge.manage'],
   cashBook: ['cash.view', 'cash.book'],
   cashClose: ['cash.close', 'cash.reopen'],
   calendarView: ['calendar.own'],
@@ -100,7 +101,7 @@ describe('bundles', () => {
       const expected = permission.providerOnly || BASELINE_KEYS.includes(permission.key) ? 0 : 1
       expect(counts.get(permission.key) ?? 0, permission.key).toBe(expected)
     }
-    expect(BASELINE_KEYS).toEqual(['talks.own', 'notes.view', 'contacts.view'])
+    expect(BASELINE_KEYS).toEqual(['talks.own', 'notes.view', 'contacts.view', 'knowledge.view'])
     for (const key of BASELINE_KEYS) expect(catalog.get(key)!.providerOnly).toBe(false)
   })
 

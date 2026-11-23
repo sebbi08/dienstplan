@@ -22,6 +22,7 @@ const LEFT_ON = '2026-03-15'
 const IMMEDIATE = [
   'employee_emergency_contacts.employee_id', 'employee_emergency_consent.employee_id', 'employee_emergency_consent_log.employee_id',
   'employee_requirements.employee_id', 'leave_requests.employee_id', 'notifications.employee_id', 'form_editors.employee_id', 'terminal_unlocks.employee_id', 'week_template_entries.employee_id',
+  'knowledge_confirmations.employee_id',
   'children.key_educator_id', 'child_development_docs.done_by_employee_id', 'child_parent_meetings.created_by_employee_id',
   'child_notes.educator_employee_id', 'child_notes.created_by_employee_id', 'forms.created_by_employee_id',
   'form_attachments.uploaded_by_employee_id',

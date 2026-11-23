@@ -24,6 +24,11 @@ const ACTIVE = [
   'contacts/index.get.ts', 'contacts/staff-count.get.ts', 'contacts/index.post.ts', 'contacts/[id].put.ts', 'contacts/[id].delete.ts',
   'contact-categories/index.post.ts', 'contact-categories/[id].put.ts', 'contact-categories/[id].delete.ts',
   'contact-categories/[id]/move.post.ts',
+  // „Wissen“ (like the address book): read and confirmed by every account and the tablet, maintained in the active facility.
+  'knowledge/index.get.ts', 'knowledge/index.post.ts', 'knowledge/[id].put.ts', 'knowledge/[id].delete.ts', 'knowledge/[id]/file.get.ts',
+  'knowledge/[id]/move.post.ts', 'knowledge/[id]/confirm.post.ts', 'knowledge/[id]/confirmations.get.ts', 'knowledge/open-count.get.ts',
+  'knowledge-categories/index.post.ts', 'knowledge-categories/[id].put.ts', 'knowledge-categories/[id].delete.ts',
+  'knowledge-categories/[id]/move.post.ts',
 ]
 /** No facility: was requireProvider alone (the route names its facility or works across all of them). */
 const NONE = [
@@ -39,6 +44,8 @@ const NONE = [
   'template-categories/names.get.ts',
   // The same for the Träger's contacts for all facilities.
   'contact-categories/names.get.ts',
+  // And for the Träger's entries of „Wissen“ for all facilities.
+  'knowledge-categories/names.get.ts',
 ]
 
 const API_DIR = join(process.cwd(), 'server', 'api')

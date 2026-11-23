@@ -29,6 +29,11 @@ const { data: staffContacts } = useFetch<{ count: number }>('/api/contacts/staff
   key: 'contacts-staff-count', watch: false,
   immediate: signedIn.value && !can('contacts.manage') && (user.value?.employeeId != null || user.value?.role === 'admin'),
 })
+// „Dokumente (2)“: the entries of „Wissen“ the account's employee still has to confirm.
+const { data: knowledgeOpen } = useFetch<{ count: number }>('/api/knowledge/open-count', {
+  key: 'knowledge-open-count', watch: false,
+  immediate: signedIn.value && can('knowledge.view') && user.value?.employeeId != null,
+})
 // Switching the facility is the Träger's (PUT /api/facilities/active needs facilities.manage).
 const canSwitchFacility = computed(() => can('facilities.manage'))
 const facilityItems = computed(() => (facilities.value?.facilities ?? []).map(facility => ({ label: facility.name, value: facility.id })))
@@ -66,6 +71,7 @@ const menu = computed<NavMenu>(() => navMenu({
   unread: notifications.unread.value.length,
   today,
   staffContacts: (staffContacts.value?.count ?? 0) > 0,
+  knowledgeOpen: knowledgeOpen.value?.count ?? 0,
 }))
 const isTerminal = computed(() => user.value?.role === 'terminal')
 // The Leitung/Träger header has many entries; on mid-size screens it gets tighter so it stays on one line.

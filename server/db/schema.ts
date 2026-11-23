@@ -1930,3 +1930,73 @@ export const contacts = sqliteTable('contacts', {
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
 }, table => [index('contacts_facility').on(table.facilityId), index('contacts_category').on(table.categoryId)])
+
+/**
+ * A category of „Wissen“ (Dokumente → Wissen), one list per facility like the print template categories: name unique
+ * per facility regardless of case, an order, and who sees it and its entries (all / Leitung and Träger / Träger only).
+ * Deleted only while the facility has no entry in it.
+ */
+export const knowledgeCategories = sqliteTable('knowledge_categories', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
+}, table => [uniqueIndex('knowledge_categories_facility_name').on(table.facilityId, sql`lower(${table.name})`)])
+
+/**
+ * An entry of „Wissen“: a PDF (`fileData`, PDF only, at most 10 MB), a link (`url`, http/https only) or a short
+ * formatted text (`body`, sanitized like the free-text answers), of one facility or for all facilities (`facilityId`
+ * null, the Träger's: no category row but a `categoryName` – shown in each facility's category of that name, otherwise
+ * under „Vom Träger“ – and its own `visibility`, the stricter one wins; a facility's entry leaves it 'all').
+ * `needsConfirmation`: readers confirm „Gelesen und verstanden“; `version` counts up with every change of the content
+ * (file, link, text), so older confirmations count as „frühere Fassung“. `asOf` is „Stand vom“. `starterKey` marks a
+ * starter link (shared/domain/knowledge.ts). Deleted with the facility.
+ */
+export const knowledgeEntries = sqliteTable('knowledge_entries', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').references(() => facilities.id, { onDelete: 'cascade' }),
+  categoryId: integer('category_id').references(() => knowledgeCategories.id),
+  categoryName: text('category_name'),
+  visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
+  kind: text('kind', { enum: ['file', 'link', 'text'] }).notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull().default(''),
+  asOf: text('as_of'),
+  fileData: blob('file_data', { mode: 'buffer' }),
+  fileMime: text('file_mime'),
+  fileSize: integer('file_size'),
+  url: text('url').notNull().default(''),
+  body: text('body').notNull().default(''),
+  needsConfirmation: integer('needs_confirmation', { mode: 'boolean' }).notNull().default(false),
+  version: integer('version').notNull().default(1),
+  sortOrder: integer('sort_order').notNull().default(0),
+  starterKey: text('starter_key'),
+  createdAt: text('created_at').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
+}, table => [index('knowledge_entries_facility').on(table.facilityId), index('knowledge_entries_category').on(table.categoryId)])
+
+/**
+ * „Gelesen und verstanden“: one row per entry and person (the employee – at the tablet the one who entered the PIN,
+ * with an own account its linked employee), the last confirmation with the version then confirmed. Personal data: goes
+ * with the employee's immediate data after leaving (server/services/employeeDeletion.ts) and with the entry.
+ */
+export const knowledgeConfirmations = sqliteTable('knowledge_confirmations', {
+  entryId: integer('entry_id').notNull().references(() => knowledgeEntries.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  entryVersion: integer('entry_version').notNull(),
+  confirmedAt: text('confirmed_at').notNull(),
+  via: text('via', { enum: ['tablet', 'account'] }).notNull(),
+}, table => [primaryKey({ columns: [table.entryId, table.employeeId] }), index('knowledge_confirmations_employee').on(table.employeeId)])
+
+/**
+ * The starter categories and links of „Wissen“ (shared/domain/knowledge.ts) a facility has been given, one row per key:
+ * each comes once, a deleted or renamed one does not come back, and a starter new in a later version still arrives.
+ */
+export const knowledgeStarterSeeds = sqliteTable('knowledge_starter_seeds', {
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  starterKey: text('starter_key').notNull(),
+  seededAt: text('seeded_at').notNull(),
+}, table => [primaryKey({ columns: [table.facilityId, table.starterKey] })])

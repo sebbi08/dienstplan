@@ -46,6 +46,8 @@ export interface NavViewer {
    * without contacts.manage too.
    */
   staffContacts?: boolean
+  /** Entries of „Wissen“ the account's employee still has to confirm (GET /api/knowledge/open-count), counted at „Dokumente“. */
+  knowledgeOpen?: number
 }
 
 /** The label with the count in brackets, e.g. "Meins (2)"; without a count the plain label. */
@@ -94,10 +96,11 @@ export function navMenu(viewer: NavViewer): NavMenu {
     [can('cash.view'), entry(de.nav.cash, '/cash')],
   ])
   // "Dokumente": the form templates (tab „Bögen“: staff talks, child observations, team meetings, accident reports;
-  // formTemplates.manage) and the blank forms to print (tab „Vorlagen“; printTemplates.view). Under "Mehr" for the
-  // managers, under "Meins" for Mitarbeiter (the print templates, read only); the tablet reaches them from its start page.
+  // formTemplates.manage), the blank forms to print (tab „Vorlagen“; printTemplates.view) and „Wissen“ (knowledge.view, every
+  // account). Under "Mehr" for the managers, under "Meins" for Mitarbeiter (read only); the tablet reaches them from its
+  // start page.
   const formsManager = can('formTemplates.manage')
-  const documents = shown([[formsManager || can('printTemplates.view'), entry(de.nav.documents, '/documents')]])
+  const documents = shown([[formsManager || can('printTemplates.view') || can('knowledge.view'), entry(navLabelWithCount(de.nav.documents, viewer.knowledgeOpen ?? 0), '/documents')]])
   // „Kontakte“, the facility's address book: whoever maintains it, everyone else once there are contacts for the staff.
   const contactsEntry = entry(de.contacts.title, '/contacts')
   const contacts = shown([[can('contacts.manage') || !!viewer.staffContacts, contactsEntry]])
