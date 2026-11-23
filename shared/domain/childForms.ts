@@ -12,8 +12,8 @@ export interface ChildFormViewer {
   /** Whether the viewer may see this child at all (group visibility). */
   canSeeChild: boolean
   /**
-   * Whether the child belongs to one of the viewer's own groups today: a group the viewer keeps the attendance of (as
-   * for accident reports; every group for staff without a home group and helpers, and a child without group).
+   * Whether the child is in the viewer's home group today (the employee's group in this facility). Staff without a home
+   * group, helpers from another facility and a child without group: never (unlike the attendance, no „every group“).
    */
   ownGroup: boolean
 }

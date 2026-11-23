@@ -14,7 +14,7 @@ import type {
 import type { Db } from '../db/client'
 import { childParentMeetings, employees, facilities, formEditors, forms, groups } from '../db/schema'
 import { assertGroupRight, loadChild, type ChildRow } from '../lib/childRecord'
-import { groupRightOf, type ChildViewer } from '../lib/childViewer'
+import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { detachAccidentAuthors } from './accidents'
 import { settleDue } from './childGroupChanges'
@@ -25,8 +25,23 @@ export const CHILD_FORM_LIMITS = { participants: 300 } as const
 type FormRow = typeof forms.$inferSelect
 type ChildForm = FormRow & { childId: number }
 
-/** The child as the viewer sees it, with whether it is archived; 404 child_not_found when the viewer does not see it. */
-interface VisibleChild { row: ChildRow; archived: boolean }
+/**
+ * The child as the viewer sees it, with whether it is archived and whether it is in the viewer's home group (see
+ * `inHomeGroup`); 404 child_not_found when the viewer does not see it.
+ */
+interface VisibleChild { row: ChildRow; archived: boolean; ownGroup: boolean }
+
+/**
+ * Whether the child is in the home group of the person acting (employees.group_id, an employee of this facility): the
+ * „eigene Gruppe“ of childForms.group. Only that group counts – not the groups a person without home group or a helper
+ * from another facility sees, not a wider attendance scope, not a child without group.
+ */
+function inHomeGroup(db: Db, viewer: ChildViewer, row: ChildRow): boolean {
+  if (viewer.employeeId === null || row.groupId === null) return false
+  const employee = db.select({ groupId: employees.groupId }).from(employees)
+    .where(and(eq(employees.id, viewer.employeeId), eq(employees.facilityId, viewer.facilityId))).get()
+  return employee?.groupId === row.groupId
+}
 
 /**
  * The facility's child under the viewer's visibility, as the record itself (see `getChild`): an archived record only
@@ -41,11 +56,11 @@ function loadVisibleChild(db: Db, viewer: ChildViewer, childId: number, now: Dat
   if (archived && !can(viewer.permissions, 'children.manage')) throw new ServiceError(404, 'child_not_found')
   if (hiddenFromViewer(row, viewer.visibility, today)) throw new ServiceError(404, 'child_not_found')
   assertGroupRight(viewer, row.groupId, 'read')
-  if (!settle || archived) return { row, archived }
+  if (!settle || archived) return { row, archived, ownGroup: inHomeGroup(db, viewer, row) }
   settleDue(db, childId, today, now)
   const settled = loadChild(db, viewer.facilityId, childId)
   assertGroupRight(viewer, settled.groupId, 'read')
-  return { row: settled, archived }
+  return { row: settled, archived, ownGroup: inHomeGroup(db, viewer, settled) }
 }
 
 /** A child form of the viewer's facility (404 form_not_found otherwise) with its child as the viewer sees it. */
@@ -56,14 +71,10 @@ function loadForm(db: Db, viewer: ChildViewer, formId: number, now: Date, settle
   return { form: form as ChildForm, child: loadVisibleChild(db, viewer, form.childId, now, settle) }
 }
 
-/**
- * The viewer as the form rules see it, for this child. The own group is the one of accident reports and the group book:
- * a group where the viewer keeps the attendance (scope of „Anwesenheit und Gruppenbuch“; no home group, helpers and a
- * child without group: every group).
- */
+/** The viewer as the form rules see it, for this child (own group = the person's home group, see `inHomeGroup`). */
 const asRightViewer = (viewer: ChildViewer, child: VisibleChild): ChildFormViewer => ({
   permissions: viewer.permissions, onTablet: viewer.onTablet, employeeId: viewer.employeeId, canSeeChild: true,
-  ownGroup: groupRightOf(viewer, child.row.groupId, 'children.attendance') === 'write',
+  ownGroup: child.ownGroup,
 })
 
 /** The employees unlocked for each of these forms. */

@@ -169,7 +169,7 @@ zusammengeführt: war einer offen, gilt der andere; widersprachen sich ja und ne
 | Mitarbeiter | sehen die Kinder **nur am Tablet der eigenen Einrichtung**, und dort nur lesend: alle aktiven Kinder, Vormerkungen und künftige Vertragskinder nur, wenn die Schalter (siehe unten) an sind. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. Mit dem eigenen Konto (Handy, privater PC) sehen sie keine Kinder. Beobachtungsbögen und Entwicklungsgespräche der Kinder ihrer Gruppe legen sie am Tablet an und füllen sie aus (Abschnitt 25). |
 | Mitarbeiter mit dem Recht „eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“) | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
 | Gruppenleitung | darf in der Grundeinstellung dasselbe wie ein Mitarbeiter mit „eintragen und Akten ändern“ (eigene Gruppe) – und das auch **mit dem eigenen Konto** im Büro, nicht nur am Tablet. Vormerkungen und künftige Vertragskinder sieht sie wie am Tablet nur, wenn die Tablet-Schalter an sind (außer der Träger gibt ihr „Kinder: verwalten“). Siehe Abschnitt 26. |
-| Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, und nur lesend. Wie bei Anwesenheit und Unfallberichten zählen für sie alle Gruppen als eigene: Beobachtungsbögen füllen sie mit den Rechten der Rolle Mitarbeiter aus (Abschnitt 25). |
+| Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, und nur lesend. Beobachtungsbögen lesen sie nur (außer als Bezugserzieher oder für einen Bogen freigeschaltet, Abschnitt 25). |
 
 Das Recht „eintragen und Akten ändern“ gibt die Leitung oder der Träger bei der Person (*Mitarbeiter → Name → Zugang*,
 oder *Benutzer* → „Rechte“). Es gilt am Tablet der Einrichtung. Was die Rollen sonst dürfen, stellt der Träger unter
@@ -2370,11 +2370,11 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   - die **Mitarbeitenden der Gruppe des Kindes** (Schalter „Bögen: eigene Gruppe anlegen und ausfüllen (auch
     Entwicklungsgespräche)“, in der Grundeinstellung bei Mitarbeiter, Gruppenleitung und Leitung an): alle Bögen eines
     Kindes ihrer Gruppe, auch den Bogen zu einem Elterngespräch – am Tablet nach dem Aufschließen und, wer „Kinder: auch
-    mit eigenem Zugang“ hat (z. B. die Gruppenleitung), auch im Büro. „Eigene Gruppe“ heißt dasselbe wie bei den
-    Unfallberichten und im Gruppenbuch: die Gruppe, in der die Person die Anwesenheit führt (Umfang von „Anwesenheit und
-    Gruppenbuch“). Wer keine Stammgruppe hat und Aushilfen aus anderen Einrichtungen am Tablet zählen wie dort für alle
-    Gruppen; ein Kind ohne Gruppe ebenso. Maßgeblich ist die Gruppe des Kindes am heutigen Tag (ein fälliger
-    Gruppenwechsel zählt sofort);
+    mit eigenem Zugang“ hat (z. B. die Gruppenleitung), auch im Büro. „Eigene Gruppe“ heißt hier nur die
+    **Stammgruppe** der Person (beim Mitarbeiter eingetragen). Wer keine Stammgruppe hat, Aushilfen aus anderen
+    Einrichtungen und Gruppen, die die Person nur lesen darf, zählen nicht; ein weiterer Umfang bei „Anwesenheit und
+    Gruppenbuch“ auch nicht. Bei einem Kind ohne Gruppe ändern nur Leitung, Träger, Bezugserzieher und Freigeschaltete.
+    Maßgeblich ist die Gruppe des Kindes am heutigen Tag (ein fälliger Gruppenwechsel zählt sofort);
   - am Tablet der **Bezugserzieher** des Kindes, auch in einer anderen Gruppe.
 
   Mitarbeitende anderer Gruppen sehen den Bogen nur zum Lesen, bis Leitung oder Träger sie über **Mitarbeiter

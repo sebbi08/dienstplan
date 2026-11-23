@@ -141,8 +141,8 @@ export const PERMISSIONS: readonly PermissionDef[] = [
   def('children.deleteArchived', 'children', 'Archivierte Akten löschen', { requires: ['children.manage'], ...fixed }),
   def('children.moveFacility', 'children', 'Kind in andere Einrichtung verschieben', fixed),
 
-  // The forms of the own group's children (also the Entwicklungsgespräche of parent meetings): the own group as for
-  // accident reports, the scope of the attendance (server/services/childForms.ts); childForms.edit covers every child.
+  // The forms of the own group's children (also the Entwicklungsgespräche of parent meetings): only the person's home
+  // group (server/services/childForms.ts), never „every group“; childForms.edit covers every child.
   def('childForms.group', 'forms', 'Beobachtungsbögen und Entwicklungsgespräche der eigenen Gruppe anlegen und ausfüllen',
     { requires: ['children.view'], scoped: true }),
   def('childForms.edit', 'forms', 'Alle Beobachtungsbögen anlegen und ausfüllen',

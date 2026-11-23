@@ -90,7 +90,7 @@ describe('childFormRight', () => {
     for (const role of ['observer', 'group_lead'] as const) {
       expect(childFormRight(viewer({ role, employeeId: BERTA, ownGroup: true }), child, form, none), role).toBe('edit')
       expect(childFormRight(viewer({ role, employeeId: BERTA, ownGroup: true }), child, null, none), role).toBe('edit')
-      // A person without employee (an account at the tablet's defaults) as well: the group decides.
+      // The rule takes `ownGroup` as given (the service sets it from the home group).
       expect(childFormRight(viewer({ role, employeeId: null, ownGroup: true }), child, form, none), role).toBe('edit')
     }
     // With the own account (children.ownAccount, the Gruppenleitung's default).

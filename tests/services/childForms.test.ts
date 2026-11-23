@@ -230,6 +230,37 @@ describe('child observation forms', () => {
       expect(createChildForm(db, bertaTablet, kid, { templateId: template, ...header }, NOW)).toBeGreaterThan(0)
     })
 
+    it('only the home group counts: staff without a home group and helpers from another facility read only', () => {
+      const formId = createChildForm(db, leitung, kid, { templateId: template, ...header }, NOW)
+      // Without a home group the viewer sees every group (groups null), but no group is its own for the forms.
+      const floater = addEmployee(db, 'Frieda')
+      const helper = addEmployee(db, 'Hanna', { facilityId: addFacility(db, 'Krippe') })
+      for (const [employeeId, name] of [[floater, 'Frieda'], [helper, 'Hanna']] as const) {
+        const viewer: ChildViewer = { id: null, employeeId, name, ...tablet, groups: null }
+        expect(listChildForms(db, viewer, kid, NOW), name).toMatchObject({ canCreate: false, forms: [{ id: formId, right: 'read' }] })
+        expect(failure(() => createChildForm(db, viewer, kid, { templateId: template, ...header }, NOW)), name).toBe('403 forbidden')
+        expect(failure(() => save(viewer, formId, {})), name).toBe('403 forbidden')
+      }
+      // Unlocked for the form, the helper edits it (as before).
+      setChildFormEditors(db, leitung, formId, [floater], NOW)
+      expect(save({ id: null, employeeId: floater, name: 'Frieda', ...tablet, groups: null }, formId, {}).updatedBy).toBe('Frieda')
+      // A wider attendance scope does not widen it either: Berta (Füchse) keeps the attendance of every group.
+      const bertaWide: ChildViewer = { ...bertaTablet, groups: null, writeGroups: { attendance: null, edit: null } }
+      expect(listChildForms(db, bertaWide, kid, NOW).canCreate).toBe(false)
+    })
+
+    it('a child without group: only Leitung, the key educator and the unlocked employees', () => {
+      db.update(children).set({ groupId: null }).where(eq(children.id, kid)).run()
+      expect(listChildForms(db, emilTablet, kid, NOW).canCreate).toBe(false)
+      expect(failure(() => createChildForm(db, emilTablet, kid, { templateId: template, ...header }, NOW))).toBe('403 forbidden')
+      const formId = createChildForm(db, annaTablet, kid, { templateId: template, ...header }, NOW)
+      expect(getChildForm(db, emilTablet, formId, NOW).right).toBe('read')
+      expect(failure(() => save(emilTablet, formId, {}))).toBe('403 forbidden')
+      expect(save(leitung, formId, {}).updatedBy).toBe('leitung')
+      setChildFormEditors(db, leitung, formId, [emil], NOW)
+      expect(save(emilTablet, formId, {}, new Date('2026-10-20T10:00:00Z')).updatedBy).toBe('Emil')
+    })
+
     it('an archived record is read-only for everybody (others do not see it)', () => {
       const formId = createChildForm(db, emilTablet, kid, { templateId: template, ...header }, NOW)
       db.update(children).set({ leftOn: '2026-07-31' }).where(eq(children.id, kid)).run()
