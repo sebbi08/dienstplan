@@ -1858,8 +1858,9 @@ du außerdem überall **Text**, ein **Häkchen**, ein **Kreuz** und eine **Unter
   Unterschrift auf diesem Gerät nicht starten (z. B. ein sehr alter Browser). Felder ausfüllen, Drucken und Speichern
   gehen weiter. Bitte der Person melden, die die App betreut.
 - **Für die Betreuung der App**: Die Ansicht nutzt Teile von pdf.js (Paket `pdfjs-dist`), die nicht zur offiziellen
-  Schnittstelle gehören. Darum ist die Version fest eingetragen (derzeit **6.3.289**, `package.json` und
-  `package-lock.json`), und Renovate legt für pdf.js einen eigenen PR an, der nie automatisch gemergt wird. Vor dem
+  Schnittstelle gehören. Darum ist die Version fest eingetragen (derzeit **6.5.438**, seit 24.11.2026 – in der CI mit
+  allen Tests inkl. `pdfjsContract` geprüft; `package.json` und `package-lock.json`), und Renovate legt für pdf.js
+  einen eigenen PR an, der nie automatisch gemergt wird. Vor dem
   Mergen: `npm test` (der Test `pdfjsContract` prüft die genutzten Teile) und die Ansicht von Hand ausprobieren
   (Vorlage ausfüllen mit Feldern, Text, Häkchen, Unterschrift, Speichern, danach **Bearbeiten** und Drucken; dazu
   ein eingescanntes PDF ansehen).
