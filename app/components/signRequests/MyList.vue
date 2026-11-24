@@ -3,7 +3,7 @@ import { todayIso } from '#shared/domain/dates'
 import { DECLINE_REASON_MAX, signatureFooter } from '#shared/domain/signRequests'
 import type { MySignRequestDto, MySignRequestsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { errorMessage } from '~/utils/errors'
+import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
 
 /**
@@ -15,7 +15,8 @@ import { formatDate, formatDateTime } from '~/utils/format'
  * unterschreiben“ asks for a reason. The drawn signature exists only in the signed PDF.
  */
 const props = defineProps<{ base: string }>()
-const emit = defineEmits<{ changed: [] }>()
+/** `locked`: at the tablet the sign unlock ran out (or ended elsewhere): the tablet goes back to its start page. */
+const emit = defineEmits<{ changed: []; locked: [] }>()
 const t = de.signRequests
 const toast = useToast()
 
@@ -28,10 +29,20 @@ async function load() {
     data.value = await $fetch<MySignRequestsDto>(props.base)
   }
   catch (error) {
+    if (lockedBy(error)) return
     loadError.value = errorMessage(error)
   }
 }
 onMounted(load)
+
+/** The tablet's sign unlock is over: say so and hand back to the start page (nothing of the person stays on screen). */
+function lockedBy(error: unknown): boolean {
+  if (errorCode(error) !== 'sign_locked') return false
+  toast.add({ title: de.errors.sign_locked, color: 'warning' })
+  signing.value = null
+  emit('locked')
+  return true
+}
 
 const signing = ref<MySignRequestDto | null>(null)
 const signOpen = ref(false)
@@ -60,7 +71,13 @@ const submit = computed(() => {
       if (!request) return
       const body = new FormData()
       body.append('file', pdf, 'Unterschrieben.pdf')
-      await $fetch<{ documentId: number }>(`${props.base}/${request.recipientId}/sign`, { method: 'POST', body })
+      try {
+        await $fetch<{ documentId: number }>(`${props.base}/${request.recipientId}/sign`, { method: 'POST', body })
+      }
+      catch (error) {
+        if (lockedBy(error)) return
+        throw error
+      }
       await finished(t.signed)
     },
   }
@@ -91,7 +108,8 @@ async function decline() {
     await finished(t.declined)
   }
   catch (error) {
-    toast.add({ title: errorMessage(error), color: 'error' })
+    if (lockedBy(error)) declineOpen.value = false
+    else toast.add({ title: errorMessage(error), color: 'error' })
   }
   finally {
     busy.value = false

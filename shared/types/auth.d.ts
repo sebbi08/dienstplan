@@ -17,6 +17,8 @@ declare module '#auth-utils' {
   interface SecureSessionData {
     /** The tablet's token for its child-record unlock (terminal_unlocks.id); the row is the truth, not this value. */
     childUnlock?: string
+    /** The tablet's token for its sign-only unlock (sign_unlocks.id, Zu unterschreiben). */
+    signUnlock?: string
   }
 }
 

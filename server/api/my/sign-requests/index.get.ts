@@ -4,5 +4,5 @@ import { accountSigner, listMySignRequests } from '../../../services/signRequest
 /** Meins → Zu unterschreiben: the own employee's open requests (403 no_employee without a linked employee). */
 export default defineServiceHandler(async (event) => {
   const user = await requireUser(event)
-  return listMySignRequests(useDb(), accountSigner(user).employeeId, todayIso())
+  return listMySignRequests(useDb(), accountSigner(user), todayIso())
 })

@@ -911,7 +911,8 @@ nie gesperrt.
 - Unter **Mehr → Löschfristen** sieht der Träger alles, was nach Ablauf einer Frist gelöscht werden darf – aus
   **allen Einrichtungen** auf einer Seite: die Daten ausgeschiedener Mitarbeiter (je Art eine Zeile: Persönliche
   Daten, Zeitdaten, Beurteilungen, ausgezahlte Überstunden, zuletzt der Mitarbeiter-Eintrag), die Akten abgemeldeter
-  Kinder und archivierte Kassen. Eine Zeile steht nur da, wenn es dazu noch Daten gibt. Die Leitung hat die Seite nicht.
+  Kinder, archivierte Kassen und erledigte Anfragen zum Unterschreiben (das gesendete PDF, ein Jahr nach der letzten
+  Unterschrift oder Ablehnung). Eine Zeile steht nur da, wenn es dazu noch Daten gibt. Die Leitung hat die Seite nicht.
 - „Persönliche Daten“ (Geburtstag, PIN, Benutzerkonto …) sind ab dem Tag nach dem Ausscheiden löschbar. Das Konto einer
   Leitung oder eines Mitarbeiters ist ab diesem Tag schon gesperrt; mit dieser Zeile löschst du es.
 - Je Zeile: Einrichtung, was (Name und Art der Daten) und **löschbar ab**. Mit **„Einrichtung“** oben zeigst du nur
@@ -1879,35 +1880,56 @@ Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
   - **Senden** schickt das PDF, wie es ist. **Vorher ausfüllen** öffnet es zuerst in der Ausfüll-Ansicht (Felder, Text
     usw.); genau dieses ausgefüllte PDF geht dann an alle. Die App merkt sich das PDF so, wie es gesendet wurde: Alle
     unterschreiben dieselbe Fassung, auch wenn die Vorlage später geändert wird.
+  - Wer vorher ausfüllt, ergänzt das PDF nur (die App prüft, dass das gesendete PDF mit der Vorlage bzw. dem Dokument
+    beginnt); ein anderes PDF lässt sich so nicht unterschieben.
   - Klingt die Bezeichnung nach **Kündigung, Aufhebungsvertrag, Befristung, Arbeitsvertrag oder Arbeitszeugnis**, zeigt
-    das Fenster einen Hinweis (siehe unten „Rechtliches“). Senden geht trotzdem.
+    das Fenster einen Hinweis (siehe unten „Rechtliches“). Senden geht trotzdem. Ein Führungs- oder Gesundheitszeugnis
+    löst den Hinweis nicht aus.
 - **Unterschreiben** (Mitarbeitende): unter **Meins → Zu unterschreiben** (im Menü mit der Zahl der offenen, z. B.
   „Zu unterschreiben (2)“) oder **am Tablet**: auf der Startseite **Zu unterschreiben**, Namen antippen, PIN eingeben –
-  das Tablet zeigt dann nur die eigenen Dokumente. **Öffnen und unterschreiben** zeigt das PDF; mit **Unterschrift**
+  das Tablet zeigt dann nur die eigenen Dokumente, und zwar nur die aus der Einrichtung dieses Tablets (wer die
+  Einrichtung gewechselt hat, findet ältere Anfragen über das eigene Konto). **Öffnen und unterschreiben** zeigt das PDF; mit **Unterschrift**
   unterschreibst du im weißen Feld und schiebst die Unterschrift an ihren Platz, mit **Text** (z. B. Ort und Datum) und
   **Felder** kannst du ausfüllen. **Unterschreiben** fragt noch einmal: „Ich unterschreibe dieses Dokument mit meiner
-  gezeichneten Unterschrift.“ Ohne gesetzte Unterschrift geht es nicht.
+  gezeichneten Unterschrift.“ Ohne gesetzte Unterschrift geht es nicht (eine gelöschte oder rückgängig gemachte
+  Unterschrift zählt nicht).
   - Die App schreibt unten auf die letzte Seite „**Elektronisch unterschrieben von ‹Name› am ‹Datum Uhrzeit›**“ und legt
     die Kopie in der Personalakte im gewählten Fach ab, mit der Bezeichnung „‹Titel› – unterschrieben am ‹Datum›“,
     „hochgeladen von“ der Person selbst. Zu jeder Unterschrift merkt sich die App den Zeitpunkt und eine **Prüfsumme**
-    (SHA-256) der gespeicherten Datei; so lässt sich später zeigen, dass die Kopie seitdem nicht verändert wurde.
+    (SHA-256) der gespeicherten Datei; so lässt sich später zeigen, dass die Kopie seitdem nicht verändert wurde. Die
+    Uhrzeit in der Zeile kommt vom Gerät; maßgeblich ist der Zeitpunkt, den der Server beim Speichern festhält (er steht
+    in der Übersicht).
+  - Die App nimmt als unterschriebene Kopie nur das gesendete PDF mit angehängten Ergänzungen an (so speichert die
+    Ausfüll-Ansicht); eine andere Datei wird abgelehnt („Diese Datei ist nicht das gesendete Dokument“).
   - **Nicht unterschreiben**: mit einem kurzen Grund (höchstens 300 Zeichen); die Leitung sieht ihn.
-  - Am Tablet sperrt sich das Tablet nach dem Unterschreiben oder Ablehnen und mit **Fertig** wieder; sonst gilt die
-    eingestellte Sperrzeit wie bei den Kinderakten.
+  - **Am Tablet** gilt eine eigene, kurze Entsperrung nur zum Unterschreiben: Sie öffnet **keine Kinderakten** (und eine
+    Entsperrung für die Kinderakten erlaubt kein Unterschreiben). Das Tablet sperrt sich nach dem Unterschreiben oder
+    Ablehnen, mit **Fertig**, nach **3 Minuten ohne Berührung** und spätestens **10 Minuten** nach der PIN – auch in den
+    Zeiten, in denen sich das Tablet für die Kinderakten nicht sperrt. Danach steht wieder die Startseite da („Das Tablet
+    ist wieder gesperrt. Bitte Namen und PIN neu eingeben.“).
 - **Übersicht**: **Dokumente → Unterschriften** (wer senden darf) zeigt jede Anfrage mit dem Stand je Person – offen,
   unterschrieben am …, abgelehnt mit Grund, zurückgezogen –, den Link zur unterschriebenen Kopie (wenn du das Fach sehen
-  darfst) und das gesendete PDF. **Erinnern** setzt bei offenen Personen eine Erinnerung, die sie in ihrer Liste sehen;
-  **Zurückziehen** beendet die Anfrage für offene Personen; **Anfrage löschen** entfernt Anfrage und gesendetes PDF (die
-  unterschriebenen Kopien bleiben). Ist das Datum „bis“ vorbei und jemand noch offen, ist die Anfrage als **überfällig**
-  markiert (oben steht, wie viele es sind), und in der Liste der Person ist sie rot hervorgehoben.
+  darfst – geprüft wird das Fach, in dem die Kopie jetzt liegt) und das gesendete PDF. Wurde die Kopie in der Personalakte
+  später durch eine andere Datei ersetzt, steht dort rot **„nachträglich geändert“**; wurde sie gelöscht, **„Kopie
+  gelöscht“**. **Erinnern** setzt bei offenen Personen eine Erinnerung, die sie in ihrer Liste sehen; **Zurückziehen**
+  beendet die Anfrage für offene Personen; **Anfrage löschen** entfernt Anfrage und gesendetes PDF (die unterschriebenen
+  Kopien und die Nachweise der Unterschriften bleiben, siehe unten). Ist das Datum „bis“ vorbei und jemand noch offen,
+  ist die Anfrage als **überfällig** markiert: oben in der Übersicht, im Reiter („Unterschriften (1)“) und im Menü bei
+  **Dokumente** steht, wie viele es sind; in der Liste der Person ist sie rot hervorgehoben.
 - **Wer darf was**: Senden und die Übersicht gehören zum Recht **„Personalakte: zum Unterschreiben senden“** (Rechte und
-  Rollen; voreingestellt Leitung, der Träger immer). Jede Person sieht nur ihre eigenen Anfragen, am Tablet nur die
-  Person, die es mit ihrer PIN entsperrt hat. Die unterschriebenen Kopien folgen den Rechten der Fächer.
-- **Aufbewahren und Löschen**: Eine Anfrage mit ihrem gesendeten PDF wird **ein Jahr, nachdem die letzte Person fertig
-  war** (unterschrieben, abgelehnt oder zurückgezogen), automatisch gelöscht; die unterschriebenen Kopien bleiben in der
-  Personalakte und folgen deren Löschfristen. Der Nachweis der Unterschrift (Zeitpunkt, Prüfsumme, Grund einer
-  Ablehnung) gehört bei einer ausgeschiedenen Person zu „Beurteilungen und Zeugnisse“; wird die Person endgültig
-  gelöscht, gehen auch ihre Einträge in den Anfragen.
+  Rollen; voreingestellt Leitung, der Träger immer). In der Übersicht sieht man nur Anfragen, deren Fächer man nutzen
+  darf: das Fach der unterschriebenen Kopie und – bei einem PDF aus der Personalakte – das Fach, aus dem es kam; bei
+  einer Vorlage nur, wenn man die Vorlage sehen darf. Schickt der Träger z. B. einen Vertrag (Fach „Vertrag“), sieht eine
+  Leitung ohne dieses Fach die Anfrage nicht. Jede Person sieht nur ihre eigenen Anfragen, am Tablet nur die Person, die
+  es mit ihrer PIN entsperrt hat. Die unterschriebenen Kopien folgen den Rechten der Fächer.
+- **Aufbewahren und Löschen**: Die App löscht nichts von selbst. Eine erledigte Anfrage (alle haben unterschrieben,
+  abgelehnt oder sind zurückgezogen) erscheint **ein Jahr, nachdem die letzte Person fertig war**, unter **Mehr →
+  Löschfristen** als „Anfrage zum Unterschreiben“; dort löscht sie der Träger. Gelöscht wird das gesendete PDF; der
+  **Nachweis der Unterschrift** (wer, wann, Prüfsumme, Grund einer Ablehnung) bleibt – auch wenn die Leitung die Anfrage
+  löscht – und gehört bei einer ausgeschiedenen Person zu „Beurteilungen und Zeugnisse“. Die unterschriebenen Kopien
+  bleiben in der Personalakte und folgen deren Löschfristen. Ein PDF, das aus der Personalakte einer Person gesendet
+  wurde, geht mit dem Fach, aus dem es kam (z. B. „Vertrag“ mit „ausgezahlte Überstunden, Verträge, Gehalt“), und
+  spätestens, wenn die Person endgültig gelöscht wird.
 - **Rechtliches**: Eine in der App gezeichnete Unterschrift ist eine **einfache elektronische Signatur** – keine
   qualifizierte. Sie genügt für Bestätigungen und Belehrungen, aber **nicht**, wo das Gesetz die Schriftform verlangt:
   z. B. Kündigung oder Aufhebungsvertrag (§ 623 BGB), Befristung eines Arbeitsvertrags (§ 14 Abs. 4 TzBfG),

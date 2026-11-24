@@ -1,9 +1,10 @@
 import { todayIso } from '../../../../shared/domain/dates'
-import { listMySignRequests, tabletSigner } from '../../../services/signRequests'
+import { listMySignRequests } from '../../../services/signRequests'
+import { tabletSigner } from '../../../services/signUnlock'
 
-/** At the tablet unlocked with a PIN: that person's open requests only (403 tablet_locked otherwise). */
+/** At the tablet unlocked for signing: that person's open requests of this facility only (403 sign_locked otherwise). */
 export default defineServiceHandler(async (event) => {
   const terminal = await requireTerminal(event)
-  const signer = tabletSigner(useDb(), terminal, await childUnlockToken(event))
-  return listMySignRequests(useDb(), signer.employeeId, todayIso())
+  const signer = tabletSigner(useDb(), terminal, await signUnlockToken(event))
+  return listMySignRequests(useDb(), signer, todayIso())
 })

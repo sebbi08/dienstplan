@@ -75,8 +75,11 @@ useDirty(() => touched.value)
 
 // ---- tools ---------------------------------------------------------------
 const tool = ref<AnnotateTool>('fields')
-/** Signatures placed in this view (for `submit.needsSignature`; one taken back with „Rückgängig“ still counts). */
-const signaturesPlaced = ref(0)
+/**
+ * The editors of the signatures placed in this view (their pdf.js ids, for `submit.needsSignature`). Deleting or undoing
+ * one takes it out of the annotationStorage (redo puts it back), so only those still there count.
+ */
+let signatureIds = new Set<string>()
 /** pdf.js's editors are ready (they start once the first page is there). */
 const editorsReady = ref(false)
 /**
@@ -102,7 +105,7 @@ interface EditorLayer {
   pageDimensions: [number, number]
   viewport: { rotation: number }
   createAndAddNewEditor(point: { offsetX: number; offsetY: number }, isCentered: boolean, data?: Record<string, unknown>):
-    { width: number | null; height: number | null } | null
+    { id: string; width: number | null; height: number | null } | null
 }
 interface EditorManager {
   getLayer(pageIndex: number): EditorLayer | undefined
@@ -205,7 +208,7 @@ async function load() {
   const current = generation
   status.value = 'loading'
   touched.value = false
-  signaturesPlaced.value = 0
+  signatureIds = new Set()
   pageNumber.value = 1
   zoom.value = 1
   editorState.value = { canUndo: false, hasSelection: false }
@@ -507,21 +510,24 @@ async function markPicture(kind: MarkKind): Promise<File | null> {
   return file
 }
 
-/** Puts a picture centred on a point of a page, at most `box` points large (it can be moved and resized afterwards). */
+/**
+ * Puts a picture centred on a point of a page, at most `box` points large (it can be moved and resized afterwards).
+ * Answers the editor's pdf.js id, or null when nothing was placed.
+ */
 function placePicture(
   layer: EditorLayer, point: { offsetX: number; offsetY: number }, picture: { file: File; width: number; height: number },
   box: { width: number; height: number },
-): boolean {
+): string | null {
   if (!isEditorLayer(layer)) {
     disableEditors('the page layer cannot take pictures')
-    return false
+    return null
   }
   const editor = safely(() => layer.createAndAddNewEditor(point, true, { bitmapFile: picture.file }))
-  if (!editor) return false
+  if (!editor) return null
   const [width, height] = layer.pageDimensions
   // pdf.js would show the picture as large as its pixels; the size it should have, before the picture is read.
   Object.assign(editor, stampSize(picture, { width, height }, box))
-  return true
+  return typeof editor.id === 'string' ? editor.id : null
 }
 
 /**
@@ -582,15 +588,22 @@ async function pageLayer(index: number): Promise<EditorLayer | undefined> {
 /** The signature from the pad: on the page in view, in its middle, to be moved to its place (or a message). */
 async function placeSignature(picture: { file: File; width: number; height: number }) {
   const lib = pdfjs
-  let placed = false
+  let placed: string | null = null
   if (lib && editors) {
     tool.value = 'select'
     await editorMode(lib.AnnotationEditorType.STAMP)
     const layer = editors ? await pageLayer(pageNumber.value - 1) : undefined
     if (layer) placed = placePicture(layer, visibleMiddle(layer), picture, SIGNATURE_POINTS)
   }
-  if (placed) signaturesPlaced.value++
+  if (placed) signatureIds.add(placed)
   else toast.add({ title: t.signatureFailed, color: 'error' })
+}
+
+/** The signatures placed here that are still on the page (deleted or undone ones are gone from the annotationStorage). */
+function signaturesOnPage(): number {
+  const storage = pdf?.annotationStorage
+  if (!storage) return 0
+  return [...signatureIds].filter(id => storage.getRawValue(id) !== undefined).length
 }
 
 function deleteSelected() {
@@ -813,7 +826,7 @@ function saveFromSheet() {
 
 /** `submit`: the checks and the question first, then the PDF (with the footer, if any) to the handler. */
 async function startSubmit(submit: NonNullable<typeof props.submit>) {
-  if (submit.needsSignature && signaturesPlaced.value === 0) return void toast.add({ title: de.signRequests.signatureMissing, color: 'warning' })
+  if (submit.needsSignature && signaturesOnPage() === 0) return void toast.add({ title: de.signRequests.signatureMissing, color: 'warning' })
   if (submit.confirm && !(await ask(submit.confirm, submit.label, false))) return
   const lib = pdfjs
   const doc = pdf

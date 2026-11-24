@@ -129,6 +129,17 @@ export async function storeChildUnlockToken(event: H3Event, token: string): Prom
   await setUserSession(event, { secure: { childUnlock: token } })
 }
 
+/** The tablet's sign-only unlock token (Zu unterschreiben), server-only like the child records' one. */
+export async function signUnlockToken(event: H3Event): Promise<string | undefined> {
+  return (await getUserSession(event)).secure?.signUnlock
+}
+
+/** Remembers the tablet's sign-only unlock token in the server-only part of the session. */
+export async function storeSignUnlockToken(event: H3Event, token: string): Promise<void> {
+  const secure = (await getUserSession(event)).secure
+  await setUserSession(event, { secure: { ...secure, signUnlock: token } })
+}
+
 /**
  * Whoever looks at child records (see `resolveChildViewer`) with the permission `key`: an account with
  * children.ownAccount (Träger and Leitung), or the person who unlocked the facility's tablet, with that person's

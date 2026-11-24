@@ -44,6 +44,10 @@ describe('pdf.js contract of the fill view', () => {
     const prefix = /const AnnotationEditorPrefix = "([^"]+)"/.exec(source('legacy/build/pdf.worker.mjs'))?.[1]
     expect(prefix && FOOTER_STORAGE_KEY.startsWith(prefix)).toBe(true)
     expect(lib).toMatch(/class AnnotationStorage \{[\s\S]{0,3000}\n {2}remove\(key\) \{/)
+    // „Unterschreiben“ counts the placed signatures still there by their editor id in annotationStorage: deleting or
+    // undoing an editor takes its value out (removeEditor), and the editor's id is that key.
+    expect(lib).toMatch(/\n {2}removeEditor\(editor\) \{[\s\S]{0,800}annotationStorage\?\.remove\(editor\.id\)/)
+    expect(lib).toMatch(/\n {2}addToAnnotationStorage\(editor\) \{[\s\S]{0,200}annotationStorage\.setValue\(editor\.id, editor\)/)
     // The stamp editor keeps a width set before its picture is read (the size of tick, cross and signature).
     expect(lib).toMatch(/#createCanvas\(\) \{[\s\S]{0,300}if \(this\.width\)/)
   })

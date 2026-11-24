@@ -26,7 +26,7 @@ async function act(run: () => Promise<unknown>, success?: string) {
   try {
     await run()
     if (success) toast.add({ title: success, color: 'success' })
-    await refresh()
+    await Promise.all([refresh(), refreshNuxtData('sign-overdue-count')])
   }
   catch (caught) {
     toast.add({ title: errorMessage(caught), color: 'error' })
@@ -101,6 +101,8 @@ const BADGE: Record<SignRequestRecipientDto['status'], string> = {
           <span v-if="recipient.status === 'open' && recipient.remindedAt" class="text-xs text-gray-500">{{ t.remindedOn(formatDateTime(recipient.remindedAt)) }}</span>
           <span v-if="recipient.declineReason" class="w-full break-words text-gray-700">{{ t.reason(recipient.declineReason) }}</span>
           <span v-if="recipient.signedHash" class="font-mono text-xs text-gray-500" :title="t.hashTitle">{{ t.hash(recipient.signedHash) }}</span>
+          <span v-if="recipient.copyModified" class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-800" :title="t.copyModifiedTitle">{{ t.copyModified }}</span>
+          <span v-if="recipient.copyDeleted" class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ t.copyDeleted }}</span>
           <UButton
             v-if="recipient.signedDocumentId" :to="employeeDocumentUrl(recipient.signedDocumentId)" target="_blank" external size="xs"
             color="neutral" variant="ghost" icon="i-lucide-external-link" :label="t.openCopy"

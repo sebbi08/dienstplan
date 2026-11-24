@@ -139,7 +139,8 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
     expect(errorCode(() => remove(`employee:${tina}:paidOvertime`, '2034-12-31'))).toBe('retention_not_due')
     expect(statusOf(() => remove(`employee:${tina}:paidOvertime`, '2034-12-31'))).toBe(409)
     expect(categoryHasData(db, tina).paidOvertime).toBe(true)
-    expect(remove(`employee:${tina}:paidOvertime`, '2035-01-01')).toBe(1)
+    // The contract document and the request sent to sign from „Vertrag“ (tests/helpers/employeeData.ts).
+    expect(remove(`employee:${tina}:paidOvertime`, '2035-01-01')).toBe(2)
     expect(categoryHasData(db, tina)).toEqual({ immediate: true, payroll: true, time: true, assessment: false, bem: true, maternity: true, paidOvertime: false })
   })
 
@@ -296,7 +297,9 @@ describe('all facilities, order and guards (Review Focus 4)', () => {
       ['Hort', 'Ole Hort', `child:${ole}`, purgeDate('2010-07-31', getChildRetentionYears(db)), true],
       ['Kita Sonnenschein', 'Alt', `cash:${box}`, null, true],
       ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:immediate`, '2026-03-16', true],
-      // Later, by date.
+      // Later, by date: the signed requests to sign (one year after the signature), …
+      ['Kita Sonnenschein', 'Belehrung', 'signRequest:1', '2027-10-27', false],
+      ['Kita Sonnenschein', 'Belehrung', 'signRequest:3', '2027-10-27', false],
       ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:time`, '2028-01-01', false],
       ['Kita Sonnenschein', 'Ben Beispiel', `employee:${ben}:maternity`, '2028-03-04', false],
       ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:maternity`, '2028-03-04', false],
@@ -309,7 +312,7 @@ describe('all facilities, order and guards (Review Focus 4)', () => {
       ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:record`, null, false],
     ])
     expect(items.filter(item => item.facilityId === hort).map(item => item.facilityName)).toEqual(Array(3).fill('Hort'))
-    expect(items.filter(item => item.facilityId === 1).map(item => item.facilityName)).toEqual(Array(9).fill('Kita Sonnenschein'))
+    expect(items.filter(item => item.facilityId === 1).map(item => item.facilityName)).toEqual(Array(11).fill('Kita Sonnenschein'))
     // Deleting goes by the person's own facility too.
     expect(errorCode(() => remove(`employee:${hanna}:time`, '2031-12-31'))).toBe('retention_not_due')
     expect(remove(`employee:${tina}:time`, '2028-01-01')).toBeGreaterThan(0)

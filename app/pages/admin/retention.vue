@@ -101,7 +101,7 @@ const CHUNK = 1000
 async function deleteAll() {
   const items = due.value
   if (!items.length || busy.value) return
-  const counts = (['employee', 'child', 'cash'] as const)
+  const counts = (['employee', 'child', 'cash', 'signRequest'] as const)
     .map(kind => ({ kind, count: items.filter(item => item.kind === kind).length }))
     .filter(entry => entry.count > 0)
     .map(entry => t.countOf(entry.count, t.kinds[entry.kind]))

@@ -68,7 +68,7 @@ const TERMINAL_ROUTES = [
   'terminal/offline-stamps.post.ts',
   // Requests to sign at the tablet: the service asks for the unlock and shows only the unlocking person's requests.
   'terminal/sign-requests/index.get.ts', 'terminal/sign-requests/[id]/file.get.ts', 'terminal/sign-requests/[id]/sign.post.ts',
-  'terminal/sign-requests/[id]/decline.post.ts',
+  'terminal/sign-requests/[id]/decline.post.ts', 'terminal/sign-requests/unlock.post.ts', 'terminal/sign-requests/lock.post.ts',
 ]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']

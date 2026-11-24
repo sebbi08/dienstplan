@@ -110,6 +110,9 @@ describe('navMenu', () => {
     const menu = navMenu({ ...base, role: 'observer', can: key => key === 'knowledge.view', employeeId: 9, knowledgeOpen: 2 })
     expect(menu.mine.at(-1)).toEqual({ label: 'Dokumente (2)', to: '/documents', match: '/documents' })
     expect(navMenu({ ...base, role: 'observer', can: key => key === 'knowledge.view', employeeId: 9 }).mine.at(-1)!.label).toBe('Dokumente')
+    // The senders also count the overdue requests to sign there.
+    const sender = navMenu({ ...base, role: 'observer', can: key => key === 'knowledge.view', employeeId: 9, knowledgeOpen: 1, signOverdue: 2 })
+    expect(sender.mine.at(-1)!.label).toBe('Dokumente (3)')
   })
 
   it('puts „Dokumente“ under „Mehr“ for an account that maintains the form templates only (tab „Bögen“)', () => {

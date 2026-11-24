@@ -21,7 +21,7 @@ const LEFT_ON = '2026-03-15'
 /** The columns referencing employees, by the category that clears them (spec Löschfristen §2). */
 const IMMEDIATE = [
   'employee_emergency_contacts.employee_id', 'employee_emergency_consent.employee_id', 'employee_emergency_consent_log.employee_id',
-  'leave_requests.employee_id', 'notifications.employee_id', 'form_editors.employee_id', 'terminal_unlocks.employee_id', 'week_template_entries.employee_id',
+  'leave_requests.employee_id', 'notifications.employee_id', 'form_editors.employee_id', 'terminal_unlocks.employee_id', 'sign_unlocks.employee_id', 'week_template_entries.employee_id',
   'children.key_educator_id', 'child_development_docs.done_by_employee_id', 'child_parent_meetings.created_by_employee_id',
   'child_notes.educator_employee_id', 'child_notes.created_by_employee_id', 'forms.created_by_employee_id',
   'form_attachments.uploaded_by_employee_id',
@@ -53,6 +53,8 @@ const DOCUMENTS = 'employee_documents.employee_id'
 const ACCIDENTS = 'forms.employee_id'
 /** In no category: the team meeting keeps its participant until the employee row goes (then null, the name stays). */
 const PARTICIPANTS = 'team_meeting_participants.employee_id'
+/** A request to sign sent from the person's file: it goes with the category of the folder it came from (here „Vertrag“). */
+const SENT_FROM = 'sign_requests.source_employee_id'
 const ALL_FOLDERS = ['application', 'contract', 'correspondence', 'measures', 'qualifications', 'salary']
 /** The personnel file fields of the employee row, all set (beforeEach) and cleared with the immediate data. */
 const PERSONNEL_FIELDS = {
@@ -138,7 +140,7 @@ beforeEach(() => {
 describe('the deletion categories of a left employee', () => {
   it('seeds every column that references employees, and each one belongs to a category', () => {
     const columns = employeeColumns(db).map(({ table, column }) => `${table}.${column}`).sort()
-    expect(columns).toEqual([...IMMEDIATE, PAYROLL, ...TIME, ...ASSESSMENT, BEM, MATERNITY, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS].sort())
+    expect(columns).toEqual([...IMMEDIATE, PAYROLL, ...TIME, ...ASSESSMENT, BEM, MATERNITY, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS, SENT_FROM].sort())
     expect(nonZero(columns)).toEqual(columns)
     expect(adjustments(tina, true)).toBe(1)
     expect(adjustments(tina, false)).toBe(1)
@@ -202,8 +204,9 @@ describe('the deletion categories of a left employee', () => {
     expect(db.select().from(forms).all().length).toBe(formCount - tinaForms)
     expect(talkForms(ben)).toBe(tinaForms)
     expect(adjustments(tina, true)).toBe(1)
-    // Contract and salary documents stay for the longer period.
+    // Contract and salary documents stay for the longer period, and so does the PDF sent to sign from „Vertrag“.
     expect(documentFolders(db, tina)).toEqual(['contract', 'salary'])
+    expect(nonZero([SENT_FROM])).toEqual([SENT_FROM])
     expect(nonZero([BEM])).toEqual([BEM])
     expectBenUntouched()
 
@@ -223,8 +226,9 @@ describe('the deletion categories of a left employee', () => {
     // The paid-out adjustment with the contract and salary documents, then the employee row.
     expect(hasPaidOvertimeData(db, tina)).toBe(true)
     expect(nonZero([ACCIDENTS])).toEqual([ACCIDENTS])
-    expect(remove(['paidOvertime'])).toEqual({ ...ZERO, paidOvertime: 4 })
-    expect(nonZero([ACCIDENTS])).toEqual([])
+    // (4 rows and the request sent from „Vertrag“, which has no recipient left after the assessments.)
+    expect(remove(['paidOvertime'])).toEqual({ ...ZERO, paidOvertime: 5 })
+    expect(nonZero([ACCIDENTS, SENT_FROM])).toEqual([])
     expect(hasPaidOvertimeData(db, tina)).toBe(false)
     expect(documentFolders(db, tina)).toEqual([])
     expect(documentFolders(db, ben)).toEqual(ALL_FOLDERS)

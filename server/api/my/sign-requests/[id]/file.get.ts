@@ -6,7 +6,7 @@ import { accountSigner, readMySignRequestFile } from '../../../../services/signR
 export default defineServiceHandler(async (event) => {
   const user = await requireUser(event)
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  const file = readMySignRequestFile(useDb(), accountSigner(user).employeeId, id)
+  const file = readMySignRequestFile(useDb(), accountSigner(user), id)
   setResponseHeaders(event, documentResponseHeaders({ mimeType: 'application/pdf', fileName: file.fileName }, false))
   return file.data
 })

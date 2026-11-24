@@ -1009,12 +1009,12 @@ export type RetentionItemCategory = 'immediate' | 'payroll' | 'time' | 'assessme
  */
 export interface RetentionItemDto {
   key: string
-  kind: 'employee' | 'child' | 'cash'
-  /** Only for an employee; null for a child record and a cash box. */
+  kind: 'employee' | 'child' | 'cash' | 'signRequest'
+  /** Only for an employee; null for a child record, a cash box and a request to sign. */
   category: RetentionItemCategory | null
   facilityId: number
   facilityName: string
-  /** The employee's name, the child's first and last name, the cash box's name. */
+  /** The employee's name, the child's first and last name, the cash box's name, the request's title. */
   name: string
   deletableFrom: IsoDate | null
   /**
@@ -4410,10 +4410,14 @@ export interface SignRequestRecipientDto {
   declineReason: string | null
   withdrawnAt: string | null
   remindedAt: string | null
-  /** The signed copy in the personnel file; null when not signed, deleted since, or the viewer may not use its folder. */
+  /** The signed copy in the personnel file; null when not signed, deleted since, or the viewer may not use its folder now. */
   signedDocumentId: number | null
   /** SHA-256 of the signed copy as it was stored (for the record). */
   signedHash: string | null
+  /** The copy in the personnel file no longer has that SHA-256 (replaced since, e.g. via „Bearbeiten“). */
+  copyModified: boolean
+  /** Signed, but the copy was deleted from the personnel file since. */
+  copyDeleted: boolean
 }
 
 /** A request to sign, as the senders see it (Dokumente → Unterschriften). */
@@ -4444,6 +4448,12 @@ export interface MySignRequestDto {
   remindedAt: string | null
   fileSize: number
   overdue: boolean
+}
+
+/** The open requests of the own employee and how many of them are overdue (the menu's count). */
+export interface MySignRequestCountDto {
+  count: number
+  overdue: number
 }
 
 export interface MySignRequestsDto {

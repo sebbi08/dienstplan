@@ -57,6 +57,8 @@ describe('adding text to any PDF with pdf.js', () => {
       footerAnnotation(pdfjs.AnnotationEditorType.FREETEXT, document.numPages - 1, page.view, 'Elektronisch unterschrieben von Anna Probe am 24.11.2026 10:15'))
     const saved = Buffer.from(await document.saveDocument())
     await task.destroy()
+    // The signed copy is the sent PDF with an update appended (signMyRequest accepts nothing else).
+    expect(saved.subarray(0, plainPdf().length).equals(plainPdf())).toBe(true)
 
     const againTask = pdfjs.getDocument({ data: new Uint8Array(saved), enableXfa: false })
     const again = await againTask.promise
@@ -82,6 +84,9 @@ describe('adding text to any PDF with pdf.js', () => {
     await task.destroy()
 
     expect(hasFormFields(saved)).toBe(true)
+    // An incremental update: the saved copy starts with the bytes it opened (what the server checks for a signed copy).
+    expect(saved.length).toBeGreaterThan(fillablePdf().length)
+    expect(saved.subarray(0, fillablePdf().length).equals(fillablePdf())).toBe(true)
     const againTask = pdfjs.getDocument({ data: new Uint8Array(saved), enableXfa: false })
     const again = await againTask.promise
     const fields = await again.getFieldObjects()

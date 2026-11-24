@@ -19,22 +19,23 @@ import {
   type RetentionCategory,
 } from './employeeDeletion'
 import { getRetentionSettings } from './retentionSettings'
+import { finishedSignRequests, removeSignRequest, type SignRequestRetentionRow } from './signRequestRecords'
 
 const ITEM_CATEGORIES: readonly RetentionItemCategory[] = [...RETENTION_CATEGORIES, 'record']
-const KIND_ORDER: Record<RetentionItemDto['kind'], number> = { employee: 0, child: 1, cash: 2 }
+const KIND_ORDER: Record<RetentionItemDto['kind'], number> = { employee: 0, child: 1, cash: 2, signRequest: 3 }
 
 type ItemKey =
   | { kind: 'employee'; id: number; category: RetentionItemCategory }
-  | { kind: 'child' | 'cash'; id: number }
+  | { kind: 'child' | 'cash' | 'signRequest'; id: number }
 
-const KEY_PATTERN = /^(?:employee:([1-9]\d{0,15}):([A-Za-z]+)|(child|cash):([1-9]\d{0,15}))$/
+const KEY_PATTERN = /^(?:employee:([1-9]\d{0,15}):([A-Za-z]+)|(child|cash|signRequest):([1-9]\d{0,15}))$/
 
-/** `employee:<id>:<category>`, `child:<id>` or `cash:<id>`; anything else is 400 retention_key_invalid. */
+/** `employee:<id>:<category>`, `child:<id>`, `cash:<id>` or `signRequest:<id>`; anything else is 400 retention_key_invalid. */
 function parseKey(key: string): ItemKey {
   const match = KEY_PATTERN.exec(key)
   const id = Number(match?.[1] ?? match?.[4])
   if (!match || !Number.isSafeInteger(id)) throw new ServiceError(400, 'retention_key_invalid')
-  if (match[3]) return { kind: match[3] as 'child' | 'cash', id }
+  if (match[3]) return { kind: match[3] as 'child' | 'cash' | 'signRequest', id }
   const category = match[2] as RetentionItemCategory
   if (!ITEM_CATEGORIES.includes(category)) throw new ServiceError(400, 'retention_key_invalid')
   return { kind: 'employee', id, category }
@@ -187,6 +188,17 @@ function cashItem(db: Db, box: BoxRow, ctx: Context): RetentionItemDto {
   }
 }
 
+/**
+ * A finished request to sign (Zum Unterschreiben senden) with its sent PDF, deletable one year after its last recipient
+ * finished; deleting it keeps the records of signatures and declines (removeSignRequest).
+ */
+function signRequestItem(row: SignRequestRetentionRow, ctx: Context): RetentionItemDto {
+  return {
+    key: `signRequest:${row.id}`, kind: 'signRequest', category: null, facilityId: row.facilityId, facilityName: ctx.facilityName(row.facilityId),
+    name: row.title, deletableFrom: row.deletableFrom, due: row.deletableFrom <= ctx.today,
+  }
+}
+
 /** Due first (by facility, then name), then the later ones by date, the records without a date last. */
 function compareItems(a: RetentionItemDto, b: RetentionItemDto): number {
   if (a.due !== b.due) return a.due ? -1 : 1
@@ -206,7 +218,8 @@ function compareItems(a: RetentionItemDto, b: RetentionItemDto): number {
  * day has passed, an item per category with data and the record (employeeItems); archived child records from
  * purgeDate with the Träger's child retention (later while an accident report is younger than 5 years, childItem);
  * archived cash boxes from their deletableFrom; „BEM-Unterlagen“ also of
- * employees still there (bemItem: from the end of each process), „Mutterschutz-Unterlagen“ the same (maternityItem). Each item says whether it
+ * employees still there (bemItem: from the end of each process), „Mutterschutz-Unterlagen“ the same (maternityItem),
+ * finished requests to sign with their sent PDF (signRequestItem). Each item says whether it
  * is due today (deletableFrom <= today). The app deletes nothing by itself; the Träger deletes from this list. The
  * route lets only the Träger read it.
  */
@@ -227,6 +240,7 @@ export function retentionOverview(db: Db, today: IsoDate): RetentionItemDto[] {
     ...activeMaternityItems(db, ctx),
     ...archivedChildren.map(child => childItem(child, childAccidents.get(child.id) ?? null, ctx)),
     ...boxes.map(box => cashItem(db, box, ctx)),
+    ...finishedSignRequests(db).map(row => signRequestItem(row, ctx)),
   ].sort(compareItems)
 }
 
@@ -258,6 +272,11 @@ function findItem(db: Db, key: ItemKey, ctx: Context): RetentionItemDto {
     const child = db.select().from(children).where(eq(children.id, key.id)).get()
     if (!child || child.leftOn === null || child.admissionStatus === 'waitlist') throw missing()
     return childItem(child as ChildRow, lastChildAccidents(db, [child.id]).get(child.id) ?? null, ctx)
+  }
+  if (key.kind === 'signRequest') {
+    const row = finishedSignRequests(db).find(candidate => candidate.id === key.id)
+    if (!row) throw missing()
+    return signRequestItem(row, ctx)
   }
   const box = db.select().from(cashBoxes).where(eq(cashBoxes.id, key.id)).get()
   if (!box || !box.archived) throw missing()
@@ -312,6 +331,7 @@ function removeItem(db: Db, actor: SessionUser, key: ItemKey, ctx: Context, now:
       return 1
     })
   }
+  if (key.kind === 'signRequest') return checkedTransaction(db, tx => removeSignRequest(tx, key.id, now))
   const box = db.select().from(cashBoxes).where(eq(cashBoxes.id, key.id)).get()!
   try {
     return removeArchivedBox(db, actor, box, now).rows

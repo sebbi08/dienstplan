@@ -42,7 +42,11 @@ const TAB_ICONS: Record<DocumentTab, string> = {
 }
 /** The entries the account's employee still has to confirm (loaded by the layout for the menu). */
 const { data: knowledgeOpen } = useNuxtData<{ count: number }>('knowledge-open-count')
-const tabLabel = (key: DocumentTab) => (key === 'knowledge' ? de.knowledge.tabLabel(knowledgeOpen.value?.count ?? 0) : de.documents.tabs[key])
+/** The overdue requests to sign (loaded by the layout for the menu). */
+const { data: signOverdue } = useNuxtData<{ count: number }>('sign-overdue-count')
+const tabLabel = (key: DocumentTab) => (key === 'knowledge'
+  ? de.knowledge.tabLabel(knowledgeOpen.value?.count ?? 0)
+  : key === 'signatures' ? de.signRequests.tabLabel(signOverdue.value?.count ?? 0) : de.documents.tabs[key])
 </script>
 
 <template>

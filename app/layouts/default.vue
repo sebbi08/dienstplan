@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
-import type { LeaveSettingsDto } from '#shared/types/api'
+import type { LeaveSettingsDto, MySignRequestCountDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { pathAfterFacilitySwitch } from '~/utils/facilitySwitch'
@@ -35,8 +35,12 @@ const { data: knowledgeOpen } = useFetch<{ count: number }>('/api/knowledge/open
   immediate: signedIn.value && can('knowledge.view') && user.value?.employeeId != null,
 })
 // „Zu unterschreiben (1)“: the requests to sign the account's employee still has open; checked again on every page change.
-const { data: signOpen, refresh: refreshSignOpen } = useFetch<{ count: number }>('/api/my/sign-requests/count', {
+const { data: signOpen, refresh: refreshSignOpen } = useFetch<MySignRequestCountDto>('/api/my/sign-requests/count', {
   key: 'sign-open-count', watch: false, immediate: signedIn.value && user.value?.employeeId != null,
+})
+// „Dokumente (1)“ for the senders: requests to sign that are overdue (someone has not signed by the due date).
+const { data: signOverdue, refresh: refreshSignOverdue } = useFetch<{ count: number }>('/api/sign-requests/overdue-count', {
+  key: 'sign-overdue-count', watch: false, immediate: signedIn.value && can('signRequests.manage'),
 })
 // Switching the facility is the Träger's (PUT /api/facilities/active needs facilities.manage).
 const canSwitchFacility = computed(() => can('facilities.manage'))
@@ -61,6 +65,7 @@ watch(() => route.fullPath, () => {
   if (notifications.enabled.value) notifications.refresh()
   if (signedIn.value) refreshLeave()
   if (signedIn.value && user.value?.employeeId != null) refreshSignOpen()
+  if (signedIn.value && can('signRequests.manage')) refreshSignOverdue()
   if (can('settings.facility')) refreshFacilities()
 })
 
@@ -78,6 +83,7 @@ const menu = computed<NavMenu>(() => navMenu({
   staffContacts: (staffContacts.value?.count ?? 0) > 0,
   knowledgeOpen: knowledgeOpen.value?.count ?? 0,
   signOpen: signOpen.value?.count ?? 0,
+  signOverdue: signOverdue.value?.count ?? 0,
 }))
 const isTerminal = computed(() => user.value?.role === 'terminal')
 // The Leitung/Träger header has many entries; on mid-size screens it gets tighter so it stays on one line.

@@ -50,6 +50,8 @@ export interface NavViewer {
   knowledgeOpen?: number
   /** Requests to sign the account's employee still has open (GET /api/my/sign-requests/count), at „Zu unterschreiben“. */
   signOpen?: number
+  /** Overdue requests to sign of the facility (GET /api/sign-requests/overdue-count, signRequests.manage), counted at „Dokumente“. */
+  signOverdue?: number
 }
 
 /** The label with the count in brackets, e.g. "Meins (2)"; without a count the plain label. */
@@ -105,7 +107,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // account). Under "Mehr" for the managers, under "Meins" for Mitarbeiter (read only); the tablet reaches them from its
   // start page.
   const formsManager = can('formTemplates.manage')
-  const documents = shown([[formsManager || can('printTemplates.view') || can('knowledge.view'), entry(navLabelWithCount(de.nav.documents, viewer.knowledgeOpen ?? 0), '/documents')]])
+  const documents = shown([[formsManager || can('printTemplates.view') || can('knowledge.view'), entry(navLabelWithCount(de.nav.documents, (viewer.knowledgeOpen ?? 0) + (viewer.signOverdue ?? 0)), '/documents')]])
   // „Kontakte“, the facility's address book: whoever maintains it, everyone else once there are contacts for the staff.
   const contactsEntry = entry(de.contacts.title, '/contacts')
   const contacts = shown([[can('contacts.manage') || !!viewer.staffContacts, contactsEntry]])

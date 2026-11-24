@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  finishedAt, isOverdue, parseRecipientIds, signatureFooter, signedDocumentTitle, signRequestExpired, writtenFormHint,
+  finishedAt, isOverdue, parseRecipientIds, SIGN_UNLOCK_IDLE_MS, SIGN_UNLOCK_MAX_MS, signatureFooter, signedDocumentTitle, signRequestDeletableFrom,
+  signUnlockValid, writtenFormHint,
 } from '../../shared/domain/signRequests'
 
 describe('requests to sign: shared rules', () => {
@@ -9,7 +10,9 @@ describe('requests to sign: shared rules', () => {
       'Zwischenzeugnis', 'Aufhebungsvertrag', 'Verlängerung der befristeten Anstellung']) {
       expect(writtenFormHint(title), title).toBe(true)
     }
-    for (const title of ['Belehrung § 34 IfSG', 'Datenschutzerklärung', 'Schweigepflicht', '']) expect(writtenFormHint(title), title).toBe(false)
+    for (const title of ['Belehrung § 34 IfSG', 'Datenschutzerklärung', 'Schweigepflicht', '', 'Erweitertes Führungszeugnis', 'Gesundheitszeugnis']) {
+      expect(writtenFormHint(title), title).toBe(false)
+    }
   })
 
   it('names the signed copy and writes the footer in Berlin time', () => {
@@ -34,14 +37,23 @@ describe('requests to sign: shared rules', () => {
     const declined = { ...open, status: 'declined' as const, declinedAt: '2025-11-23T10:00:00.000Z' }
     const withdrawn = { ...open, status: 'withdrawn' as const, withdrawnAt: '2025-11-01T10:00:00.000Z' }
     expect([open, signed, declined, withdrawn].map(finishedAt)).toEqual([null, signed.signedAt, declined.declinedAt, withdrawn.withdrawnAt])
-    const now = new Date('2026-11-22T12:00:00.000Z')
-    expect(signRequestExpired('2025-01-01T00:00:00.000Z', [signed, withdrawn], now)).toBe(true)
-    // The last one finished less than a year ago.
-    expect(signRequestExpired('2025-01-01T00:00:00.000Z', [signed, declined], now)).toBe(false)
-    expect(signRequestExpired('2025-01-01T00:00:00.000Z', [signed, open], now)).toBe(false)
-    // No recipients left (deleted with their employees): a year after it was sent.
-    expect(signRequestExpired('2025-11-01T00:00:00.000Z', [], now)).toBe(true)
-    expect(signRequestExpired('2026-01-01T00:00:00.000Z', [], now)).toBe(false)
+    // The Berlin day one year after the last one finished; none while one is open.
+    expect(signRequestDeletableFrom('2025-01-01T00:00:00.000Z', [signed, withdrawn])).toBe('2026-11-20')
+    expect(signRequestDeletableFrom('2025-01-01T00:00:00.000Z', [signed, declined])).toBe('2026-11-23')
+    expect(signRequestDeletableFrom('2025-01-01T00:00:00.000Z', [signed, open])).toBeNull()
+    // 23:30 UTC is the next day in Berlin; no recipients left: from when it was sent.
+    expect(signRequestDeletableFrom('2025-11-30T23:30:00.000Z', [])).toBe('2026-12-01')
+    expect(signRequestDeletableFrom('2024-02-29T10:00:00.000Z', [])).toBe('2025-03-01')
+  })
+
+  it('keeps the sign-only unlock of the tablet for a short while only', () => {
+    const created = '2026-11-24T09:00:00.000Z'
+    const at = (ms: number) => new Date(Date.parse(created) + ms)
+    expect(signUnlockValid(created, created, at(SIGN_UNLOCK_IDLE_MS))).toBe(true)
+    expect(signUnlockValid(created, created, at(SIGN_UNLOCK_IDLE_MS + 1))).toBe(false)
+    // In use all the time: still over after the longest time.
+    expect(signUnlockValid(created, at(SIGN_UNLOCK_MAX_MS).toISOString(), at(SIGN_UNLOCK_MAX_MS))).toBe(true)
+    expect(signUnlockValid(created, at(SIGN_UNLOCK_MAX_MS).toISOString(), at(SIGN_UNLOCK_MAX_MS + 1))).toBe(false)
   })
 
   it('reads the recipients of a form field', () => {

@@ -2168,8 +2168,12 @@ export const schoolDistricts = sqliteTable('school_districts', {
 /**
  * „Zum Unterschreiben senden“: a PDF the Leitung sends to employees to sign in the app (server/services/signRequests.ts).
  * The file is the snapshot taken when it was sent (a template or a personnel document, possibly filled in before), so
- * every recipient signs exactly that version; it stays until the request is deleted (by the sender, or one year after
- * the last recipient finished). The signed copies are documents of the personnel file in `targetFolder`.
+ * every recipient signs exactly that version (`fileSha256` stays as the record of it). Deleting a request (the sender,
+ * or the Träger under Löschfristen one year after the last recipient finished) drops the file and hides the request;
+ * the row stays as long as recipient rows with the record of a signature or a decline refer to it. A personnel
+ * document's folder and employee are kept (`sourceFolder`, `sourceEmployeeId`): only who may use that folder sees the
+ * request, and the file goes when that employee's data is deleted. The signed copies are documents of the personnel
+ * file in `targetFolder`.
  */
 export const signRequests = sqliteTable('sign_requests', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -2180,12 +2184,16 @@ export const signRequests = sqliteTable('sign_requests', {
   sourceKind: text('source_kind', { enum: ['template', 'document'] }).notNull(),
   sourceTemplateId: integer('source_template_id').references(() => printTemplates.id, { onDelete: 'set null' }),
   sourceDocumentId: integer('source_document_id').references(() => employeeDocuments.id, { onDelete: 'set null' }),
-  fileData: blob('file_data', { mode: 'buffer' }).notNull(),
+  fileData: blob('file_data', { mode: 'buffer' }),
   fileSize: integer('file_size').notNull(),
+  fileSha256: text('file_sha256').notNull(),
+  sourceFolder: text('source_folder', { enum: EMPLOYEE_DOCUMENT_FOLDERS }),
+  sourceEmployeeId: integer('source_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  deletedAt: text('deleted_at'),
   targetFolder: text('target_folder', { enum: EMPLOYEE_DOCUMENT_FOLDERS }).notNull(),
   dueDate: text('due_date'),
   note: text('note').notNull().default(''),
-}, table => [index('sign_requests_facility').on(table.facilityId)])
+}, table => [index('sign_requests_facility').on(table.facilityId), index('sign_requests_source_employee').on(table.sourceEmployeeId)])
 
 /**
  * One employee of a request: open until they sign (the signed copy in their personnel file, its SHA-256 for the
@@ -2207,3 +2215,17 @@ export const signRequestRecipients = sqliteTable('sign_request_recipients', {
   uniqueIndex('sign_request_recipients_request_employee').on(table.requestId, table.employeeId),
   index('sign_request_recipients_employee').on(table.employeeId, table.status),
 ])
+
+/**
+ * „Zu unterschreiben“ at the tablet: the person who entered their PIN there, for signing only (never the child records,
+ * which have terminal_unlocks). One per tablet; short-lived (shared/domain/signRequests.ts SIGN_UNLOCK_IDLE_MS and
+ * SIGN_UNLOCK_MAX_MS, no windows without the automatic lock). The token lives in the tablet's session.
+ */
+export const signUnlocks = sqliteTable('sign_unlocks', {
+  id: text('id').primaryKey(),
+  terminalUserId: integer('terminal_user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  createdAt: text('created_at').notNull(),
+  lastActiveAt: text('last_active_at').notNull(),
+})

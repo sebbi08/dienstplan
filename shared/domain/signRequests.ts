@@ -1,3 +1,4 @@
+import { todayIso } from './dates'
 import type { IsoDate } from './types'
 
 /**
@@ -16,17 +17,35 @@ export const SIGN_REQUEST_TITLE_MAX = 160
 export const SIGN_REQUEST_NOTE_MAX = 1000
 /** At most this many recipients per request. */
 export const SIGN_REQUEST_MAX_RECIPIENTS = 200
-/** A request (with its PDF) is deleted this many days after its last recipient finished (signed, declined, withdrawn). */
-export const SIGN_REQUEST_RETENTION_DAYS = 365
+/**
+ * A finished request (with its PDF) may be deleted by the Träger under Löschfristen one year after its last recipient
+ * finished (signed, declined, withdrawn); the app deletes nothing by itself.
+ */
+export const SIGN_REQUEST_RETENTION_YEARS = 1
+
+/** The sign-only unlock of the tablet ends after this long without use … */
+export const SIGN_UNLOCK_IDLE_MS = 3 * 60 * 1000
+/** … and at the latest this long after the PIN, whatever the facility's windows without the automatic lock. */
+export const SIGN_UNLOCK_MAX_MS = 10 * 60 * 1000
+
+/** Whether a sign-only unlock (created and last used at these ISO moments) still holds at `now`. */
+export function signUnlockValid(createdAt: string, lastActiveAt: string, now: Date): boolean {
+  const at = now.getTime()
+  return at - Date.parse(lastActiveAt) <= SIGN_UNLOCK_IDLE_MS && at - Date.parse(createdAt) <= SIGN_UNLOCK_MAX_MS
+}
 
 const fold = (text: string) => text.toLocaleLowerCase('de').replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
 
 /**
  * Titles of documents the law wants in written form (a wet signature on paper), which a drawn signature in the app does
  * not satisfy: dismissal (§ 623 BGB), a fixed term (§ 14 Abs. 4 TzBfG), an employment reference (§ 109 Abs. 3 GewO), a
- * termination agreement (§ 623 BGB) – and the employment contract, whose fixed-term clause or terms often need it.
+ * termination agreement (§ 623 BGB) – and the employment contract, whose fixed-term clause or terms often need it. Not
+ * the Führungszeugnis or Gesundheitszeugnis, which a Kita often has signed for receipt.
  */
-const WRITTEN_FORM_WORDS = ['kuendigung', 'befrist', 'arbeitsvertrag', 'zeugnis', 'aufhebungsvertrag', 'aufhebungsvereinbarung']
+const WRITTEN_FORM_WORDS = [
+  'kuendigung', 'befrist', 'arbeitsvertrag', 'arbeitszeugnis', 'zwischenzeugnis', 'endzeugnis', 'dienstzeugnis',
+  'aufhebungsvertrag', 'aufhebungsvereinbarung',
+]
 
 /** Whether the title suggests a document that needs the written form (the dialog then warns, it does not block). */
 export function writtenFormHint(title: string): boolean {
@@ -64,17 +83,18 @@ export function finishedAt(recipient: { status: SignRequestStatus; signedAt: str
 }
 
 /**
- * Whether a request may go (with its PDF): every recipient finished, the last of them more than SIGN_REQUEST_RETENTION_DAYS
- * ago. A request without recipients (all deleted with their employees) goes `SIGN_REQUEST_RETENTION_DAYS` after it was sent.
+ * From when the Träger may delete a finished request with its PDF under Löschfristen: the Berlin day one year after the
+ * last recipient finished; null while one is still open. A request without recipients (all deleted with their
+ * employees) counts from when it was sent.
  */
-export function signRequestExpired(
-  createdAt: string, recipients: readonly Parameters<typeof finishedAt>[0][], now: Date,
-): boolean {
+export function signRequestDeletableFrom(
+  createdAt: string, recipients: readonly Parameters<typeof finishedAt>[0][],
+): IsoDate | null {
   const ends = recipients.map(finishedAt)
-  if (ends.some(end => end === null)) return false
-  const last = ends.reduce<string>((latest, end) => (end! > latest ? end! : latest), recipients.length ? '' : createdAt)
-  const limit = new Date(now.getTime() - SIGN_REQUEST_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
-  return last !== '' && last < limit
+  if (ends.some(end => end === null)) return null
+  const last = ends.reduce<string>((latest, end) => (end! > latest ? end! : latest), createdAt)
+  const day = todayIso(new Date(last))
+  return `${Number(day.slice(0, 4)) + SIGN_REQUEST_RETENTION_YEARS}${day.slice(4)}`.replace(/-02-29$/, '-03-01')
 }
 
 /** The recipients of a form field („3,5,8“): distinct positive ids, in their order; null when one is not a number. */

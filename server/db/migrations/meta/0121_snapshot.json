@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "cdcdbaf4-313e-49ff-b624-71c9a829c4ab",
+  "id": "5608f820-b9b7-49ad-be2e-bf373405e12a",
   "prevId": "a9af4e14-9af3-4573-bc00-42cfd5c0e013",
   "tables": {
     "absence_codes": {
@@ -11788,7 +11788,7 @@
           "name": "file_data",
           "type": "blob",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "file_size": {
@@ -11796,6 +11796,34 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "file_sha256": {
+          "name": "file_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_folder": {
+          "name": "source_folder",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_employee_id": {
+          "name": "source_employee_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "target_folder": {
@@ -11826,6 +11854,13 @@
           "name": "sign_requests_facility",
           "columns": [
             "facility_id"
+          ],
+          "isUnique": false
+        },
+        "sign_requests_source_employee": {
+          "name": "sign_requests_source_employee",
+          "columns": [
+            "source_employee_id"
           ],
           "isUnique": false
         }
@@ -11881,6 +11916,119 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "sign_requests_source_employee_id_employees_id_fk": {
+          "name": "sign_requests_source_employee_id_employees_id_fk",
+          "tableFrom": "sign_requests",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "source_employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "sign_unlocks": {
+      "name": "sign_unlocks",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "terminal_user_id": {
+          "name": "terminal_user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "facility_id": {
+          "name": "facility_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "employee_id": {
+          "name": "employee_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_active_at": {
+          "name": "last_active_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "sign_unlocks_terminal_user_id_unique": {
+          "name": "sign_unlocks_terminal_user_id_unique",
+          "columns": [
+            "terminal_user_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "sign_unlocks_terminal_user_id_users_id_fk": {
+          "name": "sign_unlocks_terminal_user_id_users_id_fk",
+          "tableFrom": "sign_unlocks",
+          "tableTo": "users",
+          "columnsFrom": [
+            "terminal_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "sign_unlocks_facility_id_facilities_id_fk": {
+          "name": "sign_unlocks_facility_id_facilities_id_fk",
+          "tableFrom": "sign_unlocks",
+          "tableTo": "facilities",
+          "columnsFrom": [
+            "facility_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "sign_unlocks_employee_id_employees_id_fk": {
+          "name": "sign_unlocks_employee_id_employees_id_fk",
+          "tableFrom": "sign_unlocks",
+          "tableTo": "employees",
+          "columnsFrom": [
+            "employee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },

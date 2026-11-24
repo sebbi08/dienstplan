@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { PIN_LENGTH } from '#shared/domain/pin'
+import { SIGN_UNLOCK_IDLE_MS } from '#shared/domain/signRequests'
 import { formatTime } from '#shared/domain/time'
-import type { StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordDto } from '#shared/types/api'
+import type { MySignRequestsDto, StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { errorMessage } from '~/utils/errors'
+import { errorCode, errorMessage } from '~/utils/errors'
 import { shiftMonth } from '~/utils/format'
 import { isServerUnreachable, REQUEST_TIMEOUT_MS, tabletClockTime } from '~/utils/offlineQueue'
 import { pinFailureText } from '~/utils/pin'
@@ -82,11 +83,13 @@ let epoch = 0
 onMounted(() => {
   refresh()
   poll = setInterval(() => refresh(), 30_000)
-  // Coming (back) to the start page ends any unlock of the child records.
+  // Coming (back) to the start page ends any unlock of the child records, and one for signing left from before a reload.
   lock()
+  lockSigning()
   if (onTablet.value) offlineStamps.registerShell()
 })
 onBeforeUnmount(() => {
+  if (signer.value) lockSigning()
   unmounted = true
   clearInterval(poll)
   clearTimeout(resetTimer)
@@ -96,15 +99,51 @@ onBeforeUnmount(() => {
 function setMode(next: Mode) {
   backToList()
   mode.value = next
+  if (signer.value) lockSigning()
   signer.value = null
   if (next !== 'children') lock()
 }
 
 /**
- * „Zu unterschreiben“: the person unlocks the tablet with their PIN (the same unlock as the child records) and sees only
- * their own requests to sign. After signing or declining, and with „Fertig“, the tablet locks and returns to the start.
+ * „Zu unterschreiben“: the person enters their PIN for a sign-only unlock (never the child records; short on the server,
+ * server/services/signUnlock.ts) and sees only their own requests to sign. After signing or declining, with „Fertig“,
+ * after SIGN_UNLOCK_IDLE_MS without a touch, and when the server says it is over, the tablet locks and returns to the
+ * start page.
  */
 const signer = ref<{ name: string } | null>(null)
+const toast = useToast()
+let signIdle: ReturnType<typeof setTimeout> | undefined
+/** When the server last heard of the person signing (it counts only its own requests as use). */
+let signSeen = 0
+const SIGN_EVENTS = ['pointerdown', 'keydown', 'wheel'] as const
+function lockSigning() {
+  clearTimeout(signIdle)
+  for (const event of SIGN_EVENTS) window.removeEventListener(event, touchSigning, true)
+  void $fetch<unknown>('/api/terminal/sign-requests/lock', { method: 'POST' }).catch(() => {})
+}
+/**
+ * Any touch, key or scrolling while signing counts as use: the idle timer starts again, and at most once a minute the
+ * server hears of it too (drawing and filling in send nothing otherwise). If the unlock is over there (10 minutes after
+ * the PIN at the latest), the tablet locks.
+ */
+function touchSigning() {
+  clearTimeout(signIdle)
+  signIdle = setTimeout(finishSigning, SIGN_UNLOCK_IDLE_MS)
+  if (!signer.value || Date.now() - signSeen < 60_000) return
+  signSeen = Date.now()
+  $fetch<MySignRequestsDto>('/api/terminal/sign-requests').catch((error) => {
+    if (signer.value && errorCode(error) === 'sign_locked') {
+      toast.add({ title: de.errors.sign_locked, color: 'warning' })
+      finishSigning()
+    }
+  })
+}
+function startSigning(name: string) {
+  signer.value = { name }
+  signSeen = Date.now()
+  for (const event of SIGN_EVENTS) window.addEventListener(event, touchSigning, { capture: true, passive: true })
+  touchSigning()
+}
 function finishSigning() {
   setMode('start')
 }
@@ -201,6 +240,12 @@ async function openChildren() {
   const isStale = () => unmounted || startedEpoch !== epoch || chosenId.value !== person.employeeId || mode.value !== (forSigning ? 'sign' : 'children')
   busy.value = true
   try {
+    if (forSigning) {
+      await $fetch<unknown>('/api/terminal/sign-requests/unlock', { method: 'POST', body: { employeeId: person.employeeId, pin: pin.value } })
+      if (isStale()) return lockSigning()
+      startSigning(person.name)
+      return
+    }
     const status = await $fetch<TabletUnlockStatusDto>('/api/terminal/children/unlock', { method: 'POST', body: { employeeId: person.employeeId, pin: pin.value } })
     if (isStale()) {
       // The person went back meanwhile: do not leave the records unlocked behind their back.
@@ -208,10 +253,6 @@ async function openChildren() {
       return
     }
     unlock.value = status
-    if (forSigning) {
-      signer.value = { name: person.name }
-      return
-    }
     await navigateTo('/children')
   }
   catch (caught) {
@@ -337,7 +378,7 @@ async function openChildren() {
           <h2 class="text-xl font-semibold">{{ signer.name }}</h2>
           <UButton class="ml-auto" size="lg" color="neutral" variant="outline" icon="i-lucide-lock" :label="de.signRequests.tabletDone" @click="finishSigning" />
         </div>
-        <SignRequestsMyList base="/api/terminal/sign-requests" @changed="finishSigning" />
+        <SignRequestsMyList base="/api/terminal/sign-requests" @changed="finishSigning" @locked="finishSigning" />
       </section>
 
       <template v-else-if="!chosen">

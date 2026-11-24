@@ -11,13 +11,14 @@ import type { Db } from '../db/client'
 import {
   balanceAdjustments, bemProcesses, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
-  formAttachments, formEditors, forms, knowledgeConfirmations, maternityCases, signRequestRecipients, parentalLeaveBirths, parentalLeaves,
+  formAttachments, formEditors, forms, knowledgeConfirmations, maternityCases, signRequestRecipients, signUnlocks, parentalLeaveBirths, parentalLeaves,
   groupBookChanges, helpOuts, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
   releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
   weekTemplateEntries,
 } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { dropOrphanSignRequests, dropSourceSnapshots } from './signRequestRecords'
 import { getRetentionSettings } from './retentionSettings'
 
 /** Warning types whose acknowledgement key names an employee as subject (`<type>|<date>|<employeeId>`, warningList.ts). */
@@ -205,6 +206,8 @@ const IMMEDIATE_ROWS: readonly EmployeeRows[] = [
   { table: weekTemplateEntries, column: weekTemplateEntries.employeeId },
   { table: formEditors, column: formEditors.employeeId },
   { table: terminalUnlocks, column: terminalUnlocks.employeeId },
+  // The tablet's sign-only unlock (Zu unterschreiben).
+  { table: signUnlocks, column: signUnlocks.employeeId },
 ]
 /** References that stay: the child loses its Bezugserzieher, the logs keep the name. */
 const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
@@ -335,7 +338,9 @@ export function deleteAssessmentData(tx: Db, employeeId: number): number {
     .map(row => row.id)
   let changed = deleteRows(tx, employeeId, ASSESSMENT_ROWS)
   if (formIds.length > 0) changed += tx.delete(forms).where(inArray(forms.id, formIds)).run().changes
-  return changed
+  // PDFs sent to sign from these folders go with them; a removed request goes once its last record is gone.
+  changed += dropSourceSnapshots(tx, employeeId, EMPLOYEE_DOCUMENT_FOLDERS.filter(folder => FOLDER_RETENTION[folder] === 'assessment'))
+  return changed + dropOrphanSignRequests(tx)
 }
 
 /**
@@ -351,7 +356,9 @@ const PAID_OVERTIME_ROWS: readonly EmployeeRows[] = [
 
 /** „Ausgezahlte Überstunden, Verträge, Gehalt“: paid-out balance adjustments, contract and salary documents, accident reports. */
 export function deletePaidOvertimeData(tx: Db, employeeId: number): number {
+  // PDFs sent to sign from the contract and salary folders go with them.
   return deleteRows(tx, employeeId, PAID_OVERTIME_ROWS)
+    + dropSourceSnapshots(tx, employeeId, EMPLOYEE_DOCUMENT_FOLDERS.filter(folder => FOLDER_RETENTION[folder] === 'paidOvertime'))
 }
 
 /** „BEM-Unterlagen“: the BEM processes with their steps (the steps go with their process). */
@@ -431,5 +438,9 @@ export function deleteCategories(
  */
 export function deleteEmployeeRow(tx: Db, employeeId: number): number {
   dropFromSnapshots(tx, employeeId)
-  return tx.delete(employees).where(eq(employees.id, employeeId)).run().changes
+  // The PDFs sent to sign from the person's file go with the person (not only when their folders are deleted).
+  dropSourceSnapshots(tx, employeeId)
+  const changed = tx.delete(employees).where(eq(employees.id, employeeId)).run().changes
+  dropOrphanSignRequests(tx)
+  return changed
 }

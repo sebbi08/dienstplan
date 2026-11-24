@@ -33,7 +33,7 @@ const ACTIVE = [
   'knowledge-categories/[id]/move.post.ts',
   // „Zum Unterschreiben senden“: the requests of the facility the sender works in.
   'sign-requests/index.get.ts', 'sign-requests/index.post.ts', 'sign-requests/[id].delete.ts', 'sign-requests/[id]/file.get.ts',
-  'sign-requests/[id]/remind.post.ts', 'sign-requests/[id]/withdraw.post.ts',
+  'sign-requests/[id]/remind.post.ts', 'sign-requests/[id]/withdraw.post.ts', 'sign-requests/overdue-count.get.ts',
 ]
 /** No facility: was requireProvider alone (the route names its facility or works across all of them). */
 const NONE = [
