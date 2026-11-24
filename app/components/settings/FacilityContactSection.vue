@@ -6,11 +6,13 @@ import {
 import { de } from '~/locales/de'
 
 /**
- * Kontakt of the facility (settings): address, website, Träger, Leitung, and phone numbers and e-mail addresses, each
- * belonging to the Einrichtung, the Leitung or the Träger. The Träger edits it (for the facility chosen in „Einstellungen
- * für“); the Leitung sees it read-only, with tel: and mailto: links.
+ * Kontakt of a facility (inside its card under Einstellungen → Einrichtung): address, website, Träger, Leitung, and phone
+ * numbers and e-mail addresses, each belonging to the Einrichtung, the Leitung or the Träger. The Träger edits it for
+ * every facility without switching; the Leitung sees the own one read-only, with tel: and mailto: links.
  */
-const { data, refresh } = await useFetch<FacilityContactDto>('/api/facility-contact', { key: 'facility-contact' })
+const props = defineProps<{ facilityId: number }>()
+const query = computed(() => ({ facilityId: props.facilityId }))
+const { data, refresh } = await useFetch<FacilityContactDto>('/api/facility-contact', { key: `facility-contact-${props.facilityId}`, query })
 const { can } = useCan()
 const canEdit = computed(() => can('facilities.manage'))
 const { busy, run } = useBusyAction(refresh)
@@ -41,7 +43,8 @@ function move(index: number, by: -1 | 1) {
   list.splice(target, 0, entry!)
 }
 
-const save = () => dirty.value && run(() => $fetch<FacilityContactDto>('/api/facility-contact', { method: 'PUT', body: draft.value }), de.common.saved)
+const save = () => dirty.value
+  && run(() => $fetch<FacilityContactDto>('/api/facility-contact', { method: 'PUT', query: query.value, body: draft.value }), de.common.saved)
 
 // Read-only view.
 const address = computed(() => addressLine(data.value?.street ?? '', data.value?.postalCode ?? '', data.value?.city ?? ''))
@@ -50,8 +53,8 @@ const href = (entry: FacilityContactEntry) => entry.kind === 'phone' ? telHref(e
 </script>
 
 <template>
-  <section v-if="data" class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-    <h2 class="font-semibold">{{ s.title }}</h2>
+  <section v-if="data" :id="`facility-${facilityId}-contact`" class="scroll-mt-20 space-y-3">
+    <h3 class="font-semibold">{{ s.title }}</h3>
     <form v-if="canEdit" class="space-y-3" novalidate @submit.prevent="save">
       <div class="flex flex-wrap items-end gap-3">
         <UFormField :label="s.street"><UInput v-model="draft.street" maxlength="120" class="w-64" /></UFormField>
@@ -64,7 +67,7 @@ const href = (entry: FacilityContactEntry) => entry.kind === 'phone' ? telHref(e
         <UFormField :label="s.manager"><UInput v-model="draft.manager" maxlength="120" class="w-64" /></UFormField>
       </div>
       <div class="space-y-2">
-        <h3 class="text-sm font-medium">{{ s.contacts }}</h3>
+        <h4 class="text-sm font-medium">{{ s.contacts }}</h4>
         <p v-if="!draft.contacts.length" class="text-sm text-gray-500">{{ s.none }}</p>
         <div v-for="(entry, index) in draft.contacts" :key="index" class="flex flex-wrap items-end gap-2">
           <UFormField :label="s.kind"><USelect v-model="entry.kind" :items="kindItems" class="w-32" /></UFormField>
@@ -93,7 +96,7 @@ const href = (entry: FacilityContactEntry) => entry.kind === 'phone' ? telHref(e
         <div><dt class="text-xs text-gray-500">{{ s.manager }}</dt><dd>{{ data.manager || s.notSet }}</dd></div>
       </dl>
       <div class="space-y-1">
-        <h3 class="text-sm font-medium">{{ s.contacts }}</h3>
+        <h4 class="text-sm font-medium">{{ s.contacts }}</h4>
         <p v-if="!data.contacts.length" class="text-sm text-gray-500">{{ s.none }}</p>
         <ul v-else class="space-y-1 text-sm">
           <li v-for="(entry, index) in data.contacts" :key="index">

@@ -381,6 +381,11 @@ export const groupAgeLimitsSchema = z.object({
 })
 /** The range (whole number 1-999 or null) is checked by the service, which answers invalid_facility_capacity. */
 export const facilityCapacitySchema = z.object({ capacity: z.number().nullable() })
+/**
+ * Whose contact data (Einstellungen → Einrichtung, one card per facility): the facility named, else the one the request
+ * works in. The service decides who may (the Träger every facility, the Leitung only the own one).
+ */
+export const facilityContactQuery = z.object({ facilityId: z.coerce.number().int().positive().optional() })
 /** The facility's contact data; the formats and lengths are checked by the service, which answers the German codes. */
 export const facilityContactSchema = z.object({
   street: z.string(), postalCode: z.string(), city: z.string(), website: z.string(), operator: z.string(), manager: z.string(),

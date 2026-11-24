@@ -7,10 +7,13 @@ import { de } from '~/locales/de'
  * per group the other groups its staff may also read at the tablet.
  */
 const props = defineProps<{ facilityId: number }>()
+/** How many groups the facility has (for its card's header). */
+const emit = defineEmits<{ count: [count: number] }>()
 
 // Awaited, so the drafts below are filled before the page is rendered on the server.
 const { data: groups, refresh } = await useFetch<GroupDto[]>(() => `/api/facilities/${props.facilityId}/groups`, { default: () => [] })
 const { refresh: refreshActive } = useGroups()
+watch(() => groups.value?.length ?? 0, count => emit('count', count), { immediate: true })
 // The active facility's groups (rules, templates, employees) follow at once, and the switch of the automatic leaving
 // (settings section) follows a flag or a deleted group, and the opening hours list the groups too.
 const { busy, run } = useBusyAction(() => Promise.all([

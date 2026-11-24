@@ -1232,6 +1232,12 @@ export const de = {
       + `Einrichtung. Ab heute gelten die Schließtage von „${name}“ statt der bisherigen.`,
     moveAction: 'Verschieben',
     switched: 'Einrichtung gewechselt',
+    // One card per facility under Einstellungen → Einrichtung.
+    masterData: 'Stammdaten',
+    selected: 'gewählt',
+    groupCount: (count: number) => (count === 0 ? 'keine Gruppen' : count === 1 ? '1 Gruppe' : `${count} Gruppen`),
+    addTitle: 'Neue Einrichtung',
+    addHint: 'Nach dem Anlegen öffnet sich ihre Karte beim Kontakt: dort Anschrift und Telefon eintragen.',
   },
   // Kontakt of a facility (settings, area Einrichtung): address, website, Träger, Leitung, phone numbers and e-mails.
   facilityContact: {
@@ -2511,6 +2517,8 @@ export const de = {
       facility: 'Einrichtung', groups: 'Gruppen', roster: 'Dienstplan', time: 'Zeiterfassung', children: 'Kinder', staff: 'Personal',
     },
     groupsSummary: 'Alles zu einer Gruppe: Name, Farbe, Höchstzahl, Gruppenart, Öffnungszeiten, Entwicklungsdoku, Lesen',
+    // Above the sections of the area Einrichtung that apply to the facility chosen in „Einstellungen für“.
+    settingsForChosen: (name: string) => `Einstellungen für ${name}`,
     menu: 'Bereiche der Einstellungen',
     back: 'Alle Einstellungen',
     search: 'Einstellung suchen',

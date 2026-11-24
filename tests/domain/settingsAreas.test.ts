@@ -18,7 +18,7 @@ const keysOf = (viewer: SettingsViewer) => visibleSettingsAreas(viewer).map(entr
 describe('visibleSettingsAreas', () => {
   it('shows the Träger every area and section', () => {
     expect(keysOf(provider)).toEqual([
-      ['facility', ['facilities', 'facility-contact', 'facility-hours', 'tablet', 'retention', 'backup']],
+      ['facility', ['facilities', 'facility-hours', 'tablet', 'retention', 'backup']],
       ['groups', ['group-list']],
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
@@ -27,9 +27,9 @@ describe('visibleSettingsAreas', () => {
     ])
   })
 
-  it('hides the Träger-only sections from the Leitung (Einrichtungen, Löschfrist, Datensicherung, Urlaubsanträge)', () => {
+  it('hides the Träger-only sections from the Leitung (Löschfrist, Datensicherung, Urlaubsanträge); the facility cards show only her own', () => {
     expect(keysOf(leitung)).toEqual([
-      ['facility', ['facility-contact', 'facility-hours', 'tablet']],
+      ['facility', ['facilities', 'facility-hours', 'tablet']],
       ['groups', ['group-list']],
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
@@ -64,7 +64,8 @@ describe('the former sections', () => {
       ...GROUP_SECTIONS.flatMap(section => section.replaces),
     ])
     expect([...replacedFor(provider)].sort()).toEqual([...FORMER_SECTIONS].sort())
-    expect(FORMER_SECTIONS.filter(key => !replacedFor(leitung).has(key)).sort()).toEqual(['backup', 'facilities', 'leave-module', 'retention'])
+    // The facility cards are the Leitung's too (her own card, with its Kontakt read-only).
+    expect(FORMER_SECTIONS.filter(key => !replacedFor(leitung).has(key)).sort()).toEqual(['backup', 'leave-module', 'retention'])
   })
 
   it('have unique section keys', () => {
@@ -75,6 +76,12 @@ describe('the former sections', () => {
 
 describe('searchSettings', () => {
   const firstHit = (query: string, viewer = provider) => searchSettings(query, viewer)[0]
+
+  it('finds the Kontakt of a facility in its card (Träger and Leitung)', () => {
+    for (const viewer of [provider, leitung]) {
+      expect(firstHit('Telefonnummer', viewer)).toMatchObject({ key: 'facilities', to: '/admin/settings/facility#section-facilities' })
+    }
+  })
 
   it('finds Anwesenheit & Essen by „Snack“ and „Essen“', () => {
     expect(firstHit('Snack')).toMatchObject({ key: 'attendance', where: 'Kinder', to: '/admin/settings/children#section-attendance' })

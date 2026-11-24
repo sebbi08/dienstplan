@@ -2534,6 +2534,21 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   (z. B. eine Person oder ein Kind), dann kein Link: Wechsle dafür oben die Einrichtung. Ungespeicherte Änderungen fragt
   die App vor dem Wechsel ab; auf der Seite einer Gruppe geht es zurück zur Gruppenliste. Die Leitung hat diese Auswahl
   nicht.
+- **Einstellungen → Einrichtung: eine Karte je Einrichtung.** Unter **Einrichtungen** steht jede Einrichtung als eigene
+  Karte mit Kopfzeile (Haus-Symbol, Name · Bundesland · Zahl der Gruppen). Ein Klick auf die Kopfzeile klappt die Karte
+  auf oder zu. Ohne eigene Wahl ist nur die Einrichtung aufgeklappt, die bei „Einstellungen für“ gewählt ist (markiert
+  mit **„gewählt“**). Welche Karten offen sind, merkt sich das Gerät.
+  - **In jeder Karte:** **Stammdaten** (Name, Bundesland, Höchstzahl Kinder, Speichern), **Gruppen** (wie bisher) und
+    **Kontakt** (Anschrift, Website, Träger, Leitung, Telefonnummern und E-Mail-Adressen) mit je eigenem Speichern. So
+    pflegt der Träger den Kontakt jeder Einrichtung, ohne bei „Einstellungen für“ zu wechseln. Den früheren eigenen
+    Abschnitt „Kontakt“ gibt es nicht mehr.
+  - **Einrichtung anlegen:** Name und Bundesland; danach öffnet sich die Karte der neuen Einrichtung beim **Kontakt**,
+    um Anschrift und Telefon gleich einzutragen.
+  - **Die Leitung** sieht nur die Karte ihrer Einrichtung, darin den Kontakt zum Lesen („Diese Angaben pflegt der
+    Träger.“); andere Einrichtungen sind für sie nicht abrufbar.
+  - **Darunter** steht die Überschrift **„Einstellungen für ‹Einrichtung›“**: Die folgenden Abschnitte (Öffnungszeiten,
+    Tablet, Löschfrist, Datensicherung) gelten wie bisher für die bei „Einstellungen für“ gewählte Einrichtung bzw. für
+    alle.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kasse**, **Kalender** (Jahreskalender) und **Teamsitzungen**. Seltener Gebrauchtes liegt
   unter **Mehr**: Schließzeiten, Krankheitstage, Dokumente (Bögen und Vorlagen), Benutzer, Einstellungen und Passwort ändern (der

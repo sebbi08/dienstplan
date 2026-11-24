@@ -44,13 +44,13 @@ const s = de.settingsAreas
 export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
   facility: [
     {
-      key: 'facilities', title: de.facilities.title, permission: 'facilities.manage', replaces: ['facilities'],
-      keywords: ['Träger', 'Bundesland', 'Feiertage', 'Höchstzahl Einrichtung', 'Betriebserlaubnis', 'Gruppe anlegen', 'Gruppe umbenennen', 'Gruppe löschen', 'Hort', 'Mariä Himmelfahrt'],
-    },
-    {
-      // The Träger edits it, the Leitung reads it (settings.facility).
-      key: 'facility-contact', title: de.facilityContact.title, replaces: [],
-      keywords: ['Anschrift', 'Adresse', 'Straße', 'PLZ', 'Ort', 'Telefon', 'Telefonnummer', 'E-Mail', 'Website', 'Träger', 'Leitung', 'Kontakt'],
+      // One card per facility with its Stammdaten, groups and Kontakt: the Träger edits every facility's; the Leitung sees
+      // the own facility's card with its Kontakt, read-only (settings.facility, like the area).
+      key: 'facilities', title: de.facilities.title, permission: 'settings.facility', replaces: ['facilities'],
+      keywords: [
+        'Träger', 'Bundesland', 'Feiertage', 'Höchstzahl Einrichtung', 'Betriebserlaubnis', 'Gruppe anlegen', 'Gruppe umbenennen', 'Gruppe löschen', 'Hort', 'Mariä Himmelfahrt',
+        'Anschrift', 'Adresse', 'Straße', 'PLZ', 'Ort', 'Telefon', 'Telefonnummer', 'E-Mail', 'Website', 'Leitung', 'Kontakt', 'Stammdaten',
+      ],
     },
     {
       key: 'facility-hours', title: s.facilityHours, replaces: ['opening-hours'],
