@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
 import { can } from '../../shared/domain/permissions'
 import { FOLDER_PERMISSION, type EmployeeDocumentFolder } from '../../shared/domain/personnel'
+import { seesTemplateCategory, type TemplateVisibility } from '../../shared/domain/templateCategories'
 import {
   DECLINE_REASON_MAX, SIGN_REQUEST_MAX_RECIPIENTS, SIGN_REQUEST_NOTE_MAX, SIGN_REQUEST_TITLE_MAX, isOverdue, signedDocumentTitle,
 } from '../../shared/domain/signRequests'
@@ -14,7 +15,7 @@ import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
 import { fillableFile } from '../lib/pdfForm'
-import { listTemplates, readTemplateFile, type TemplateViewer } from './printTemplates'
+import { listTemplates, readTemplateFile, templateVisibility, type TemplateViewer } from './printTemplates'
 import { removeSignRequest } from './signRequestRecords'
 
 /**
@@ -61,11 +62,13 @@ function assertSender(sender: SignSender): void {
   if (!can(sender.permissions, 'signRequests.manage')) throw new ServiceError(403, 'forbidden')
 }
 
-type Source = { data: Buffer; employeeId: number | null; folder: EmployeeDocumentFolder | null }
+type Source = { data: Buffer; employeeId: number | null; folder: EmployeeDocumentFolder | null; visibility: TemplateVisibility | null }
 
 /** The source PDF: a template the sender sees, or a PDF of a personnel file in a folder they may use (with its employee). */
 function sourceFile(db: Db, sender: SignSender, kind: 'template' | 'document', id: number): Source {
-  if (kind === 'template') return { data: readTemplateFile(db, sender, id).data, employeeId: null, folder: null }
+  if (kind === 'template') {
+    return { data: readTemplateFile(db, sender, id).data, employeeId: null, folder: null, visibility: templateVisibility(db, sender, id) }
+  }
   const row = db.select({ employeeId: employeeDocuments.employeeId, folder: employeeDocuments.folder, mimeType: employeeDocuments.mimeType, facilityId: employees.facilityId })
     .from(employeeDocuments).innerJoin(employees, eq(employees.id, employeeDocuments.employeeId))
     .where(eq(employeeDocuments.id, id)).get()
@@ -73,7 +76,7 @@ function sourceFile(db: Db, sender: SignSender, kind: 'template' | 'document', i
   if (!can(sender.permissions, FOLDER_PERMISSION[row.folder])) throw new ServiceError(403, 'forbidden')
   if (row.mimeType !== 'application/pdf') throw new ServiceError(400, 'document_type_invalid')
   const { data } = db.select({ data: employeeDocuments.data }).from(employeeDocuments).where(eq(employeeDocuments.id, id)).get()!
-  return { data, employeeId: row.employeeId, folder: row.folder }
+  return { data, employeeId: row.employeeId, folder: row.folder, visibility: null }
 }
 
 /**
@@ -112,7 +115,7 @@ export function createSignRequest(
       facilityId: sender.facilityId, createdBy: sender.id, createdAt: now.toISOString(), title, sourceKind: input.sourceKind,
       sourceTemplateId: input.sourceKind === 'template' ? input.sourceId : null,
       sourceDocumentId: input.sourceKind === 'document' ? input.sourceId : null,
-      sourceFolder: source.folder, sourceEmployeeId: source.employeeId,
+      sourceFolder: source.folder, sourceVisibility: source.visibility, sourceEmployeeId: source.employeeId,
       fileData: data, fileSize: data.length, fileSha256: sha256(data), targetFolder: input.folder, dueDate: input.dueDate, note,
     }).returning({ id: signRequests.id }).get().id
     tx.insert(signRequestRecipients).values(recipientIds.map(employeeId => ({ requestId: id, employeeId }))).run()
@@ -122,23 +125,27 @@ export function createSignRequest(
 
 type RequestAccess = {
   facilityId: number; targetFolder: EmployeeDocumentFolder; sourceFolder: EmployeeDocumentFolder | null
-  sourceKind: 'template' | 'document'; sourceTemplateId: number | null; deletedAt: string | null
+  sourceKind: 'template' | 'document'; sourceTemplateId: number | null; sourceVisibility: TemplateVisibility | null; deletedAt: string | null
 }
 
 /**
  * Whether the sender may see the request: the facility's, not removed, the folder of the signed copies and (for a
- * personnel document) the folder it came from usable, and (for a template still there) the template visible to them.
+ * personnel document) the folder it came from usable, and for a template the template visible to them – once it is
+ * deleted, the visibility it had when the request was sent.
  */
 function mayView(sender: SignSender, row: RequestAccess, visibleTemplates: () => ReadonlySet<number>): boolean {
   if (row.facilityId !== sender.facilityId || row.deletedAt !== null) return false
   if (!can(sender.permissions, FOLDER_PERMISSION[row.targetFolder])) return false
   if (row.sourceFolder !== null && !can(sender.permissions, FOLDER_PERMISSION[row.sourceFolder])) return false
-  return row.sourceKind !== 'template' || row.sourceTemplateId === null || visibleTemplates().has(row.sourceTemplateId)
+  if (row.sourceKind !== 'template') return true
+  if (row.sourceTemplateId !== null) return visibleTemplates().has(row.sourceTemplateId)
+  return row.sourceVisibility === null || seesTemplateCategory(sender.role, row.sourceVisibility)
 }
 
 const ACCESS_COLUMNS = {
   facilityId: signRequests.facilityId, targetFolder: signRequests.targetFolder, sourceFolder: signRequests.sourceFolder,
-  sourceKind: signRequests.sourceKind, sourceTemplateId: signRequests.sourceTemplateId, deletedAt: signRequests.deletedAt,
+  sourceKind: signRequests.sourceKind, sourceTemplateId: signRequests.sourceTemplateId, sourceVisibility: signRequests.sourceVisibility,
+  deletedAt: signRequests.deletedAt,
 }
 
 /** The templates the sender sees (once per call). */
@@ -207,7 +214,7 @@ export function listSignRequests(db: Db, sender: SignSender, today: IsoDate): Si
         copyDeleted: recipient.status === 'signed' && (signedDocumentId === null || !copy),
       }
     })
-    const { facilityId: _f, sourceFolder: _s, sourceTemplateId: _t, deletedAt: _d, ...rest } = request
+    const { facilityId: _f, sourceFolder: _s, sourceTemplateId: _t, sourceVisibility: _v, deletedAt: _d, ...rest } = request
     return { ...rest, recipients: list, overdue: own.some(recipient => isOverdue(request.dueDate, today, recipient.status)) }
   })
 }

@@ -31,6 +31,7 @@ CREATE TABLE `sign_requests` (
 	`file_size` integer NOT NULL,
 	`file_sha256` text NOT NULL,
 	`source_folder` text,
+	`source_visibility` text,
 	`source_employee_id` integer,
 	`deleted_at` text,
 	`target_folder` text NOT NULL,

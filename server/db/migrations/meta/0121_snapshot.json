@@ -11812,6 +11812,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "source_visibility": {
+          "name": "source_visibility",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "source_employee_id": {
           "name": "source_employee_id",
           "type": "integer",

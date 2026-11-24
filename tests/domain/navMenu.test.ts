@@ -113,6 +113,13 @@ describe('navMenu', () => {
     // The senders also count the overdue requests to sign there.
     const sender = navMenu({ ...base, role: 'observer', can: key => key === 'knowledge.view', employeeId: 9, knowledgeOpen: 1, signOverdue: 2 })
     expect(sender.mine.at(-1)!.label).toBe('Dokumente (3)')
+    // Under "Mehr" for the managers: "Mehr" and the phone menu button count it as well.
+    const manager = navMenu({ ...base, ...as('admin'), employeeId: null, knowledgeOpen: 1, signOverdue: 2 })
+    expect(manager.more.find(entry => entry.to === '/documents')!.label).toBe('Dokumente (3)')
+    expect(manager.moreCount).toBe(3)
+    expect(manager.totalCount).toBe(3)
+    expect(navMenu({ ...base, ...as('admin'), employeeId: null }).moreCount).toBe(0)
+    expect(navMenu({ ...base, role: 'observer', can: key => key === 'knowledge.view', employeeId: 9, knowledgeOpen: 2 }).moreCount).toBe(0)
   })
 
   it('puts „Dokumente“ under „Mehr“ for an account that maintains the form templates only (tab „Bögen“)', () => {

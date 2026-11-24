@@ -1900,12 +1900,16 @@ Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
     Uhrzeit in der Zeile kommt vom Gerät; maßgeblich ist der Zeitpunkt, den der Server beim Speichern festhält (er steht
     in der Übersicht).
   - Die App nimmt als unterschriebene Kopie nur das gesendete PDF mit angehängten Ergänzungen an (so speichert die
-    Ausfüll-Ansicht); eine andere Datei wird abgelehnt („Diese Datei ist nicht das gesendete Dokument“).
+    Ausfüll-Ansicht); eine andere Datei wird abgelehnt („Diese Datei ist nicht das gesendete Dokument“). **Im
+    Streitfall** lässt sich das Original belegen: Die ersten Bytes der Kopie – so viele, wie das gesendete PDF groß war –
+    sind genau das gesendete PDF; ihre Prüfsumme (SHA-256) ist die, die die App beim Senden festgehalten hat (sie bleibt
+    auch, wenn die Anfrage gelöscht wird).
   - **Nicht unterschreiben**: mit einem kurzen Grund (höchstens 300 Zeichen); die Leitung sieht ihn.
   - **Am Tablet** gilt eine eigene, kurze Entsperrung nur zum Unterschreiben: Sie öffnet **keine Kinderakten** (und eine
     Entsperrung für die Kinderakten erlaubt kein Unterschreiben). Das Tablet sperrt sich nach dem Unterschreiben oder
     Ablehnen, mit **Fertig**, nach **3 Minuten ohne Berührung** und spätestens **10 Minuten** nach der PIN – auch in den
-    Zeiten, in denen sich das Tablet für die Kinderakten nicht sperrt. Danach steht wieder die Startseite da („Das Tablet
+    Zeiten, in denen sich das Tablet für die Kinderakten nicht sperrt – und sobald die Person nicht mehr in der Liste
+    des Tablets steht (PIN gelöscht, ausgeschieden, Aushilfstag vorbei). Danach steht wieder die Startseite da („Das Tablet
     ist wieder gesperrt. Bitte Namen und PIN neu eingeben.“).
 - **Übersicht**: **Dokumente → Unterschriften** (wer senden darf) zeigt jede Anfrage mit dem Stand je Person – offen,
   unterschrieben am …, abgelehnt mit Grund, zurückgezogen –, den Link zur unterschriebenen Kopie (wenn du das Fach sehen
@@ -1915,11 +1919,13 @@ Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
   beendet die Anfrage für offene Personen; **Anfrage löschen** entfernt Anfrage und gesendetes PDF (die unterschriebenen
   Kopien und die Nachweise der Unterschriften bleiben, siehe unten). Ist das Datum „bis“ vorbei und jemand noch offen,
   ist die Anfrage als **überfällig** markiert: oben in der Übersicht, im Reiter („Unterschriften (1)“) und im Menü bei
-  **Dokumente** steht, wie viele es sind; in der Liste der Person ist sie rot hervorgehoben.
+  **Dokumente** (und bei Leitung und Träger an **Mehr**) steht, wie viele es sind; in der Liste der Person ist sie rot
+  hervorgehoben.
 - **Wer darf was**: Senden und die Übersicht gehören zum Recht **„Personalakte: zum Unterschreiben senden“** (Rechte und
   Rollen; voreingestellt Leitung, der Träger immer). In der Übersicht sieht man nur Anfragen, deren Fächer man nutzen
   darf: das Fach der unterschriebenen Kopie und – bei einem PDF aus der Personalakte – das Fach, aus dem es kam; bei
-  einer Vorlage nur, wenn man die Vorlage sehen darf. Schickt der Träger z. B. einen Vertrag (Fach „Vertrag“), sieht eine
+  einer Vorlage nur, wenn man die Vorlage sehen darf (wird die Vorlage gelöscht, zählt die Sichtbarkeit, die sie beim
+  Senden hatte, z. B. „nur Träger“). Schickt der Träger z. B. einen Vertrag (Fach „Vertrag“), sieht eine
   Leitung ohne dieses Fach die Anfrage nicht. Jede Person sieht nur ihre eigenen Anfragen, am Tablet nur die Person, die
   es mit ihrer PIN entsperrt hat. Die unterschriebenen Kopien folgen den Rechten der Fächer.
 - **Aufbewahren und Löschen**: Die App löscht nichts von selbst. Eine erledigte Anfrage (alle haben unterschrieben,

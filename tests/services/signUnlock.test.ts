@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employeeDocuments, signRequestRecipients, signRequests, signUnlocks, templateCategories } from '../../server/db/schema'
+import { employeeDocuments, employees, signRequestRecipients, signRequests, signUnlocks, templateCategories } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { uploadTemplate, type TemplateActor } from '../../server/services/printTemplates'
 import {
@@ -11,7 +11,7 @@ import { lockSigning, tabletSigner, unlockForSigning } from '../../server/servic
 import { lockChildren, tabletChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
 import { setTabletSettings } from '../../server/services/tabletSettings'
 import { createCategory } from '../../server/services/templateCategories'
-import { setPin } from '../../server/services/terminal'
+import { clearPin, setPin } from '../../server/services/terminal'
 import { fillablePdf } from '../helpers/fillablePdf'
 import { addEmployee, addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
@@ -102,6 +102,19 @@ describe('the tablet unlocked for signing', () => {
     expect(tabletSigner(db, tablet, bens, after(7)).employeeId).toBe(ben)
     lockSigning(db, tablet.id, bens)
     expect(errorCode(() => tabletSigner(db, tablet, bens, after(8)))).toBe('sign_locked')
+    expect(db.select().from(signUnlocks).all()).toEqual([])
+  })
+
+  it('ends as soon as the person is no longer on the tablet list (PIN cleared, left)', () => {
+    const token = unlock()
+    expect(tabletSigner(db, tablet, token, after(5)).employeeId).toBe(anna)
+    clearPin(db, 1, anna)
+    expect(errorCode(() => tabletSigner(db, tablet, token, after(6)))).toBe('sign_locked')
+    expect(db.select().from(signUnlocks).all()).toEqual([])
+    // Ben leaves (yesterday): his unlock ends as well.
+    const bens = unlock(ben, '654321', after(10))
+    db.update(employees).set({ leftOn: '2026-11-23' }).where(eq(employees.id, ben)).run()
+    expect(errorCode(() => tabletSigner(db, tablet, bens, after(11)))).toBe('sign_locked')
     expect(db.select().from(signUnlocks).all()).toEqual([])
   })
 

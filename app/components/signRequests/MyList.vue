@@ -56,10 +56,19 @@ function onSignOpen(value: boolean) {
   if (!value) signing.value = null
 }
 
+/**
+ * After signing or declining: at the tablet the parent goes back to its start page (the server already ended the sign
+ * unlock), so the list reloads only while it is still shown (the own account).
+ */
+let unmounted = false
+onBeforeUnmount(() => {
+  unmounted = true
+})
 async function finished(text: string) {
   toast.add({ title: text, color: 'success' })
-  await load()
   emit('changed')
+  await nextTick()
+  if (!unmounted) await load()
 }
 
 /** The fill view's „Unterschreiben“: the confirmation, a placed signature, the footer line, then the signed copy is sent. */

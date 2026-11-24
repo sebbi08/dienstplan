@@ -2207,8 +2207,9 @@ export const schoolDistricts = sqliteTable('school_districts', {
  * or the Träger under Löschfristen one year after the last recipient finished) drops the file and hides the request;
  * the row stays as long as recipient rows with the record of a signature or a decline refer to it. A personnel
  * document's folder and employee are kept (`sourceFolder`, `sourceEmployeeId`): only who may use that folder sees the
- * request, and the file goes when that employee's data is deleted. The signed copies are documents of the personnel
- * file in `targetFolder`.
+ * request, and the file goes when that employee's data is deleted. A template's visibility where it showed for the
+ * sender is kept (`sourceVisibility`): once the template is deleted, it still decides who sees the request. The signed
+ * copies are documents of the personnel file in `targetFolder`.
  */
 export const signRequests = sqliteTable('sign_requests', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -2223,6 +2224,7 @@ export const signRequests = sqliteTable('sign_requests', {
   fileSize: integer('file_size').notNull(),
   fileSha256: text('file_sha256').notNull(),
   sourceFolder: text('source_folder', { enum: EMPLOYEE_DOCUMENT_FOLDERS }),
+  sourceVisibility: text('source_visibility', { enum: TEMPLATE_VISIBILITIES }),
   sourceEmployeeId: integer('source_employee_id').references(() => employees.id, { onDelete: 'set null' }),
   deletedAt: text('deleted_at'),
   targetFolder: text('target_folder', { enum: EMPLOYEE_DOCUMENT_FOLDERS }).notNull(),

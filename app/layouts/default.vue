@@ -107,7 +107,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
 const phoneGroups = computed(() => [
   { title: '', entries: menu.value.main },
   { title: navLabelWithCount(de.nav.mine, menu.value.mineCount), entries: menu.value.mine },
-  { title: de.nav.more, entries: menu.value.more },
+  { title: navLabelWithCount(de.nav.more, menu.value.moreCount), entries: menu.value.more },
 ].filter(group => group.entries.length))
 
 // At the tablet, a child page shows who unlocked it and the lock button instead of the menu; that bar never slides away,
@@ -156,7 +156,7 @@ async function logout() {
           </NuxtLink>
           <UDropdownMenu v-if="menu.more.length" :items="moreItems" :content="{ align: 'start' }">
             <UButton
-              color="neutral" variant="ghost" size="sm" :label="de.nav.more" trailing-icon="i-lucide-chevron-down"
+              color="neutral" variant="ghost" size="sm" :label="navLabelWithCount(de.nav.more, menu.moreCount)" trailing-icon="i-lucide-chevron-down"
               class="px-1.5 py-1 text-sm font-normal text-gray-900 xl:px-2" :class="groupClass(moreEntries)"
             />
           </UDropdownMenu>

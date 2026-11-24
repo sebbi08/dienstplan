@@ -2692,8 +2692,8 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     migrateThrough(db, '0121')
     sqlite.exec(`INSERT INTO sign_requests (id, facility_id, created_at, title, source_kind, file_data, file_size, file_sha256, target_folder)
       VALUES (1, 1, 'x', 'Belehrung', 'template', x'25504446', 4, 'abc', 'correspondence')`)
-    expect(sqlite.prepare('SELECT note, due_date, created_by, source_template_id, source_folder, source_employee_id, deleted_at FROM sign_requests').get())
-      .toEqual({ note: '', due_date: null, created_by: null, source_template_id: null, source_folder: null, source_employee_id: null, deleted_at: null })
+    expect(sqlite.prepare('SELECT note, due_date, created_by, source_template_id, source_folder, source_visibility, source_employee_id, deleted_at FROM sign_requests').get())
+      .toEqual({ note: '', due_date: null, created_by: null, source_template_id: null, source_folder: null, source_visibility: null, source_employee_id: null, deleted_at: null })
     // Without its PDF (removed, the records kept), but always with its SHA-256.
     expect(() => sqlite.exec(`INSERT INTO sign_requests (id, facility_id, created_at, title, source_kind, file_size, target_folder)
       VALUES (2, 1, 'x', 'Ohne', 'template', 4, 'correspondence')`)).toThrow(/NOT NULL/)

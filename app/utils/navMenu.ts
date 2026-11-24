@@ -24,7 +24,9 @@ export interface NavMenu {
   more: NavEntry[]
   /** Unread messages about changed duties (managers) and open requests to sign, shown on "Meins" and on the phone menu button. */
   mineCount: number
-  /** Everything that is waiting: unread messages plus open leave requests (planners only). */
+  /** What waits under "Mehr": the count of „Dokumente“ (entries of „Wissen“ to confirm, overdue requests to sign) when it sits there. */
+  moreCount: number
+  /** Everything that is waiting: unread messages, open leave requests (planners only) and the count of "Mehr". */
   totalCount: number
 }
 
@@ -69,7 +71,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // The facility's notes (Notizen): read by every member of the facility and the tablet.
   const notes = entry(de.nav.notes, '/notes')
   if (viewer.role === 'terminal') {
-    return { main: [entry(de.nav.stamp, '/terminal'), plan, teamMeetings, notes], mine: [], more: [], mineCount: 0, totalCount: 0 }
+    return { main: [entry(de.nav.stamp, '/terminal'), plan, teamMeetings, notes], mine: [], more: [], mineCount: 0, moreCount: 0, totalCount: 0 }
   }
 
   const myPlan = entry(navLabelWithCount(de.nav.myPlan, viewer.unread), `/my/plan/${year}/${month}`, '/my/plan')
@@ -107,7 +109,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // account). Under "Mehr" for the managers, under "Meins" for Mitarbeiter (read only); the tablet reaches them from its
   // start page.
   const formsManager = can('formTemplates.manage')
-  const documents = shown([[formsManager || can('printTemplates.view') || can('knowledge.view'), entry(navLabelWithCount(de.nav.documents, (viewer.knowledgeOpen ?? 0) + (viewer.signOverdue ?? 0)), '/documents')]])
+  const documentsCount = (viewer.knowledgeOpen ?? 0) + (viewer.signOverdue ?? 0)
+  const documents = shown([[formsManager || can('printTemplates.view') || can('knowledge.view'), entry(navLabelWithCount(de.nav.documents, documentsCount), '/documents')]])
   // „Kontakte“, the facility's address book: whoever maintains it, everyone else once there are contacts for the staff.
   const contactsEntry = entry(de.contacts.title, '/contacts')
   const contacts = shown([[can('contacts.manage') || !!viewer.staffContacts, contactsEntry]])
@@ -139,12 +142,14 @@ export function navMenu(viewer: NavViewer): NavMenu {
       : []
     const mine = viewer.employeeId !== null ? [myPlan, ...mySign, myLeave, myRequirements, myTalks, ...myAccidents] : []
     const mineCount = mine.length ? viewer.unread + signOpen : 0
+    const moreCount = documents.length ? documentsCount : 0
     return {
       main: [...plans, ...planning, ...office, calendar, ...teamPages],
       mine,
       more,
       mineCount,
-      totalCount: mineCount + open,
+      moreCount,
+      totalCount: mineCount + open + moreCount,
     }
   }
 
@@ -156,6 +161,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
     mine: [...mySign, myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? [...documents, ...contacts] : [])],
     more: [],
     mineCount: signOpen,
+    moreCount: 0,
     totalCount: viewer.unread + signOpen,
   }
 }

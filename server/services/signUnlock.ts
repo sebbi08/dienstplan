@@ -58,12 +58,14 @@ export function lockSigning(db: Db, terminalUserId: number, token: string | unde
 
 /**
  * The person signing at this tablet (403 sign_locked without a valid sign unlock: none, another tablet's or facility's,
- * or run out – then it is deleted). Each request counts as use.
+ * run out, or the person no longer on the tablet's list – PIN cleared, left, help day over; then it is deleted, as for
+ * the child records). Each request counts as use.
  */
 export function tabletSigner(db: Db, terminal: Terminal, token: string | undefined, now: Date = new Date()): TabletSigner {
   const row = token ? db.select().from(signUnlocks).where(eq(signUnlocks.id, token)).get() : undefined
   if (!row || row.terminalUserId !== terminal.id || row.facilityId !== terminal.facilityId) throw new ServiceError(403, 'sign_locked')
-  if (!signUnlockValid(row.createdAt, row.lastActiveAt, now)) {
+  if (!signUnlockValid(row.createdAt, row.lastActiveAt, now)
+    || !terminalStatus(db, terminal.facilityId, now).some(person => person.employeeId === row.employeeId)) {
     db.delete(signUnlocks).where(eq(signUnlocks.id, row.id)).run()
     throw new ServiceError(403, 'sign_locked')
   }

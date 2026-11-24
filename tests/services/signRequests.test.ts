@@ -5,7 +5,7 @@ import type { Db } from '../../server/db/client'
 import { employeeDocuments, employees, signRequestRecipients, signRequests, templateCategories } from '../../server/db/schema'
 import { deleteAssessmentData, deleteEmployeeRow } from '../../server/services/employeeDeletion'
 import { listEmployeeDocuments, uploadEmployeeDocument } from '../../server/services/employeeDocuments'
-import { uploadTemplate, type TemplateActor } from '../../server/services/printTemplates'
+import { deleteTemplate, uploadTemplate, type TemplateActor } from '../../server/services/printTemplates'
 import {
   createSignRequest, declineMyRequest, deleteSignRequest, listMySignRequests, listSignRequests, mySignRequestCount,
   overdueSignRequestCount, readMySignRequestFile, readSignRequestFile, remindSignRequest, signMyRequest, withdrawSignRequest,
@@ -227,6 +227,14 @@ describe('requests to sign', () => {
         expect(errorCode(action), String(id)).toBe('sign_request_not_found')
       }
     }
+    // The template's visibility where it showed is kept; once the template is deleted, that still decides.
+    expect(db.select({ v: signRequests.sourceVisibility }).from(signRequests).where(eq(signRequests.id, fromInternal)).get()).toEqual({ v: 'provider' })
+    expect(db.select({ v: signRequests.sourceVisibility }).from(signRequests).where(eq(signRequests.id, visible)).get()).toEqual({ v: 'all' })
+    deleteTemplate(db, { ...traeger }, internal)
+    expect(db.select({ t: signRequests.sourceTemplateId }).from(signRequests).where(eq(signRequests.id, fromInternal)).get()).toEqual({ t: null })
+    expect(listSignRequests(db, leitung, TODAY).map(request => request.id)).toEqual([visible])
+    expect(errorCode(() => readSignRequestFile(db, leitung, fromInternal))).toBe('sign_request_not_found')
+    expect(listSignRequests(db, traeger, TODAY).map(request => request.id)).toContain(fromInternal)
     // Overdue ones count only where they are seen.
     expect(overdueSignRequestCount(db, traeger, '2026-12-01')).toBe(4)
     expect(overdueSignRequestCount(db, leitung, '2026-12-01')).toBe(1)

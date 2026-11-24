@@ -4,7 +4,8 @@ import {
 } from '../../shared/domain/documentTargets'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import {
-  categoryPlacer, compareSpots, seesAll, seesCategoryNode, spotVisibilities, visibleTemplateLevels, type CategorySpot, type TemplateVisibility,
+  categoryPlacer, compareSpots, seesAll, seesCategoryNode, spotVisibilities, stricterVisibility, visibleTemplateLevels, type CategorySpot,
+  type TemplateVisibility,
 } from '../../shared/domain/templateCategories'
 import type { PrintTemplateDto, PrintTemplateMeta, PrintTemplateScope, Role, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -309,6 +310,16 @@ function loadVisible(db: Db, viewer: TemplateViewer, id: number) {
 export function readTemplateFile(db: Db, viewer: TemplateViewer, id: number): { data: Buffer; mimeType: string; fileName: string } {
   const row = loadVisible(db, viewer, id)
   return { data: row.data, mimeType: row.mimeType, fileName: `${safeFileNamePart(row.title) || 'Vorlage'}.pdf` }
+}
+
+/**
+ * Who sees the template where it shows for the viewer (404 print_template_not_found if they do not): the strictest of its
+ * category's, its subcategory's and its own visibility. Kept with a request to sign (Zum Unterschreiben senden).
+ */
+export function templateVisibility(db: Db, viewer: TemplateViewer, id: number): TemplateVisibility {
+  const row = loadVisible(db, viewer, id)
+  const placement = placer(db, viewer.facilityId, audienceOf(viewer), loadTargets(db, 'template', [row]), can(viewer.permissions, 'printTemplates.global'))(row)!
+  return stricterVisibility(...spotVisibilities(placement.spot), row.visibility)
 }
 
 /**
