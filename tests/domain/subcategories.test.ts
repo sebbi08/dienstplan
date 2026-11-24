@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ALL_CHIP, GENERAL_CHIP, chosenChip, filedCategoryId, groupHeadings, itemGroups, readChipMemory, shownGroups, subcategoryChip,
-  subcategoryItems, subcategoryNamesFor, subChips, writeChipMemory,
+  ALL_CHIP, GENERAL_CHIP, chosenChip, filedCategoryId, groupHeadings, itemGroups, readChipMemory, readCollapsedMemory, searchGroups,
+  shownGroups, subcategoryChip, subcategoryItems, subcategoryNamesFor, subChips, withCollapsed, writeChipMemory, writeCollapsedMemory,
 } from '../../app/utils/subcategories'
 import {
   categoriesInTreeOrder, categoryNameList, categoryPath, categoryPlacer, compareSpots, seesAll, seesCategoryNode, spotVisibilities,
@@ -98,6 +98,60 @@ describe('the second row of small tabs', () => {
     expect(chosenChip(withGeneral, 'sub-12')).toBe('sub-12')
     expect(chosenChip(withGeneral, 'sub-99')).toBe(ALL_CHIP)
     expect(chosenChip([], ALL_CHIP)).toBeNull()
+  })
+
+  it('counts the items of each small tab: „Alle“ all of them, „Allgemein“ the own, each subcategory its own (also 0)', () => {
+    const chips = subChips(itemGroups(category, [bund, land], [item(1, 11), item(2, null), item(3, 11), item(4, 11), item(5, 12)]))
+    expect(chips.map(chip => [chip.key, chip.count])).toEqual([[ALL_CHIP, 5], [GENERAL_CHIP, 1], ['sub-11', 3], ['sub-12', 1]])
+    expect(subChips(itemGroups(category, [bund, land], [item(1, 11)])).map(chip => chip.count)).toEqual([1, 1, 0])
+  })
+
+  it('groups the search results by category and subcategory in the order they come, „Vom Träger“ last', () => {
+    const found = [
+      { id: 1, categoryId: null, subcategoryId: null }, { id: 2, categoryId: 1, subcategoryId: 11 }, { id: 3, categoryId: 1, subcategoryId: null },
+      { id: 4, categoryId: 1, subcategoryId: 11 }, { id: 5, categoryId: 2, subcategoryId: null }, { id: 6, categoryId: null, subcategoryId: null },
+    ]
+    const groups = searchGroups(found, entry => (entry.categoryId === null ? 'Vom Träger' : `${entry.categoryId} › ${entry.subcategoryId ?? '–'}`))
+    expect(groups.map(group => [group.heading, group.items.map(entry => entry.id)])).toEqual([
+      ['1 › 11', [2, 4]], ['1 › –', [3]], ['2 › –', [5]], ['Vom Träger', [1, 6]],
+    ])
+    expect(new Set(groups.map(group => group.key)).size).toBe(4)
+    expect(searchGroups([], () => 'x')).toEqual([])
+  })
+
+  it('folds and unfolds a section, each once', () => {
+    expect(withCollapsed([], GENERAL_CHIP, true)).toEqual([GENERAL_CHIP])
+    expect(withCollapsed([GENERAL_CHIP], GENERAL_CHIP, true)).toEqual([GENERAL_CHIP])
+    expect(withCollapsed([GENERAL_CHIP, 'sub-11'], GENERAL_CHIP, false)).toEqual(['sub-11'])
+    expect(withCollapsed(['sub-11'], 'sub-12', false)).toEqual(['sub-11'])
+  })
+
+  it('remembers the folded sections per sub-tab on the device, and does without storage', () => {
+    expect(readCollapsedMemory('c')).toEqual({})
+    expect(() => writeCollapsedMemory('c', 'category-1', ['sub-2'])).not.toThrow()
+    const store = new Map<string, string>()
+    globalThis.localStorage = { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => store.set(key, value) } as Storage
+    try {
+      writeCollapsedMemory('c', 'category-1', ['sub-2', GENERAL_CHIP])
+      writeCollapsedMemory('c', 'category-3', ['sub-9'])
+      expect(readCollapsedMemory('c')).toEqual({ 'category-1': ['sub-2', GENERAL_CHIP], 'category-3': ['sub-9'] })
+      // All unfolded again: the sub-tab is left out.
+      writeCollapsedMemory('c', 'category-3', [])
+      expect(readCollapsedMemory('c')).toEqual({ 'category-1': ['sub-2', GENERAL_CHIP] })
+      // Something else stored: only lists of strings count.
+      store.set('c', JSON.stringify({ a: ['x', 3, null], b: 'y', c: { d: 1 } }))
+      expect(readCollapsedMemory('c')).toEqual({ a: ['x'] })
+      store.set('c', '[1,2]')
+      expect(readCollapsedMemory('c')).toEqual({})
+      store.set('c', 'kaputt')
+      expect(readCollapsedMemory('c')).toEqual({})
+      // The small tabs' memory is apart.
+      writeChipMemory('k', 'category-1', 'sub-2')
+      expect(readCollapsedMemory('k')).toEqual({})
+    }
+    finally {
+      delete (globalThis as { localStorage?: Storage }).localStorage
+    }
   })
 
   it('shows every non-empty list with headings for „Alle“, else the chosen list (also empty)', () => {

@@ -18,8 +18,7 @@ import {
   titleFromFileName, writeTemplateTabMemory,
 } from '~/utils/printTemplates'
 import {
-  chosenChip, filedCategoryId, groupHeadings, itemGroups, readChipMemory, shownGroups, subcategoryChip, subcategoryItems,
-  subcategoryNamesFor, subChips, topCategories, writeChipMemory, type ItemGroup,
+  filedCategoryId, itemGroups, searchGroups, subcategoryChip, subcategoryItems, subcategoryNamesFor, topCategories, type ItemGroup,
 } from '~/utils/subcategories'
 
 /**
@@ -29,9 +28,10 @@ import {
  * Mitarbeiter with „Vorlagen bearbeiten“) uploads and maintains them and the facility's categories, everyone else and
  * the tablet (no unlock, they are no child data) only open them. The device remembers the last sub-tab. Editors order
  * the templates of a sub-tab with ▲/▼ (this facility's order, also for the Träger's templates); everyone sees that order.
- * A category with subcategories shows a second row of small tabs („Alle“, „Allgemein“, the subcategories; the device
- * remembers the last one per category): „Alle“ lists the templates in groups, one per subcategory, and ▲/▼ order within
- * each group – the same list as the subcategory's own small tab.
+ * A category with subcategories shows a panel of small tabs below it („Alle“, „Allgemein“, the subcategories, each with
+ * its count; the device remembers the last one per category): „Alle“ lists the templates in sections, „Allgemein“ first,
+ * then one per subcategory (empty ones left out), each folding up (remembered per category on the device), and ▲/▼ order
+ * within each section – the same list as the subcategory's own small tab.
  */
 const { user } = useUserSession()
 const { can } = useCan()
@@ -68,12 +68,22 @@ useRefreshOnTabletUnlock(refresh)
 const wantedTab = ref<string | null>(null)
 const tab = computed(() => chosenTemplateTab(tabs.value, wantedTab.value))
 const current = computed(() => tabs.value.find(entry => entry.key === tab.value) ?? null)
+// ---- subcategories: the panel of small tabs and the sections --------------
+/** The lists of the open sub-tab: the templates directly in the category, then one per subcategory. */
+const groups = computed(() => (current.value ? itemGroups(current.value.category, current.value.subcategories, current.value.templates) : []))
+const { chips, chip, selectChip, shown, sections, isOpen, setOpen, readMemory: readSubMemory } = useSubcategoryView(
+  { chips: 'dienstplan.templatesSubTab', collapsed: 'dienstplan.templatesCollapsed' }, () => current.value?.key ?? null, groups,
+)
+const shownCount = computed(() => shown.value.reduce((sum, group) => sum + group.items.length, 0))
+const groupName = (group: ItemGroup<TemplateCategoryDto, PrintTemplateDto>) => group.subcategory?.name ?? de.printTemplates.generalChip
+/** The note when nothing shows: an empty subcategory, else an empty category. */
+const emptyText = computed(() => (current.value?.subcategories.some(sub => subcategoryChip(sub.id) === chip.value)
+  ? de.printTemplates.emptySubcategory
+  : de.printTemplates.emptyCategory))
 // The device's memory is read after mounting on a full page load (so the server's page matches), at once otherwise.
-const CHIP_MEMORY_KEY = 'dienstplan.templatesSubTab'
-const chipMemory = ref<Record<string, string>>({})
 function readMemory() {
   wantedTab.value = readTemplateTabMemory()
-  chipMemory.value = readChipMemory(CHIP_MEMORY_KEY)
+  readSubMemory()
 }
 if (import.meta.client && !useNuxtApp().isHydrating) readMemory()
 else onMounted(readMemory)
@@ -103,45 +113,10 @@ const search = ref('')
 const searching = computed(() => search.value.trim() !== '')
 const found = computed(() => templates.value.filter(template =>
   matchesSearch([template.title, template.category, template.subcategory], search.value)))
-const foundGroups = computed(() => {
-  const groups: { key: string; heading: string; templates: PrintTemplateDto[] }[] = []
-  for (const template of found.value) {
-    const key = template.categoryId === null ? 'provider' : `${template.categoryId}/${template.subcategoryId ?? ''}`
-    let group = groups.find(entry => entry.key === key)
-    if (!group) {
-      group = { key, heading: template.categoryId === null ? de.printTemplates.fromProvider : templatePath(template), templates: [] }
-      groups.push(group)
-    }
-    group.templates.push(template)
-  }
-  return groups
-})
+const foundGroups = computed(() => searchGroups(found.value, template =>
+  (template.categoryId === null ? de.printTemplates.fromProvider : templatePath(template))))
 /** The hints for Leitung and Träger: „nur Kita A, Kita B“, „nur Bären, Füchse“, „keine Gruppe mehr gewählt“. */
 const hintsOf = (template: PrintTemplateDto) => targetHints(template.targets, { only: de.documentTargets.only, noGroup: de.documentTargets.noGroup, noFacility: de.documentTargets.noFacility })
-
-// ---- subcategories: the second row of small tabs -------------------------
-/** The lists of the open sub-tab: the templates directly in the category, then one per subcategory. */
-const groups = computed(() => (current.value ? itemGroups(current.value.category, current.value.subcategories, current.value.templates) : []))
-const chips = computed(() => subChips(groups.value))
-const chip = computed(() => chosenChip(chips.value, current.value ? chipMemory.value[current.value.key] : null))
-/** The lists shown: all of them for „Alle“ (with headings), else the chosen one. */
-const shown = computed(() => shownGroups(groups.value, chip.value))
-const headings = computed(() => groupHeadings(chip.value))
-function selectChip(key: string | null) {
-  const entry = current.value
-  if (!entry || key === null) return
-  chipMemory.value = { ...chipMemory.value, [entry.key]: key }
-  writeChipMemory(CHIP_MEMORY_KEY, entry.key, key)
-}
-const groupName = (group: ItemGroup<TemplateCategoryDto, PrintTemplateDto>) => group.subcategory?.name ?? de.printTemplates.generalChip
-/** The rows shown, each with its list (for ▲/▼) and its place there; in „Alle“ the first of each list carries the heading. */
-const rows = computed(() => shown.value.flatMap(group => group.items.map((template, index) => ({
-  template, index, group, heading: headings.value && index === 0,
-}))))
-/** The note when nothing shows: an empty subcategory, else an empty category. */
-const emptyText = computed(() => (current.value?.subcategories.some(sub => subcategoryChip(sub.id) === chip.value)
-  ? de.printTemplates.emptySubcategory
-  : de.printTemplates.emptyCategory))
 
 // ---- upload and change ---------------------------------------------------
 const { busy, run } = useBusyAction(refresh)
@@ -381,13 +356,15 @@ async function remove(template: PrintTemplateDto) {
     <template v-else>
       <UInput v-model="search" icon="i-lucide-search" :placeholder="de.printTemplates.searchPlaceholder" :aria-label="de.printTemplates.search" class="w-full max-w-md" maxlength="100" />
       <!-- Searching: the matches of every category, grouped by „Kategorie › Unterkategorie“, instead of the sub-tabs. -->
-      <section v-if="searching" class="space-y-3" :aria-label="de.printTemplates.search">
+      <section v-if="searching" class="space-y-4" :aria-label="de.printTemplates.search">
         <p class="text-sm text-gray-600" role="status">{{ de.printTemplates.searchResults(found.length) }}</p>
         <p v-if="!found.length" class="rounded-lg bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-200">{{ de.printTemplates.noMatch }}</p>
-        <div v-for="group in foundGroups" :key="group.key" class="rounded-lg bg-white ring-1 ring-gray-200">
-          <h3 class="border-b border-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">{{ group.heading }}</h3>
+        <SubcategorySection
+          v-for="group in foundGroups" :key="group.key" :section-id="`templates-found-${group.key}`" :title="group.heading"
+          :count="de.printTemplates.categories.templateCount(group.items.length)"
+        >
           <ul class="divide-y divide-gray-100">
-            <li v-for="template in group.templates" :key="template.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+            <li v-for="template in group.items" :key="template.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
               <UIcon name="i-lucide-file-text" class="size-5 shrink-0 text-gray-500" aria-hidden="true" />
               <div class="flex min-w-48 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
                 <span class="font-medium">{{ template.title }}</span>
@@ -407,7 +384,7 @@ async function remove(template: PrintTemplateDto) {
               </div>
             </li>
           </ul>
-        </div>
+        </SubcategorySection>
       </section>
       <div v-if="!searching" role="tablist" :aria-label="de.printTemplates.tabsLabel" class="flex flex-wrap gap-1.5">
         <button
@@ -423,80 +400,77 @@ async function remove(template: PrintTemplateDto) {
 
       <section
         v-if="current && !searching" id="templates-tab-panel" role="tabpanel" :aria-labelledby="`templates-tab-${current.key}`"
-        class="rounded-lg bg-white ring-1 ring-gray-200"
+        class="space-y-3"
       >
-        <div
-          v-if="!current.category || current.category.visibility !== 'all'"
-          class="flex flex-wrap items-center gap-2 border-b border-gray-100 px-4 py-2 text-sm"
-        >
+        <!-- Subcategories: a panel below the category chips with „Alle“, „Allgemein“ and each subcategory, with counts. -->
+        <SubcategoryPanel
+          v-if="current.category && chips.length" :model-value="chip" :chips="chips" id-prefix="templates-chip" controls="templates-tab-panel"
+          :label="de.printTemplates.subTabsLabel(current.category.name)" :all-label="de.printTemplates.allChip"
+          :general-label="de.printTemplates.generalChip" @update:model-value="selectChip"
+        />
+        <p v-if="!current.category || current.category.visibility !== 'all'" class="flex flex-wrap items-center gap-2 text-sm">
           <span v-if="current.category" class="whitespace-nowrap rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
             {{ badgeOf(current.category.visibility) }}
           </span>
           <span v-else class="text-gray-600">{{ de.printTemplates.fromProviderHint }}</span>
+        </p>
+        <p v-if="!shownCount" class="rounded-lg bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-200">{{ emptyText }}</p>
+        <!-- „Alle“: one section per list („Allgemein“ first), each folding up; otherwise the one list. -->
+        <div v-else class="space-y-5">
+          <SubcategorySection
+            v-for="group in shown" :key="group.key" :section-id="`templates-section-${group.key}`" :title="sections ? groupName(group) : null"
+            :count="de.printTemplates.categories.templateCount(group.items.length)" :badge="group.subcategory ? badgeOf(group.subcategory.visibility) : ''"
+            :collapsible="sections" :open="isOpen(group.key)" @update:open="setOpen(group.key, $event)"
+          >
+            <ul class="divide-y divide-gray-100" :class="sections ? '' : 'rounded-lg bg-white ring-1 ring-gray-200'">
+              <li v-for="(template, index) in group.items" :key="template.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+                <UIcon name="i-lucide-file-text" class="size-5 shrink-0 text-gray-500" aria-hidden="true" />
+                <!-- At least 12rem for the text; on a narrow screen the buttons move to their own line instead. -->
+                <div class="min-w-48 flex-1 space-y-0.5">
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span class="font-medium">{{ template.title }}</span>
+                    <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ template.allFacilities ? de.printTemplates.global : de.printTemplates.ownerBadge }}</span>
+                    <span v-if="!current.category" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ templatePath(template) }}</span>
+                    <!-- „Gilt für“, for Leitung and Träger: „nur Kita A“, „nur Bären, Füchse“. -->
+                    <span v-for="hint in hintsOf(template)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
+                  </div>
+                  <p class="text-xs text-gray-500">
+                    {{ de.printTemplates.uploadedAt(formatDate(berlinDay(template.uploadedAt))) }}
+                    <template v-if="berlinDay(template.updatedAt) !== berlinDay(template.uploadedAt)"> · {{ de.printTemplates.updatedAt(formatDate(berlinDay(template.updatedAt))) }}</template>
+                    · {{ formatSize(template.size) }}
+                  </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-1">
+                  <UButton
+                    :to="templateFileUrl(template.id)" target="_blank" external size="sm" color="neutral" variant="outline"
+                    icon="i-lucide-printer" :label="de.printTemplates.open"
+                  />
+                  <UButton
+                    v-if="fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
+                    :label="de.pdfFill.fill" @click="startFill(template)"
+                  />
+                  <template v-if="canEdit && template.canEdit">
+                    <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
+                    <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" :disabled="busy" @click="remove(template)" />
+                  </template>
+                  <!-- ▲/▼ last, so they stay in the same place in every row; 40 px for a finger. -->
+                  <span v-if="canEdit" role="group" :aria-label="`${de.printTemplates.order}: ${template.title}`" class="flex items-center gap-1">
+                    <UButton
+                      :id="orderArrowId(`template-${template.id}`, -1)" color="neutral" variant="ghost" icon="i-lucide-arrow-up"
+                      class="min-h-10 min-w-10 justify-center" :aria-label="`${de.printTemplates.moveUp}: ${template.title}`"
+                      :title="de.printTemplates.moveUp" :disabled="busy || index === 0" @click="move(group, index, -1)"
+                    />
+                    <UButton
+                      :id="orderArrowId(`template-${template.id}`, 1)" color="neutral" variant="ghost" icon="i-lucide-arrow-down"
+                      class="min-h-10 min-w-10 justify-center" :aria-label="`${de.printTemplates.moveDown}: ${template.title}`"
+                      :title="de.printTemplates.moveDown" :disabled="busy || index === group.items.length - 1" @click="move(group, index, 1)"
+                    />
+                  </span>
+                </div>
+              </li>
+            </ul>
+          </SubcategorySection>
         </div>
-        <!-- Subcategories: „Alle“, „Allgemein“, each subcategory (wrapping on a narrow screen). -->
-        <div v-if="current.category && chips.length" class="border-b border-gray-100 px-4 py-2">
-          <SubcategoryChips
-            :model-value="chip" :chips="chips" id-prefix="templates-chip" controls="templates-tab-panel"
-            :label="de.printTemplates.subTabsLabel(current.category.name)" :all-label="de.printTemplates.allChip"
-            :general-label="de.printTemplates.generalChip" @update:model-value="selectChip"
-          />
-        </div>
-        <p v-if="!rows.length" class="px-4 py-3 text-sm text-gray-500">{{ emptyText }}</p>
-        <ul v-else class="divide-y divide-gray-100">
-          <li v-for="{ template, index, group, heading } in rows" :key="template.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-            <!-- „Alle“: the first template of each list carries the list's heading (its subcategory, or „Allgemein“). -->
-            <h3 v-if="heading" class="flex basis-full flex-wrap items-center gap-2 text-sm font-semibold text-gray-700">
-              <UIcon name="i-lucide-folder" class="size-4 text-gray-400" aria-hidden="true" />{{ groupName(group) }}
-              <span v-if="group.subcategory && group.subcategory.visibility !== 'all'" class="whitespace-nowrap rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-800">
-                {{ badgeOf(group.subcategory.visibility) }}
-              </span>
-            </h3>
-            <UIcon name="i-lucide-file-text" class="size-5 shrink-0 text-gray-500" aria-hidden="true" />
-            <!-- At least 12rem for the text; on a narrow screen the buttons move to their own line instead. -->
-            <div class="min-w-48 flex-1 space-y-0.5">
-              <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span class="font-medium">{{ template.title }}</span>
-                <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ template.allFacilities ? de.printTemplates.global : de.printTemplates.ownerBadge }}</span>
-                <span v-if="!current.category" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ templatePath(template) }}</span>
-                <!-- „Gilt für“, for Leitung and Träger: „nur Kita A“, „nur Bären, Füchse“. -->
-                <span v-for="hint in hintsOf(template)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
-              </div>
-              <p class="text-xs text-gray-500">
-                {{ de.printTemplates.uploadedAt(formatDate(berlinDay(template.uploadedAt))) }}
-                <template v-if="berlinDay(template.updatedAt) !== berlinDay(template.uploadedAt)"> · {{ de.printTemplates.updatedAt(formatDate(berlinDay(template.updatedAt))) }}</template>
-                · {{ formatSize(template.size) }}
-              </p>
-            </div>
-            <div class="flex flex-wrap items-center gap-1">
-              <UButton
-                :to="templateFileUrl(template.id)" target="_blank" external size="sm" color="neutral" variant="outline"
-                icon="i-lucide-printer" :label="de.printTemplates.open"
-              />
-              <UButton
-                v-if="fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
-                :label="de.pdfFill.fill" @click="startFill(template)"
-              />
-              <template v-if="canEdit && template.canEdit">
-                <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
-                <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" :disabled="busy" @click="remove(template)" />
-              </template>
-              <!-- ▲/▼ last, so they stay in the same place in every row; 40 px for a finger. -->
-              <span v-if="canEdit" role="group" :aria-label="`${de.printTemplates.order}: ${template.title}`" class="flex items-center gap-1">
-                <UButton
-                  :id="orderArrowId(`template-${template.id}`, -1)" color="neutral" variant="ghost" icon="i-lucide-arrow-up"
-                  class="min-h-10 min-w-10 justify-center" :aria-label="`${de.printTemplates.moveUp}: ${template.title}`"
-                  :title="de.printTemplates.moveUp" :disabled="busy || index === 0" @click="move(group, index, -1)"
-                />
-                <UButton
-                  :id="orderArrowId(`template-${template.id}`, 1)" color="neutral" variant="ghost" icon="i-lucide-arrow-down"
-                  class="min-h-10 min-w-10 justify-center" :aria-label="`${de.printTemplates.moveDown}: ${template.title}`"
-                  :title="de.printTemplates.moveDown" :disabled="busy || index === group.items.length - 1" @click="move(group, index, 1)"
-                />
-              </span>
-            </div>
-          </li>
-        </ul>
       </section>
     </template>
 

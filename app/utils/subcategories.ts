@@ -5,7 +5,8 @@ import type { CategoryNameDto } from '#shared/types/api'
  * The second row of small tabs on a category's sub-tab of „Dokumente“ → „Vorlagen“ and „Wissen“ (one level of
  * subcategories): „Alle“, „Allgemein“ (the items directly in the category, only when there are any) and the
  * subcategories in their order. „Alle“ shows the items in groups, one per subcategory; the arrows (▲/▼) order within
- * each group, which is the same list a subcategory's own small tab shows.
+ * each group, which is the same list a subcategory's own small tab shows. In „Alle“ each list is a section of its own
+ * (the category's own items first, as „Allgemein“) that folds up; the device remembers the folded ones per category.
  */
 
 /** A category or subcategory as the server lists them (each category followed by its subcategories). */
@@ -63,20 +64,20 @@ export function itemGroups<C extends TreeCategory, T extends FiledItem>(
   ]
 }
 
-/** A small tab of the second row. */
-export interface SubChip { key: string; subcategory: TreeCategory | null }
+/** A small tab of the second row, with how many items the viewer sees there („Alle (5)“, „Bund (3)“). */
+export interface SubChip { key: string; subcategory: TreeCategory | null; count: number }
 
 /**
  * The small tabs of a sub-tab: none for a category without subcategories (and „Vom Träger“); else „Alle“, „Allgemein“
- * when items lie directly in the category, and every subcategory.
+ * when items lie directly in the category, and every subcategory. The items are those the server sent (the viewer's).
  */
 export function subChips<C extends TreeCategory, T>(groups: readonly ItemGroup<C, T>[]): SubChip[] {
   if (groups.length < 2) return []
   const general = groups[0]!
   return [
-    { key: ALL_CHIP, subcategory: null },
-    ...(general.items.length > 0 ? [{ key: GENERAL_CHIP, subcategory: null }] : []),
-    ...groups.slice(1).map(group => ({ key: group.key, subcategory: group.subcategory })),
+    { key: ALL_CHIP, subcategory: null, count: groups.reduce((sum, group) => sum + group.items.length, 0) },
+    ...(general.items.length > 0 ? [{ key: GENERAL_CHIP, subcategory: null, count: general.items.length }] : []),
+    ...groups.slice(1).map(group => ({ key: group.key, subcategory: group.subcategory, count: group.items.length })),
   ]
 }
 
@@ -118,6 +119,58 @@ export function writeChipMemory(storageKey: string, tabKey: string, chip: string
   catch {
     // Not remembered; switching still works on this page.
   }
+}
+
+/**
+ * The sections folded up on this device, per sub-tab (by its key): the keys of their lists („general“, „sub-12“). Empty
+ * when storage is unavailable or holds something else.
+ */
+export function readCollapsedMemory(storageKey: string): Record<string, string[]> {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(storageKey) ?? '{}')
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return Object.fromEntries(Object.entries(parsed)
+      .filter((entry): entry is [string, unknown[]] => Array.isArray(entry[1]))
+      .map(([tabKey, keys]) => [tabKey, keys.filter((key): key is string => typeof key === 'string')]))
+  }
+  catch {
+    return {}
+  }
+}
+
+/** Remembers the folded sections of a sub-tab (none: the sub-tab is left out). */
+export function writeCollapsedMemory(storageKey: string, tabKey: string, keys: readonly string[]): void {
+  try {
+    const rest = Object.fromEntries(Object.entries(readCollapsedMemory(storageKey)).filter(([key]) => key !== tabKey))
+    localStorage.setItem(storageKey, JSON.stringify(keys.length ? { ...rest, [tabKey]: [...keys] } : rest))
+  }
+  catch {
+    // Not remembered; folding still works on this page.
+  }
+}
+
+/** The folded sections after folding (`collapsed`) or unfolding one. */
+export function withCollapsed(keys: readonly string[], key: string, collapsed: boolean): string[] {
+  const rest = keys.filter(entry => entry !== key)
+  return collapsed ? [...rest, key] : rest
+}
+
+/** A section of the search results: the matches in one place („Kategorie › Unterkategorie“, or „Vom Träger“). */
+export interface SearchGroup<T> { key: string; heading: string; items: T[] }
+
+/**
+ * The search results grouped by where they show: one group per category and subcategory in the order the items come
+ * in (the server's, by category and subcategory), the items without a category of the facility („Vom Träger“) last.
+ */
+export function searchGroups<T extends FiledItem>(items: readonly T[], headingOf: (item: T) => string): SearchGroup<T>[] {
+  const groups = new Map<string, SearchGroup<T>>()
+  for (const item of [...items.filter(entry => entry.categoryId !== null), ...items.filter(entry => entry.categoryId === null)]) {
+    const key = item.categoryId === null ? 'provider' : `${item.categoryId}-${item.subcategoryId ?? 'general'}`
+    const group = groups.get(key)
+    if (group) group.items.push(item)
+    else groups.set(key, { key, heading: headingOf(item), items: [item] })
+  }
+  return [...groups.values()]
 }
 
 /**

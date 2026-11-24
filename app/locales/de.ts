@@ -1453,7 +1453,7 @@ export const de = {
     globalVisibilityHint: 'Gilt überall, wo eine Einrichtung keine Kategorie mit diesem Namen hat (dort unter „Vom Träger“). '
       + 'Ist die Kategorie oder Unterkategorie einer Einrichtung enger eingestellt, gilt dort die engere Einstellung.',
     // Subcategories (one level): the second row of small tabs on a category, and the choice in the upload form.
-    subTabsLabel: (category: string) => `Unterkategorien von ${category}`,
+    subTabsLabel: (category: string) => `Unterkategorien von ${category}:`,
     allChip: 'Alle', generalChip: 'Allgemein',
     emptySubcategory: 'In dieser Unterkategorie gibt es noch keine Vorlagen.',
     subcategory: 'Unterkategorie', noSubcategory: 'Allgemein (keine Unterkategorie)',
@@ -3656,7 +3656,7 @@ export const de = {
     tabsLabel: 'Kategorien', fromProvider: 'Vom Träger',
     fromProviderHint: 'Einträge des Trägers für alle Einrichtungen, für deren Kategorie es hier keine mit gleichem Namen gibt.',
     // Subcategories (one level): the second row of small tabs on a category.
-    subTabsLabel: (category: string) => `Unterkategorien von ${category}`,
+    subTabsLabel: (category: string) => `Unterkategorien von ${category}:`,
     allChip: 'Alle', generalChip: 'Allgemein',
     emptySubcategory: 'In dieser Unterkategorie gibt es noch keine Einträge.',
     noSubcategory: 'Allgemein (keine Unterkategorie)',

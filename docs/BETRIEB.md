@@ -1653,10 +1653,16 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   gilt zusätzlich zu dem ihrer Kategorie – die engere Einstellung zählt (eine Unterkategorie für **Alle** in einer
   Kategorie „Nur Leitung und Träger“ sehen also auch nur Leitung und Träger). Neue Einrichtungen beginnen ohne
   Unterkategorien; beim Update auf die Version mit Unterkategorien blieben alle Kategorien und Vorlagen, wie sie waren.
-- **Zweite Reihe**: Hat eine Kategorie Unterkategorien, steht auf ihrem Unterreiter eine zweite Reihe kleiner Reiter:
-  **Alle** (alle Vorlagen der Kategorie, nach Unterkategorien gruppiert, zuerst die direkt in der Kategorie), **Allgemein**
-  (die Vorlagen direkt in der Kategorie – nur, wenn es welche gibt) und die Unterkategorien in ihrer Reihenfolge. Die
-  kleinen Reiter brechen auf dem Handy in die nächste Zeile um. Das Gerät merkt sich je Kategorie die letzte Wahl.
+- **Unterkategorien-Leiste**: Hat eine Kategorie Unterkategorien, steht direkt unter den Kategorien eine hellblau
+  hinterlegte Leiste „Unterkategorien von ‹Kategorie›:“ mit kleinen Reitern samt Anzahl: **Alle (5)** (alle Vorlagen der
+  Kategorie), **Allgemein (1)** (die Vorlagen direkt in der Kategorie – nur, wenn es welche gibt) und die Unterkategorien
+  in ihrer Reihenfolge, z. B. **Bund (3)**. Gezählt wird, was du sehen darfst. Auf dem Handy (schmaler als 640 Pixel)
+  wischt man die kleinen Reiter innerhalb der Leiste zur Seite; ein ausgeblendeter Rand zeigt, dass weitere folgen. Das
+  Gerät merkt sich je Kategorie die letzte Wahl.
+- **Abschnitte unter „Alle“**: Jede Unterkategorie steht in einem eigenen umrandeten Abschnitt mit Kopfzeile (Ordner,
+  Name, „· 3 Vorlagen“), zuerst **Allgemein** (die Vorlagen direkt in der Kategorie), dann die Unterkategorien; leere
+  Abschnitte fehlen. Ein Klick auf die Kopfzeile klappt den Abschnitt zu oder auf (die Anzahl bleibt sichtbar); das Gerät
+  merkt sich je Kategorie, welche Abschnitte zugeklappt sind.
 - **Hochladen und Bearbeiten** mit Unterkategorien: Nach der Kategorie gibt es die Auswahl **Unterkategorie** (nur wenn
   die gewählte Kategorie welche hat; „Allgemein (keine Unterkategorie)“ legt die Vorlage direkt in die Kategorie). Beim
   Hochladen ist die Unterkategorie des geöffneten kleinen Reiters vorausgewählt.
@@ -1709,9 +1715,10 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
     Trägers für alle Einrichtungen, jeweils für alle Gruppen.
 - **Suchen**: Über den Unterreitern sucht ein Suchfeld in Titel, Kategorie und Unterkategorie aller Vorlagen, die du
   sehen darfst (Groß-/Kleinschreibung egal, „ä“ findet auch „ae“, „ß“ auch „ss“). Solange etwas eingetippt ist, stehen
-  statt der Unterreiter die Treffer da, nach „Kategorie › Unterkategorie“ gruppiert, mit **Öffnen**, **Ausfüllen** und
-  **Bearbeiten**. Leert man das Feld, ist wieder der vorherige Unterreiter offen. Ebenso gibt es im Reiter **Bögen** ein
-  Suchfeld über die Namen aller Vorlagen (nach Art gruppiert, auch die archivierten).
+  statt der Unterreiter die Treffer da, nach „Kategorie › Unterkategorie“ in Abschnitten gruppiert („Vom Träger“
+  zuletzt), mit **Öffnen**, **Ausfüllen** und **Bearbeiten**. Leert man das Feld, ist wieder der vorherige Unterreiter
+  offen. Ebenso gibt es im Reiter **Bögen** ein Suchfeld über die Namen aller Vorlagen (nach Art gruppiert, auch die
+  archivierten).
 - **Vorlagen für alle Einrichtungen** (nur der Träger): Statt einer Kategorie gibt der Träger den **Namen** einer
   Kategorie an – aus der Liste der Namen, die die Einrichtungen verwenden, oder frei getippt – und wählt, **wer sie
   sieht**. Jede Einrichtung zeigt die Vorlage in ihrer Kategorie mit diesem Namen (Groß- und Kleinschreibung zählt
@@ -2915,10 +2922,13 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
   anlegen** eine Unterkategorie an; sie steht eingerückt unter ihrer Kategorie und lässt sich umbenennen, innerhalb der
   Kategorie verschieben, mit eigenem „Wer sieht sie?“ einstellen (es gilt zusätzlich das der Kategorie – die engere
   Einstellung zählt) und löschen, solange sie leer ist. Unter einer Kategorie kommt jeder Name nur einmal vor; derselbe
-  Name darf in einer anderen Kategorie stehen. Auf dem Reiter einer Kategorie mit Unterkategorien gibt es eine zweite Reihe
-  kleiner Reiter: **Alle** (die Einträge nach Unterkategorien gruppiert), **Allgemein** (die Einträge direkt in der
-  Kategorie, nur wenn es welche gibt) und die Unterkategorien. Das Gerät merkt sich die letzte Wahl je Kategorie. Die
-  Suche zeigt bei jedem Treffer „Kategorie › Unterkategorie“, ebenso der gedruckte Nachweis.
+  Name darf in einer anderen Kategorie stehen. Unter einer Kategorie mit Unterkategorien steht wie bei den Vorlagen die
+  Leiste „Unterkategorien von ‹Kategorie›:“ mit kleinen Reitern samt Anzahl: **Alle**, **Allgemein** (die Einträge direkt
+  in der Kategorie, nur wenn es welche gibt) und die Unterkategorien; auf dem Handy wischt man sie zur Seite. Unter
+  **Alle** steht jede Unterkategorie in einem eigenen Abschnitt mit Kopfzeile („· 3 Einträge“), zuerst **Allgemein**;
+  leere fehlen, ein Klick auf die Kopfzeile klappt einen Abschnitt zu oder auf. Das Gerät merkt sich je Kategorie die
+  letzte Wahl und die zugeklappten Abschnitte. Die Suche gruppiert die Treffer ebenso in Abschnitte nach „Kategorie ›
+  Unterkategorie“ („Vom Träger“ zuletzt); der gedruckte Nachweis nennt die Kategorie.
 - **Gesetze & Vorgaben** bekommt die Unterkategorien **Bund** (§ 45 und § 47 SGB VIII) und – nur in Baden-Württemberg –
   **Baden-Württemberg** (KiTaG). Neue Einrichtungen bekommen sie beim Anlegen. Bestehende Einrichtungen bekamen sie mit
   dem Update auf die Version mit Unterkategorien, wenn es „Gesetze & Vorgaben“ noch gab; dabei wurden nur die Start-Links
