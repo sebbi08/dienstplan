@@ -1103,6 +1103,23 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   BEEG), mehr als 36 Monate für ein Kind (bei der Mutter zählt die Mutterschutzfrist nach der Geburt mit, § 15 Abs. 2
   Satz 3 – soweit eingetragen und für die Person sichtbar), mehr als 24 Monate zwischen dem 3. und 8. Geburtstag (§ 15
   Abs. 2 Satz 2). Zwillinge unterscheidet die App am gewählten Kind der Personalakte (nicht am Geburtsdatum).
+- **Mutterschutz nach der Geburt und die 36 Monate** (§ 15 Abs. 2 BEEG): Bei der Mutter zählt die Schutzfrist nach der
+  Geburt zur Elternzeit. Die App nimmt sie aus dem Eintrag „Mutterschutz“ dieser Geburt; gibt es keinen (z. B. weil
+  der Mutterschutz nicht in der App geführt wurde), kann im Dialog **„Mutterschutz nach der Geburt bis“** eingetragen
+  werden (vom Tag der Geburt bis höchstens 20 Wochen danach; gilt für die Geburt, bei Zwillingen also einmal). Ein
+  Mutterschutz-Eintrag geht dem von Hand eingetragenen Ende vor. Je Kind steht im Abschnitt „Elternzeit“ eine
+  Übersicht: **„Mutterschutz nach der Geburt: ‹von› – ‹bis› (zählt zur Elternzeit)“** und **„36 Monate insgesamt ·
+  davon Mutterschutz x Monate · Elternzeit eingetragen y Monate · noch möglich: z Monate“**. Gerechnet wird in Tagen:
+  Die 36 Monate sind die Tage von der Geburt bis zum Tag vor dem 3. Geburtstag (1095 oder 1096), ein Tag in
+  Mutterschutz und Elternzeit zählt einmal; angezeigt werden Monate als Tage geteilt durch 30,44 (365,25 / 12) mit
+  einer Nachkommastelle. Ist die geplante Elternzeit länger als noch möglich, warnt der Dialog (Speichern geht
+  trotzdem). **Datenschutz:** Die Dauer der Schutzfrist verrät 8 oder 12 Wochen (Frühgeburt, Mehrlinge, Behinderung
+  des Kindes) und ist eine Gesundheitsangabe. Daten, Monate des Mutterschutzes und das von Hand eingetragene Ende sieht
+  und ändert nur, wer die Krankheitstage sehen darf. Alle anderen sehen nur „Mutterschutzfrist wird angerechnet“, die
+  eingetragenen Monate und **„noch möglich: höchstens z Monate (abzüglich der Mutterschutzfrist)“** – also 36 minus
+  die Elternzeit; wie viel der Mutterschutz davon abzieht, steht nirgends (auch nicht in der Warnung des Dialogs, die
+  für sie den Mutterschutz nicht mitrechnet), damit sich seine Länge nicht ausrechnen lässt. Das von Hand eingetragene
+  Ende wird mit den Zeitdaten gelöscht.
 - **„Erster Arbeitstag danach“** steht im Dialog und in der Liste: der nächste Arbeitstag der Person nach dem Ende
   (ihre Arbeitstage laut Stunden, ohne Wochenende, Feiertage und Schließzeiten der Einrichtung; schließt eine weitere
   Elternzeit direkt an, erst danach).

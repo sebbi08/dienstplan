@@ -11,7 +11,7 @@ import type { Db } from '../db/client'
 import {
   balanceAdjustments, bemProcesses, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
-  formAttachments, formEditors, forms, knowledgeConfirmations, maternityCases, parentalLeaves,
+  formAttachments, formEditors, forms, knowledgeConfirmations, maternityCases, parentalLeaveBirths, parentalLeaves,
   groupBookChanges, helpOuts, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
   releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
@@ -281,6 +281,8 @@ const TIME_ROWS: readonly EmployeeRows[] = [
   { table: leaveForfeitReceipts, column: leaveForfeitReceipts.employeeId },
   // Elternzeit (contract data): it decides the target hours and the leave account, so it stays as long as they do.
   { table: parentalLeaves, column: parentalLeaves.employeeId },
+  // „Mutterschutz nach der Geburt bis“ entered with the Elternzeit: it counts towards its 36 months.
+  { table: parentalLeaveBirths, column: parentalLeaveBirths.employeeId },
 ]
 
 /**

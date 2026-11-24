@@ -2952,7 +2952,7 @@ export const de = {
     createdBy: (name: string) => `Eingetragen von ${name}`,
     hints: {
       sections: (count: number) => `Das ist der ${count}. Abschnitt für dieses Kind. Mehr als drei Abschnitte gehen nur mit Zustimmung des Arbeitgebers (§ 16 Abs. 1 BEEG).`,
-      total: (months: string) => `Für dieses Kind sind es zusammen ${months} Monate – mehr als 36 Monate (§ 15 Abs. 2 BEEG; bei der Mutter zählt die Mutterschutzfrist nach der Geburt mit, soweit eingetragen und sichtbar). Bitte prüfen.`,
+      total: (remaining: string, exact: boolean) => `Die geplante Elternzeit ist länger als noch möglich: ${exact ? '' : 'höchstens '}${remaining} Monate (36 Monate abzüglich Mutterschutz nach der Geburt und anderer Abschnitte für dieses Kind, § 15 Abs. 2 BEEG). Bitte prüfen.`,
       afterThird: (months: string) => `Zwischen dem 3. und 8. Geburtstag sind es ${months} Monate – mehr als 24 Monate (§ 15 Abs. 2 BEEG). Bitte prüfen.`,
     },
     entriesWarning: (count: number) => `Im Dienstplan stehen in dieser Zeit schon ${count} ${count === 1 ? 'Eintrag' : 'Einträge'}. Sie bleiben stehen – bitte prüfen:`,
@@ -2963,6 +2963,18 @@ export const de = {
       'Kündigungsschutz ab der Anmeldung, frühestens 8 Wochen vor Beginn (Elternzeit bis zum 3. Geburtstag) bzw. frühestens 14 Wochen vor Beginn (Elternzeit zwischen dem 3. und 8. Geburtstag), und während der Elternzeit.',
       'Bis zu drei Abschnitte je Elternteil und Kind; ein dritter Abschnitt zwischen dem 3. und 8. Geburtstag kann aus dringenden betrieblichen Gründen innerhalb von 8 Wochen abgelehnt werden.',
     ],
+    // The 36 months per child (§ 15 Abs. 2 BEEG); months = days / (365.25 / 12), one decimal.
+    protectionRow: (from: string, to: string) => `Mutterschutz nach der Geburt: ${from} – ${to} (zählt zur Elternzeit)`,
+    protectionCounted: 'Mutterschutzfrist wird angerechnet',
+    summaryLine: (total: string, protection: string | null, planned: string, remaining: string) => [
+      `${total} Monate insgesamt`, protection === null ? '' : `davon Mutterschutz ${protection} Monate`,
+      `Elternzeit eingetragen ${planned} Monate`, `noch möglich: ${remaining} Monate`,
+    ].filter(Boolean).join(' · '),
+    summaryLineMasked: (planned: string, remaining: string) => `Elternzeit eingetragen ${planned} Monate · noch möglich: höchstens ${remaining} Monate (abzüglich der Mutterschutzfrist)`,
+    summaryHint: 'Monate = Tage geteilt durch 30,44 (365,25 / 12), auf eine Stelle gerundet. Die 36 Monate sind die Tage von der Geburt bis zum Tag vor dem 3. Geburtstag.',
+    protectionUntil: 'Mutterschutz nach der Geburt bis',
+    protectionUntilHint: 'Nur, wenn der Mutterschutz dieser Geburt nicht in der App eingetragen ist (letzter Tag der Schutzfrist nach der Geburt). Er zählt zur Elternzeit (§ 15 Abs. 2 BEEG). Leer lassen, wenn es keinen gibt.',
+    protectionFromCase: (from: string, to: string) => `Mutterschutz nach der Geburt laut Eintrag „Mutterschutz“: ${from} – ${to} (zählt zur Elternzeit)`,
     levelShift: (level: number, date: string, days: number) => `Stufenaufstieg: Stufe ${level} ab ${date} – ${days} Tage später, weil die Elternzeit nicht als Stufenlaufzeit zählt (§ 17 Abs. 3 TVöD). Näherung, bitte prüfen.`,
     levelHints: {
       longBreak: 'Elternzeit von mehr als fünf Jahren am Stück: Nach § 17 Abs. 3 TVöD wird die Person der Stufe vor der erreichten zugeordnet. Das rechnet die App nicht – bitte prüfen.',
@@ -3538,6 +3550,7 @@ export const de = {
     parental_leave_overlap: 'Diese Zeit überschneidet sich mit einer anderen Elternzeit dieser Person.',
     parental_leave_part_time_invalid: 'Teilzeit in der Elternzeit: höchstens 32 Stunden pro Woche (§ 15 Abs. 4 BEEG).',
     parental_leave_workdays_invalid: 'Bitte mindestens einen Arbeitstag für die Teilzeit wählen.',
+    parental_leave_protection_invalid: 'Der Mutterschutz nach der Geburt endet frühestens am Tag der Geburt und höchstens 20 Wochen danach.',
     parental_leave_note_too_long: 'Die Notiz ist zu lang (höchstens 2000 Zeichen).',
     maternity_own: 'Deinen eigenen Mutterschutz trägt der Träger ein.',
     maternity_not_found: 'Dieser Eintrag zum Mutterschutz wurde nicht gefunden.',

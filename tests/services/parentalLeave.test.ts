@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { closures, employeeChildren, employees, entries, leaveEntitlements, maternityCases, parentalLeaves } from '../../server/db/schema'
+import { closures, employeeChildren, employees, entries, leaveEntitlements, maternityCases, parentalLeaveBirths, parentalLeaves } from '../../server/db/schema'
 import { categoryHasData, deleteCategories } from '../../server/services/employeeDeletion'
 import { listEmployeeListExtras } from '../../server/services/employeeListExtras'
 import { getLeaveAccount } from '../../server/services/leave'
@@ -60,7 +60,7 @@ describe('entering an Elternzeit', () => {
     const row = db.select().from(parentalLeaves).get()!
     expect(row.childBirthDate).toBe('2026-10-01')
     expect(getEmployeeParentalLeave(db, traeger, 1, anna, TODAY)).toMatchObject({ children: [{ id: child.id, firstName: 'Mia' }], periods: [{ childName: 'Mia' }] })
-    const noPersonal = { permissions: new Set(['employees.contractView'] as const) }
+    const noPersonal = { role: 'admin' as const, permissions: new Set(['employees.contractView'] as const) }
     expect(getEmployeeParentalLeave(db, noPersonal, 1, anna, TODAY)).toMatchObject({ children: [], periods: [{ childName: null, childBirthDate: '2026-10-01' }] })
     // Removing the child keeps the period and its birth date.
     db.delete(employeeChildren).run()
@@ -348,5 +348,75 @@ describe('fix round 1', () => {
       { employeeId: anna, childBirthDate: '2022-12-01', start: '2023-01-01', end: '2025-06-30', createdAt: 'x', updatedAt: 'x' },
     ]).run()
     expect(getEmployeeParentalLeave(db, traeger, 1, anna, TODAY).levelShift).toMatchObject({ level: 4, hints: ['longBreak'] })
+  })
+})
+
+describe('the Mutterschutz after the birth in the 36 months (§ 15 Abs. 2 BEEG)', () => {
+  /** Whoever edits the contract data without the health data right. */
+  const contractOnly = () => ({ ...traeger, role: 'admin' as const, permissions: new Set(['employees.view', 'employees.contractView', 'employees.contractEdit'] as const) })
+  const addCase = () => db.insert(maternityCases).values({
+    employeeId: anna, notifiedOn: '2026-05-04', expectedBirth: '2026-11-16', actualBirth: '2026-11-16', createdAt: 'x', updatedAt: 'x',
+  }).run()
+  const summary = (viewer: Parameters<typeof getEmployeeParentalLeave>[1] = traeger) => getEmployeeParentalLeave(db, viewer, 1, anna, TODAY).summaries
+
+  it('sums the child\'s months without a Mutterschutz', () => {
+    // 12 months from the birth: 365 of 1096 days.
+    create({ start: '2026-11-16', end: '2027-11-15' })
+    expect(summary()).toEqual([{
+      childId: null, childName: null, childBirthDate: '2026-11-16', protection: null, protectionCounted: false, totalMonths: 36,
+      protectionMonths: null, plannedMonths: 12, remainingMonths: 24, remainingExact: true,
+    }])
+    expect(summary(contractOnly())).toEqual(summary())
+  })
+
+  it('deducts the Mutterschutz of the case, with dates and months only for viewers of the health data', () => {
+    addCase()
+    // Born on the expected day: 8 weeks after it, 16.11.2026–11.01.2027 (57 days with the birth day).
+    create({ start: '2027-01-12', end: '2028-01-11' })
+    expect(summary()).toEqual([expect.objectContaining({
+      protection: { from: '2026-11-16', to: '2027-01-11', source: 'case' }, protectionCounted: true,
+      protectionMonths: 1.9, plannedMonths: 12, remainingMonths: 22.1, remainingExact: true,
+    })])
+    // Without employees.sickness: that one counts, the months entered, at most 36 minus them – no length to work out.
+    const masked = summary(contractOnly())[0]!
+    expect(masked).toEqual(expect.objectContaining({
+      protection: null, protectionCounted: true, protectionMonths: null, plannedMonths: 12, remainingMonths: 24, remainingExact: false,
+    }))
+    expect(JSON.stringify(getEmployeeParentalLeave(db, contractOnly(), 1, anna, TODAY))).not.toContain('2027-01-11')
+    const check = checkParentalLeavePeriod(db, contractOnly(), 1, anna, input({ start: '2028-01-12', end: '2028-03-31' }), null)
+    expect(check).toMatchObject({ protection: null, remainingExact: false, remainingMonths: 24, suggestedStart: '2026-11-16' })
+    expect(JSON.stringify(check)).not.toContain('2027-01-1')
+  })
+
+  it('takes a hand-entered end for a birth without a case, only from viewers of the health data', () => {
+    const { id } = create({ start: '2027-01-12', end: '2028-01-11', protectionAfterBirthUntil: '2027-01-11' })
+    expect(db.select().from(parentalLeaveBirths).all()).toEqual([expect.objectContaining({ employeeId: anna, childBirthDate: '2026-11-16', protectionUntil: '2027-01-11' })])
+    expect(summary()[0]).toMatchObject({ protection: { from: '2026-11-16', to: '2027-01-11', source: 'manual' }, remainingMonths: 22.1 })
+    // The suggested start follows it.
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, input(), id).suggestedStart).toBe('2027-01-12')
+    // Changing the period without the field keeps it; without the right it cannot be set (nor read).
+    updateParentalLeave(db, traeger, 1, id, input({ start: '2027-01-12', end: '2027-12-31' }))
+    expect(db.select().from(parentalLeaveBirths).all()).toHaveLength(1)
+    expect(errorCode(() => updateParentalLeave(db, contractOnly(), 1, id, input({ protectionAfterBirthUntil: '2027-02-01' })))).toBe('forbidden')
+    expect(updateParentalLeave(db, contractOnly(), 1, id, input({ start: '2027-01-12', end: '2027-12-31' })).id).toBe(id)
+    expect(errorCode(() => updateParentalLeave(db, traeger, 1, id, input({ protectionAfterBirthUntil: '2026-11-15' })))).toBe('parental_leave_protection_invalid')
+    expect(errorCode(() => updateParentalLeave(db, traeger, 1, id, input({ protectionAfterBirthUntil: '2027-04-06' })))).toBe('parental_leave_protection_invalid')
+    // A case for the birth wins; null removes the hand-entered end.
+    addCase()
+    expect(summary()[0]).toMatchObject({ protection: { to: '2027-01-11', source: 'case' } })
+    updateParentalLeave(db, traeger, 1, id, input({ start: '2027-01-12', end: '2027-12-31', protectionAfterBirthUntil: null }))
+    expect(db.select().from(parentalLeaveBirths).all()).toEqual([])
+  })
+
+  it('warns when the planned Elternzeit exceeds what is still possible, counting a typed end at once', () => {
+    create({ start: '2027-01-12', end: '2029-01-11' })
+    // 1096 days; 731 taken: 365 left. 365 more days fit, the Mutterschutz typed in the dialog (57 days) makes it too much.
+    const next = input({ start: '2029-01-12', end: '2030-01-11' })
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, next, null)).toMatchObject({ hints: [], remainingMonths: 12 })
+    expect(checkParentalLeavePeriod(db, traeger, 1, anna, { ...next, protectionAfterBirthUntil: '2027-01-11' }, null))
+      .toMatchObject({ hints: ['total'], remainingMonths: 10.1, protection: { source: 'manual' } })
+    // Without the right a typed end is not taken (and nothing tells its length).
+    expect(checkParentalLeavePeriod(db, contractOnly(), 1, anna, { ...next, protectionAfterBirthUntil: '2027-01-11' }, null))
+      .toMatchObject({ hints: [], protection: null })
   })
 })

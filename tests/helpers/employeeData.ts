@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
-  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, knowledgeConfirmations, knowledgeEntries, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps, parentalLeaves,
+  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, knowledgeConfirmations, knowledgeEntries, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps, parentalLeaveBirths, parentalLeaves,
   teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
@@ -130,6 +130,7 @@ export function fillEmployeeData(
     db.insert(parentalLeaves).values({
       employeeId: id, childBirthDate: '2023-12-01', start: '2024-02-01', end: '2024-02-29', createdAt: now.toISOString(), updatedAt: now.toISOString(),
     }).run()
+    db.insert(parentalLeaveBirths).values({ employeeId: id, childBirthDate: '2023-12-01', protectionUntil: '2024-01-25', updatedAt: now.toISOString() }).run()
     const childId = addChild(db, 1, { keyEducatorId: id, firstName: `Kind von ${id}` })
     // The rest of the references: time corrections, a week template row, a form editor grant, a tablet unlock, and the
     // person as the one who entered something in a child's record or a group book.

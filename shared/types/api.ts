@@ -4302,6 +4302,10 @@ export interface ParentalLeaveDto {
 
 /** The section „Elternzeit“ of the employee page. */
 export interface EmployeeParentalLeaveDto {
+  /** The summary of the 36 months per child of the periods (§ 15 Abs. 2 BEEG), oldest child first. */
+  summaries: ParentalLeaveChildSummaryDto[]
+  /** The viewer sees and enters the Mutterschutz after the birth (employees.sickness, not at the tablet). */
+  canEnterProtection: boolean
   periods: ParentalLeaveDto[]
   /** The children of the personnel file to choose from (only with employees.personal, else empty: the birth date is entered). */
   children: { id: number; firstName: string | null; birthDate: IsoDate }[]
@@ -4325,6 +4329,11 @@ export interface ParentalLeaveInput {
   partTimeWeeklyMinutes: number | null
   /** The working days of the part time (bitmask); null = the contract's working days at the start. Ignored without part time. */
   partTimeWorkdays?: number | null
+  /**
+   * „Mutterschutz nach der Geburt bis“ for a birth without a Mutterschutz case in the app (only with employees.sickness):
+   * a day from the birth to 20 weeks after it, null removes it, left out = unchanged.
+   */
+  protectionAfterBirthUntil?: IsoDate | null
   reduceLeave: boolean
   note: string
 }
@@ -4343,12 +4352,41 @@ export interface ParentalLeaveCheckDto {
   sections: number
   totalMonths: number
   monthsAfterThird: number
+  /** What was still possible for the child before this period, in average months (daysToMonths). */
+  remainingMonths: number
+  /** `remainingMonths` is exact; false: at most that, the Mutterschutz after the birth comes off on top (viewer without employees.sickness). */
+  remainingExact: boolean
+  /** The Mutterschutz after the birth counted (only for viewers with employees.sickness; the typed end included). */
+  protection: { from: IsoDate; to: IsoDate; source: 'case' | 'manual' } | null
   firstWorkingDay: IsoDate | null
   /** Entries already in the plan on the days of a full Elternzeit (they stay; health codes „abwesend“ without employees.sickness). */
   entries: { date: IsoDate; label: string }[]
 }
 
 /** Saving a period answers the entries already in the plan on the days of a full Elternzeit (as in the check). */
+/**
+ * „36 Monate insgesamt · davon Mutterschutz … · Elternzeit eingetragen … · noch möglich …“ for one child (months: days /
+ * (365.25 / 12), one decimal). The Mutterschutz after the birth with dates and months only for viewers with
+ * employees.sickness; everybody else learns only that one counts, the months entered and at most what is still possible.
+ */
+export interface ParentalLeaveChildSummaryDto {
+  childId: number | null
+  /** Only for viewers of the personal data (employees.personal). */
+  childName: string | null
+  childBirthDate: IsoDate
+  /** From the birth to its last day, from the case or entered by hand; null without one or for viewers without employees.sickness. */
+  protection: { from: IsoDate; to: IsoDate; source: 'case' | 'manual' } | null
+  /** A Mutterschutz after the birth counts towards the 36 months („Mutterschutzfrist wird angerechnet“). */
+  protectionCounted: boolean
+  totalMonths: number
+  /** Null for viewers without employees.sickness. */
+  protectionMonths: number | null
+  plannedMonths: number
+  /** Still possible (below 0 = too much); with `remainingExact` false at most this (36 minus the Elternzeit). */
+  remainingMonths: number
+  remainingExact: boolean
+}
+
 export interface ParentalLeaveSaveDto {
   id: number
   entries: { date: IsoDate; label: string }[]

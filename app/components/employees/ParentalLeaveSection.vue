@@ -35,13 +35,15 @@ const OTHER = 'other'
 interface Form {
   child: string; birthDate: string; start: string; mode: 'months' | 'end'; months: number | null; end: string
   partTime: boolean; partTimeHours: number | null; partTimeWorkdays: number; reduceLeave: boolean; note: string
+  /** „Mutterschutz nach der Geburt bis“ entered by hand (only with employees.sickness, only without a case). */
+  protectionUntil: string
 }
 const formOpen = ref(false)
 const editing = ref<ParentalLeaveDto | null>(null)
 const emptyForm = (): Form => ({
   child: data.value?.children.at(-1) ? String(data.value.children.at(-1)!.id) : OTHER, birthDate: '', start: '', mode: 'months',
   months: 12, end: '', partTime: false, partTimeHours: null, partTimeWorkdays: data.value?.contractWorkdays ?? 0b0011111,
-  reduceLeave: false, note: '',
+  reduceLeave: false, note: '', protectionUntil: '',
 })
 const form = reactive<Form>(emptyForm())
 const childItems = computed(() => [
@@ -60,6 +62,12 @@ const end = computed(() => {
   return isValidIsoDate(form.start) && Number.isInteger(months) && months >= 1 ? parentalLeaveEnd(form.start, months) : ''
 })
 
+/** The hand-entered Mutterschutz end of a birth as the summaries know it ('' without one). */
+function manualProtectionOf(birth: string): string {
+  const protection = data.value?.summaries.find(summary => summary.childBirthDate === birth)?.protection
+  return protection?.source === 'manual' ? protection.to : ''
+}
+
 function openForm(item?: ParentalLeaveDto) {
   editing.value = item ?? null
   Object.assign(form, item
@@ -69,6 +77,7 @@ function openForm(item?: ParentalLeaveDto) {
         months: parentalLeaveLength(item.start, item.end).months, end: item.end, partTime: item.partTimeWeeklyMinutes !== null,
         partTimeHours: item.partTimeWeeklyMinutes === null ? null : item.partTimeWeeklyMinutes / 60,
         partTimeWorkdays: item.partTimeWorkdays ?? data.value?.contractWorkdays ?? 0b0011111, reduceLeave: item.reduceLeave, note: item.note,
+        protectionUntil: manualProtectionOf(item.childBirthDate),
       }
     : emptyForm())
   check.value = null
@@ -80,14 +89,24 @@ const body = (): ParentalLeaveInput => ({
   partTimeWeeklyMinutes: form.partTime && form.partTimeHours !== null ? Math.round(Number(form.partTimeHours) * 60) : null,
   partTimeWorkdays: form.partTime ? form.partTimeWorkdays : null,
   reduceLeave: form.reduceLeave && !form.partTime, note: form.note,
+  // Only whoever sees the health data sends the hand-entered Mutterschutz end, and not while a case for the birth exists.
+  ...(data.value?.canEnterProtection && check.value?.protection?.source !== 'case'
+    ? { protectionAfterBirthUntil: isValidIsoDate(form.protectionUntil) ? form.protectionUntil : null }
+    : {}),
 })
+/** A Mutterschutz case for this birth: its period is shown instead of the field. */
+const protectionFromCase = computed(() => (check.value?.protection?.source === 'case' ? check.value.protection : null))
 
 // The server's check, whenever the period changes (debounced); the start is suggested once the birth is known.
 const check = ref<ParentalLeaveCheckDto | null>(null)
 let checkTimer: ReturnType<typeof setTimeout> | undefined
 const checkable = computed(() => isValidIsoDate(childBirthDate.value) && isValidIsoDate(form.start || childBirthDate.value)
   && (end.value === '' || isValidIsoDate(end.value)))
-watch(() => [formOpen.value, childBirthDate.value, form.start, end.value, form.partTime, form.partTimeHours, form.partTimeWorkdays], () => {
+// Another child: its hand-entered Mutterschutz end (or none).
+watch(childBirthDate, (birth, before) => {
+  if (formOpen.value && before !== undefined && birth !== before) form.protectionUntil = manualProtectionOf(birth)
+})
+watch(() => [formOpen.value, childBirthDate.value, form.start, end.value, form.partTime, form.partTimeHours, form.partTimeWorkdays, form.protectionUntil], () => {
   clearTimeout(checkTimer)
   if (!formOpen.value || !checkable.value) return
   checkTimer = setTimeout(async () => {
@@ -108,7 +127,9 @@ onBeforeUnmount(() => clearTimeout(checkTimer))
 const errorText = computed(() => (check.value?.error && form.start && end.value ? de.errors[`parental_leave_${check.value.error}`] : null))
 const hintTexts = computed(() => (check.value?.hints ?? []).map(hint => (hint === 'sections'
   ? t.hints.sections(check.value!.sections)
-  : hint === 'total' ? t.hints.total(formatNumber(check.value!.totalMonths)) : t.hints.afterThird(formatNumber(check.value!.monthsAfterThird)))))
+  : hint === 'total'
+    ? t.hints.total(formatNumber(Math.max(0, check.value!.remainingMonths)), check.value!.remainingExact)
+    : t.hints.afterThird(formatNumber(check.value!.monthsAfterThird)))))
 /** Part time on fewer days a week than the contract: the leave would have to be converted (BAG 9 AZR 7/16). */
 const fewerDays = computed(() => form.partTime && form.partTimeWorkdays > 0
   && workdayCount(form.partTimeWorkdays) < workdayCount(data.value?.contractWorkdays ?? 0b0011111))
@@ -154,6 +175,19 @@ async function remove(item: ParentalLeaveDto) {
         <UAlert v-for="hint in data.levelShift.hints" :key="hint" color="warning" variant="soft" :title="t.levelHints[hint]" />
       </template>
       <p v-if="!data.periods.length" class="text-sm text-gray-600">{{ t.none }}</p>
+      <!-- Per child: the 36 months with the Mutterschutz after the birth (dates and its months only with the health data right). -->
+      <div v-for="summary in data.summaries" :key="`${summary.childId}-${summary.childBirthDate}`" class="space-y-0.5 rounded-md bg-gray-50 p-3 text-sm">
+        <p class="font-medium">{{ t.childLabel(summary.childName, formatDate(summary.childBirthDate)) }}</p>
+        <p v-if="summary.protection" class="text-gray-700">{{ t.protectionRow(formatDate(summary.protection.from), formatDate(summary.protection.to)) }}</p>
+        <p v-else-if="summary.protectionCounted" class="text-gray-700">{{ t.protectionCounted }}</p>
+        <p :class="summary.remainingMonths < 0 ? 'font-medium text-amber-700' : 'text-gray-700'">
+          {{ summary.remainingExact
+            ? t.summaryLine(formatNumber(summary.totalMonths), summary.protectionMonths === null ? null : formatNumber(summary.protectionMonths),
+                            formatNumber(summary.plannedMonths), formatNumber(summary.remainingMonths))
+            : t.summaryLineMasked(formatNumber(summary.plannedMonths), formatNumber(summary.remainingMonths)) }}
+        </p>
+      </div>
+      <p v-if="data.summaries.length" class="text-xs text-gray-500">{{ t.summaryHint }}</p>
       <div v-for="item in data.periods" :key="item.id" class="space-y-1 rounded-md p-3 text-sm ring-1 ring-gray-200">
         <div class="flex flex-wrap items-center gap-2">
           <p class="font-medium">{{ t.periodLine(formatDate(item.start), formatDate(item.end), lengthText(item.start, item.end)) }}</p>
@@ -186,6 +220,12 @@ async function remove(item: ParentalLeaveDto) {
           </UFormField>
           <UFormField v-if="form.child === OTHER" :label="t.birthDate" required>
             <DateTextInput v-model="form.birthDate" :label="t.birthDate" required class="w-44" />
+          </UFormField>
+          <p v-if="protectionFromCase" class="text-sm text-gray-700">
+            {{ t.protectionFromCase(formatDate(protectionFromCase.from), formatDate(protectionFromCase.to)) }}
+          </p>
+          <UFormField v-else-if="data?.canEnterProtection" :label="t.protectionUntil" :help="t.protectionUntilHint">
+            <DateTextInput v-model="form.protectionUntil" :label="t.protectionUntil" class="w-44" />
           </UFormField>
           <UFormField :label="t.start" :help="t.startHint" required>
             <DateTextInput v-model="form.start" :label="t.start" required class="w-44" />

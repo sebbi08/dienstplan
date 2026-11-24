@@ -290,6 +290,7 @@ export const maternityDeleteQuery = z.object({ removeEntries: z.enum(['0', '1'])
 export const parentalLeaveSchema = z.object({
   childId: z.number().int().positive().nullable(), childBirthDate: isoDate, start: isoDate, end: isoDate,
   partTimeWeeklyMinutes: z.number().int().nullable(), partTimeWorkdays: z.number().int().nullable().optional(), reduceLeave: z.boolean(), note: z.string().max(PARENTAL_LEAVE_NOTE_MAX + 100),
+  protectionAfterBirthUntil: isoDate.nullable().optional(),
 })
 /** The dialog's check: the period being changed, if any. */
 export const parentalLeaveCheckSchema = parentalLeaveSchema.extend({ exceptId: z.number().int().positive().nullable() })

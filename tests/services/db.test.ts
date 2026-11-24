@@ -2639,6 +2639,19 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(count(sqlite, 'knowledge_entry_targets')).toBe(0)
   })
 
+  it('0120 adds the hand-entered Mutterschutz after a birth: one per employee and birth, gone with the employee', () => {
+    const { db, sqlite } = databaseAt('0119')
+    sqlite.exec(`INSERT INTO employees (id, name, short_name) VALUES (1, 'Anna', 'An')`)
+    migrateThrough(db, '0120')
+    sqlite.exec(`INSERT INTO parental_leave_births (employee_id, child_birth_date, protection_until, updated_at) VALUES (1, '2026-11-16', '2027-01-11', 'x')`)
+    expect(() => sqlite.exec(`INSERT INTO parental_leave_births (employee_id, child_birth_date, protection_until, updated_at) VALUES (1, '2026-11-16', '2027-02-08', 'x')`))
+      .toThrow(/UNIQUE/)
+    expect(() => sqlite.exec(`INSERT INTO parental_leave_births (employee_id, child_birth_date, protection_until, updated_at) VALUES (99, '2026-11-16', '2027-01-11', 'x')`))
+      .toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(count(sqlite, 'parental_leave_births')).toBe(0)
+  })
+
   it('0119 adds the Elternzeit periods (gone with the employee, the child link cleared) and the facility switch, off', () => {
     const { db, sqlite } = databaseAt('0118')
     sqlite.exec(`

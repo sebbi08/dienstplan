@@ -1825,6 +1825,20 @@ export const parentalLeaves = sqliteTable('parental_leaves', {
   updatedAt: text('updated_at').notNull(),
 }, table => [index('parental_leaves_employee').on(table.employeeId)])
 
+/**
+ * „Mutterschutz nach der Geburt bis“ entered by hand for a birth whose Mutterschutz case is not in the app (one per
+ * employee and birth date: twins share one birth). Health data like the case (the length tells 8 or 12 weeks): entered
+ * and seen only with employees.sickness. It counts towards the 36 months of Elternzeit (§ 15 Abs. 2 BEEG) from the birth
+ * to `protectionUntil`; a case for the same birth wins over it. Goes with the Elternzeit (time data).
+ */
+export const parentalLeaveBirths = sqliteTable('parental_leave_births', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  childBirthDate: text('child_birth_date').notNull(),
+  protectionUntil: text('protection_until').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, table => [uniqueIndex('parental_leave_births_employee_birth').on(table.employeeId, table.childBirthDate)])
+
 /** The forms of a staff talk: the employee's self-assessment (`self`) or an assessment, in the order of `sort`. */
 export const staffTalkForms = sqliteTable('staff_talk_forms', {
   talkId: integer('talk_id').notNull().references(() => staffTalks.id, { onDelete: 'cascade' }),

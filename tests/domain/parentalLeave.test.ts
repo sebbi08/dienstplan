@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  checkParentalLeave, coveredDays, cutEntitlement, firstWorkingDayAfter, fullParentalLeaveOn, lastParentalLeaveDay, leaveCutMonths,
+  checkParentalLeave, childLeaveSummary, coveredDays, cutEntitlement, daysToMonths, entitlementDays, firstWorkingDayAfter, fullParentalLeaveOn, lastParentalLeaveDay, leaveCutMonths,
   leaveProtectedUntil, leaveProtection, levelShiftDays, levelShiftHints, parentalLeaveEnd, parentalLeaveLength, protectedNoticeFrom,
   returnReminderState, type ParentalLeavePeriod,
 } from '../../shared/domain/parentalLeave'
@@ -51,7 +51,8 @@ describe('the checks', () => {
   it('hints at a fourth section and at more than 36 months per child, without refusing', () => {
     const sections = ['2027-01-01', '2028-01-01', '2029-01-01'].map(start => ({ childBirthDate: birth, start, end: `${start.slice(0, 4)}-03-31` }))
     const fourth = checkParentalLeave({ childBirthDate: birth, start: '2030-01-01', end: '2030-03-31' }, sections)
-    expect(fourth).toMatchObject({ error: null, hints: ['sections'], sections: 4, totalMonths: 12 })
+    // 3 × 90 days and 91 in the leap year 2028 = 361 days = 11.9 average months.
+    expect(fourth).toMatchObject({ error: null, hints: ['sections'], sections: 4, totalMonths: 11.9 })
     expect(checkParentalLeave({ childBirthDate: birth, start: '2030-01-01', end: '2030-03-31' }, sections.slice(1)).hints).toEqual([])
     // Another child's sections do not count.
     expect(checkParentalLeave({ childBirthDate: birth, start: '2030-01-01', end: '2030-03-31' },
@@ -192,6 +193,45 @@ describe('more checks per child (§ 15 Abs. 2 BEEG)', () => {
     const late = checkParentalLeave({ childBirthDate: birth, start: '2029-11-16', end: '2031-12-15' }, [])
     expect(late).toMatchObject({ hints: ['afterThird'], monthsAfterThird: 25 })
     expect(checkParentalLeave({ childBirthDate: birth, start: '2029-11-16', end: '2031-11-15' }, []).hints).toEqual([])
+  })
+})
+
+describe('the child\'s 36 months with the Mutterschutz after the birth (§ 15 Abs. 2 BEEG)', () => {
+  const birth = '2026-11-16'
+  it('counts the 36 months as the days to the day before the 3rd birthday, shown as average months', () => {
+    expect(entitlementDays(birth)).toBe(1096)
+    expect(entitlementDays('2025-03-01')).toBe(1096)
+    expect(entitlementDays('2029-03-01')).toBe(1096)
+    expect(entitlementDays('2026-03-01')).toBe(1096)
+    expect(entitlementDays('2029-01-01')).toBe(1095)
+    expect(daysToMonths(1096)).toBe(36)
+    expect(daysToMonths(56)).toBe(1.8)
+    expect(daysToMonths(84)).toBe(2.8)
+  })
+
+  it('sums without Mutterschutz', () => {
+    // 12 months of Elternzeit from the birth: 365 days.
+    expect(childLeaveSummary(birth, [{ start: birth, end: '2027-11-15' }], null))
+      .toEqual({ totalDays: 1096, protectionDays: 0, plannedDays: 365, remainingDays: 731 })
+  })
+
+  it('deducts the Mutterschutz after the birth and counts a day in both once', () => {
+    // Mutterschutz 16.11.2026–10.01.2027 (8 weeks: 56 days), Elternzeit from 11.01.2027 for 12 months (365 days).
+    const summary = childLeaveSummary(birth, [{ start: '2027-01-11', end: '2028-01-10' }], { from: birth, to: '2027-01-10' })
+    expect(summary).toEqual({ totalDays: 1096, protectionDays: 56, plannedDays: 365, remainingDays: 675 })
+    expect(daysToMonths(summary.remainingDays)).toBe(22.2)
+    // Overlapping by 10 days: those count once.
+    expect(childLeaveSummary(birth, [{ start: '2027-01-01', end: '2028-01-10' }], { from: birth, to: '2027-01-10' }).remainingDays).toBe(675)
+  })
+
+  it('warns when the planned Elternzeit exceeds what is still possible, and says what was possible', () => {
+    const protection = { from: birth, to: '2027-01-10' }
+    const first = { childBirthDate: birth, start: '2027-01-11', end: '2029-01-10' }
+    // 1040 days left after the Mutterschutz; 731 taken by the first period → 309 days (10.2 months) left.
+    const fits = checkParentalLeave({ childBirthDate: birth, start: '2029-01-11', end: '2029-11-15' }, [first], protection)
+    expect(fits).toMatchObject({ hints: [], remainingMonths: 10.2 })
+    const tooLong = checkParentalLeave({ childBirthDate: birth, start: '2029-01-11', end: '2029-11-16' }, [first], protection)
+    expect(tooLong.hints).toEqual(['total'])
   })
 })
 

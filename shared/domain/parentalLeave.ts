@@ -57,12 +57,6 @@ export function parentalLeaveLength(start: IsoDate, end: IsoDate): { months: num
   return { months, days: months === 0 ? daysBetween(start, end) + 1 : daysBetween(monthEnd(start, months), end) }
 }
 
-/** The length in months as a number (a day beyond the full months counting 1/30), for the total per child. */
-function lengthInMonths(start: IsoDate, end: IsoDate): number {
-  const { months, days } = parentalLeaveLength(start, end)
-  return months + days / 30
-}
-
 /** § 15 Abs. 2 BEEG: the Elternzeit ends at the latest the day before the child's 8th birthday. */
 export function lastParentalLeaveDay(childBirthDate: IsoDate): IsoDate {
   return monthEnd(childBirthDate, 96)
@@ -237,7 +231,7 @@ export function firstWorkingDayAfter(end: IsoDate, isWorkingDay: (date: IsoDate)
 /** What makes a period invalid (the server refuses to save it). */
 export type ParentalLeaveError = 'end_before_start' | 'before_birth' | 'after_eighth_birthday' | 'overlap'
 /**
- * Hints that never block: more than three sections per child, more than three years per child (with the mother's
+ * Hints that never block: more than three sections per child, more than the child's 36 months (with the mother's
  * Mutterschutz after the birth), more than 24 months between the 3rd and the 8th birthday.
  */
 export type ParentalLeaveHint = 'sections' | 'total' | 'afterThird'
@@ -245,52 +239,103 @@ export type ParentalLeaveHint = 'sections' | 'total' | 'afterThird'
 /** § 15 Abs. 2 Satz 2 BEEG: up to 24 months between the 3rd and the 8th birthday. */
 export const PARENTAL_LEAVE_MAX_MONTHS_AFTER_THIRD = 24
 
+/**
+ * The months the summaries and hints show are days / (365.25 / 12) – an average month – to one decimal. The limits
+ * themselves are counted in days: the 36 months are the days from the birth to the day before the 3rd birthday
+ * (entitlementDays, 1095 or 1096), so a period of exactly 36 calendar months fits.
+ */
+export const AVERAGE_MONTH_DAYS = 365.25 / 12
+
+/** Days as months (AVERAGE_MONTH_DAYS), to one decimal. */
+export function daysToMonths(days: number): number {
+  return Math.round((days / AVERAGE_MONTH_DAYS) * 10) / 10
+}
+
+/** The days of the child's 36 months of Elternzeit (§ 15 Abs. 2 Satz 1 BEEG): from the birth to the day before the 3rd birthday. */
+export function entitlementDays(childBirthDate: IsoDate): number {
+  return daysBetween(childBirthDate, monthEnd(childBirthDate, PARENTAL_LEAVE_MAX_MONTHS)) + 1
+}
+
+/** A period with its start and end (inclusive). */
+interface Span { start: IsoDate; end: IsoDate }
+
+/** The span of the Mutterschutz after the birth (from the birth to its last day). */
+export interface ProtectionSpan { from: IsoDate; to: IsoDate }
+
+/** Days covered by the spans (overlaps once), however far they reach. */
+const daysOf = (spans: readonly Span[]) => (spans.length === 0 ? 0 : coveredDays(spans, '0000-01-01', '9999-12-31'))
+
+export interface ChildLeaveSummary {
+  /** The child's 36 months in days (entitlementDays). */
+  totalDays: number
+  /** The mother's Mutterschutz after the birth (0 without one). */
+  protectionDays: number
+  /** The Elternzeit entered for the child. */
+  plannedDays: number
+  /** What is still possible: the 36 months minus the Mutterschutz and the Elternzeit (days counted once; below 0 = too much). */
+  remainingDays: number
+}
+
+/**
+ * The child's summary „36 Monate insgesamt · davon Mutterschutz … · Elternzeit eingetragen … · noch möglich …“: the
+ * mother's Mutterschutz after the birth counts towards the 36 months (§ 15 Abs. 2 Satz 3 BEEG); a day in both counts once.
+ */
+export function childLeaveSummary(childBirthDate: IsoDate, periods: readonly Span[], protection: ProtectionSpan | null): ChildLeaveSummary {
+  const protectionSpans = protection ? [{ start: protection.from, end: protection.to }] : []
+  const totalDays = entitlementDays(childBirthDate)
+  return {
+    totalDays, protectionDays: daysOf(protectionSpans), plannedDays: daysOf(periods),
+    remainingDays: totalDays - daysOf([...protectionSpans, ...periods]),
+  }
+}
+
 export interface ParentalLeaveCheck {
   error: ParentalLeaveError | null
   hints: ParentalLeaveHint[]
   /** Sections of the child including this one. */
   sections: number
-  /**
-   * Months of Elternzeit for the child including this one and the Mutterschutz after the birth when given (a day counting
-   * 1/30 month), rounded to tenths.
-   */
+  /** Months of Elternzeit for the child including this one and the Mutterschutz after the birth when given (daysToMonths). */
   totalMonths: number
-  /** Of them between the 3rd and the 8th birthday, rounded to tenths. */
+  /** What was still possible for the child before this period (the 36 months minus the Mutterschutz and the others; daysToMonths). */
+  remainingMonths: number
+  /** Months of the child's Elternzeit between the 3rd and the 8th birthday (daysToMonths). */
   monthsAfterThird: number
 }
 
 interface CheckedPeriod { childId?: number | null; childBirthDate: IsoDate; start: IsoDate; end: IsoDate }
 
 /** The same child: by the child of the personnel file when both name one (twins share a birth date), else by the birth date. */
-const sameChildAs = (a: CheckedPeriod, b: CheckedPeriod) =>
+export const sameChildAs = (a: Pick<CheckedPeriod, 'childId' | 'childBirthDate'>, b: Pick<CheckedPeriod, 'childId' | 'childBirthDate'>) =>
   a.childId != null && b.childId != null ? a.childId === b.childId : a.childBirthDate === b.childBirthDate
 
-/** Months of the period that lie between the 3rd birthday and the day before the 8th (a day counting 1/30 month). */
-function monthsAfterThirdOf(item: CheckedPeriod): number {
-  const from = monthEnd(item.childBirthDate, 36) < item.start ? item.start : addDays(monthEnd(item.childBirthDate, 36), 1)
-  return item.end < from ? 0 : lengthInMonths(from, item.end)
+/** The part of the period between the 3rd birthday and the day before the 8th (null when none). */
+function afterThirdOf(item: CheckedPeriod): Span | null {
+  const third = addDays(monthEnd(item.childBirthDate, PARENTAL_LEAVE_MAX_MONTHS), 1)
+  const start = item.start > third ? item.start : third
+  return item.end < start ? null : { start, end: item.end }
 }
 
 /**
  * Checks a period against the child's birth and the person's other periods (`others`, without the period itself): the
  * end not before the start, the start not before the birth, the end not after the day before the 8th birthday (§ 15
  * Abs. 2 BEEG), no overlap with another Elternzeit of the person. Hints: more than three sections for the child (§ 16
- * Abs. 1 BEEG, a fourth needs the employer's consent), more than 36 months for the child in all – the mother's
- * Mutterschutz after the birth counts towards them (§ 15 Abs. 2 Satz 3; `protectionAfterBirth`, from the birth to its last
- * day, when known) – and more than 24 months between the 3rd and the 8th birthday (§ 15 Abs. 2 Satz 2).
+ * Abs. 1 BEEG, a fourth needs the employer's consent), more than the child's 36 months – the mother's Mutterschutz after
+ * the birth counts towards them (§ 15 Abs. 2 Satz 3; `protectionAfterBirth`, when known; see childLeaveSummary) – and
+ * more than 24 months between the 3rd and the 8th birthday (§ 15 Abs. 2 Satz 2).
  */
 export function checkParentalLeave(
-  period: CheckedPeriod, others: readonly CheckedPeriod[], protectionAfterBirth: { from: IsoDate; to: IsoDate } | null = null,
+  period: CheckedPeriod, others: readonly CheckedPeriod[], protectionAfterBirth: ProtectionSpan | null = null,
 ): ParentalLeaveCheck {
   const sameChild = others.filter(other => sameChildAs(other, period))
   const sections = sameChild.length + 1
   const all = [...sameChild, period]
-  const protection = protectionAfterBirth ? lengthInMonths(protectionAfterBirth.from, protectionAfterBirth.to) : 0
-  const totalMonths = Math.round((all.reduce((sum, item) => sum + lengthInMonths(item.start, item.end), 0) + protection) * 10) / 10
-  const monthsAfterThird = Math.round(all.reduce((sum, item) => sum + monthsAfterThirdOf(item), 0) * 10) / 10
+  const before = childLeaveSummary(period.childBirthDate, sameChild, protectionAfterBirth)
+  const after = childLeaveSummary(period.childBirthDate, all, protectionAfterBirth)
+  const usedDays = after.totalDays - after.remainingDays
+  const monthsAfterThird = daysToMonths(daysOf(all.map(afterThirdOf).filter((span): span is Span => span !== null)))
   const hints: ParentalLeaveHint[] = []
   if (sections > PARENTAL_LEAVE_MAX_SECTIONS) hints.push('sections')
-  if (totalMonths > PARENTAL_LEAVE_MAX_MONTHS) hints.push('total')
+  if (after.remainingDays < 0) hints.push('total')
   if (monthsAfterThird > PARENTAL_LEAVE_MAX_MONTHS_AFTER_THIRD) hints.push('afterThird')
   const error: ParentalLeaveError | null = period.end < period.start
     ? 'end_before_start'
@@ -299,7 +344,9 @@ export function checkParentalLeave(
       : period.end > lastParentalLeaveDay(period.childBirthDate)
         ? 'after_eighth_birthday'
         : others.some(other => other.start <= period.end && period.start <= other.end) ? 'overlap' : null
-  return { error, hints, sections, totalMonths, monthsAfterThird }
+  return {
+    error, hints, sections, totalMonths: daysToMonths(usedDays), remainingMonths: daysToMonths(before.remainingDays), monthsAfterThird,
+  }
 }
 
 /** The reminder „‹Name› kommt am ‹Datum› aus der Elternzeit zurück“: 4 weeks before through the day (null otherwise). */

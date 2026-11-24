@@ -1,20 +1,21 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
-import { addDays, dateRange, daysInMonth, toIsoDate } from '../../shared/domain/dates'
+import { addDays, dateRange, daysBetween, daysInMonth, toIsoDate } from '../../shared/domain/dates'
 import { maskPrivateEntry, protectionPeriods } from '../../shared/domain/maternity'
 import {
-  checkParentalLeave, firstWorkingDayAfter, levelShiftDays, levelShiftHints, PARENTAL_LEAVE_NOTE_MAX,
-  PARENTAL_LEAVE_PART_TIME_MAX_MINUTES, parentalLeaveOn, returnReminderState, type LevelShiftHint, type ParentalLeavePeriod,
+  checkParentalLeave, childLeaveSummary, daysToMonths, firstWorkingDayAfter, levelShiftDays, levelShiftHints, PARENTAL_LEAVE_NOTE_MAX,
+  PARENTAL_LEAVE_MAX_MONTHS, PARENTAL_LEAVE_PART_TIME_MAX_MINUTES, parentalLeaveOn, returnReminderState, type LevelShiftHint,
+  type ParentalLeavePeriod, type ProtectionSpan,
 } from '../../shared/domain/parentalLeave'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { isWorkday, MONDAY_TO_FRIDAY, workdaysOn, type EmploymentInfo } from '../../shared/domain/targets'
 import { levelStart, nextLevelStep } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  ClosureDto, EmployeeParentalLeaveDto, MonthPlanDto, ParentalLeaveCheckDto, ParentalLeaveDto, ParentalLeaveInput,
+  ClosureDto, EmployeeParentalLeaveDto, MonthPlanDto, ParentalLeaveCheckDto, ParentalLeaveChildSummaryDto, ParentalLeaveDto, ParentalLeaveInput,
   ParentalLeaveSaveDto, ParentalLeaveSettingsDto, ReminderDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employeeChildren, employees, facilities, maternityCases, parentalLeaves } from '../db/schema'
+import { employeeChildren, employees, facilities, maternityCases, parentalLeaveBirths, parentalLeaves } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { seesProtectedCodes } from '../lib/protectedCodes'
 import { actorName } from './formTemplates'
@@ -94,10 +95,11 @@ const contractWorkdaysOn = (info: EmploymentInfo, date: IsoDate) => workdaysOn({
 /**
  * The section „Elternzeit“ (404 employee_not_found): the periods with their first working day after, the children of
  * the personnel file to choose from and their names only with employees.personal, whether the viewer may edit
- * (employees.contractEdit), the contract's working days today and the moved level step.
+ * (employees.contractEdit), the contract's working days today, the moved level step and the summary per child
+ * (childSummaries: the Mutterschutz after the birth with dates and months only for viewers of the health data).
  */
 export function getEmployeeParentalLeave(
-  db: Db, viewer: { permissions: ReadonlySet<PermissionKey> }, facilityId: number, employeeId: number, today: IsoDate,
+  db: Db, viewer: Viewer, facilityId: number, employeeId: number, today: IsoDate,
 ): EmployeeParentalLeaveDto {
   assertEmployee(db, facilityId, employeeId)
   const employee = loadEmployee(db, employeeId)!
@@ -110,8 +112,11 @@ export function getEmployeeParentalLeave(
     : []
   const names = new Map(children.map(child => [child.id, child.firstName]))
   const shift = shiftedLevelStep(employee)
+  const rows = periodsOf(db, employeeId)
   return {
-    periods: periodsOf(db, employeeId).map(row => toDto(
+    summaries: childSummaries(db, viewer, employeeId, rows, names),
+    canEnterProtection: seesProtectedCodes(viewer),
+    periods: rows.map(row => toDto(
       row, firstWorkingDayOf(employee, closures, row.end), row.childId === null ? null : names.get(row.childId) ?? null,
     )),
     children,
@@ -121,17 +126,95 @@ export function getEmployeeParentalLeave(
   }
 }
 
+/** The Mutterschutz after a birth with where it comes from: the case in the app, or the end entered by hand. */
+type BirthProtection = ProtectionSpan & { source: 'case' | 'manual' }
+
 /**
- * The Mutterschutz period after this birth (a case of the employee whose birth – the actual one, else the expected one –
- * is this day, not a miscarriage): health data, read only for a viewer with employees.sickness (null otherwise or
- * without such a case).
+ * The Mutterschutz period after this birth, read regardless of the viewer (callers decide what to tell): a case of the
+ * employee whose birth – the actual one, else the expected one – is this day, not a miscarriage; else the end entered by
+ * hand for this birth (parental_leave_births); null without either.
  */
-function protectionAfterBirth(db: Db, viewer: Viewer, employeeId: number, childBirthDate: IsoDate): { from: IsoDate; to: IsoDate } | null {
-  if (!seesProtectedCodes(viewer)) return null
+function birthProtection(db: Db, employeeId: number, childBirthDate: IsoDate): BirthProtection | null {
   const ends = db.select().from(maternityCases).where(eq(maternityCases.employeeId, employeeId)).all()
     .filter(row => row.miscarriageOn === null && (row.actualBirth ?? row.expectedBirth) === childBirthDate)
     .map(row => protectionPeriods(row).after?.to).filter((to): to is IsoDate => to !== undefined).sort()
-  return ends.length ? { from: childBirthDate, to: ends.at(-1)! } : null
+  if (ends.length) return { from: childBirthDate, to: ends.at(-1)!, source: 'case' }
+  const manual = db.select({ until: parentalLeaveBirths.protectionUntil }).from(parentalLeaveBirths)
+    .where(and(eq(parentalLeaveBirths.employeeId, employeeId), eq(parentalLeaveBirths.childBirthDate, childBirthDate))).get()
+  return manual ? { from: childBirthDate, to: manual.until, source: 'manual' } : null
+}
+
+/**
+ * The Mutterschutz period after this birth for the viewer: health data (its length tells 8 or 12 weeks), so only for a
+ * viewer with employees.sickness (null otherwise or without one; birthProtection).
+ */
+function protectionAfterBirth(db: Db, viewer: Viewer, employeeId: number, childBirthDate: IsoDate): BirthProtection | null {
+  return seesProtectedCodes(viewer) ? birthProtection(db, employeeId, childBirthDate) : null
+}
+
+/**
+ * The per-child summary of the section (§ 15 Abs. 2 BEEG, childLeaveSummary): the children of the periods (by the child
+ * of the personnel file, else by the birth date), oldest first. A viewer with employees.sickness gets the Mutterschutz
+ * after the birth with its dates and months and the exact months still possible; everybody else only whether a
+ * Mutterschutz counts, the months entered and at most what is still possible (36 minus the Elternzeit; the Mutterschutz is
+ * deducted on top) – nothing from which its length could be worked out.
+ */
+function childSummaries(
+  db: Db, viewer: Viewer, employeeId: number, rows: readonly LeaveRow[], names: ReadonlyMap<number, string | null>,
+): ParentalLeaveChildSummaryDto[] {
+  const groups = new Map<string, LeaveRow[]>()
+  for (const row of rows) {
+    const key = row.childId !== null ? `child:${row.childId}` : `birth:${row.childBirthDate}`
+    groups.set(key, [...groups.get(key) ?? [], row])
+  }
+  const sees = seesProtectedCodes(viewer)
+  return [...groups.values()]
+    .map((group) => {
+      const { childId, childBirthDate } = group[0]!
+      const protection = birthProtection(db, employeeId, childBirthDate)
+      const shown = sees ? protection : null
+      const exact = childLeaveSummary(childBirthDate, group, protection)
+      const bound = childLeaveSummary(childBirthDate, group, null)
+      return {
+        childId, childName: childId === null ? null : names.get(childId) ?? null, childBirthDate,
+        protection: shown ? { from: shown.from, to: shown.to, source: shown.source } : null,
+        protectionCounted: protection !== null,
+        totalMonths: PARENTAL_LEAVE_MAX_MONTHS,
+        protectionMonths: shown ? daysToMonths(exact.protectionDays) : null,
+        plannedMonths: daysToMonths(exact.plannedDays),
+        remainingMonths: daysToMonths(sees || protection === null ? exact.remainingDays : bound.remainingDays),
+        remainingExact: sees || protection === null,
+      }
+    })
+    .sort((a, b) => (a.childBirthDate < b.childBirthDate ? -1 : a.childBirthDate > b.childBirthDate ? 1 : 0))
+}
+
+/** The longest Mutterschutz after a birth entered by hand: 20 weeks (12 weeks plus days of an early birth carried over). */
+const PROTECTION_MAX_DAYS = 140
+
+/**
+ * „Mutterschutz nach der Geburt bis“ for a birth without a case in the app: entered and changed only with
+ * employees.sickness (403 forbidden), from the birth day up to 20 weeks after it (400 parental_leave_protection_invalid);
+ * null removes it. Ignored (nothing stored) while a case for the birth exists: the case wins. `undefined` = unchanged.
+ */
+function storeBirthProtection(
+  db: Db, viewer: Viewer, employeeId: number, childBirthDate: IsoDate, until: IsoDate | null | undefined, now: Date,
+): void {
+  if (until === undefined) return
+  if (!seesProtectedCodes(viewer)) throw new ServiceError(403, 'forbidden')
+  if (until !== null && (until < childBirthDate || daysBetween(childBirthDate, until) > PROTECTION_MAX_DAYS)) {
+    throw new ServiceError(400, 'parental_leave_protection_invalid')
+  }
+  const where = and(eq(parentalLeaveBirths.employeeId, employeeId), eq(parentalLeaveBirths.childBirthDate, childBirthDate))
+  if (until === null) {
+    db.delete(parentalLeaveBirths).where(where).run()
+    return
+  }
+  if (birthProtection(db, employeeId, childBirthDate)?.source === 'case') return
+  const at = now.toISOString()
+  db.insert(parentalLeaveBirths).values({ employeeId, childBirthDate, protectionUntil: until, updatedAt: at })
+    .onConflictDoUpdate({ target: [parentalLeaveBirths.employeeId, parentalLeaveBirths.childBirthDate], set: { protectionUntil: until, updatedAt: at } })
+    .run()
 }
 
 /** The person's other periods (without `exceptId`), as the checks take them. */
@@ -182,7 +265,13 @@ export function checkParentalLeavePeriod(
   assertEmployee(db, facilityId, employeeId)
   if (exceptId !== null && loadPeriod(db, facilityId, exceptId).employeeId !== employeeId) throw new ServiceError(404, 'parental_leave_not_found')
   const childBirthDate = birthDateOf(db, employeeId, input)
-  const protection = protectionAfterBirth(db, viewer, employeeId, childBirthDate)
+  // The Mutterschutz after the birth (only for viewers of the health data): a hand-entered end being typed counts as if
+  // saved, unless a case for the birth exists.
+  const stored = protectionAfterBirth(db, viewer, employeeId, childBirthDate)
+  const typed = input.protectionAfterBirthUntil
+  const protection: BirthProtection | null = !seesProtectedCodes(viewer) || typed === undefined || stored?.source === 'case'
+    ? stored
+    : typed === null || typed < childBirthDate ? null : { from: childBirthDate, to: typed, source: 'manual' }
   const others = othersOf(db, employeeId, exceptId)
   const check = checkParentalLeave({ childId: input.childId, childBirthDate, start: input.start, end: input.end }, others, protection)
   const employee = loadEmployee(db, employeeId)!
@@ -191,6 +280,9 @@ export function checkParentalLeavePeriod(
   const withPeriod = { ...employee, info: { ...employee.info, parentalLeaves: [...others.map(periodOf), periodOf(draft)] } }
   return {
     suggestedStart: protection ? addDays(protection.to, 1) : childBirthDate, ...check,
+    // Exact only with the Mutterschutz known to the viewer; else at most (the Mutterschutz comes off on top).
+    remainingExact: protection !== null || birthProtection(db, employeeId, childBirthDate) === null,
+    protection: protection ? { from: protection.from, to: protection.to, source: protection.source } : null,
     firstWorkingDay: input.end < input.start ? null : firstWorkingDayOf(withPeriod, loadClosures(db, employee.facilityId), input.end),
     entries: entriesInPeriod(db, viewer, employeeId, input),
   }
@@ -233,8 +325,11 @@ export function createParentalLeave(
   assertEmployee(db, facilityId, employeeId)
   const values = checkedInput(db, employeeId, input, null)
   const at = now.toISOString()
-  const id = db.insert(parentalLeaves).values({ employeeId, ...values, createdBy: actorName(db, actor), createdAt: at, updatedAt: at })
-    .returning({ id: parentalLeaves.id }).get().id
+  const id = db.transaction((tx) => {
+    storeBirthProtection(tx, actor, employeeId, values.childBirthDate, input.protectionAfterBirthUntil, now)
+    return tx.insert(parentalLeaves).values({ employeeId, ...values, createdBy: actorName(tx, actor), createdAt: at, updatedAt: at })
+      .returning({ id: parentalLeaves.id }).get().id
+  })
   return { id, entries: entriesInPeriod(db, actor, employeeId, values) }
 }
 
@@ -244,7 +339,10 @@ export function updateParentalLeave(
 ): ParentalLeaveSaveDto {
   const row = loadPeriod(db, facilityId, id)
   const values = checkedInput(db, row.employeeId, input, id)
-  db.update(parentalLeaves).set({ ...values, updatedAt: now.toISOString() }).where(eq(parentalLeaves.id, id)).run()
+  db.transaction((tx) => {
+    storeBirthProtection(tx, actor, row.employeeId, values.childBirthDate, input.protectionAfterBirthUntil, now)
+    tx.update(parentalLeaves).set({ ...values, updatedAt: now.toISOString() }).where(eq(parentalLeaves.id, id)).run()
+  })
   return { id, entries: entriesInPeriod(db, actor, row.employeeId, values) }
 }
 
