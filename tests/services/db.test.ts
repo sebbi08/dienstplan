@@ -2648,13 +2648,19 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
       INSERT INTO forms (id, facility_id, kind, title, content, answers, created_at, updated_at, updated_by, child_id) VALUES
         (1, 1, 'child', 'Entwicklung', '{"sections":[]}', '{"a":"Baut gern"}', 'c', '2026-10-01T08:00:00.000Z', 'Anna', 1),
         (2, 1, 'child', 'Leer', '{"sections":[]}', '{}', 'c', '2026-10-02T08:00:00.000Z', 'Anna', 1),
-        (3, 1, 'staff', 'Gespräch', '{"sections":[]}', '{"a":"x"}', 'c', '2026-10-03T08:00:00.000Z', 'Leitung', NULL);
+        (3, 1, 'staff', 'Gespräch', '{"sections":[]}', '{"a":"x"}', 'c', '2026-10-03T08:00:00.000Z', 'Leitung', NULL),
+        (4, 1, 'child', 'Unberührt', '{"sections":[]}', '{"t":" ","c":[],"r":{"value":null,"remark":""},"m":{"reached":false,"remark":""},"d":null}', 'c', 'u', 'Anna', 1),
+        (5, 1, 'child', 'Bemerkung', '{"sections":[]}', '{"t":"","r":{"value":null,"remark":"ruhig"}}', 'c', 'v', 'Anna', 1),
+        (6, 1, 'child', 'Meilenstein', '{"sections":[]}', '{"m":{"reached":true,"remark":""}}', 'c', 'w', 'Anna', 1),
+        (7, 1, 'child', 'Auswahl', '{"sections":[]}', '{"c":["o1"],"d":"2026-01-01"}', 'c', 'x', 'Anna', 1);
     `)
     migrateThrough(db, '0122')
-    // Only the child form with answers gets its state before the history, naming no changed item.
-    expect(sqlite.prepare('SELECT form_id, saved_at, saved_by, answers, changed_item_ids, initial FROM form_revisions').all()).toEqual([
+    // Only child forms with an answer that says something get their state before the history, naming no changed item.
+    expect(sqlite.prepare('SELECT form_id, saved_at, saved_by, answers, changed_item_ids, initial FROM form_revisions WHERE form_id = 1').all()).toEqual([
       { form_id: 1, saved_at: '2026-10-01T08:00:00.000Z', saved_by: 'Anna', answers: '{"a":"Baut gern"}', changed_item_ids: '[]', initial: 1 },
     ])
+    expect(sqlite.prepare('SELECT form_id FROM form_revisions ORDER BY form_id').all()).toEqual([{ form_id: 1 }, { form_id: 5 }, { form_id: 6 }, { form_id: 7 }])
+    sqlite.exec('DELETE FROM form_revisions WHERE form_id IN (5, 6, 7)')
     sqlite.exec(`INSERT INTO form_revisions (form_id, saved_at, answers) VALUES (2, 'x', '{}')`)
     expect(sqlite.prepare('SELECT saved_by, changed_item_ids, initial FROM form_revisions WHERE form_id = 2').get())
       .toEqual({ saved_by: '', changed_item_ids: '[]', initial: 0 })

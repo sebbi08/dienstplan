@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { CompareRow, CompareSection, Trend } from '#shared/domain/formHistory'
-import type { AnswerableItem } from '#shared/domain/forms'
+import { itemLabel, type CompareRow, type CompareSection, type Trend } from '#shared/domain/formHistory'
 import { de } from '~/locales/de'
 
 /**
@@ -11,15 +10,7 @@ import { de } from '~/locales/de'
 const props = defineProps<{ sections: CompareSection[]; olderLabel: string; newerLabel: string }>()
 const h = de.formHistory
 
-function labelOf(item: AnswerableItem): string {
-  switch (item.kind) {
-    case 'text': case 'date': return item.question
-    case 'choices': return item.question
-    case 'rating': return item.criterion
-    case 'milestone': return `${item.text} (${item.ageLabel})`
-  }
-}
-const rowLabel = (row: CompareRow) => labelOf((row.newerItem ?? row.olderItem)!)
+const rowLabel = (row: CompareRow) => itemLabel((row.newerItem ?? row.olderItem)!)
 const arrow: Record<Trend, string> = { up: '↑', down: '↓', same: '=' }
 const arrowClass: Record<Trend, string> = { up: 'text-green-700', down: 'text-red-700', same: 'text-gray-500' }
 const columns = 'sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] print:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]'

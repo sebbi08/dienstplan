@@ -120,7 +120,7 @@ describe('history of child forms („Verlauf“)', () => {
       },
       changedSinceSeen: [],
     })
-    markChildFormOpened(db, leitung, formId, at(10))
+    markChildFormOpened(db, leitung, formId, at(10).toISOString(), at(10))
     save(annaTablet, formId, {
       [text.id]: 'Baut gern', [rating.id]: { value: '+', remark: '' }, [milestone.id]: { reached: true, remark: '' },
     }, at(11))
@@ -132,11 +132,31 @@ describe('history of child forms („Verlauf“)', () => {
     expect(getChildForm(db, annaTablet, formId, at(11)).changedSinceSeen).toEqual([])
     expect(db.select({ userId: formReads.userId, employeeId: formReads.employeeId }).from(formReads).all())
       .toEqual(expect.arrayContaining([{ userId: leitung.id, employeeId: null }, { userId: null, employeeId: anna }]))
-    markChildFormOpened(db, leitung, formId, at(12))
+    markChildFormOpened(db, leitung, formId, at(12).toISOString(), at(12))
     expect(getChildForm(db, leitung, formId, at(12)).changedSinceSeen).toEqual([])
     // An earlier opening never moves the time back.
-    markChildFormOpened(db, leitung, formId, at(8))
+    markChildFormOpened(db, leitung, formId, at(8).toISOString(), at(8))
     expect(getChildForm(db, leitung, formId, at(12)).changedSinceSeen).toEqual([])
+  })
+
+  it('records the opening up to the state the viewer loaded, not the time the opening arrived', () => {
+    const formId = createChildForm(db, leitung, kid, { templateId: template, ...header }, NOW)
+    const text = itemOf(formId, 'text')
+    const rating = itemOf(formId, 'rating')
+    save(annaTablet, formId, { [text.id]: 'a' }, at(9))
+    markChildFormOpened(db, leitung, formId, at(9).toISOString(), at(9))
+    // Leitung loads the form (state of 10:00) …
+    save(annaTablet, formId, { [text.id]: 'b' }, at(10))
+    const loaded = getChildForm(db, leitung, formId, at(10))
+    expect(loaded.changedSinceSeen).toEqual([text.id])
+    // … Anna saves again before the opening arrives at 12:00: that change was never seen and stays marked.
+    save(annaTablet, formId, { [text.id]: 'b', [rating.id]: { value: '+', remark: '' } }, at(11))
+    markChildFormOpened(db, leitung, formId, loaded.updatedAt, at(12))
+    expect(getChildForm(db, leitung, formId, at(12)).changedSinceSeen).toEqual([rating.id])
+    // A state from the future counts as now.
+    markChildFormOpened(db, leitung, formId, '2099-01-01T00:00:00.000Z', at(13))
+    expect(db.select({ openedAt: formReads.openedAt }).from(formReads).where(eq(formReads.userId, leitung.id!)).get())
+      .toEqual({ openedAt: at(13).toISOString() })
   })
 
   it('lists the revisions newest first, paged, and opens one; the diff against today shows what changed', () => {
@@ -175,14 +195,14 @@ describe('history of child forms („Verlauf“)', () => {
     const [revision] = listChildFormRevisions(db, bertaTablet, formId, 0, NOW).revisions
     expect(getChildForm(db, bertaTablet, formId, NOW).right).toBe('read')
     expect(getChildFormRevision(db, bertaTablet, formId, revision!.id, NOW).answers).toEqual({ [text.id]: 'Baut gern' })
-    markChildFormOpened(db, bertaTablet, formId, at(10))
+    markChildFormOpened(db, bertaTablet, formId, at(10).toISOString(), at(10))
 
     const hiddenForm = createChildForm(db, leitung, hiddenKid, { templateId: template, ...header }, NOW)
     save(leitung, hiddenForm, { [text.id]: 'geheim' }, at(9))
     const hiddenRevision = listChildFormRevisions(db, leitung, hiddenForm, 0, NOW).revisions[0]!.id
     expect(failure(() => listChildFormRevisions(db, annaTablet, hiddenForm, 0, NOW))).toBe('404 child_not_found')
     expect(failure(() => getChildFormRevision(db, annaTablet, hiddenForm, hiddenRevision, NOW))).toBe('404 child_not_found')
-    expect(failure(() => markChildFormOpened(db, annaTablet, hiddenForm, NOW))).toBe('404 child_not_found')
+    expect(failure(() => markChildFormOpened(db, annaTablet, hiddenForm, NOW.toISOString(), NOW))).toBe('404 child_not_found')
     // Another facility's Leitung does not find the form at all.
     const other = asChildViewer(addUser(db, 'leitung2', 'admin', null, addFacility(db, 'Krippe')))
     expect(failure(() => listChildFormRevisions(db, other, formId, 0, NOW))).toBe('404 form_not_found')
@@ -205,14 +225,14 @@ describe('history of child forms („Verlauf“)', () => {
     const formId = createChildForm(db, leitung, kid, { templateId: template, ...header }, NOW)
     const text = itemOf(formId, 'text')
     save(leitung, formId, { [text.id]: 'a' }, at(9))
-    markChildFormOpened(db, annaTablet, formId, at(10))
+    markChildFormOpened(db, annaTablet, formId, at(10).toISOString(), at(10))
     deleteChildForm(db, leitung, formId, NOW)
     expect(db.select().from(formRevisions).all()).toEqual([])
     expect(db.select().from(formReads).all()).toEqual([])
 
     const second = createChildForm(db, leitung, kid, { templateId: template, ...header }, NOW)
     save(leitung, second, { [text.id]: 'b' }, at(9))
-    markChildFormOpened(db, annaTablet, second, at(10))
+    markChildFormOpened(db, annaTablet, second, at(10).toISOString(), at(10))
     moveChildToFacility(db, kid, addFacility(db, 'Krippe'), NOW)
     expect(db.select().from(formReads).all()).toEqual([])
     expect(revisionRows(second)).toHaveLength(1)

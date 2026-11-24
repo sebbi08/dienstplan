@@ -2773,12 +2773,17 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   neueste zuerst, 20 pro Seite („Ältere laden“). Ein Eintrag öffnet den **Stand vom …** zum Lesen; **Änderungen zeigen**
   markiert, was heute anders ist: „neu“, „geändert“ oder „entfernt“, bei Freitexten Wort für Wort (als reiner Text,
   ohne Formatierung), bei Auswahlfeldern hinzugekommene und weggefallene Punkte, bei Bewertungen, Meilensteinen und
-  Daten „damals → heute“. Für Bögen, die vor dem Update schon Antworten hatten, steht als ältester Eintrag „Stand vor
+  Daten „damals → heute“. Für Bögen, in denen vor dem Update schon etwas eingetragen war, steht als ältester Eintrag „Stand vor
   Beginn des Verlaufs“ (wer diese Antworten geschrieben hat, ist nicht bekannt; sie bekommen kein „geändert am“).
-  Es werden alle Stände aufbewahrt, gespeichert werden nur die Antworten.
+  Es werden alle Stände aufbewahrt, gespeichert werden nur die Antworten – jeder Stand mit allen Antworten des Bogens.
+  Das braucht Platz: ein langer Bogen mit viel Freitext (bis etwa 200 KB) wächst mit jedem Speichern, das etwas ändert,
+  um diese Größe; nach einigen hundert Speicherungen sind das für diesen einen Bogen einige zehn MB in der Datenbank und
+  in der Datensicherung. Bei üblicher Nutzung (wenige Speicherungen je Bogen) fällt das nicht ins Gewicht. Leerzeichen
+  allein gelten nicht als Änderung.
 - **Vergleichen:** Gibt es von einer Vorlage mindestens zwei Bögen des Kindes, steht oben im Bereich **Vergleichen**:
   Vorlage und zwei Bögen wählen (vorgewählt die beiden neuesten), dann stehen beide nebeneinander – links der ältere,
-  rechts der neuere, gegliedert nach dem neueren Bogen. Was ein Bogen nicht enthält, steht als „nicht im Bogen“.
+  rechts der neuere (bei zwei Bögen vom selben Tag mit Uhrzeit), gegliedert nach dem neueren Bogen. Was ein Bogen nicht
+  enthält, steht als „nicht im Bogen“.
   Bewertungen und Meilensteine haben einen Pfeil: ↑ besser (bei Bewertungen + vor ~ vor −, bei Meilensteinen
   „erreicht“), ↓ schwächer, = gleich. Auf dem Handy stehen beide Antworten untereinander. Im Büro gibt es **Vergleich
   drucken** (A4 hoch, mit PDF), am Tablet nicht. Bögen ohne Vorlage (Vorlage gelöscht, Kind in andere Einrichtung

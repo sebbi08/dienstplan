@@ -325,6 +325,21 @@ export function comparableGroups<T extends { templateId: number | null; title: s
   return [...groups.values()].filter(group => group.forms.length >= 2)
 }
 
+/**
+ * The column labels of a comparison, „Bogen vom ‹Datum›“; when both forms are of the same day, with their time („um …
+ * Uhr“) where they have one, so the two can be told apart.
+ */
+export function compareLabels(
+  older: { date: string; start: number | null }, newer: { date: string; start: number | null },
+): { older: string; newer: string } {
+  const sameDay = older.date === newer.date
+  const label = (form: { date: string; start: number | null }) => {
+    const day = form.date ? formatDate(form.date) : ''
+    return de.formHistory.formLabel(sameDay && form.start !== null ? `${day} ${de.childForms.atTime(formatTime(form.start))}` : day)
+  }
+  return { older: label(older), newer: label(newer) }
+}
+
 /** Two picked forms as older and newer, by their place in the list (newest first); null unless two different ones. */
 export function olderAndNewer<T extends { id: number }>(forms: readonly T[], a: number, b: number): { older: T; newer: T } | null {
   const first = forms.findIndex(form => form.id === a)

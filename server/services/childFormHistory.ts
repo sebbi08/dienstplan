@@ -43,9 +43,11 @@ export function getChildFormRevision(
 
 /**
  * Records that the viewer opened the form (after it showed the markers of `changedSinceSeen`): the account in the
- * office, the unlocking employee at the tablet.
+ * office, the unlocking employee at the tablet. `seenUntil` is the `updatedAt` of the state the viewer loaded: a save
+ * between loading and this call stays unseen (and marked next time). A time after now counts as now.
  */
-export function markChildFormOpened(db: Db, viewer: ChildViewer, formId: number, now: Date = new Date()): void {
+export function markChildFormOpened(db: Db, viewer: ChildViewer, formId: number, seenUntil: string, now: Date = new Date()): void {
   const { form } = readableChildForm(db, viewer, formId, now)
-  markOpened(db, viewer, form.id, now.toISOString())
+  const at = now.toISOString()
+  markOpened(db, viewer, form.id, seenUntil < at ? seenUntil : at)
 }

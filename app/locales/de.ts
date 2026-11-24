@@ -2930,6 +2930,7 @@ export const de = {
     compareNewer: 'Neuerer Bogen',
     compareTemplate: 'Vorlage',
     compareSame: 'Bitte zwei verschiedene Bögen wählen.',
+    compareOtherChild: 'Diese beiden Bögen gehören zu verschiedenen Kindern und werden nicht verglichen.',
     compareShow: 'Vergleichen',
     notInForm: 'nicht im Bogen',
     trend: { up: 'besser als im älteren Bogen', down: 'schwächer als im älteren Bogen', same: 'gleich geblieben' },

@@ -5,7 +5,7 @@ import type { ChildFormDto, ChildFormListItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
-import { comparableGroups, olderAndNewer } from '~/utils/forms'
+import { compareLabels, comparableGroups, olderAndNewer } from '~/utils/forms'
 
 /**
  * „Vergleichen“: two forms of the same template side by side (by default the two newest), laid out by the newer form,
@@ -69,7 +69,7 @@ async function show() {
     loading.value = false
   }
 }
-const dayLabel = (form: ChildFormDto) => h.formLabel(form.date ? formatDate(form.date) : '')
+const labels = computed(() => (result.value ? compareLabels(result.value.older, result.value.newer) : { older: '', newer: '' }))
 </script>
 
 <template>
@@ -97,7 +97,7 @@ const dayLabel = (form: ChildFormDto) => h.formLabel(form.date ? formatDate(form
               :to="`/print/children/forms/compare/${result.older.id}/${result.newer.id}`"
             />
           </div>
-          <FormsFormCompare :sections="result.sections" :older-label="dayLabel(result.older)" :newer-label="dayLabel(result.newer)" />
+          <FormsFormCompare :sections="result.sections" :older-label="labels.older" :newer-label="labels.newer" />
         </template>
       </div>
     </template>

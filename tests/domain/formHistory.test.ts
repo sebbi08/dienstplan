@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  answerDiff, changedItemIds, changedSince, compareForms, formDiff, isEmptyAnswer, itemChanges, ratingRank, textDiff, trendOf,
+  answerDiff, changedItemIds, changedSince, compareForms, formDiff, isEmptyAnswer, itemChanges, itemLabel, ratingRank, textDiff, trendOf,
 } from '../../shared/domain/formHistory'
 import type { AnswerableItem, FormContent } from '../../shared/domain/forms'
 
@@ -29,6 +29,23 @@ describe('changedItemIds', () => {
     expect(changedItemIds(content, {}, { ...filled, d: '2026-10-01', t: '<p>neu</p>', r: { value: '+', remark: '' } }))
       .toEqual(['t', 'r', 'd'])
     expect(changedItemIds(content, { m: { reached: true, remark: '' } }, { m: { reached: true, remark: 'sicher' } })).toEqual(['m'])
+  })
+
+  it('a change of white space only is no change; a change of formatting is one', () => {
+    expect(changedItemIds(content, { t: 'Baut gern' }, { t: 'Baut gern ' })).toEqual([])
+    expect(changedItemIds(content, { t: '<p>Baut gern</p>' }, { t: '<p>Baut  gern&nbsp;</p>' })).toEqual([])
+    expect(changedItemIds(content, { t: '<p>Baut gern</p>' }, { t: '<p> Baut&nbsp;gern</p>' })).toEqual([])
+    expect(changedItemIds(content, { t: '<p>Baut gern</p>' }, { t: '<p>Baut <strong>gern</strong></p>' })).toEqual(['t'])
+    expect(changedItemIds(content, { t: '<p>Baut gern</p>' }, { t: '<p>Baut</p><p>gern</p>' })).toEqual(['t'])
+  })
+})
+
+describe('itemLabel', () => {
+  it('names an item by its question, criterion or sentence; choices without a question by their options', () => {
+    expect(itemLabel(text)).toBe('Wie spielt das Kind?')
+    expect(itemLabel(rating)).toBe('Teilt mit anderen')
+    expect(itemLabel(milestone)).toBe('Hüpft auf einem Bein (4;0 Jahre)')
+    expect(itemLabel({ ...choices, question: '' } as AnswerableItem)).toBe('Bauecke / Malen / Draußen')
   })
 })
 
@@ -128,6 +145,8 @@ describe('comparing two forms', () => {
   it('orders the ratings by their scale and milestones reached above not reached', () => {
     expect(ratingRank('+')).toBeGreaterThan(ratingRank('~'))
     expect(ratingRank('~')).toBeGreaterThan(ratingRank('-'))
+    // An unknown value (never stored: the answers are checked) ranks below every known one.
+    expect(ratingRank('?' as never)).toBeLessThan(ratingRank('-'))
     expect(trendOf(rating, { value: '-', remark: '' }, { value: '~', remark: '' })).toBe('up')
     expect(trendOf(rating, { value: '+', remark: '' }, { value: '-', remark: '' })).toBe('down')
     expect(trendOf(rating, { value: '~', remark: 'a' }, { value: '~', remark: 'b' })).toBe('same')

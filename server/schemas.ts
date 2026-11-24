@@ -852,6 +852,8 @@ export const formIdParams = z.object({ formId: z.coerce.number().int().positive(
 export const formRevisionParams = formIdParams.extend({ revisionId: z.coerce.number().int().positive() })
 /** A page of „Verlauf“: the revisions from `offset` on (newest first). */
 export const formRevisionsQuery = z.object({ offset: z.coerce.number().int().min(0).max(1_000_000).default(0) })
+/** The opening of a child form: the `updatedAt` of the state the viewer loaded (an ISO time as the server stores it). */
+export const formOpenedSchema = z.object({ seenUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/) })
 /** The answers are checked against the form's own content; `expectedUpdatedAt` is the form's updatedAt the client loaded. */
 export const formAnswersSchema = z.object({ answers: z.unknown(), expectedUpdatedAt: z.string().max(40) })
 export const readReleaseSchema = z.object({ released: z.boolean() })

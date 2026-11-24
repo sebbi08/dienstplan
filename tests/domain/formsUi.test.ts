@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { FormContent, FormSection } from '../../shared/domain/forms'
 import type { ChildFormDto, TeamMeetingDto } from '../../shared/types/api'
 import {
-  blankSheet, childSheet, comparableGroups, teamSheet, filledAnswers, isBlank, milestoneColumns, olderAndNewer, panelDirty, putAnswersTo,
+  blankSheet, childSheet, compareLabels, comparableGroups, teamSheet, filledAnswers, isBlank, milestoneColumns, olderAndNewer, panelDirty, putAnswersTo,
   saveAnswers, sectionBlocks, sectionHasRating,
 } from '../../app/utils/forms'
 
@@ -257,6 +257,13 @@ describe('comparing two child forms', () => {
   it('offers the templates with two forms or more, newest first; forms without template are left out', () => {
     expect(comparableGroups(forms)).toEqual([{ templateId: 1, title: 'Entwicklungsgespräch', forms: [forms[0], forms[2], forms[4]] }])
     expect(comparableGroups(forms.slice(0, 2))).toEqual([])
+  })
+
+  it('labels the columns by date, with the time when both forms are of the same day', () => {
+    expect(compareLabels({ date: '2026-03-01', start: 600 }, { date: '2026-10-15', start: 600 }))
+      .toEqual({ older: 'Bogen vom 01.03.2026', newer: 'Bogen vom 15.10.2026' })
+    expect(compareLabels({ date: '2026-10-15', start: 540 }, { date: '2026-10-15', start: null }))
+      .toEqual({ older: 'Bogen vom 15.10.2026 um 9:00 Uhr', newer: 'Bogen vom 15.10.2026' })
   })
 
   it('orders two picked forms by their place in the list', () => {

@@ -43,10 +43,12 @@ function resetHeader() {
   })
   savedHeader.value = JSON.stringify(header)
 }
-const stopFirst = watch(form, (value) => {
-  if (!value) return
+// A flag, not the stop handle: the immediate first run happens inside watch(), before the handle exists.
+let headerTaken = false
+watch(form, (value) => {
+  if (!value || headerTaken) return
+  headerTaken = true
   resetHeader()
-  stopFirst()
 }, { immediate: true })
 const headerDirty = computed(() => JSON.stringify(header) !== savedHeader.value)
 

@@ -33,22 +33,24 @@ function resetHeader() {
   savedHeader.value = JSON.stringify(header)
 }
 // The header fields follow the first load (later loads reach them through the panel's `reset`).
-const stopFirst = watch(form, (value) => {
-  if (!value) return
+// A flag, not the stop handle: the immediate first run happens inside watch(), before the handle exists.
+let headerTaken = false
+watch(form, (value) => {
+  if (!value || headerTaken) return
+  headerTaken = true
   resetHeader()
-  stopFirst()
 }, { immediate: true })
 const headerDirty = computed(() => JSON.stringify(header) !== savedHeader.value)
 
 // The items changed since the last opening, as the first load found them (a reload after saving keeps the markers);
-// then this opening is recorded.
+// then this opening is recorded, up to the state loaded (a save in between stays marked next time).
 const marked = ref<string[]>([])
 let markedTaken = false
 watch(form, (value) => {
   if (!value || markedTaken || import.meta.server) return
   markedTaken = true
   marked.value = value.changedSinceSeen
-  $fetch<{ ok: true }>(`/api/child-forms/${props.formId}/opened`, { method: 'POST' }).catch(() => {})
+  $fetch<{ ok: true }>(`/api/child-forms/${props.formId}/opened`, { method: 'POST', body: { seenUntil: value.updatedAt } }).catch(() => {})
 }, { immediate: true })
 const historyOpen = ref(false)
 

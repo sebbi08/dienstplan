@@ -2,7 +2,7 @@ import {
   emptyAnswer, RATING_LEGEND, type AnswerableItem, type FormAnswer, type FormAnswers, type FormContent, type FormItem,
   type MilestoneAnswer, type RatingAnswer, type RatingValue,
 } from './forms'
-import { richTextToPlain, sameTextAnswer } from './richText'
+import { richTextFromAnswer, richTextToPlain, sameTextAnswer } from './richText'
 
 /**
  * The history of a child form's answers (Beobachtungs- und Entwicklungsbögen): which items a save changed, who changed
@@ -18,6 +18,19 @@ const answerable = (item: FormItem): item is AnswerableItem => item.kind !== 'no
 /** The answerable items of a content, in their order. */
 export function answerableItems(content: FormContent): AnswerableItem[] {
   return content.sections.flatMap(section => section.items.filter(answerable))
+}
+
+/**
+ * What an item is called in a list of items (the comparison): its question, criterion or sentence (a milestone with its
+ * age); a choices item without a question by its options.
+ */
+export function itemLabel(item: AnswerableItem): string {
+  switch (item.kind) {
+    case 'text': case 'date': return item.question
+    case 'choices': return item.question || item.options.map(option => option.label).join(' / ')
+    case 'rating': return item.criterion
+    case 'milestone': return `${item.text} (${item.ageLabel})`
+  }
 }
 
 /** The stored answer of the item, or its empty answer. */
@@ -38,10 +51,22 @@ const milestoneOf = (value: FormAnswer): MilestoneAnswer => {
 }
 const dateOf = (value: FormAnswer): string | null => (typeof value === 'string' && value !== '' ? value : null)
 
-/** Whether two answers of the item hold the same (choices in any order). */
+/**
+ * A text answer's canonical HTML with its white space evened out: non-breaking spaces as spaces, runs of spaces as one,
+ * none at the start or end of a paragraph or line. Formatting, paragraphs and line breaks stay.
+ */
+function evenedText(value: string): string {
+  return richTextFromAnswer(value).replace(/ /g, ' ').replace(/ {2,}/g, ' ')
+    .replace(/(<(?:p|li)>|<br>) /g, '$1').replace(/ (<\/p>|<br>)/g, '$1')
+}
+
+/** Whether two text answers say the same: equal content, or differing only in white space. */
+const sameText = (a: string, b: string): boolean => sameTextAnswer(a, b) || evenedText(a) === evenedText(b)
+
+/** Whether two answers of the item hold the same (choices in any order, texts regardless of white space). */
 export function sameAnswer(item: AnswerableItem, a: FormAnswer, b: FormAnswer): boolean {
   switch (item.kind) {
-    case 'text': return sameTextAnswer(textOf(a), textOf(b))
+    case 'text': return sameText(textOf(a), textOf(b))
     case 'choices': {
       const left = new Set(choicesOf(a))
       const right = choicesOf(b)
@@ -272,7 +297,9 @@ export type Trend = 'up' | 'down' | 'same'
  * (+ Stärke, ~ teilweise, − Entwicklungsbedarf).
  */
 export function ratingRank(value: RatingValue): number {
-  return RATING_LEGEND.entries.length - 1 - RATING_LEGEND.entries.findIndex(entry => entry.value === value)
+  const index = RATING_LEGEND.entries.findIndex(entry => entry.value === value)
+  // An unknown value (the answers are checked, so never stored) ranks below every known one.
+  return index < 0 ? -1 : RATING_LEGEND.entries.length - 1 - index
 }
 
 /**
