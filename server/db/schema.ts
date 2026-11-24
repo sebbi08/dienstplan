@@ -1666,8 +1666,15 @@ export const forms = sqliteTable('forms', {
   createdByEmployeeId: integer('created_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
   /** 'u1000': made from the official Unfallanzeige starter and printed in its layout; null: printed like every Bogen. */
   printLayout: text('print_layout', { enum: ['u1000'] }),
+  /**
+   * Staff talk forms made by „Für ein weiteres Gespräch verwenden“: the form they were copied from (null once it is
+   * deleted) and that talk's date (kept, for „übernommen aus dem Gespräch vom …“); both null for every other form.
+   */
+  sourceFormId: integer('source_form_id').references((): AnySQLiteColumn => forms.id, { onDelete: 'set null' }),
+  sourceTalkDate: text('source_talk_date'),
 }, table => [
   index('forms_facility').on(table.facilityId),
+  index('forms_source').on(table.sourceFormId),
   index('forms_template').on(table.templateId),
   index('forms_child').on(table.childId),
   index('forms_employee').on(table.employeeId),

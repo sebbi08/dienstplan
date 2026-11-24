@@ -507,7 +507,7 @@ describe('API route permissions', () => {
 
   it('opens the staff talks to managers of the active facility, and only the own released forms to the employee', () => {
     const touching = routes.filter(route => /^(staff-talks|my\/talks)\//.test(route) || source(route).includes('services/staffTalks\''))
-    expect(touching).toHaveLength(16)
+    expect(touching).toHaveLength(19)
     for (const route of touching) {
       const code = source(route)
       if (route.startsWith('my/talks/')) {

@@ -2774,6 +2774,12 @@ export const de = {
   talks: {
     none: 'Noch keine Gespräche.',
     create: 'Gespräch anlegen', created: 'Gespräch angelegt',
+    // „Für ein weiteres Gespräch verwenden“.
+    reuse: 'Für ein weiteres Gespräch verwenden',
+    reuseHint: (date: string) => `Ein neues Gespräch mit denselben Bögen und den Antworten aus dem Gespräch am ${date}. Das alte Gespräch bleibt, wie es ist. Bei jeder Antwort steht, ob sie übernommen oder im neuen Gespräch geändert wurde. Die Selbstbeurteilung bekommt der Mitarbeiter erst, wenn du sie wieder zum Ausfüllen freigibst.`,
+    reuseForms: (titles: string) => `Übernommene Bögen: ${titles}`,
+    reuseCreate: 'Neues Gespräch anlegen',
+    reused: 'Neues Gespräch angelegt',
     date: 'Datum', start: 'Uhrzeit', participants: 'Teilnehmer', period: 'Zeitraum', periodPlaceholder: 'z. B. 2025/26',
     forms: 'Bögen', noTemplates: 'Es gibt keine aktiven Vorlagen für Mitarbeitergespräche (Mehr → Dokumente → Bögen).',
     talkOn: (date: string) => `Gespräch am ${date}`,
@@ -2925,7 +2931,7 @@ export const de = {
     empty: '(leer)',
     compare: 'Vergleichen',
     compareTitle: 'Bögen vergleichen',
-    compareHint: 'Wähle zwei Bögen derselben Vorlage. Links steht der ältere, rechts der neuere.',
+    compareHint: 'Wähle zwei Bögen derselben Vorlage. Der ältere steht links (auf dem Handy oben), der neuere rechts.',
     compareOlder: 'Älterer Bogen',
     compareNewer: 'Neuerer Bogen',
     compareTemplate: 'Vorlage',
@@ -2937,6 +2943,13 @@ export const de = {
     print: 'Vergleich drucken',
     printTitle: (title: string) => `Vergleich: ${title}`,
     formLabel: (date: string) => `Bogen vom ${date}`,
+    talkLabel: (date: string) => `Gespräch am ${date}`,
+    carriedOver: (date: string) => `übernommen aus dem Gespräch vom ${date}`,
+    comparePrevious: 'Mit dem vorigen Gespräch vergleichen',
+    comparePreviousTitle: (title: string) => `Vergleich mit dem vorigen Gespräch: ${title}`,
+    comparePreviousHint: 'Links der Bogen aus dem vorigen Gespräch, rechts der aus diesem.',
+    comparePreviousOlder: 'Voriges Gespräch', comparePreviousNewer: 'Dieses Gespräch',
+    compareNotPrevious: 'Der zweite Bogen ist nicht aus dem ersten übernommen – verglichen wird nur mit dem vorigen Gespräch.',
   },
   /** Teamsitzungen (list, protocol, print). */
   teamMeetings: {

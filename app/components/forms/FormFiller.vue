@@ -11,7 +11,8 @@ import { isBlank, sectionBlocks, sectionHasRating } from '~/utils/forms'
  * everything stacks, nothing is wider than the screen.
  *
  * Child forms also show per item its last change (`changes`), mark the items changed since the viewer last opened the
- * form (`marked`), and in a stored state how each item differs from today (`diff`), see FormsItemHistory.
+ * form (`marked`), and in a stored state how each item differs from today (`diff`), see FormsItemHistory. A copied staff
+ * talk form names the answers still as copied (`carriedOver`) with `originLabel` („übernommen aus dem Gespräch vom …“).
  */
 const props = defineProps<{
   content: FormContent
@@ -19,11 +20,14 @@ const props = defineProps<{
   changes?: Record<string, ItemChange>
   marked?: readonly string[]
   diff?: Record<string, AnswerDiff>
+  carriedOver?: readonly string[]
+  originLabel?: string
 }>()
 const answers = defineModel<Record<string, FormAnswer>>('answers', { required: true })
 const uid = useId()
 const fieldId = (itemId: string) => `${uid}-${itemId}`
 const isMarked = (id: string) => props.marked?.includes(id) ?? false
+const originOf = (id: string) => (props.carriedOver?.includes(id) ? props.originLabel : undefined)
 /** A bar at the left of items that are marked or differ from today. */
 const historyClass = (id: string) => (isMarked(id) || props.diff?.[id] ? 'border-l-4 border-amber-400 pl-2' : '')
 
@@ -94,7 +98,10 @@ const chip = (selected: boolean) => selected
               v-else :model-value="textOf(block.item.id)" :labelledby="`${fieldId(block.item.id)}-q`"
               @update:model-value="setAnswer(block.item.id, $event)"
             />
-            <FormsItemHistory :item="block.item" :change="props.changes?.[block.item.id]" :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]" />
+            <FormsItemHistory
+              :item="block.item" :change="props.changes?.[block.item.id]" :origin="originOf(block.item.id)"
+              :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]"
+            />
           </div>
 
           <fieldset v-else-if="block.item.kind === 'choices'" class="space-y-1.5" :class="historyClass(block.item.id)">
@@ -111,7 +118,10 @@ const chip = (selected: boolean) => selected
                 <span class="min-w-0">{{ option.label }}</span>
               </button>
             </div>
-            <FormsItemHistory :item="block.item" :change="props.changes?.[block.item.id]" :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]" />
+            <FormsItemHistory
+              :item="block.item" :change="props.changes?.[block.item.id]" :origin="originOf(block.item.id)"
+              :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]"
+            />
           </fieldset>
 
           <div v-else-if="block.item.kind === 'date'" class="space-y-1" :class="historyClass(block.item.id)">
@@ -126,7 +136,10 @@ const chip = (selected: boolean) => selected
               v-else :id="fieldId(block.item.id)" :model-value="dateOf(block.item.id)" :label="block.item.question" class="w-48"
               @update:model-value="setAnswer(block.item.id, $event || null)"
             />
-            <FormsItemHistory :item="block.item" :change="props.changes?.[block.item.id]" :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]" />
+            <FormsItemHistory
+              :item="block.item" :change="props.changes?.[block.item.id]" :origin="originOf(block.item.id)"
+              :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]"
+            />
           </div>
         </template>
 
@@ -153,7 +166,10 @@ const chip = (selected: boolean) => selected
                 @update:model-value="setRemark(item.id, String($event ?? ''))"
               />
             </div>
-            <FormsItemHistory :item="item" :change="props.changes?.[item.id]" :marked="isMarked(item.id)" :diff="props.diff?.[item.id]" />
+            <FormsItemHistory
+              :item="item" :change="props.changes?.[item.id]" :origin="originOf(item.id)"
+              :marked="isMarked(item.id)" :diff="props.diff?.[item.id]"
+            />
           </li>
         </ul>
 
@@ -172,7 +188,10 @@ const chip = (selected: boolean) => selected
                   size="xs" :placeholder="de.forms.remark" :aria-label="`${de.forms.remark}: ${item.text}`" class="w-full"
                   @update:model-value="setRemark(item.id, String($event ?? ''))"
                 />
-                <FormsItemHistory :item="item" :change="props.changes?.[item.id]" :marked="isMarked(item.id)" :diff="props.diff?.[item.id]" />
+                <FormsItemHistory
+                  :item="item" :change="props.changes?.[item.id]" :origin="originOf(item.id)"
+                  :marked="isMarked(item.id)" :diff="props.diff?.[item.id]"
+                />
               </li>
             </ul>
           </div>

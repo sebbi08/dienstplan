@@ -20,7 +20,8 @@ import {
  * the parent can reset its fields too. The slot `actions` gets `dirty`, `save` and `base` (the updatedAt the answers on
  * screen are based on, read after a save) (e.g. for „Abgeben“, which saves first). `dirty` is also emitted, so a
  * parent can ask before it closes the panel. `changes` and `marked` go to the filler (child forms: the last change per
- * item and the items changed since the viewer last opened the form).
+ * item and the items changed since the viewer last opened the form), as do `carriedOver` and `originLabel` (a copied
+ * staff talk form: the answers still as copied, „übernommen aus dem Gespräch vom …“).
  */
 const props = defineProps<{
   form: FormPanelForm
@@ -33,6 +34,8 @@ const props = defineProps<{
   handlesError?: (error: unknown) => boolean
   changes?: Record<string, ItemChange>
   marked?: readonly string[]
+  carriedOver?: readonly string[]
+  originLabel?: string
 }>()
 const emit = defineEmits<{ dirty: [value: boolean]; reset: [] }>()
 const toast = useToast()
@@ -106,7 +109,7 @@ async function reload() {
     <slot name="before" />
     <FormsFormFiller
       v-model:answers="answers" :content="props.form.content" :readonly="!props.editable" :changes="props.changes"
-      :marked="props.marked"
+      :marked="props.marked" :carried-over="props.carriedOver" :origin-label="props.originLabel"
     />
     <p class="text-xs text-gray-500">{{ de.forms.lastChanged(props.form.updatedBy, formatDateTime(props.form.updatedAt)) }}</p>
     <div

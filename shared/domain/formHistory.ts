@@ -22,12 +22,12 @@ export function answerableItems(content: FormContent): AnswerableItem[] {
 
 /**
  * What an item is called in a list of items (the comparison): its question, criterion or sentence (a milestone with its
- * age); a choices item without a question by its options.
+ * age); a choices item without a question by `fallback` (e.g. its section's title), else by its options.
  */
-export function itemLabel(item: AnswerableItem): string {
+export function itemLabel(item: AnswerableItem, fallback = ''): string {
   switch (item.kind) {
     case 'text': case 'date': return item.question
-    case 'choices': return item.question || item.options.map(option => option.label).join(' / ')
+    case 'choices': return item.question || fallback || item.options.map(option => option.label).join(' / ')
     case 'rating': return item.criterion
     case 'milestone': return `${item.text} (${item.ageLabel})`
   }

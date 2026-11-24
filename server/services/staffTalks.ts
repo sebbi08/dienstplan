@@ -1,13 +1,16 @@
 import { and, asc, desc, eq, inArray, max } from 'drizzle-orm'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
+import { answerableItems, answerOf, isEmptyAnswer, type ItemChange } from '../../shared/domain/formHistory'
 import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/domain/forms'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  FormSavedDto, MyTalkDto, MyTalkFormDto, MyTalkHeaderDto, SessionUser, StaffTalkDto, TalkFormDto, TalkFormRole,
+  FormRevisionDto, FormRevisionsDto, FormSavedDto, MyTalkDto, MyTalkFormDto, MyTalkHeaderDto, SessionUser, StaffTalkDto, TalkFormDto,
+  TalkFormRole,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, facilities, forms, staffTalkForms, staffTalks, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { itemChangesByForm, recordInitialRevision, recordRevision, revisionOf, revisionPage } from './formRevisions'
 import { actorName, loadTemplate, withFormErrors } from './formTemplates'
 
 export const TALK_LIMITS = { participants: 300, period: 60 } as const
@@ -75,13 +78,38 @@ function loadTalkForm(db: Db, scope: TalkScope, formId: number): TalkForm {
   return { ...row.form, role: row.role, talkId: row.talkId }
 }
 
-function toFormDto(row: TalkForm): TalkFormDto {
+/**
+ * The answers still as copied from the earlier talk: items never changed since the copy whose answer says something
+ * (an empty one is not worth a word). Forms that are no copy have none.
+ */
+function carriedOverOf(row: FormRow, changes: Record<string, ItemChange>): string[] {
+  if (row.sourceTalkDate === null) return []
+  const answers = JSON.parse(row.answers) as FormAnswers
+  return answerableItems(JSON.parse(row.content) as FormContent)
+    .filter(item => !Object.hasOwn(changes, item.id) && !isEmptyAnswer(item, answerOf(item, answers)))
+    .map(item => item.id)
+}
+
+/**
+ * A form as the client gets it; `changes` its items' last changes (`itemChangesByForm`), left out (undefined) where the
+ * viewer gets no history (the employee on an assessment): then no changes, nothing carried over and no origin.
+ */
+function toFormDto(row: TalkForm, changes: Record<string, ItemChange> | undefined): TalkFormDto {
   return {
     id: row.id, role: row.role, title: row.title, content: JSON.parse(row.content) as FormContent,
     answers: JSON.parse(row.answers) as FormAnswers, state: row.state, readReleased: row.readReleased,
     updatedAt: row.updatedAt, updatedBy: row.updatedBy, releasedAt: row.releasedAt, submittedAt: row.submittedAt,
     readReleasedAt: row.readReleasedAt,
+    itemChanges: changes ?? {},
+    carriedOver: changes ? carriedOverOf(row, changes) : [],
+    source: changes && row.sourceTalkDate !== null ? { formId: row.sourceFormId, talkDate: row.sourceTalkDate } : null,
   }
+}
+
+/** The forms as the client gets them, with their history (`withHistory`: which of them get it; all by default). */
+function toFormDtos(db: Db, rows: TalkForm[], withHistory: (row: TalkForm) => boolean = () => true): TalkFormDto[] {
+  const changes = itemChangesByForm(db, rows.filter(withHistory).map(row => row.id))
+  return rows.map(row => toFormDto(row, changes.get(row.id)))
 }
 
 /** The forms of the talks, in their order, by talk id. */
@@ -111,7 +139,7 @@ export function listTalks(db: Db, scope: TalkScope, employeeId: number): StaffTa
   const byTalk = formsByTalk(db, talks.map(talk => talk.id))
   return talks.map(talk => ({
     id: talk.id, employeeId: talk.employeeId, date: talk.date, start: talk.start, participants: talk.participants,
-    period: talk.period, forms: (byTalk.get(talk.id) ?? []).map(toFormDto),
+    period: talk.period, forms: toFormDtos(db, byTalk.get(talk.id) ?? []),
   }))
 }
 
@@ -184,6 +212,51 @@ export function addTalkForm(
   return db.transaction(tx => insertForm(tx, actor, scope.facilityId, talkId, templateId, now.toISOString()))
 }
 
+/**
+ * „Für ein weiteres Gespräch verwenden“: a new talk with the same employee and the given header, with a copy of each of
+ * the old talk's forms in its order and role — the old form's own content and answers, its template link and title.
+ * Each copy remembers its origin (form and talk date) and starts its history with the copied answers, attributed to
+ * the copy (no change). A copied self-assessment starts in draft: the employee sees it once it is released again. The
+ * old talk stays as it is. The manager must be able to manage the old talk (404 staff_talk_not_found otherwise); returns
+ * the new talk's id.
+ */
+export function reuseTalk(
+  db: Db, actor: SessionUser, scope: TalkScope, talkId: number, input: StaffTalkHeader, now: Date = new Date(),
+): number {
+  const old = loadTalk(db, scope, talkId)
+  const header = checkedHeader(input)
+  const employee = db.select({ id: employees.id }).from(employees)
+    .where(and(eq(employees.id, old.employeeId), eq(employees.facilityId, scope.facilityId))).get()
+  if (!employee) throw new ServiceError(404, 'employee_not_found')
+  const at = now.toISOString()
+  const name = actorName(db, actor)
+  return db.transaction((tx) => {
+    const newTalkId = tx.insert(staffTalks).values({
+      facilityId: scope.facilityId, employeeId: employee.id, ...header, createdAt: at, createdBy: actor.id,
+    }).returning({ id: staffTalks.id }).get().id
+    for (const [sort, form] of (formsByTalk(tx, [old.id]).get(old.id) ?? []).entries()) {
+      const formId = tx.insert(forms).values({
+        facilityId: scope.facilityId, templateId: form.templateId, kind: 'staff', title: form.title, content: form.content,
+        answers: form.answers, state: 'draft', readReleased: false, createdAt: at, updatedAt: at, updatedBy: name,
+        sourceFormId: form.id, sourceTalkDate: old.date,
+      }).returning({ id: forms.id }).get().id
+      tx.insert(staffTalkForms).values({ talkId: newTalkId, formId, role: form.role, sort }).run()
+      recordInitialRevision(tx, formId, JSON.parse(form.answers) as FormAnswers, name, at)
+    }
+    return newTalkId
+  })
+}
+
+/** „Verlauf“ of a form of the facility's talks: a page of its revisions, newest first (404 form_not_found otherwise). */
+export function listTalkFormRevisions(db: Db, scope: TalkScope, formId: number, offset: number): FormRevisionsDto {
+  return revisionPage(db, loadTalkForm(db, scope, formId).id, offset)
+}
+
+/** One stored state of a form of the facility's talks (404 form_not_found / form_revision_not_found otherwise). */
+export function getTalkFormRevision(db: Db, scope: TalkScope, formId: number, revisionId: number): FormRevisionDto {
+  return revisionOf(db, loadTalkForm(db, scope, formId).id, revisionId)
+}
+
 /** Removes a form from its talk. */
 export function deleteTalkForm(db: Db, scope: TalkScope, formId: number): void {
   loadTalkForm(db, scope, formId)
@@ -193,7 +266,7 @@ export function deleteTalkForm(db: Db, scope: TalkScope, formId: number): void {
 /**
  * Stores the answers, checked against the form's own copy of the content. `expectedUpdatedAt` is the last change the
  * saver had loaded; when someone saved in between, nothing is written (409 form_changed). `state` additionally
- * requires the form to be in that state at the moment of writing.
+ * requires the form to be in that state at the moment of writing. A save that changed answers is kept as a revision.
  */
 function writeAnswers(
   db: Db, actor: SessionUser, form: TalkForm, answers: unknown, expectedUpdatedAt: string, now: Date,
@@ -204,10 +277,14 @@ function writeAnswers(
   const checked = withFormErrors(() => checkAnswers(content, answers))
   const updatedAt = now.toISOString()
   const updatedBy = actorName(db, actor)
-  const result = db.update(forms)
-    .set({ answers: JSON.stringify(checked), updatedAt, updatedBy })
-    .where(and(eq(forms.id, form.id), eq(forms.updatedAt, expectedUpdatedAt), state && eq(forms.state, state))).run()
-  if (result.changes !== 1) throw new ServiceError(409, 'form_changed')
+  db.transaction((tx) => {
+    const result = tx.update(forms)
+      .set({ answers: JSON.stringify(checked), updatedAt, updatedBy })
+      .where(and(eq(forms.id, form.id), eq(forms.updatedAt, expectedUpdatedAt), state && eq(forms.state, state))).run()
+    if (result.changes !== 1) throw new ServiceError(409, 'form_changed')
+    // „Verlauf“: a save that changed answers is kept (with the answers after it).
+    recordRevision(tx, form.id, content, JSON.parse(form.answers) as FormAnswers, checked, updatedBy, updatedAt)
+  })
   // A save changes no state, so the other timestamps stay as loaded.
   return { updatedAt, updatedBy, releasedAt: form.releasedAt, submittedAt: form.submittedAt, readReleasedAt: form.readReleasedAt }
 }
@@ -285,6 +362,9 @@ export function setTalkFormReadRelease(db: Db, scope: TalkScope, formId: number,
 const visibleToEmployee = (form: TalkForm) =>
   form.role === 'self' ? form.state !== 'draft' : form.readReleased
 
+/** The employee sees where answers came from and who changed them only on their own self-assessment. */
+const ownSelfForm = (form: TalkForm) => form.role === 'self'
+
 const toHeader = (talk: TalkRow): MyTalkHeaderDto =>
   ({ id: talk.id, date: talk.date, start: talk.start, participants: talk.participants, period: talk.period })
 
@@ -294,7 +374,7 @@ export function listMyTalks(db: Db, user: SessionUser): MyTalkDto[] {
   const talks = db.select().from(staffTalks).where(eq(staffTalks.employeeId, user.employeeId)).orderBy(...newestFirst).all()
   const byTalk = formsByTalk(db, talks.map(talk => talk.id))
   return talks
-    .map(talk => ({ ...toHeader(talk), forms: (byTalk.get(talk.id) ?? []).filter(visibleToEmployee).map(toFormDto) }))
+    .map(talk => ({ ...toHeader(talk), forms: toFormDtos(db, (byTalk.get(talk.id) ?? []).filter(visibleToEmployee), ownSelfForm) }))
     .filter(talk => talk.forms.length > 0)
 }
 
@@ -327,14 +407,14 @@ function printNames(db: Db, talk: TalkRow): { employeeName: string; facilityName
 
 export function getMyTalkForm(db: Db, user: SessionUser, formId: number): MyTalkFormDto {
   const { talk, form } = loadMyForm(db, user, formId)
-  return { talk: toHeader(talk), form: toFormDto(form), ...printNames(db, talk) }
+  return { talk: toHeader(talk), form: toFormDtos(db, [form], ownSelfForm)[0]!, ...printNames(db, talk) }
 }
 
 /** Any form of the facility's talks with its talk (Leitung and Träger: the print page); 404 form_not_found otherwise. */
 export function getTalkForm(db: Db, scope: TalkScope, formId: number): MyTalkFormDto {
   const form = loadTalkForm(db, scope, formId)
   const talk = loadTalk(db, scope, form.talkId)
-  return { talk: toHeader(talk), form: toFormDto(form), ...printNames(db, talk) }
+  return { talk: toHeader(talk), form: toFormDtos(db, [form])[0]!, ...printNames(db, talk) }
 }
 
 /**

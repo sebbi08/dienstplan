@@ -8,6 +8,8 @@ import { formatDate, formatDateTime } from '~/utils/format'
 /**
  * One form of the own talk. A released self-assessment is filled in here: „Speichern“ keeps a draft, „Abgeben“ (asks
  * first) hands it in, after which it is read-only. Assessments released to read and submitted forms are only shown.
+ * A self-assessment taken over from an earlier talk names per answer whether it was taken over or changed since (the
+ * server sends that only for the own self-assessment).
  */
 const route = useRoute()
 const formId = Number(route.params.formId)
@@ -16,6 +18,10 @@ const toast = useToast()
 const confirm = useConfirm()
 useUnsavedGuard()
 
+const originLabel = computed(() => {
+  const source = data.value?.form.source
+  return source ? de.formHistory.carriedOver(formatDate(source.talkDate)) : undefined
+})
 const editable = computed(() => data.value?.form.role === 'self' && data.value.form.state === 'released')
 const talkLine = computed(() => {
   const talk = data.value?.talk
@@ -62,7 +68,10 @@ async function submit(dirty: boolean, save: () => Promise<boolean>, base: () => 
         :title="de.talks.mySubmitted" :description="data.form.submittedAt ? de.talks.submittedAt(formatDateTime(data.form.submittedAt)) : undefined"
       />
       <p v-else class="text-sm text-gray-600">{{ de.talks.myReadOnly }}</p>
-      <FormsFormPanel :key="data.form.id" :form="data.form" :save-url="`/api/my/talks/forms/${formId}`" :editable="editable" :refresh="refresh">
+      <FormsFormPanel
+        :key="data.form.id" :form="data.form" :save-url="`/api/my/talks/forms/${formId}`" :editable="editable" :refresh="refresh"
+        :changes="data.form.itemChanges" :carried-over="data.form.carriedOver" :origin-label="originLabel"
+      >
         <template v-if="editable" #actions="{ dirty, save, base }">
           <UButton class="ml-auto" color="success" icon="i-lucide-check" :label="de.talks.submit" @click="submit(dirty, save, base)" />
         </template>

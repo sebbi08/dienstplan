@@ -46,6 +46,8 @@ describe('itemLabel', () => {
     expect(itemLabel(rating)).toBe('Teilt mit anderen')
     expect(itemLabel(milestone)).toBe('Hüpft auf einem Bein (4;0 Jahre)')
     expect(itemLabel({ ...choices, question: '' } as AnswerableItem)).toBe('Bauecke / Malen / Draußen')
+    expect(itemLabel({ ...choices, question: '' } as AnswerableItem, 'Spiel')).toBe('Spiel')
+    expect(itemLabel(choices, 'Spiel')).toBe('Bevorzugt')
   })
 })
 

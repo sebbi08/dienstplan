@@ -3468,6 +3468,15 @@ export interface TalkFormDto {
   submittedAt: string | null
   /** Assessment: when it was released to read („zum Lesen freigegeben am“; null unless released). */
   readReleasedAt: string | null
+  /** Per item ever changed (not by the copy): the last change („geändert am … von …“). */
+  itemChanges: Record<string, ItemChange>
+  /** Items still as copied from the earlier talk („übernommen aus dem Gespräch vom …“): answered, never changed since. */
+  carriedOver: string[]
+  /**
+   * A copy made by „Für ein weiteres Gespräch verwenden“: the form it came from (null once that form was deleted) and
+   * the date of its talk; null for any other form. The employee gets all three only on their own self-assessment.
+   */
+  source: { formId: number | null; talkDate: IsoDate } | null
 }
 
 /** The viewer's right on a child observation form: fill it in, or only read it. */
@@ -3517,7 +3526,7 @@ export interface ChildFormDto extends ChildFormListItemDto {
 }
 
 /** One save in „Verlauf“ of a child form: when, by whom, how many items it changed; `initial`: the state before the history. */
-export interface ChildFormRevisionListItemDto {
+export interface FormRevisionListItemDto {
   id: number
   savedAt: string
   savedBy: string
@@ -3526,15 +3535,15 @@ export interface ChildFormRevisionListItemDto {
 }
 
 /** A page of „Verlauf“, newest first: `total` revisions in all, this page from `offset` on, `pageSize` per page. */
-export interface ChildFormRevisionsDto {
-  revisions: ChildFormRevisionListItemDto[]
+export interface FormRevisionsDto {
+  revisions: FormRevisionListItemDto[]
   total: number
   offset: number
   pageSize: number
 }
 
 /** One stored state („Stand vom …“): the answers after that save and the items it changed. */
-export interface ChildFormRevisionDto extends ChildFormRevisionListItemDto {
+export interface FormRevisionDto extends FormRevisionListItemDto {
   answers: FormAnswers
   changedItemIds: string[]
 }

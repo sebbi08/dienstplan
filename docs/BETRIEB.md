@@ -2708,6 +2708,28 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 - **Drucken:** jeder Bogen hat eine Druckseite (A4 hoch) mit Kopffeldern, Bewertungstabelle, Ankreuzkästchen, leeren
   Schreiblinien und den beiden Unterschriftszeilen; dort gibt es auch **PDF herunterladen**. Mitarbeiter drucken ihre
   freigegebenen Bögen über „Meine Gespräche“.
+- **Für ein weiteres Gespräch verwenden** (bei jedem Gespräch, Leitung und Träger wie „Gespräch anlegen“): legt ein
+  neues Gespräch mit demselben Mitarbeiter an – Datum heute, ohne Uhrzeit, Teilnehmer und Zeitraum übernommen (alles
+  vor dem Anlegen änderbar). Jeder Bogen des alten Gesprächs wird mit seinem Inhalt (so wie er im alten Gespräch
+  steht, auch wenn die Vorlage inzwischen geändert wurde) und seinen Antworten kopiert, in derselben Reihenfolge und
+  Rolle. Das alte Gespräch bleibt unverändert. Eine kopierte **Selbstbeurteilung** startet als nicht freigegeben: der
+  Mitarbeiter bekommt sie (mit den alten Antworten als Ausgangspunkt) erst, wenn du sie wieder **zum Ausfüllen
+  freigibst**; eine Beurteilung ist wieder nicht zum Lesen freigegeben.
+- **Übernommen oder geändert:** Am kopierten Bogen steht oben „übernommen aus dem Gespräch vom …“ und unter jeder
+  übernommenen Antwort klein „übernommen aus dem Gespräch vom …“; sobald sie im neuen Gespräch geändert wurde,
+  stattdessen „geändert am … von …“. Der Mitarbeiter sieht das nur an seiner eigenen Selbstbeurteilung unter „Meine
+  Gespräche“, nicht an einer zum Lesen freigegebenen Beurteilung. Wird das alte Gespräch gelöscht, bleibt der Hinweis
+  mit seinem Datum stehen.
+- **Verlauf** (an jedem Bogen eines Gesprächs, seit diesem Update): wie bei den Beobachtungsbögen – jedes Speichern,
+  das Antworten geändert hat (auch das des Mitarbeiters an seiner Selbstbeurteilung), mit „Stand vom …“ und
+  **Änderungen zeigen**. Bei einem kopierten Bogen ist der älteste Eintrag „übernommen aus dem Gespräch vom …“ (die
+  Kopie zählt nicht als Änderung); Bögen, in denen vor dem Update schon etwas stand, beginnen mit „Stand vor Beginn des
+  Verlaufs“. Den Verlauf sehen nur Leitung und Träger.
+- **Mit dem vorigen Gespräch vergleichen** (am kopierten Bogen, solange der alte Bogen noch da ist): beide Bögen
+  nebeneinander, links aus dem vorigen, rechts aus diesem Gespräch, Bewertungen mit Pfeil (↑ besser, ↓ schwächer,
+  = gleich), mit **Vergleich drucken** (A4 hoch, mit PDF). Datenbank-Migration 0123 (Herkunft der kopierten Bögen,
+  Verlauf der Gesprächsbögen). Gelöscht wird alles mit dem Gespräch bzw. den Gesprächsunterlagen (Löschfristen) wie
+  bisher.
 
 ### Formatierung in Freitexten (alle Bögen)
 

@@ -7,7 +7,10 @@ import { formatDate, formatDateTime } from '~/utils/format'
 /**
  * The tab „Gespräche“ of an employee (Leitung and Träger): the talks newest first with their forms. Per form its state,
  * the release buttons by role (self: „Zum Ausfüllen freigeben“ / „Freigabe zurücknehmen“ / „Wieder öffnen“;
- * assessment: „Zum Lesen freigeben“ / „Lesefreigabe zurücknehmen“), open (fill in here), print and remove.
+ * assessment: „Zum Lesen freigeben“ / „Lesefreigabe zurücknehmen“), open (fill in here), „Verlauf“, print and remove.
+ * „Für ein weiteres Gespräch verwenden“ makes a new talk with copies of a talk's forms; a copied form names per answer
+ * whether it was taken over or changed since, and compares with the form it came from („Mit dem vorigen Gespräch
+ * vergleichen“).
  */
 const props = defineProps<{ employeeId: number }>()
 const { data: talks, refresh } = useFetch<StaffTalkDto[]>('/api/staff-talks', { query: { employeeId: props.employeeId }, default: () => [] })
@@ -17,9 +20,11 @@ const confirm = useConfirm()
 
 const dialogOpen = ref(false)
 const dialogTalk = ref<StaffTalkDto | null>(null)
-async function openDialog(talk: StaffTalkDto | null) {
+const dialogReuse = ref<StaffTalkDto | null>(null)
+async function openDialog(talk: StaffTalkDto | null, reuse: StaffTalkDto | null = null) {
   dialogTalk.value = talk
-  if (!talk) await refreshTemplates()
+  dialogReuse.value = reuse
+  if (!talk && !reuse) await refreshTemplates()
   dialogOpen.value = true
 }
 
@@ -87,6 +92,25 @@ async function deleteTalk(talk: StaffTalkDto) {
   if (await run(() => $fetch<unknown>(`/api/staff-talks/${talk.id}`, { method: 'DELETE' }), de.common.deleted)) forgetOpen(formIds)
 }
 
+// „Verlauf“ and „Mit dem vorigen Gespräch vergleichen“ of one form at a time.
+// By id, so a reload after a save shows the current answers.
+const formById = (id: number | null) => (talks.value ?? []).flatMap(talk => talk.forms).find(form => form.id === id) ?? null
+const historyFormId = ref<number | null>(null)
+const historyForm = computed(() => formById(historyFormId.value))
+const historyOpen = ref(false)
+function openHistory(form: TalkFormDto) {
+  historyFormId.value = form.id
+  historyOpen.value = true
+}
+const compareFormId = ref<number | null>(null)
+const compareForm = computed(() => formById(compareFormId.value))
+const compareOpen = ref(false)
+function openCompare(form: TalkFormDto) {
+  compareFormId.value = form.id
+  compareOpen.value = true
+}
+const originLabel = (form: TalkFormDto) => (form.source ? de.formHistory.carriedOver(formatDate(form.source.talkDate)) : undefined)
+
 const activeTemplates = computed(() => (templates.value ?? []).filter(template => !template.archived)
   .map(template => ({ label: template.name, value: template.id })))
 const addPick = reactive<Record<number, number | undefined>>({})
@@ -116,6 +140,7 @@ async function addForm(talk: StaffTalkDto) {
         </div>
         <div class="flex flex-wrap gap-1">
           <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.talks.editHeader" @click="openDialog(talk)" />
+          <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy-plus" :label="de.talks.reuse" @click="openDialog(null, talk)" />
           <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.talks.deleteTalk" @click="deleteTalk(talk)" />
         </div>
       </div>
@@ -126,6 +151,7 @@ async function addForm(talk: StaffTalkDto) {
             <span class="min-w-0 font-medium break-words">{{ form.title }}</span>
             <UBadge color="neutral" variant="outline" size="sm" :label="de.talks.roles[form.role]" />
             <UBadge :color="stateColor(form)" variant="soft" size="sm" :label="stateLabel(form)" />
+            <UBadge v-if="form.source" color="info" variant="outline" size="sm" :label="originLabel(form)" />
           </div>
           <div class="space-y-0.5 text-xs text-gray-500">
             <p v-for="line in stamps(form)" :key="line">{{ line }}</p>
@@ -145,12 +171,17 @@ async function addForm(talk: StaffTalkDto) {
               <UButton v-if="!form.readReleased" size="sm" icon="i-lucide-eye" :label="de.talks.readRelease" @click="readRelease(form, true)" />
               <UButton v-else size="sm" color="neutral" variant="outline" icon="i-lucide-eye-off" :label="de.talks.readWithdraw" @click="readRelease(form, false)" />
             </template>
+            <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-history" :label="de.formHistory.history" @click="openHistory(form)" />
+            <UButton
+              v-if="form.source?.formId" size="sm" color="neutral" variant="ghost" icon="i-lucide-columns-2"
+              :label="de.formHistory.comparePrevious" @click="openCompare(form)"
+            />
             <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-printer" :label="de.talks.print" :to="`/admin/print/forms/${form.id}`" target="_blank" />
             <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.talks.removeForm" @click="removeForm(form)" />
           </div>
           <FormsFormPanel
             v-if="isOpen(form.id)" :form="form" :save-url="`/api/staff-talks/forms/${form.id}`" editable :refresh="refresh"
-            @dirty="openDirty = $event"
+            :changes="form.itemChanges" :carried-over="form.carriedOver" :origin-label="originLabel(form)" @dirty="openDirty = $event"
           />
         </li>
       </ul>
@@ -164,6 +195,17 @@ async function addForm(talk: StaffTalkDto) {
       </div>
     </article>
 
-    <EmployeesTalkDialog v-model:open="dialogOpen" :employee-id="props.employeeId" :talk="dialogTalk" :templates="templates ?? []" @saved="refresh" />
+    <EmployeesTalkDialog
+      v-model:open="dialogOpen" :employee-id="props.employeeId" :talk="dialogTalk" :reuse-from="dialogReuse" :templates="templates ?? []"
+      @saved="refresh"
+    />
+    <FormsFormHistory
+      v-if="historyForm" v-model:open="historyOpen" :url="`/api/staff-talks/forms/${historyForm.id}`" :title="historyForm.title"
+      :content="historyForm.content" :answers="historyForm.answers" :initial-label="originLabel(historyForm)"
+    />
+    <EmployeesTalkCompareDialog
+      v-if="compareForm?.source?.formId" v-model:open="compareOpen" :form-id="compareForm.id" :source-form-id="compareForm.source.formId"
+      :title="compareForm.title"
+    />
   </section>
 </template>

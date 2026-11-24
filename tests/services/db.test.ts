@@ -2639,6 +2639,28 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(count(sqlite, 'knowledge_entry_targets')).toBe(0)
   })
 
+  it('0123 adds where a staff talk form was copied from (cleared when that form goes) and the staff forms\' state before the history', () => {
+    const { db, sqlite } = databaseAt('0122')
+    sqlite.exec(`
+      INSERT INTO forms (id, facility_id, kind, title, content, answers, created_at, updated_at, updated_by) VALUES
+        (1, 1, 'staff', 'Selbst', '{"sections":[]}', '{"t":"Ich arbeite gern im Team"}', 'c', '2026-10-01T08:00:00.000Z', 'Anna'),
+        (2, 1, 'staff', 'Leer', '{"sections":[]}', '{"t":"","r":{"value":null,"remark":""}}', 'c', 'x', 'Lea'),
+        (3, 1, 'team', 'Sitzung', '{"sections":[]}', '{"t":"Protokoll"}', 'c', 'y', 'Lea');
+    `)
+    migrateThrough(db, '0123')
+    expect(sqlite.prepare('SELECT form_id, saved_at, saved_by, answers, changed_item_ids, initial FROM form_revisions').all()).toEqual([
+      { form_id: 1, saved_at: '2026-10-01T08:00:00.000Z', saved_by: 'Anna', answers: '{"t":"Ich arbeite gern im Team"}', changed_item_ids: '[]', initial: 1 },
+    ])
+    expect(sqlite.prepare('SELECT source_form_id, source_talk_date FROM forms WHERE id = 1').get()).toEqual({ source_form_id: null, source_talk_date: null })
+    sqlite.exec(`INSERT INTO forms (id, facility_id, kind, title, content, created_at, updated_at, source_form_id, source_talk_date)
+      VALUES (4, 1, 'staff', 'Selbst', '{"sections":[]}', 'c', 'z', 1, '2025-11-03')`)
+    expect(() => sqlite.exec(`INSERT INTO forms (facility_id, kind, title, content, created_at, updated_at, source_form_id)
+      VALUES (1, 'staff', 'X', '{"sections":[]}', 'c', 'z', 99)`)).toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM forms WHERE id = 1')
+    expect(sqlite.prepare('SELECT source_form_id, source_talk_date FROM forms WHERE id = 4').get()).toEqual({ source_form_id: null, source_talk_date: '2025-11-03' })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
   it('0122 adds the revisions of the child forms (the state before as initial revision) and the last openings, gone with their owners', () => {
     const { db, sqlite } = databaseAt('0121')
     sqlite.exec(`

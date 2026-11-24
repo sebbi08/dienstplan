@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FormContent, FormSection } from '../../shared/domain/forms'
 import type { ChildFormDto, TeamMeetingDto } from '../../shared/types/api'
+import { de } from '../../app/locales/de'
 import {
   blankSheet, childSheet, compareLabels, comparableGroups, teamSheet, filledAnswers, isBlank, milestoneColumns, olderAndNewer, panelDirty, putAnswersTo,
   saveAnswers, sectionBlocks, sectionHasRating,
@@ -264,6 +265,8 @@ describe('comparing two child forms', () => {
       .toEqual({ older: 'Bogen vom 01.03.2026', newer: 'Bogen vom 15.10.2026' })
     expect(compareLabels({ date: '2026-10-15', start: 540 }, { date: '2026-10-15', start: null }))
       .toEqual({ older: 'Bogen vom 15.10.2026 um 9:00 Uhr', newer: 'Bogen vom 15.10.2026' })
+    expect(compareLabels({ date: '2025-11-03', start: 600 }, { date: '2026-10-26', start: null }, de.formHistory.talkLabel))
+      .toEqual({ older: 'Gespräch am 03.11.2025', newer: 'Gespräch am 26.10.2026' })
   })
 
   it('orders two picked forms by their place in the list', () => {

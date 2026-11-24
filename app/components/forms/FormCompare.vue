@@ -10,7 +10,8 @@ import { de } from '~/locales/de'
 const props = defineProps<{ sections: CompareSection[]; olderLabel: string; newerLabel: string }>()
 const h = de.formHistory
 
-const rowLabel = (row: CompareRow) => itemLabel((row.newerItem ?? row.olderItem)!)
+// A choices item without a question is named by its section (the options are listed in the answers).
+const rowLabel = (row: CompareRow, section: CompareSection) => itemLabel((row.newerItem ?? row.olderItem)!, section.title)
 const arrow: Record<Trend, string> = { up: '↑', down: '↓', same: '=' }
 const arrowClass: Record<Trend, string> = { up: 'text-green-700', down: 'text-red-700', same: 'text-gray-500' }
 const columns = 'sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] print:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]'
@@ -32,7 +33,7 @@ const columns = 'sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] prin
         v-for="(row, index) in section.rows" :key="`${section.id}-${index}`"
         class="grid gap-1 border-b border-gray-100 py-2 last:border-b-0 sm:gap-3 print:break-inside-avoid print:gap-3" :class="columns"
       >
-        <p class="text-sm font-medium break-words">{{ rowLabel(row) }}</p>
+        <p class="text-sm font-medium break-words">{{ rowLabel(row, section) }}</p>
         <div class="min-w-0">
           <p class="text-xs text-gray-500 sm:hidden print:hidden">{{ props.olderLabel }}</p>
           <FormsAnswerValue :item="row.olderItem" :value="row.older" />

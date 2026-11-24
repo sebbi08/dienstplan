@@ -1,26 +1,28 @@
 <script setup lang="ts">
 import { formDiff } from '#shared/domain/formHistory'
 import type { FormAnswer, FormAnswers, FormContent } from '#shared/domain/forms'
-import type { ChildFormRevisionDto, ChildFormRevisionListItemDto, ChildFormRevisionsDto } from '#shared/types/api'
+import type { FormRevisionDto, FormRevisionListItemDto, FormRevisionsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
 import { filledAnswers } from '~/utils/forms'
 
 /**
- * „Verlauf“ of a child form: every save that changed answers, newest first and paged (date and time, person, number of
- * changed items). A tap opens that state read-only („Stand vom …“); „Änderungen zeigen“ marks per item how it differs
- * from the current answers (`answers`, as stored now). Whoever may open the form sees this, also at the tablet.
+ * „Verlauf“ of a form (child forms, staff talk forms): every save that changed answers, newest first and paged (date and
+ * time, person, number of changed items). A tap opens that state read-only („Stand vom …“); „Änderungen zeigen“ marks
+ * per item how it differs from the current answers (`answers`, as stored now). `url` is the form's API address (its
+ * `/revisions` answer the list and each state; they check who may see it). `initialLabel` names the revision the history
+ * starts with (default „Stand vor Beginn des Verlaufs“; a copied staff talk form: „übernommen aus dem Gespräch vom …“).
  */
-const props = defineProps<{ formId: number; title: string; content: FormContent; answers: FormAnswers }>()
+const props = defineProps<{ url: string; title: string; content: FormContent; answers: FormAnswers; initialLabel?: string }>()
 const open = defineModel<boolean>('open', { required: true })
 const h = de.formHistory
 
-const revisions = ref<ChildFormRevisionListItemDto[]>([])
+const revisions = ref<FormRevisionListItemDto[]>([])
 const total = ref(0)
 const loading = ref(false)
 const loadError = ref<unknown>(null)
-const selected = ref<ChildFormRevisionDto | null>(null)
+const selected = ref<FormRevisionDto | null>(null)
 const selectedAnswers = ref<Record<string, FormAnswer>>({})
 const showDiff = ref(false)
 
@@ -28,7 +30,7 @@ async function loadPage(offset: number) {
   loading.value = true
   loadError.value = null
   try {
-    const page = await $fetch<ChildFormRevisionsDto>(`/api/child-forms/${props.formId}/revisions`, { query: { offset } })
+    const page = await $fetch<FormRevisionsDto>(`${props.url}/revisions`, { query: { offset } })
     // A save in between shifts the pages by one: an entry seen already is not listed twice.
     const known = new Set(offset === 0 ? [] : revisions.value.map(revision => revision.id))
     revisions.value = [...(offset === 0 ? [] : revisions.value), ...page.revisions.filter(revision => !known.has(revision.id))]
@@ -51,11 +53,11 @@ watch(open, (value) => {
   void loadPage(0)
 }, { immediate: true })
 
-async function select(revision: ChildFormRevisionListItemDto) {
+async function select(revision: FormRevisionListItemDto) {
   loading.value = true
   loadError.value = null
   try {
-    const loaded = await $fetch<ChildFormRevisionDto>(`/api/child-forms/${props.formId}/revisions/${revision.id}`)
+    const loaded = await $fetch<FormRevisionDto>(`${props.url}/revisions/${revision.id}`)
     selectedAnswers.value = filledAnswers(props.content, loaded.answers)
     selected.value = loaded
     showDiff.value = false
@@ -70,11 +72,11 @@ async function select(revision: ChildFormRevisionListItemDto) {
 
 const diff = computed(() => (selected.value ? formDiff(props.content, selected.value.answers, props.answers) : {}))
 const diffCount = computed(() => Object.keys(diff.value).length)
-const changedLabel = (revision: ChildFormRevisionListItemDto) => (revision.initial ? h.initial : h.changedCount(revision.changedCount))
+const changedLabel = (revision: FormRevisionListItemDto) => (revision.initial ? props.initialLabel ?? h.initial : h.changedCount(revision.changedCount))
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="h.historyTitle(props.title)" :description="h.historyHint" :ui="{ content: 'sm:max-w-3xl' }">
+  <UModal v-model:open="open" :title="h.historyTitle(props.title)" :ui="{ content: 'sm:max-w-3xl' }">
     <template #body>
       <div class="space-y-3">
         <p v-if="loadError" class="text-sm text-red-700" role="alert">{{ errorMessage(loadError) }}</p>
@@ -100,6 +102,7 @@ const changedLabel = (revision: ChildFormRevisionListItemDto) => (revision.initi
         </template>
 
         <template v-else>
+          <p class="text-sm text-gray-600">{{ h.historyHint }}</p>
           <p v-if="!loading && !loadError && !revisions.length" class="text-sm text-gray-600">{{ h.historyNone }}</p>
           <ul v-if="revisions.length" class="divide-y divide-gray-100 rounded-md ring-1 ring-gray-200">
             <li v-for="revision in revisions" :key="revision.id">

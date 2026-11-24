@@ -115,7 +115,9 @@ const headerLine = computed(() => {
           <p v-else-if="headerLine" class="text-sm break-words text-gray-700">{{ headerLine }}</p>
         </template>
       </FormsFormPanel>
-      <ChildrenChildFormHistory v-model:open="historyOpen" :form-id="form.id" :title="form.title" :content="form.content" :answers="form.answers" />
+      <FormsFormHistory
+        v-model:open="historyOpen" :url="`/api/child-forms/${form.id}`" :title="form.title" :content="form.content" :answers="form.answers"
+      />
     </template>
   </div>
 </template>

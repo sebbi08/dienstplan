@@ -73,9 +73,10 @@ const labels = computed(() => (result.value ? compareLabels(result.value.older, 
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="h.compareTitle" :description="h.compareHint" :ui="{ content: 'sm:max-w-5xl' }">
+  <UModal v-model:open="open" :title="h.compareTitle" :ui="{ content: 'sm:max-w-5xl' }">
     <template #body>
       <div class="space-y-3">
+        <p class="text-sm text-gray-600">{{ h.compareHint }}</p>
         <form class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" @submit.prevent="show">
           <UFormField :label="h.compareTemplate">
             <USelect v-model="templateId" :items="templateItems" size="lg" class="w-full" :disabled="templateItems.length < 2" />

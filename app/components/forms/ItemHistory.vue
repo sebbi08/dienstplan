@@ -6,11 +6,11 @@ import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
 
 /**
- * Under an item of a child form: „geändert am … von …“ (only when it was ever changed), the marker „neu seit deinem
- * letzten Öffnen“, and in a stored state with „Änderungen zeigen“ how the item differs from today (texts word by word as
+ * Under an item of a form: „geändert am … von …“ (only when it was ever changed), else `origin` (a copied staff talk
+ * form: „übernommen aus dem Gespräch vom …“), the marker „neu seit deinem letzten Öffnen“, and in a stored state with „Änderungen zeigen“ how the item differs from today (texts word by word as
  * plain text — never as HTML —, options added and dropped, rating, milestone and date as „damals → heute“).
  */
-const props = defineProps<{ item: AnswerableItem; change?: ItemChange; marked?: boolean; diff?: AnswerDiff }>()
+const props = defineProps<{ item: AnswerableItem; change?: ItemChange; origin?: string; marked?: boolean; diff?: AnswerDiff }>()
 const h = de.formHistory
 
 const rating = (value: RatingValue | null) => (value === null ? h.noRating : RATING_LEGEND.entries.find(entry => entry.value === value)?.symbol ?? value)
@@ -20,9 +20,10 @@ const statusClass = { new: 'bg-green-100 text-green-800', changed: 'bg-amber-100
 </script>
 
 <template>
-  <div v-if="props.change || props.marked || (props.diff && props.diff.status !== 'same')" class="space-y-1">
-    <p v-if="props.change || props.marked" class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+  <div v-if="props.change || props.origin || props.marked || (props.diff && props.diff.status !== 'same')" class="space-y-1">
+    <p v-if="props.change || props.origin || props.marked" class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
       <span v-if="props.change">{{ h.changedAt(formatDate(nowInBerlin(new Date(props.change.changedAt)).date), props.change.changedBy) }}</span>
+      <span v-else-if="props.origin">{{ props.origin }}</span>
       <span v-if="props.marked" class="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900">{{ h.changedSinceSeen }}</span>
     </p>
     <div v-if="props.diff && props.diff.status !== 'same'" class="space-y-1 rounded-md bg-amber-50/60 p-2 text-sm ring-1 ring-amber-200">
