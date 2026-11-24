@@ -1,4 +1,5 @@
 import { facilitiesLosing, type DocumentScope } from '#shared/domain/documentTargets'
+import { foldCategoryName } from '#shared/domain/templateCategories'
 import type { DocumentGroupTarget, DocumentTargetOptionsDto, DocumentTargetsDto, DocumentTargetsInput } from '#shared/types/api'
 
 /**
@@ -125,4 +126,18 @@ export function targetHints(
     ...(targets.scope === 'selected' ? [targets.facilityNames.length > 0 ? texts.only(targets.facilityNames) : texts.noFacility] : []),
     ...(targets.groupNames === null ? [] : targets.groupNames.length === 0 ? [texts.noGroup] : [texts.only(targets.groupNames)]),
   ]
+}
+
+/** Where a Träger item is filed by name: the category name and the subcategory name ('' or null: none). */
+interface FiledNames { categoryName: string | null; subcategoryName?: string | null }
+
+/**
+ * Whether saving asks whether the category should be created where it is missing (useCategoryAdopt): always for a new
+ * item (`before` null); for a change only when „Gilt für“ was changed or the category or subcategory name differs from
+ * the loaded item (case and spaces aside), so a „Nein“ is not asked again on every later save.
+ */
+export function asksForCategories(before: FiledNames | null, now: FiledNames, targetsTouched: boolean): boolean {
+  if (!before || targetsTouched) return true
+  const same = (a: string | null | undefined, b: string | null | undefined) => foldCategoryName(a ?? '') === foldCategoryName(b ?? '')
+  return !same(before.categoryName, now.categoryName) || !same(before.subcategoryName, now.subcategoryName)
 }

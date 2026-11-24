@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { de } from '../../app/locales/de'
 import {
-  emptyTargets, facilitiesForGroups, facilitiesLost, hasEmptyGroupLimit, isOrphanTargets, setGroupLimit, targetHints, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem,
+  asksForCategories, emptyTargets, facilitiesForGroups, facilitiesLost, hasEmptyGroupLimit, isOrphanTargets, setGroupLimit, targetHints, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem,
   toggleGroup, toggleId,
 } from '../../app/utils/documentTargets'
 import {
@@ -77,6 +77,16 @@ describe('creating the category in the other facilities', () => {
       .toEqual([true, true, false, false])
     expect(de.categoryAdopt.question('Elternbriefe › Herbst', ['Kita A', 'Kita B']))
       .toBe('Die Kategorie ‚Elternbriefe › Herbst‘ gibt es in Kita A, Kita B noch nicht. Soll sie dort angelegt werden?')
+  })
+
+  it('asks on every new item, on a change only when „Gilt für“ or the names changed (case and spaces aside)', () => {
+    const loaded = { categoryName: 'Elternbriefe', subcategoryName: 'Herbst' }
+    expect(asksForCategories(null, loaded, false)).toBe(true)
+    expect(asksForCategories(loaded, { categoryName: ' elternbriefe', subcategoryName: 'HERBST ' }, false)).toBe(false)
+    expect(asksForCategories(loaded, loaded, true)).toBe(true)
+    expect(asksForCategories(loaded, { categoryName: 'Elternpost', subcategoryName: 'Herbst' }, false)).toBe(true)
+    expect(asksForCategories(loaded, { categoryName: 'Elternbriefe', subcategoryName: '' }, false)).toBe(true)
+    expect(asksForCategories({ categoryName: 'Ämter', subcategoryName: null }, { categoryName: 'Ämter' }, false)).toBe(false)
   })
 })
 

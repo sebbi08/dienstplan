@@ -7,7 +7,7 @@ import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import {
-  emptyTargets, facilitiesLost, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
+  asksForCategories, emptyTargets, facilitiesLost, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
 } from '~/utils/documentTargets'
 import { filedCategoryId, subcategoryItems, subcategoryNamesFor, topCategories } from '~/utils/subcategories'
 
@@ -152,7 +152,10 @@ async function save() {
   const lost = props.entry && targetsTouched.value ? facilitiesLost(props.entry.targets, form.targets, targetOptions.value, ownFacilityId) : 0
   if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'der Eintrag')))) return
   // For several or all facilities: create the category (› subcategory) where it is missing („Nein“: „Vom Träger“ there)?
-  const createCategories = forAll.value ? await adoptCategory(form.targets, form.categoryName, form.subcategoryName) : undefined
+  // A change asks only when „Gilt für“ or the names changed (a „Nein“ is not asked again on every save).
+  const before = props.entry ? { categoryName: props.entry.globalCategoryName, subcategoryName: props.entry.globalSubcategoryName } : null
+  const asks = forAll.value && asksForCategories(before, form, targetsTouched.value)
+  const createCategories = asks ? await adoptCategory(form.targets, form.categoryName, form.subcategoryName) : undefined
   if (createCategories === null) return
   const body = new FormData()
   // A facility's entry: the subcategory chosen, else the category; for all or the chosen facilities the names.

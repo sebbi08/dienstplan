@@ -6,7 +6,7 @@ import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import {
-  emptyTargets, facilitiesLost, targetHints, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
+  asksForCategories, emptyTargets, facilitiesLost, targetHints, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
 } from '~/utils/documentTargets'
 import { errorMessage } from '~/utils/errors'
 import { moveInList } from '~/utils/consentSettings'
@@ -307,7 +307,10 @@ async function save() {
   // Facilities that lose the template: ask first.
   const lost = targetsTouched.value ? facilitiesLost(editing.value.targets, form.targets, targetOptions.value, targetOptions.value.facilityId) : 0
   if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'die Vorlage')))) return
-  const createCategories = forAll.value ? await adoptCategory(form.targets, form.categoryName, form.subcategoryName) : undefined
+  // A change asks only when „Gilt für“ or the names changed (a „Nein“ is not asked again on every save).
+  const before = { categoryName: editing.value.globalCategoryName, subcategoryName: editing.value.globalSubcategoryName }
+  const asks = forAll.value && asksForCategories(before, form, targetsTouched.value)
+  const createCategories = asks ? await adoptCategory(form.targets, form.categoryName, form.subcategoryName) : undefined
   if (createCategories === null) return
   const saved = await run(async () => {
     await $fetch<unknown>(`/api/print-templates/${id}`, {

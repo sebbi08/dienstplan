@@ -1,6 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
-import { comparableContactName } from '../../shared/domain/contacts'
+import { CONTACT_LIMITS, comparableContactName } from '../../shared/domain/contacts'
 import { spansFacilities, type DocumentScope } from '../../shared/domain/documentTargets'
+import { KNOWLEDGE_LIMITS } from '../../shared/domain/knowledge'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { categoriesInTreeOrder, categoryPlacer, type TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { MissingCategoriesDto, MissingCategoriesInput } from '../../shared/types/api'
@@ -22,6 +23,9 @@ export type AdoptKind = 'template' | 'knowledge' | 'contact'
 const GLOBAL_RIGHT: Record<AdoptKind, PermissionKey> = {
   template: 'printTemplates.global', knowledge: 'knowledge.global', contact: 'contacts.global',
 }
+
+/** How long a category name is kept when saving (longer ones are cut), by kind: the preflight compares the same name. */
+const NAME_LIMIT: Record<AdoptKind, number> = { template: 60, knowledge: KNOWLEDGE_LIMITS.categoryName, contact: CONTACT_LIMITS.categoryName }
 
 /** A category row as far as matching and creating go (contact categories have neither subcategories nor a visibility). */
 interface CategoryNode { id: number; parentId: number | null; name: string; sortOrder: number; visibility: TemplateVisibility }
@@ -47,8 +51,11 @@ function spotIn(kind: AdoptKind, rows: readonly CategoryNode[], categoryName: st
   return categoryPlacer(rows).byName(categoryName, subcategoryName)
 }
 
+/** The category name as saving files it: trimmed and cut to the kind's limit. */
+const filedName = (kind: AdoptKind, name: string) => name.trim().slice(0, NAME_LIMIT[kind])
+
 /** The subcategory name as filed: none for contacts or when blank. */
-const subName = (kind: AdoptKind, name: string | null | undefined) => (kind === 'contact' || !name?.trim() ? null : name.trim())
+const subName = (kind: AdoptKind, name: string | null | undefined) => (kind === 'contact' || !name?.trim() ? null : filedName(kind, name))
 
 /** Whether the facility lacks the category, or (with a subcategory name) the subcategory under it. */
 function lacks(kind: AdoptKind, rows: readonly CategoryNode[], categoryName: string, subcategoryName: string | null): boolean {
@@ -74,7 +81,7 @@ export function missingCategories(
   db: Db, kind: AdoptKind, actor: { permissions: ReadonlySet<PermissionKey> }, input: MissingCategoriesInput,
 ): MissingCategoriesDto {
   if (!can(actor.permissions, GLOBAL_RIGHT[kind])) throw new ServiceError(403, 'forbidden')
-  const categoryName = input.categoryName.trim()
+  const categoryName = filedName(kind, input.categoryName)
   if (categoryName === '') return { facilities: [] }
   const subcategoryName = subName(kind, input.subcategoryName)
   return {
@@ -99,7 +106,7 @@ export function createMissingCategories(
   db: Db, kind: AdoptKind, actingFacilityId: number, facilityIds: readonly number[], categoryName: string,
   subcategoryNameInput: string | null | undefined,
 ): void {
-  const name = categoryName.trim()
+  const name = filedName(kind, categoryName)
   if (name === '') return
   const subcategoryName = subName(kind, subcategoryNameInput)
   const source = spotIn(kind, categoriesOf(db, kind, actingFacilityId), name, subcategoryName)

@@ -3,7 +3,7 @@ import { CONTACT_LIMITS } from '#shared/domain/contacts'
 import type { ContactCategoryDto, ContactDto, ContactInput, DocumentTargetOptionsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import {
-  emptyTargets, facilitiesLost, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
+  asksForCategories, emptyTargets, facilitiesLost, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
 } from '~/utils/documentTargets'
 
 /**
@@ -96,7 +96,9 @@ async function save() {
   const lost = props.contact && targetsTouched.value ? facilitiesLost(props.contact.targets, form.targets, targetOptions.value, ownFacilityId) : 0
   if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'der Kontakt')))) return
   // For several or all facilities: create the category where it is missing („Nein“: „Vom Träger“ there)?
-  const createCategories = forAll.value ? await adoptCategory(form.targets, form.categoryName) : undefined
+  // A change asks only when „Gilt für“ or the category name changed (a „Nein“ is not asked again on every save).
+  const asks = forAll.value && asksForCategories(props.contact ? { categoryName: props.contact.globalCategoryName } : null, form, targetsTouched.value)
+  const createCategories = asks ? await adoptCategory(form.targets, form.categoryName) : undefined
   if (createCategories === null) return
   const { targets: _targets, categoryId, categoryName, ...fields } = form
   const body: ContactInput = {

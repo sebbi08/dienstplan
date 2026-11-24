@@ -63,6 +63,14 @@ describe('creating the category in the other facilities', () => {
       expect(ask('template', 'selected', 'Elternbriefe', 'Herbst', [hort])).toEqual([])
       expect(ask('template', 'facility', 'Elternbriefe', 'Herbst')).toEqual([])
       expect(ask('template', 'all', '  ')).toEqual([])
+      // A name longer than saving keeps (60) is compared as saving files it: cut, so it is not missing forever.
+      const long = 'L'.repeat(60)
+      db.insert(templateCategories).values([{ facilityId: krippe, name: long }, { facilityId: hort, name: long }]).run()
+      db.insert(templateCategories).values({ facilityId: 1, name: long }).run()
+      expect(ask('template', 'all', `${long}Ü`)).toEqual([])
+      for (const facilityId of [1, krippe, hort]) db.insert(contactCategories).values({ facilityId, name: 'K'.repeat(60), sortOrder: 99 }).run()
+      expect(ask('contact', 'all', `${'k'.repeat(60)}Ü`)).toEqual([])
+      expect(ask('knowledge', 'all', `${'W'.repeat(60)}Ü`)).toEqual([1, krippe, hort])
       expect(errorCode(() => missingCategories(db, 'template', leitung(), { scope: 'all', categoryName: 'X' }))).toBe('forbidden')
     })
 
