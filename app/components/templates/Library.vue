@@ -300,6 +300,7 @@ function checkedTargets() {
   return targetsPayload(form.targets, targetOptions.value, ownFacilityId)
 }
 
+const adoptCategory = useCategoryAdopt('print-templates')
 async function save() {
   const chosen = file.value
   const fields = filing()
@@ -310,6 +311,9 @@ async function save() {
   if (editing.value === null) {
     if (!chosen) return void toast.add({ title: de.errors.file_required, color: 'error' })
     if (!checkFile(chosen)) return
+    // For several or all facilities: create the category (› subcategory) where it is missing („Nein“: „Vom Träger“ there)?
+    const createCategories = forAll.value ? await adoptCategory(form.targets, form.categoryName, form.subcategoryName) : undefined
+    if (createCategories === null) return
     const body = fileBody(chosen)
     body.append('title', form.title)
     body.append('visibility', form.visibility)
@@ -319,6 +323,7 @@ async function save() {
       body.append('groupTargets', JSON.stringify(targets.groupTargets))
     }
     for (const [key, value] of Object.entries(fields)) body.append(key, String(value))
+    if (createCategories) body.append('createCategories', 'true')
     if (await run(() => $fetch<unknown>('/api/print-templates', { method: 'POST', body }), de.common.saved)) open.value = false
     return
   }
@@ -327,8 +332,12 @@ async function save() {
   // Facilities that lose the template: ask first.
   const lost = targetsTouched.value ? facilitiesLost(editing.value.targets, form.targets, targetOptions.value, targetOptions.value.facilityId) : 0
   if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'die Vorlage')))) return
+  const createCategories = forAll.value ? await adoptCategory(form.targets, form.categoryName, form.subcategoryName) : undefined
+  if (createCategories === null) return
   const saved = await run(async () => {
-    await $fetch<unknown>(`/api/print-templates/${id}`, { method: 'PUT', body: { title: form.title, visibility: form.visibility, ...targets ?? {}, ...fields } })
+    await $fetch<unknown>(`/api/print-templates/${id}`, {
+      method: 'PUT', body: { title: form.title, visibility: form.visibility, ...targets ?? {}, ...fields, ...(createCategories ? { createCategories: true } : {}) },
+    })
     if (chosen) await $fetch<unknown>(`/api/print-templates/${id}/file`, { method: 'PUT', body: fileBody(chosen) })
   }, de.common.saved)
   if (saved) open.value = false

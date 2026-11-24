@@ -1519,6 +1519,13 @@ export const de = {
     loadFailed: 'Die Auswahl für „Gilt für“ konnte nicht geladen werden.', retry: 'Noch einmal laden',
     nameHint: 'Für mehrere Einrichtungen wird sie nach dem Namen der Kategorie einsortiert (sonst unter „Vom Träger“).',
   },
+  // Saving a Träger item for several or all facilities whose category (› subcategory) some of them lack.
+  categoryAdopt: {
+    question: (path: string, facilities: string[]) =>
+      `Die Kategorie ‚${path}‘ gibt es in ${facilities.join(', ')} noch nicht. Soll sie dort angelegt werden?`,
+    create: 'Ja, dort anlegen',
+    keep: 'Nein, dort unter ‚Vom Träger‘ zeigen',
+  },
   parentMeetings: {
     // The kinds of a parent meeting (record section, overview sheet, reminders).
     kinds: {

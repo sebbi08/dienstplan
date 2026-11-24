@@ -589,6 +589,18 @@ export const employeeDocumentSchema = z.object({
 // „Gilt für“ of Vorlagen and „Wissen“ (shared/domain/documentTargets.ts): the facilities chosen and the groups per
 // facility; the service checks that they exist and fit together.
 const targetFacilityIds = z.array(z.number().int().positive()).max(500)
+/** A multipart flag: 'true' or 'false' (left out: false). */
+const formFlag = z.enum(['true', 'false']).optional().transform(value => value === 'true')
+/**
+ * Asked before saving an item of the Träger for several or all facilities: which of them lack its category name (or
+ * subcategory name), server/services/categoryAdopt.ts.
+ */
+export const missingCategoriesSchema = z.object({
+  scope: z.enum(DOCUMENT_SCOPES),
+  facilityIds: targetFacilityIds.optional(),
+  categoryName: z.string().max(100),
+  subcategoryName: z.string().max(100).nullish(),
+})
 const targetGroups = z.array(z.object({ facilityId: z.number().int().positive(), groupIds: z.array(z.number().int().positive()).max(200) })).max(500)
 /** A multipart field holding JSON, parsed and then checked with `schema`. */
 const jsonField = <T extends z.ZodType>(schema: T) => z.string().max(100_000).transform((value, ctx) => {
@@ -613,6 +625,8 @@ export const printTemplateSchema = z.object({
   scope: z.enum(DOCUMENT_SCOPES).optional(),
   facilityIds: targetFacilityIds.optional(),
   groupTargets: targetGroups.optional(),
+  // Also create the category where it is missing (the Träger, several or all facilities).
+  createCategories: z.boolean().optional(),
 })
 export const printTemplateFields = z.object({
   title: z.string().max(200),
@@ -623,6 +637,7 @@ export const printTemplateFields = z.object({
   scope: z.enum(DOCUMENT_SCOPES).default('facility'),
   facilityIds: jsonField(targetFacilityIds).optional(),
   groupTargets: jsonField(targetGroups).optional(),
+  createCategories: formFlag,
 })
 /**
  * The new order of one list of „Vorlagen“: a subcategory of the facility, the templates directly in a category
@@ -933,6 +948,7 @@ export const contactSchema = z.object({
   scope: z.enum(DOCUMENT_SCOPES).optional(),
   facilityIds: targetFacilityIds.optional(),
   groupTargets: targetGroups.optional(),
+  createCategories: z.boolean().optional(),
   categoryId: nullableId.optional(),
   categoryName: z.string().max(CONTACT_LIMITS.categoryName).nullable().optional(),
   organisation: contactText(CONTACT_LIMITS.organisation),
@@ -969,6 +985,7 @@ export const knowledgeEntryFields = z.object({
   scope: z.enum(DOCUMENT_SCOPES).optional(),
   facilityIds: jsonField(targetFacilityIds).optional(),
   groupTargets: jsonField(targetGroups).optional(),
+  createCategories: formFlag,
 })
 // A change keeps where the category sits: a `parentId` there is refused (400).
 export const knowledgeCategoryUpdateSchema = z.object({

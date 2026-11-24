@@ -780,6 +780,28 @@ export interface DocumentTargetsDto {
   groupNames: string[] | null
 }
 
+/**
+ * Saving an item of the Träger for several or all facilities (shared/domain/documentTargets.ts `spansFacilities`): also
+ * create its category – and its subcategory – in the facilities of its „Gilt für“ that lack them (only the Träger, else
+ * 403). Left out: it shows under „Vom Träger“ there, as before.
+ */
+export interface CategoryAdoptInput {
+  createCategories?: boolean
+}
+
+/** Asked before saving: which facilities of the item's „Gilt für“ lack its category name (or the subcategory name). */
+export interface MissingCategoriesInput {
+  scope: DocumentScope
+  facilityIds?: number[]
+  categoryName: string
+  subcategoryName?: string | null
+}
+
+/** The facilities that lack the category (or subcategory), in the usual order of the facilities. */
+export interface MissingCategoriesDto {
+  facilities: { id: number; name: string }[]
+}
+
 /** What „Gilt für“ offers the editor: the Träger every facility with its groups, everyone else the own facility. */
 export interface DocumentTargetOptionsDto {
   /** The editor's (active) facility: a facility's own item is for it. */
@@ -793,7 +815,7 @@ export interface DocumentTargetOptionsDto {
  * the name of the category it shows in (each facility's own of that name, else „Vom Träger“), optionally the name of a
  * subcategory there (else directly in the category). Both: who sees it at least (`visibility`) and „Gilt für“.
  */
-export interface PrintTemplateMeta extends DocumentTargetsInput {
+export interface PrintTemplateMeta extends DocumentTargetsInput, CategoryAdoptInput {
   title: string
   categoryId?: number | null
   categoryName?: string | null
@@ -3971,7 +3993,7 @@ export interface ContactCategoryInput {
  * What Leitung or Träger enter about a contact, with „Gilt für“ (shared/domain/documentTargets.ts): left out on create =
  * the facility's own, left out on a change = as it is; 'all' / 'selected' are the Träger's.
  */
-export interface ContactInput extends DocumentTargetsInput {
+export interface ContactInput extends DocumentTargetsInput, CategoryAdoptInput {
   /** A contact of the facility: one of the facility's categories. */
   categoryId?: number | null
   /** A contact of the Träger (all or the chosen facilities): the category name it shows under in each facility (else „Vom Träger“). */
@@ -3992,7 +4014,7 @@ export interface ContactInput extends DocumentTargetsInput {
 }
 
 /** A contact as the viewer sees it, placed in the facility's categories. */
-export interface ContactDto extends Omit<ContactInput, 'scope' | 'facilityIds' | 'groupTargets' | 'categoryId' | 'categoryName'> {
+export interface ContactDto extends Omit<ContactInput, 'scope' | 'facilityIds' | 'groupTargets' | 'createCategories' | 'categoryId' | 'categoryName'> {
   id: number
   /** The facility's category it shows in; null = „Vom Träger“ (for all facilities, no category of its name). */
   categoryId: number | null
@@ -4121,7 +4143,7 @@ export interface KnowledgeDto {
  * `facilityIds` and `groupTargets` as JSON). „Gilt für“: without `scope` a change keeps it as it is, a new entry is the
  * facility's own.
  */
-export interface KnowledgeEntryInput extends DocumentTargetsInput {
+export interface KnowledgeEntryInput extends DocumentTargetsInput, CategoryAdoptInput {
   kind: KnowledgeKind
   title: string
   description: string

@@ -10,7 +10,10 @@ import type {
 import type { Db } from '../db/client'
 import { children, contactCategories, contacts, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { checkedTargets, loadTargets, targetNames, targetOptions, targetsDto, targetsInput, targetsOf, writeTargets } from './documentTargets'
+import { assertMayCreateCategories, createMissingCategories } from './categoryAdopt'
+import {
+  checkedTargets, facilitiesInScope, loadTargets, targetNames, targetOptions, targetsDto, targetsInput, targetsOf, writeTargets,
+} from './documentTargets'
 
 /**
  * The facility's address book („Kontakte“): external business contacts (schools, Jugendamt, Fachberatung …) in
@@ -317,6 +320,11 @@ function filing(db: Db, facilityId: number, own: boolean, input: ContactInput) {
     : { categoryId: null, categoryName: checkedCategoryName(input.categoryName ?? '') }
 }
 
+/** Asked for when saving a contact of the Träger: its category where it is missing in the facilities of its „Gilt für“. */
+function adoptCategory(db: Db, actor: ContactActor, contact: { id: number; facilityId: null; allFacilities: boolean }, categoryName: string | null): void {
+  createMissingCategories(db, 'contact', actor.facilityId, facilitiesInScope(db, contact, targetsOf(db, 'contact', contact)), categoryName ?? '', null)
+}
+
 /** A scope beyond the own facility is the Träger's (contacts.global, else 403). */
 function assertScopeAllowed(actor: ContactActor, scope: DocumentScope): void {
   if (scope !== 'facility' && !can(actor.permissions, 'contacts.global')) throw new ServiceError(403, 'forbidden')
@@ -330,6 +338,7 @@ export function createContact(db: Db, actor: ContactActor, input: ContactInput, 
   assertManager(actor)
   const scope = input.scope ?? 'facility'
   assertScopeAllowed(actor, scope)
+  if (input.createCategories) assertMayCreateCategories('contact', actor)
   const own = scope === 'facility'
   const values = { ...checkedFields(input), ...filing(db, actor.facilityId, own, input) }
   const targets = checkedTargets(db, scope, own ? actor.facilityId : null, input)
@@ -338,6 +347,7 @@ export function createContact(db: Db, actor: ContactActor, input: ContactInput, 
       ...values, facilityId: own ? actor.facilityId : null, allFacilities: targets.allFacilities, updatedAt: now.toISOString(), updatedBy: actor.id,
     }).returning({ id: contacts.id }).get().id
     writeTargets(tx, 'contact', id, targets)
+    if (input.createCategories && !own) adoptCategory(tx, actor, { id, facilityId: null, allFacilities: targets.allFacilities }, values.categoryName)
     return id
   })
 }
@@ -365,6 +375,7 @@ export function updateContact(db: Db, actor: ContactActor, id: number, input: Co
   const current = targetsInput(row, targetsOf(db, 'contact', row))
   const scope = input.scope ?? current.scope
   assertScopeAllowed(actor, scope)
+  if (input.createCategories) assertMayCreateCategories('contact', actor)
   const own = scope === 'facility'
   // An own contact stays with its facility; the Träger's becomes the active facility's.
   const facilityId = own ? row.facilityId ?? actor.facilityId : null
@@ -375,6 +386,7 @@ export function updateContact(db: Db, actor: ContactActor, id: number, input: Co
     tx.update(contacts).set({ ...values, facilityId, allFacilities: targets.allFacilities, updatedAt: now.toISOString(), updatedBy: actor.id })
       .where(eq(contacts.id, id)).run()
     writeTargets(tx, 'contact', id, targets)
+    if (input.createCategories && !own) adoptCategory(tx, actor, { id, facilityId: null, allFacilities: targets.allFacilities }, values.categoryName)
   })
 }
 

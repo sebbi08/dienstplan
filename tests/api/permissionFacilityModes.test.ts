@@ -48,6 +48,8 @@ const NONE = [
   'contact-categories/names.get.ts',
   // And for the Träger's entries of „Wissen“ for all facilities.
   'knowledge-categories/names.get.ts',
+  // Which facilities lack the category of a Träger item for several facilities (asked before saving it).
+  'print-templates/missing-categories.post.ts', 'knowledge/missing-categories.post.ts', 'contacts/missing-categories.post.ts',
   // The Träger's street list of the school districts for all facilities.
   'school-districts/global.put.ts', 'school-districts/global.delete.ts',
 ]

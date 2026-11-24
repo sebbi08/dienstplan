@@ -70,3 +70,10 @@ export function facilitiesLosing(before: 'all' | readonly number[], after: 'all'
  * facility, only the Träger finds it („Keine Einrichtung gewählt“) to choose facilities again or delete it.
  */
 export const isOrphan = (targets: ItemTargets): boolean => !targets.allFacilities && targets.facilities.size === 0
+
+/**
+ * An item of the Träger for several or all facilities: saving it asks whether its category (and subcategory) should be
+ * created where it is missing (server/services/categoryAdopt.ts). Not for the own facility or a single chosen one.
+ */
+export const spansFacilities = (scope: DocumentScope, facilityIds: readonly number[]): boolean =>
+  scope === 'all' || (scope === 'selected' && facilityIds.length > 1)

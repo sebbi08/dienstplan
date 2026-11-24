@@ -16,6 +16,7 @@ import { fillableFile } from '../lib/pdfForm'
 import {
   checkedTargets, facilitiesInScope, loadTargets, targetNames, targetsDto, targetsInput, targetsOf, writeTargets,
 } from './documentTargets'
+import { assertMayCreateCategories, createMissingCategories } from './categoryAdopt'
 import { checkedCategoryName, chosenCategory, facilityCategories } from './templateCategories'
 
 /**
@@ -214,6 +215,7 @@ export function uploadTemplate(
   const permissions = actor.permissions
   if (!can(permissions, 'printTemplates.edit')) throw new ServiceError(403, 'forbidden')
   assertScopeAllowed(permissions, input.scope)
+  if (input.createCategories) assertMayCreateCategories('template', actor)
   const own = input.scope === 'facility'
   const filing = own
     ? { categoryId: chosenCategory(db, actor.role, actor.facilityId, input.categoryId).id, categoryName: null, subcategoryName: null }
@@ -242,9 +244,12 @@ export function uploadTemplate(
       updatedAt: at,
     }).returning({ id: printTemplates.id }).get().id
     writeTargets(tx, 'template', id, targets)
-    // At the end of its category, in every facility it shows in.
     const row = { id, facilityId, allFacilities: targets.allFacilities }
-    for (const shownIn of facilitiesInScope(tx, row, targetsOf(tx, 'template', row))) appendToSubTab(tx, shownIn, id)
+    const shownIn = facilitiesInScope(tx, row, targetsOf(tx, 'template', row))
+    // Asked for: its category (and subcategory) where it is missing, so it shows there.
+    if (input.createCategories && !own) createMissingCategories(tx, 'template', actor.facilityId, shownIn, filing.categoryName ?? '', filing.subcategoryName)
+    // At the end of its category, in every facility it shows in.
+    for (const facility of shownIn) appendToSubTab(tx, facility, id)
     return id
   })
 }
@@ -333,6 +338,7 @@ export function updateTemplate(db: Db, actor: TemplateActor, id: number, meta: P
   const current = targetsInput(row, targetsOf(db, 'template', row))
   const scope = meta.scope ?? current.scope
   assertScopeAllowed(actor.permissions, scope)
+  if (meta.createCategories) assertMayCreateCategories('template', actor)
   const own = scope === 'facility'
   // An own template stays with its facility; the Träger's becomes the active facility's.
   const facilityId = own ? row.facilityId ?? actor.facilityId : null
@@ -347,6 +353,10 @@ export function updateTemplate(db: Db, actor: TemplateActor, id: number, meta: P
     tx.update(printTemplates).set({ title, facilityId, ...filing, visibility, allFacilities: targets.allFacilities, updatedAt: now.toISOString() })
       .where(eq(printTemplates.id, id)).run()
     writeTargets(tx, 'template', id, targets)
+    if (meta.createCategories && !own) {
+      const saved = { id, facilityId, allFacilities: targets.allFacilities }
+      createMissingCategories(tx, 'template', actor.facilityId, facilitiesInScope(tx, saved, targetsOf(tx, 'template', saved)), filing.categoryName ?? '', filing.subcategoryName)
+    }
     const after = subTabsOf(tx, { ...row, facilityId, ...filing, allFacilities: targets.allFacilities })
     for (const [shownIn, subTab] of after) {
       if (!before.has(shownIn) || before.get(shownIn) !== subTab) appendToSubTab(tx, shownIn, id)

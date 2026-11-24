@@ -785,8 +785,8 @@ describe('API route permissions', () => {
     const touching = routes.filter(route => /^(print-templates|template-categories)\//.test(route)
       || /services\/(printTemplates|templateCategories)'/.test(source(route)))
     expect(touching).toEqual(['print-templates/[id].delete.ts', 'print-templates/[id].put.ts', 'print-templates/[id]/file.get.ts',
-      'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts', 'print-templates/order.post.ts',
-      'print-templates/targets.get.ts',
+      'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts',
+      'print-templates/missing-categories.post.ts', 'print-templates/order.post.ts', 'print-templates/targets.get.ts',
       'template-categories/[id].delete.ts', 'template-categories/[id].put.ts', 'template-categories/[id]/move.post.ts',
       'template-categories/index.get.ts', 'template-categories/index.post.ts', 'template-categories/names.get.ts'])
     const readers = ['print-templates/index.get.ts', 'print-templates/[id]/file.get.ts', 'template-categories/index.get.ts']
@@ -794,7 +794,11 @@ describe('API route permissions', () => {
     const names = 'template-categories/names.get.ts'
     expect(source(names)).toContain("requirePermission(event, 'printTemplates.global', { facility: 'none' })")
     expect(fixture[names]).toEqual(['provider'])
-    for (const route of touching.filter(route => route !== names)) {
+    // Which facilities lack the category of a template for several facilities: the Träger's too, across all facilities.
+    const missing = 'print-templates/missing-categories.post.ts'
+    expect(source(missing)).toContain("requirePermission(event, 'printTemplates.global', { facility: 'none' })")
+    expect(fixture[missing]).toEqual(['provider'])
+    for (const route of touching.filter(route => route !== names && route !== missing)) {
       // The tablet without an unlock (blank forms, no child data), always in the active facility (no settings choice).
       expect(source(route), route).toContain(readers.includes(route)
         ? "requirePermission(event, 'printTemplates.view', { allowTerminal: true, facility: 'active' })"

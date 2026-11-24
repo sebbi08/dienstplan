@@ -1721,6 +1721,17 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   **Unterkategorie** an: Hat die Kategorie der Einrichtung eine Unterkategorie mit diesem Namen, steht die Vorlage dort
   (es gilt dann die engste Einstellung von Vorlage, Kategorie und Unterkategorie), sonst direkt in der Kategorie unter
   „Allgemein“, sonst unter „Vom Träger“ (dort mit „Kategorie › Unterkategorie“ beschriftet).
+- **Kategorie in den anderen Einrichtungen anlegen**: Speichert der Träger eine Vorlage für mehrere oder alle
+  Einrichtungen (beim Hochladen und beim Bearbeiten) und fehlt die Kategorie – oder die Unterkategorie – in einigen
+  davon, fragt die App, z. B. „Die Kategorie ‚Elternbriefe › Herbst‘ gibt es in Kita A, Kita B noch nicht. Soll sie dort
+  angelegt werden?“
+  - **Ja, dort anlegen**: Die Kategorie (und die Unterkategorie darunter) entsteht in diesen Einrichtungen am Ende ihrer
+    Kategorien (Unterkategorien), mit demselben „Wer sieht sie?“ wie die gleichnamige in der oben gewählten Einrichtung
+    (gibt es dort keine: „Alle“). Die Vorlage steht dann dort am Ende.
+  - **Nein, dort unter ‚Vom Träger‘ zeigen**: gespeichert wie bisher. **Abbrechen** speichert nichts.
+  - Bei „alle Einrichtungen“ zählen die Einrichtungen, die es jetzt gibt (spätere nicht). Ein Name, der sich nur in
+    Groß-/Kleinschreibung unterscheidet, gilt als vorhanden. Für eine einzelne Einrichtung und für die Leitung fragt die
+    App nicht. Gleiches gilt für „Wissen“ und für Kontakte (dort ohne Unterkategorie).
 - **Ändern**: Mit **Bearbeiten** lassen sich Titel und Kategorie ändern und die Datei durch eine neue ersetzen;
   **Löschen** fragt vorher nach. Die Vorlagen für alle Einrichtungen kann **nur der Träger** ändern oder löschen.
 - **Reihenfolge**: Wer Vorlagen bearbeiten darf, schiebt jede Vorlage mit den Pfeilen **Nach oben / Nach unten** (rechts
@@ -2822,7 +2833,9 @@ Beim Anlegen und später mit **Bearbeiten** gibt es **„Gilt für“** – gena
   jeder Einrichtung erscheint der Kontakt in der Kategorie mit diesem Namen, sonst im Reiter **„Vom Träger“**. Markiert
   ist er mit **„alle Einrichtungen“** bzw. **„vom Träger“**, für Leitung und Träger mit dem Hinweis „nur Kita A, Kita B“.
   Ändern und löschen kann ihn nur der Träger, und zwar in einer Einrichtung, für die er gilt; eine Kategorie gleichen
-  Namens kann die Einrichtung trotzdem löschen (der Kontakt wandert dann zu „Vom Träger“).
+  Namens kann die Einrichtung trotzdem löschen (der Kontakt wandert dann zu „Vom Träger“). Fehlt die Kategorie in
+  einigen der gewählten Einrichtungen, fragt die App beim Speichern, ob sie dort angelegt werden soll (wie bei den
+  Vorlagen, Abschnitt 19; ohne Unterkategorie).
 - **Gruppen**: je Einrichtung **„alle Gruppen“** oder **„nur bestimmte Gruppen“**; die Leitung darf das für die Kontakte
   ihrer Einrichtung einstellen. Mitarbeitende und Gruppenleitungen sehen einen freigegebenen Kontakt nur, wenn ihre
   **Stammgruppe** gewählt ist; Aushilfen aus anderen Einrichtungen und Personen ohne Stammgruppe nur Kontakte für alle
@@ -2928,7 +2941,9 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
 - **Für alle Einrichtungen** (nur der Träger): wie bei den Vorlagen mit einem **Kategorie-Namen**, freiwillig einem
   **Unterkategorie-Namen**, und eigenem „Wer sieht ihn?“. Jede Einrichtung zeigt den Eintrag in ihrer Unterkategorie mit
   diesem Namen, sonst direkt in der Kategorie mit diesem Namen (unter „Allgemein“), sonst unter **„Vom Träger“**; die
-  engste Einstellung gewinnt. Ändern und löschen kann ihn nur der Träger.
+  engste Einstellung gewinnt. Ändern und löschen kann ihn nur der Träger. Fehlt die Kategorie (oder Unterkategorie) in
+  einigen der Einrichtungen, fragt die App beim Speichern, ob sie dort angelegt werden soll (wie bei den Vorlagen,
+  Abschnitt 19).
 - **Gilt für** und **Wer sieht ihn?** (beim Anlegen und später mit **Bearbeiten**) wie bei den Vorlagen (Abschnitt 19):
   Einrichtungen (der Träger: „nur ‹Einrichtung›“, alle oder ausgewählte) und je Einrichtung alle oder bestimmte Gruppen
   (nach der Stammgruppe; am Tablet die Stammgruppe der Person, die es entsperrt hat). Das gilt überall: in der Liste, der

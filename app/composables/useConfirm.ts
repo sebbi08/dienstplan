@@ -5,12 +5,14 @@ interface ConfirmRequest {
   confirmLabel: string
   /** The other button: „Abbrechen“, or „Nein“ for a yes/no question. */
   cancelLabel: string
+  /** A third button that answers nothing (like closing it): for a question with „Abbrechen“ besides yes and no. */
+  dismissLabel: string | null
   danger: boolean
   /** true = the confirm button, false = the other button, null = closed without an answer (X, Escape, outside). */
   resolve: (answer: boolean | null) => void
 }
 
-interface ConfirmOptions { confirmLabel?: string; cancelLabel?: string; danger?: boolean }
+interface ConfirmOptions { confirmLabel?: string; cancelLabel?: string; dismissLabel?: string; danger?: boolean }
 
 // Only ever set from client-side event handlers, so a module-level ref is safe here.
 const pending = shallowRef<ConfirmRequest | null>(null)
@@ -22,6 +24,7 @@ function open(message: string, options: ConfirmOptions): Promise<boolean | null>
       message,
       confirmLabel: options.confirmLabel ?? de.common.delete,
       cancelLabel: options.cancelLabel ?? de.common.cancel,
+      dismissLabel: options.dismissLabel ?? null,
       danger: options.danger ?? true,
       resolve,
     }

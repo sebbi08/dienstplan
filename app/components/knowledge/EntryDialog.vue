@@ -54,6 +54,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 /** For all or the chosen facilities (the Träger's): filed by category name. */
 const forAll = computed(() => form.targets.scope !== 'facility')
 const confirm = useConfirm()
+const adoptCategory = useCategoryAdopt('knowledge')
 // What „Gilt für“ offers (the Träger every facility with its groups, everyone else the own facility), loaded with the form.
 // Saving waits for them (else a limit could not be shown and kept); a failed load offers to try again. „Gilt für“ is sent
 // only when the editor changed it, otherwise the server keeps it as it is.
@@ -150,6 +151,9 @@ async function save() {
   // Facilities that lose the entry: ask first.
   const lost = props.entry && targetsTouched.value ? facilitiesLost(props.entry.targets, form.targets, targetOptions.value, ownFacilityId) : 0
   if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'der Eintrag')))) return
+  // For several or all facilities: create the category (› subcategory) where it is missing („Nein“: „Vom Träger“ there)?
+  const createCategories = forAll.value ? await adoptCategory(form.targets, form.categoryName, form.subcategoryName) : undefined
+  if (createCategories === null) return
   const body = new FormData()
   // A facility's entry: the subcategory chosen, else the category; for all or the chosen facilities the names.
   const categoryId = filedCategoryId(form.categoryId, form.subcategoryId)
@@ -164,6 +168,7 @@ async function save() {
     ...(forAll.value
       ? { categoryName: form.categoryName, subcategoryName: form.subcategoryName }
       : categoryId !== undefined ? { categoryId: String(categoryId) } : {}),
+    ...(createCategories ? { createCategories: 'true' } : {}),
   }
   for (const [key, value] of Object.entries(fields)) body.append(key, value)
   if (chosen && form.kind === 'file') body.append('file', chosen)

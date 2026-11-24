@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { de } from '../../app/locales/de'
 import {
   emptyTargets, facilitiesForGroups, facilitiesLost, hasEmptyGroupLimit, isOrphanTargets, setGroupLimit, targetHints, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem,
   toggleGroup, toggleId,
 } from '../../app/utils/documentTargets'
 import {
-  facilitiesLosing, groupsAllow, inFacilityScope, reachesAudience, scopeOf, type ItemTargets,
+  facilitiesLosing, groupsAllow, inFacilityScope, reachesAudience, scopeOf, spansFacilities, type ItemTargets,
 } from '../../shared/domain/documentTargets'
 import { matchesSearch, searchFold } from '../../shared/domain/search'
 import { knowledgeMatches } from '../../shared/domain/knowledge'
@@ -67,6 +68,15 @@ describe('„Gilt für“ (shared rules)', () => {
     expect(matchesSearch(['Elternbrief'], 'eltern attest')).toBe(false)
     expect(matchesSearch(['x'], '  ')).toBe(true)
     expect(knowledgeMatches({ title: 'Fußweg', description: '', body: '<p>Übergänge</p>' }, 'fussweg uebergaenge')).toBe(true)
+  })
+})
+
+describe('creating the category in the other facilities', () => {
+  it('asks only for several or all facilities, naming the category path and the facilities', () => {
+    expect([spansFacilities('all', []), spansFacilities('selected', [2, 3]), spansFacilities('selected', [2]), spansFacilities('facility', [1])])
+      .toEqual([true, true, false, false])
+    expect(de.categoryAdopt.question('Elternbriefe › Herbst', ['Kita A', 'Kita B']))
+      .toBe('Die Kategorie ‚Elternbriefe › Herbst‘ gibt es in Kita A, Kita B noch nicht. Soll sie dort angelegt werden?')
   })
 })
 

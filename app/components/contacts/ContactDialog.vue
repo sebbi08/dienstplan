@@ -28,6 +28,7 @@ const f = t.fields
 const { activeName } = useFacilities()
 const { busy, run } = useBusyAction(props.refresh)
 const confirm = useConfirm()
+const adoptCategory = useCategoryAdopt('contacts')
 const toast = useToast()
 
 type Form = Omit<ContactInput, 'categoryId' | 'scope' | 'facilityIds' | 'groupTargets'> & {
@@ -94,11 +95,15 @@ async function save() {
   if (problem) return void toast.add({ title: problem.kind === 'facility' ? de.documentTargets.pickFacility : de.documentTargets.pickGroup(problem.facility), color: 'error' })
   const lost = props.contact && targetsTouched.value ? facilitiesLost(props.contact.targets, form.targets, targetOptions.value, ownFacilityId) : 0
   if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'der Kontakt')))) return
+  // For several or all facilities: create the category where it is missing („Nein“: „Vom Träger“ there)?
+  const createCategories = forAll.value ? await adoptCategory(form.targets, form.categoryName) : undefined
+  if (createCategories === null) return
   const { targets: _targets, categoryId, categoryName, ...fields } = form
   const body: ContactInput = {
     ...fields,
     ...(targetsTouched.value ? targetsPayload(form.targets, targetOptions.value, ownFacilityId) : {}),
     ...(forAll.value ? { categoryName } : { categoryId: categoryId ?? null }),
+    ...(createCategories ? { createCategories: true } : {}),
   }
   const saved = await run(() => (props.contact
     ? $fetch<{ ok: boolean }>(`/api/contacts/${props.contact.id}`, { method: 'PUT', body })

@@ -23,7 +23,10 @@ import { employees, entries, facilities, knowledgeCategories, knowledgeConfirmat
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
-import { checkedTargets, homeGroupOf, loadTargets, targetNames, targetsDto, targetsInput, targetsOf, writeTargets } from './documentTargets'
+import { assertMayCreateCategories, createMissingCategories } from './categoryAdopt'
+import {
+  checkedTargets, facilitiesInScope, homeGroupOf, loadTargets, targetNames, targetsDto, targetsInput, targetsOf, writeTargets,
+} from './documentTargets'
 import { loadEmployees } from './queries'
 import { terminalStatus, verifyEmployeePin } from './terminal'
 
@@ -442,6 +445,15 @@ function assertScopeAllowed(actor: KnowledgeActor, scope: DocumentScope): void {
   if (scope !== 'facility' && !can(actor.permissions, 'knowledge.global')) throw new ServiceError(403, 'forbidden')
 }
 
+/** Asked for when saving an entry of the Träger: its category (and subcategory) where it is missing in its facilities. */
+function adoptCategories(
+  db: Db, actor: KnowledgeActor, entry: { id: number; facilityId: null; allFacilities: boolean },
+  filed: { categoryName: string | null; subcategoryName: string | null },
+): void {
+  const shownIn = facilitiesInScope(db, entry, targetsOf(db, 'knowledge', entry))
+  createMissingCategories(db, 'knowledge', actor.facilityId, shownIn, filed.categoryName ?? '', filed.subcategoryName)
+}
+
 /** The file columns of a file entry (a new PDF), or none for a link or text. */
 function fileColumns(kind: KnowledgeEntryInput['kind'], file: { data: Buffer } | null) {
   if (kind !== 'file') return { fileData: null, fileMime: null, fileSize: null }
@@ -467,6 +479,7 @@ export function createKnowledgeEntry(
   assertManager(actor)
   const scope = input.scope ?? 'facility'
   assertScopeAllowed(actor, scope)
+  if (input.createCategories) assertMayCreateCategories('knowledge', actor)
   const own = scope === 'facility'
   const fields = checkedFields(input)
   const filed = filing(db, actor, own, input)
@@ -481,6 +494,7 @@ export function createKnowledgeEntry(
       updatedBy: actor.id,
     }).returning({ id: knowledgeEntries.id }).get().id
     writeTargets(tx, 'knowledge', id, targets)
+    if (input.createCategories && !own) adoptCategories(tx, actor, { id, facilityId: null, allFacilities: targets.allFacilities }, filed)
     return id
   })
 }
@@ -508,6 +522,7 @@ export function updateKnowledgeEntry(
   const current = targetsInput(row, targetsOf(db, 'knowledge', row))
   const scope = input.scope ?? current.scope
   assertScopeAllowed(actor, scope)
+  if (input.createCategories) assertMayCreateCategories('knowledge', actor)
   const own = scope === 'facility'
   // An own entry stays with its facility; the Träger's becomes the active facility's.
   const facilityId = own ? row.facilityId ?? actor.facilityId : null
@@ -528,6 +543,7 @@ export function updateKnowledgeEntry(
       updatedAt: now.toISOString(), updatedBy: actor.id,
     }).where(eq(knowledgeEntries.id, id)).run()
     writeTargets(tx, 'knowledge', id, targets)
+    if (input.createCategories && !own) adoptCategories(tx, actor, { id, facilityId: null, allFacilities: targets.allFacilities }, filed)
   })
 }
 
