@@ -2708,7 +2708,9 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 - **Drucken:** jeder Bogen hat eine Druckseite (A4 hoch) mit Kopffeldern, Bewertungstabelle, Ankreuzkästchen, leeren
   Schreiblinien und den beiden Unterschriftszeilen; dort gibt es auch **PDF herunterladen**. Mitarbeiter drucken ihre
   freigegebenen Bögen über „Meine Gespräche“.
-- **Für ein weiteres Gespräch verwenden** (bei jedem Gespräch, Leitung und Träger wie „Gespräch anlegen“): legt ein
+- **Für ein weiteres Gespräch verwenden** (bei jedem Gespräch mit mindestens einem Bogen, Leitung und Träger wie
+  „Gespräch anlegen“; hat ein geöffneter Bogen dieses Gesprächs ungespeicherte Änderungen, fragt die App vorher – übernommen
+  werden nur gespeicherte Antworten): legt ein
   neues Gespräch mit demselben Mitarbeiter an – Datum heute, ohne Uhrzeit, Teilnehmer und Zeitraum übernommen (alles
   vor dem Anlegen änderbar). Jeder Bogen des alten Gesprächs wird mit seinem Inhalt (so wie er im alten Gespräch
   steht, auch wenn die Vorlage inzwischen geändert wurde) und seinen Antworten kopiert, in derselben Reihenfolge und
@@ -2721,10 +2723,13 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Gespräche“, nicht an einer zum Lesen freigegebenen Beurteilung. Wird das alte Gespräch gelöscht, bleibt der Hinweis
   mit seinem Datum stehen.
 - **Verlauf** (an jedem Bogen eines Gesprächs, seit diesem Update): wie bei den Beobachtungsbögen – jedes Speichern,
-  das Antworten geändert hat (auch das des Mitarbeiters an seiner Selbstbeurteilung), mit „Stand vom …“ und
-  **Änderungen zeigen**. Bei einem kopierten Bogen ist der älteste Eintrag „übernommen aus dem Gespräch vom …“ (die
-  Kopie zählt nicht als Änderung); Bögen, in denen vor dem Update schon etwas stand, beginnen mit „Stand vor Beginn des
-  Verlaufs“. Den Verlauf sehen nur Leitung und Träger.
+  das Antworten geändert hat, mit „Stand vom …“ und **Änderungen zeigen**. Von der Selbstbeurteilung des Mitarbeiters
+  werden seine Zwischenstände nicht aufbewahrt (Datensparsamkeit): erst was er **abgibt**, kommt als ein Eintrag in den
+  Verlauf, mit „geändert am ‹Abgabetag› von ‹Name›“ bei jeder Angabe, die er seit dem letzten aufbewahrten Stand geändert
+  hat. Speichert die Leitung die Selbstbeurteilung, während der Mitarbeiter noch daran schreibt, wird dieser Stand (mit
+  seinem Entwurf) aufbewahrt. Bei einem kopierten Bogen ist der älteste Eintrag „übernommen aus dem Gespräch vom …“ (die
+  Kopie zählt nicht als Änderung; ein leer kopierter Bogen beginnt ohne Eintrag); Bögen, in denen vor dem Update schon
+  etwas stand, beginnen mit „Stand vor Beginn des Verlaufs“. Den Verlauf sehen nur Leitung und Träger.
 - **Mit dem vorigen Gespräch vergleichen** (am kopierten Bogen, solange der alte Bogen noch da ist): beide Bögen
   nebeneinander, links aus dem vorigen, rechts aus diesem Gespräch, Bewertungen mit Pfeil (↑ besser, ↓ schwächer,
   = gleich), mit **Vergleich drucken** (A4 hoch, mit PDF). Datenbank-Migration 0123 (Herkunft der kopierten Bögen,

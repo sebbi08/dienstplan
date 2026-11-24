@@ -4,8 +4,9 @@ import type { Db } from '../../server/db/client'
 import { formRevisions, forms, staffTalkForms, staffTalks } from '../../server/db/schema'
 import { listTemplates } from '../../server/services/formTemplates'
 import {
-  createTalk, deleteTalk, getMyTalkForm, getTalkForm, getTalkFormRevision, listMyTalks, listTalkFormRevisions, listTalks,
-  releaseTalkForm, reuseTalk, saveMyTalkFormAnswers, saveTalkFormAnswers, setTalkFormReadRelease, submitMyTalkForm,
+  createTalk, deleteTalk, deleteTalkForm, getMyTalkForm, getTalkForm, getTalkFormRevision, listMyTalks, listTalkFormRevisions,
+  listTalks, releaseTalkForm, reopenTalkForm, reuseTalk, saveMyTalkFormAnswers, saveTalkFormAnswers, setTalkFormReadRelease,
+  submitMyTalkForm, withdrawTalkForm,
 } from '../../server/services/staffTalks'
 import { compareForms } from '../../shared/domain/formHistory'
 import type { AnswerableItem, FormContent } from '../../shared/domain/forms'
@@ -21,6 +22,7 @@ let assessmentTemplate: number
 const T0 = new Date('2025-11-03T09:00:00.000Z')
 const T1 = new Date('2026-10-26T09:00:00.000Z')
 const T2 = new Date('2026-10-27T09:00:00.000Z')
+const T3 = new Date('2026-10-28T09:00:00.000Z')
 const F1 = { facilityId: 1, ownEmployeeId: null }
 const oldHeader = { date: '2025-11-03', start: 600, participants: 'Lea Leitung, Anna Muster', period: '2024/25' }
 const newHeader = { date: '2026-10-26', start: null, participants: 'Lea Leitung, Anna Muster', period: '2025/26' }
@@ -122,9 +124,72 @@ describe('„Für ein weiteres Gespräch verwenden“', () => {
       source: { talkDate: oldHeader.date },
     })
     saveMyTalkFormAnswers(db, anna, self.id, { [old.selfText.id]: '<p>Ich arbeite gern im Team und leite die Bauecke</p>' }, updatedAt(self.id), T2)
+    // Her draft is no longer „übernommen“, but not a recorded change yet (her drafts are not kept).
+    expect(getMyTalkForm(db, anna, self.id).form).toMatchObject({ carriedOver: [], itemChanges: {} })
+    submitMyTalkForm(db, anna, self.id, updatedAt(self.id), T3)
     expect(getMyTalkForm(db, anna, self.id).form).toMatchObject({
-      carriedOver: [], itemChanges: { [old.selfText.id]: { changedAt: T2.toISOString(), changedBy: 'Anna Muster' } },
+      carriedOver: [], itemChanges: { [old.selfText.id]: { changedAt: T3.toISOString(), changedBy: 'Anna Muster' } },
     })
+  })
+
+  it('keeps no drafts of the employee\'s self-assessment: one revision when she submits, against the last kept state', () => {
+    const old = oldTalk()
+    const newId = reuseTalk(db, leitung, F1, old.talkId, newHeader, T1)
+    const [self] = talkForms(newId) as [TalkFormDto]
+    const other = items(self.content).filter(item => item.kind === 'text')[1]!
+    releaseTalkForm(db, F1, self.id, T1)
+    // Two drafts: a sentence written and taken back again, then the final text.
+    saveMyTalkFormAnswers(db, anna, self.id, { ...self.answers, [other.id]: '<p>Das Team hört mir nicht zu.</p>' }, updatedAt(self.id), T1)
+    saveMyTalkFormAnswers(db, anna, self.id, { ...self.answers, [other.id]: '<p>Ich wünsche mir mehr Austausch.</p>' }, updatedAt(self.id), T2)
+    expect(listTalkFormRevisions(db, F1, self.id, 0).revisions.map(revision => revision.initial)).toEqual([true])
+    submitMyTalkForm(db, anna, self.id, updatedAt(self.id), T3)
+    const page = listTalkFormRevisions(db, F1, self.id, 0)
+    expect(page.revisions.map(revision => [revision.savedBy, revision.savedAt, revision.changedCount, revision.initial])).toEqual([
+      ['Anna Muster', T3.toISOString(), 1, false], ['Lea Leitung', T1.toISOString(), 0, true],
+    ])
+    const kept = getTalkFormRevision(db, F1, self.id, page.revisions[0]!.id)
+    expect(kept).toMatchObject({ changedItemIds: [other.id], answers: { [other.id]: '<p>Ich wünsche mir mehr Austausch.</p>' } })
+    expect(JSON.stringify(db.select().from(formRevisions).all())).not.toContain('hört mir nicht zu')
+    // Reopened, changed again and submitted: one more revision with only what changed since the last kept state.
+    reopenTalkForm(db, F1, self.id, T3)
+    saveMyTalkFormAnswers(db, anna, self.id, { ...kept.answers, [other.id]: '<p>Ich wünsche mir mehr Austausch im Team.</p>' }, updatedAt(self.id), T3)
+    submitMyTalkForm(db, anna, self.id, updatedAt(self.id), T3)
+    expect(listTalkFormRevisions(db, F1, self.id, 0).revisions.map(revision => revision.changedCount)).toEqual([1, 1, 0])
+    // Submitting unchanged answers keeps nothing new.
+    reopenTalkForm(db, F1, self.id, T3)
+    submitMyTalkForm(db, anna, self.id, updatedAt(self.id), T3)
+    expect(listTalkFormRevisions(db, F1, self.id, 0).total).toBe(3)
+  })
+
+  it('a refused save keeps no revision; a revision of another form is not found', () => {
+    const old = oldTalk()
+    const before = listTalkFormRevisions(db, F1, old.assessment.id, 0).total
+    expect(errorCode(() => saveTalkFormAnswers(db, leitung, F1, old.assessment.id, { [old.text.id]: '<p>anders</p>' }, 'veraltet', T1)))
+      .toBe('form_changed')
+    expect(listTalkFormRevisions(db, F1, old.assessment.id, 0).total).toBe(before)
+    // The employee writes after the release was taken back: refused, nothing kept.
+    const talkId = createTalk(db, leitung, F1, { ...newHeader, employeeId: annaId, templateIds: [selfTemplate] }, T1)
+    const [self] = talkForms(talkId)
+    releaseTalkForm(db, F1, self!.id, T1)
+    const loaded = updatedAt(self!.id)
+    withdrawTalkForm(db, F1, self!.id)
+    expect(errorCode(() => saveMyTalkFormAnswers(db, anna, self!.id, { [old.selfText.id]: '<p>x</p>' }, loaded, T2))).toBe('form_release_withdrawn')
+    expect(listTalkFormRevisions(db, F1, self!.id, 0).total).toBe(0)
+    const foreign = listTalkFormRevisions(db, F1, old.assessment.id, 0).revisions[0]!.id
+    expect(errorCode(() => getTalkFormRevision(db, F1, self!.id, foreign))).toBe('form_revision_not_found')
+  })
+
+  it('refuses to reuse a talk without forms; an empty form is copied without a first history entry', () => {
+    const talkId = createTalk(db, leitung, F1, { ...oldHeader, employeeId: annaId, templateIds: [selfTemplate, assessmentTemplate] }, T0)
+    const [self, assessment] = talkForms(talkId)
+    deleteTalkForm(db, F1, self!.id)
+    const copyId = reuseTalk(db, leitung, F1, talkId, newHeader, T1)
+    const [copy] = talkForms(copyId)
+    expect(copy).toMatchObject({ role: 'assessment', answers: {}, carriedOver: [], source: { formId: assessment!.id } })
+    expect(listTalkFormRevisions(db, F1, copy!.id, 0).total).toBe(0)
+    deleteTalkForm(db, F1, assessment!.id)
+    expect(errorCode(() => reuseTalk(db, leitung, F1, talkId, newHeader, T1))).toBe('staff_talk_forms_required')
+    expect(listTalks(db, F1, annaId)).toHaveLength(2)
   })
 
   it('the employee sees the marking only on her own self-assessment, not on an assessment released to read', () => {

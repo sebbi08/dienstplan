@@ -37,6 +37,28 @@ export function recordInitialRevision(db: Db, formId: number, answers: FormAnswe
   db.insert(formRevisions).values({ formId, savedAt, savedBy, answers: JSON.stringify(answers), changedItemIds: '[]', initial: true }).run()
 }
 
+/** The answers of the form's newest revision (the last kept state); none without a revision. */
+export function lastKeptAnswers(db: Db, formId: number): FormAnswers {
+  const row = db.select({ answers: formRevisions.answers }).from(formRevisions).where(eq(formRevisions.formId, formId))
+    .orderBy(desc(formRevisions.id)).get()
+  return row ? JSON.parse(row.answers) as FormAnswers : {}
+}
+
+/** The answers each form's history starts with (its oldest revision if that is an `initial` one), by form. */
+export function initialAnswersByForm(db: Db, formIds: number[]): Map<number, FormAnswers> {
+  const result = new Map<number, FormAnswers>()
+  if (formIds.length === 0) return result
+  const rows = db.select({ formId: formRevisions.formId, answers: formRevisions.answers, initial: formRevisions.initial })
+    .from(formRevisions).where(inArray(formRevisions.formId, formIds)).orderBy(formRevisions.id).all()
+  const seen = new Set<number>()
+  for (const row of rows) {
+    if (seen.has(row.formId)) continue
+    seen.add(row.formId)
+    if (row.initial) result.set(row.formId, JSON.parse(row.answers) as FormAnswers)
+  }
+  return result
+}
+
 /** The last change of each item of the forms that was ever changed (from their revisions, newest first), by form. */
 export function itemChangesByForm(db: Db, formIds: number[]): Map<number, Record<string, ItemChange>> {
   const stamps = new Map<number, { savedAt: string; savedBy: string; changedItemIds: string[] }[]>(formIds.map(id => [id, []]))

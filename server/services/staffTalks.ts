@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, max } from 'drizzle-orm'
 import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
-import { answerableItems, answerOf, isEmptyAnswer, type ItemChange } from '../../shared/domain/formHistory'
+import { answerableItems, answerOf, isEmptyAnswer, sameAnswer, type ItemChange } from '../../shared/domain/formHistory'
 import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/domain/forms'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
@@ -10,7 +10,9 @@ import type {
 import type { Db } from '../db/client'
 import { employees, facilities, forms, staffTalkForms, staffTalks, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { itemChangesByForm, recordInitialRevision, recordRevision, revisionOf, revisionPage } from './formRevisions'
+import {
+  initialAnswersByForm, itemChangesByForm, lastKeptAnswers, recordInitialRevision, recordRevision, revisionOf, revisionPage,
+} from './formRevisions'
 import { actorName, loadTemplate, withFormErrors } from './formTemplates'
 
 export const TALK_LIMITS = { participants: 300, period: 60 } as const
@@ -79,14 +81,18 @@ function loadTalkForm(db: Db, scope: TalkScope, formId: number): TalkForm {
 }
 
 /**
- * The answers still as copied from the earlier talk: items never changed since the copy whose answer says something
- * (an empty one is not worth a word). Forms that are no copy have none.
+ * The answers still as copied from the earlier talk: items never changed since the copy that still hold the copied
+ * answer (`copied`, the copy's first revision; an employee's draft not submitted yet is no longer the copy) and whose
+ * answer says something (an empty one is not worth a word). Forms that are no copy have none.
  */
-function carriedOverOf(row: FormRow, changes: Record<string, ItemChange>): string[] {
-  if (row.sourceTalkDate === null) return []
+function carriedOverOf(row: FormRow, changes: Record<string, ItemChange>, copied: FormAnswers | undefined): string[] {
+  if (row.sourceTalkDate === null || !copied) return []
   const answers = JSON.parse(row.answers) as FormAnswers
   return answerableItems(JSON.parse(row.content) as FormContent)
-    .filter(item => !Object.hasOwn(changes, item.id) && !isEmptyAnswer(item, answerOf(item, answers)))
+    .filter((item) => {
+      const answer = answerOf(item, answers)
+      return !Object.hasOwn(changes, item.id) && !isEmptyAnswer(item, answer) && sameAnswer(item, answer, answerOf(item, copied))
+    })
     .map(item => item.id)
 }
 
@@ -94,22 +100,24 @@ function carriedOverOf(row: FormRow, changes: Record<string, ItemChange>): strin
  * A form as the client gets it; `changes` its items' last changes (`itemChangesByForm`), left out (undefined) where the
  * viewer gets no history (the employee on an assessment): then no changes, nothing carried over and no origin.
  */
-function toFormDto(row: TalkForm, changes: Record<string, ItemChange> | undefined): TalkFormDto {
+function toFormDto(row: TalkForm, changes: Record<string, ItemChange> | undefined, copied?: FormAnswers): TalkFormDto {
   return {
     id: row.id, role: row.role, title: row.title, content: JSON.parse(row.content) as FormContent,
     answers: JSON.parse(row.answers) as FormAnswers, state: row.state, readReleased: row.readReleased,
     updatedAt: row.updatedAt, updatedBy: row.updatedBy, releasedAt: row.releasedAt, submittedAt: row.submittedAt,
     readReleasedAt: row.readReleasedAt,
     itemChanges: changes ?? {},
-    carriedOver: changes ? carriedOverOf(row, changes) : [],
+    carriedOver: changes ? carriedOverOf(row, changes, copied) : [],
     source: changes && row.sourceTalkDate !== null ? { formId: row.sourceFormId, talkDate: row.sourceTalkDate } : null,
   }
 }
 
 /** The forms as the client gets them, with their history (`withHistory`: which of them get it; all by default). */
 function toFormDtos(db: Db, rows: TalkForm[], withHistory: (row: TalkForm) => boolean = () => true): TalkFormDto[] {
-  const changes = itemChangesByForm(db, rows.filter(withHistory).map(row => row.id))
-  return rows.map(row => toFormDto(row, changes.get(row.id)))
+  const shown = rows.filter(withHistory)
+  const changes = itemChangesByForm(db, shown.map(row => row.id))
+  const copied = initialAnswersByForm(db, shown.filter(row => row.sourceTalkDate !== null).map(row => row.id))
+  return rows.map(row => toFormDto(row, changes.get(row.id), copied.get(row.id)))
 }
 
 /** The forms of the talks, in their order, by talk id. */
@@ -216,7 +224,8 @@ export function addTalkForm(
  * „Für ein weiteres Gespräch verwenden“: a new talk with the same employee and the given header, with a copy of each of
  * the old talk's forms in its order and role — the old form's own content and answers, its template link and title.
  * Each copy remembers its origin (form and talk date) and starts its history with the copied answers, attributed to
- * the copy (no change). A copied self-assessment starts in draft: the employee sees it once it is released again. The
+ * the copy (no change; a copy without any answer that says something starts without). A talk without forms is refused
+ * (400 staff_talk_forms_required). A copied self-assessment starts in draft: the employee sees it once it is released again. The
  * old talk stays as it is. The manager must be able to manage the old talk (404 staff_talk_not_found otherwise); returns
  * the new talk's id.
  */
@@ -231,17 +240,22 @@ export function reuseTalk(
   const at = now.toISOString()
   const name = actorName(db, actor)
   return db.transaction((tx) => {
+    const oldForms = formsByTalk(tx, [old.id]).get(old.id) ?? []
+    if (oldForms.length === 0) throw new ServiceError(400, 'staff_talk_forms_required')
     const newTalkId = tx.insert(staffTalks).values({
       facilityId: scope.facilityId, employeeId: employee.id, ...header, createdAt: at, createdBy: actor.id,
     }).returning({ id: staffTalks.id }).get().id
-    for (const [sort, form] of (formsByTalk(tx, [old.id]).get(old.id) ?? []).entries()) {
+    for (const [sort, form] of oldForms.entries()) {
       const formId = tx.insert(forms).values({
         facilityId: scope.facilityId, templateId: form.templateId, kind: 'staff', title: form.title, content: form.content,
         answers: form.answers, state: 'draft', readReleased: false, createdAt: at, updatedAt: at, updatedBy: name,
         sourceFormId: form.id, sourceTalkDate: old.date,
       }).returning({ id: forms.id }).get().id
       tx.insert(staffTalkForms).values({ talkId: newTalkId, formId, role: form.role, sort }).run()
-      recordInitialRevision(tx, formId, JSON.parse(form.answers) as FormAnswers, name, at)
+      const answers = JSON.parse(form.answers) as FormAnswers
+      const saysSomething = answerableItems(JSON.parse(form.content) as FormContent)
+        .some(item => !isEmptyAnswer(item, answerOf(item, answers)))
+      if (saysSomething) recordInitialRevision(tx, formId, answers, name, at)
     }
     return newTalkId
   })
@@ -266,11 +280,12 @@ export function deleteTalkForm(db: Db, scope: TalkScope, formId: number): void {
 /**
  * Stores the answers, checked against the form's own copy of the content. `expectedUpdatedAt` is the last change the
  * saver had loaded; when someone saved in between, nothing is written (409 form_changed). `state` additionally
- * requires the form to be in that state at the moment of writing. A save that changed answers is kept as a revision.
+ * requires the form to be in that state at the moment of writing. A save that changed answers is kept as a revision,
+ * unless `keep` is off (the employee's drafts of the self-assessment: only what she submits is kept).
  */
 function writeAnswers(
   db: Db, actor: SessionUser, form: TalkForm, answers: unknown, expectedUpdatedAt: string, now: Date,
-  state?: FormRow['state'],
+  state?: FormRow['state'], keep = true,
 ): FormSavedDto {
   if (form.updatedAt !== expectedUpdatedAt) throw new ServiceError(409, 'form_changed')
   const content = JSON.parse(form.content) as FormContent
@@ -283,7 +298,7 @@ function writeAnswers(
       .where(and(eq(forms.id, form.id), eq(forms.updatedAt, expectedUpdatedAt), state && eq(forms.state, state))).run()
     if (result.changes !== 1) throw new ServiceError(409, 'form_changed')
     // „Verlauf“: a save that changed answers is kept (with the answers after it).
-    recordRevision(tx, form.id, content, JSON.parse(form.answers) as FormAnswers, checked, updatedBy, updatedAt)
+    if (keep) recordRevision(tx, form.id, content, JSON.parse(form.answers) as FormAnswers, checked, updatedBy, updatedAt)
   })
   // A save changes no state, so the other timestamps stay as loaded.
   return { updatedAt, updatedBy, releasedAt: form.releasedAt, submittedAt: form.submittedAt, readReleasedAt: form.readReleasedAt }
@@ -427,10 +442,15 @@ export function saveMyTalkFormAnswers(
   const { talk, form } = loadMyForm(db, user, formId, true)
   if (form.role !== 'self' || form.state !== 'released') throw new ServiceError(409, 'form_not_editable')
   assertNotLeft(db, talk.employeeId, todayIso(now))
-  return writeAnswers(db, user, form, answers, expectedUpdatedAt, now, 'released')
+  // Her drafts are not kept in „Verlauf“ (data minimisation): only what she submits (submitMyTalkForm).
+  return writeAnswers(db, user, form, answers, expectedUpdatedAt, now, 'released', false)
 }
 
-/** „Abgeben“: the released self form is submitted; the employee can no longer change it (not after leaving). */
+/**
+ * „Abgeben“: the released self form is submitted; the employee can no longer change it (not after leaving). What she
+ * submits is kept as one revision against the last kept state (her drafts never are), so „geändert am … von …“ names
+ * her and the time of submitting for each item she changed.
+ */
 export function submitMyTalkForm(
   db: Db, user: SessionUser, formId: number, expectedUpdatedAt: string, now: Date = new Date(),
 ): void {
@@ -439,7 +459,12 @@ export function submitMyTalkForm(
   if (form.role !== 'self' || form.state !== 'released') throw new ServiceError(409, 'form_state_invalid')
   // The employee submits what they have seen: a newer save of the Leitung is shown first (409 form_changed).
   if (form.updatedAt !== expectedUpdatedAt) throw new ServiceError(409, 'form_changed')
-  transition(db, form, 'released', { state: 'submitted', submittedAt: now.toISOString() }, expectedUpdatedAt)
+  const at = now.toISOString()
+  db.transaction((tx) => {
+    transition(tx, form, 'released', { state: 'submitted', submittedAt: at }, expectedUpdatedAt)
+    recordRevision(tx, form.id, JSON.parse(form.content) as FormContent, lastKeptAnswers(tx, form.id),
+      JSON.parse(form.answers) as FormAnswers, actorName(tx, user), at)
+  })
 }
 
 /**

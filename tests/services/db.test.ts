@@ -2644,7 +2644,7 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     sqlite.exec(`
       INSERT INTO forms (id, facility_id, kind, title, content, answers, created_at, updated_at, updated_by) VALUES
         (1, 1, 'staff', 'Selbst', '{"sections":[]}', '{"t":"Ich arbeite gern im Team"}', 'c', '2026-10-01T08:00:00.000Z', 'Anna'),
-        (2, 1, 'staff', 'Leer', '{"sections":[]}', '{"t":"","r":{"value":null,"remark":""}}', 'c', 'x', 'Lea'),
+        (2, 1, 'staff', 'Leer', '{"sections":[]}', '{"t":"","u":"<p></p>","v":"<p> <br>&nbsp;</p>","r":{"value":null,"remark":""}}', 'c', 'x', 'Lea'),
         (3, 1, 'team', 'Sitzung', '{"sections":[]}', '{"t":"Protokoll"}', 'c', 'y', 'Lea');
     `)
     migrateThrough(db, '0123')

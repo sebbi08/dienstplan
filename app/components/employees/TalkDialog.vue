@@ -66,6 +66,8 @@ async function save() {
       <form class="grid grid-cols-2 gap-3" @submit.prevent="save()">
         <div v-if="reuseFrom" class="col-span-2 space-y-1 rounded-md bg-sky-50 p-2 text-sm text-sky-900">
           <p>{{ de.talks.reuseHint(formatDate(reuseFrom.date)) }}</p>
+          <p v-if="reuseFrom.forms.some(entry => entry.role === 'self')">{{ de.talks.reuseSelfHint }}</p>
+          <p v-if="reuseFrom.forms.some(entry => entry.role === 'assessment' && entry.readReleased)">{{ de.talks.reuseAssessmentHint }}</p>
           <p class="break-words">{{ de.talks.reuseForms(reuseFrom.forms.map(entry => entry.title).join(', ')) }}</p>
         </div>
         <UFormField :label="de.talks.date" class="col-span-2 sm:col-span-1">

@@ -2776,7 +2776,11 @@ export const de = {
     create: 'Gespräch anlegen', created: 'Gespräch angelegt',
     // „Für ein weiteres Gespräch verwenden“.
     reuse: 'Für ein weiteres Gespräch verwenden',
-    reuseHint: (date: string) => `Ein neues Gespräch mit denselben Bögen und den Antworten aus dem Gespräch am ${date}. Das alte Gespräch bleibt, wie es ist. Bei jeder Antwort steht, ob sie übernommen oder im neuen Gespräch geändert wurde. Die Selbstbeurteilung bekommt der Mitarbeiter erst, wenn du sie wieder zum Ausfüllen freigibst.`,
+    reuseHint: (date: string) => `Ein neues Gespräch mit denselben Bögen und den Antworten aus dem Gespräch am ${date}. Das alte Gespräch bleibt, wie es ist. Bei jeder Antwort steht, ob sie übernommen oder im neuen Gespräch geändert wurde.`,
+    reuseSelfHint: 'Die Selbstbeurteilung bekommt der Mitarbeiter erst, wenn du sie wieder zum Ausfüllen freigibst; er sieht dann seine alten Antworten als Ausgangspunkt.',
+    reuseAssessmentHint: 'Die Beurteilung ist im neuen Gespräch nicht zum Lesen freigegeben; gib sie wieder frei, wenn der Mitarbeiter sie lesen soll.',
+    reuseUnsaved: 'Im geöffneten Bogen dieses Gesprächs gibt es ungespeicherte Änderungen. Übernommen werden nur die gespeicherten Antworten – trotzdem weiter?',
+    reuseContinue: 'Weiter ohne die Änderungen',
     reuseForms: (titles: string) => `Übernommene Bögen: ${titles}`,
     reuseCreate: 'Neues Gespräch anlegen',
     reused: 'Neues Gespräch angelegt',

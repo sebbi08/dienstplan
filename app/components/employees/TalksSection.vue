@@ -22,6 +22,9 @@ const dialogOpen = ref(false)
 const dialogTalk = ref<StaffTalkDto | null>(null)
 const dialogReuse = ref<StaffTalkDto | null>(null)
 async function openDialog(talk: StaffTalkDto | null, reuse: StaffTalkDto | null = null) {
+  // The copy takes the stored answers: unsaved edits in an open form of that talk would silently stay behind.
+  if (reuse && openDirty.value && openFormId.value !== null && reuse.forms.some(form => form.id === openFormId.value)
+    && !await confirm(de.talks.reuseUnsaved, { confirmLabel: de.talks.reuseContinue, danger: false })) return
   dialogTalk.value = talk
   dialogReuse.value = reuse
   if (!talk && !reuse) await refreshTemplates()
@@ -140,7 +143,10 @@ async function addForm(talk: StaffTalkDto) {
         </div>
         <div class="flex flex-wrap gap-1">
           <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.talks.editHeader" @click="openDialog(talk)" />
-          <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy-plus" :label="de.talks.reuse" @click="openDialog(null, talk)" />
+          <UButton
+            v-if="talk.forms.length" size="sm" color="neutral" variant="ghost" icon="i-lucide-copy-plus" :label="de.talks.reuse"
+            @click="openDialog(null, talk)"
+          />
           <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.talks.deleteTalk" @click="deleteTalk(talk)" />
         </div>
       </div>

@@ -26,12 +26,13 @@ CREATE TABLE `form_revisions` (
 --> statement-breakpoint
 CREATE INDEX `form_revisions_form` ON `form_revisions` (`form_id`,`id`);--> statement-breakpoint
 -- The state before the history began: one initial revision per child form with at least one answer that says something
--- (not only empty texts, nothing ticked, no rating, milestones not reached, no dates, no remarks); it names no changed items.
+-- (not only empty texts – markup and spaces alone count as empty –, nothing ticked, no rating, milestones not reached, no dates, no remarks); it names no changed items.
 INSERT INTO `form_revisions` (`form_id`, `saved_at`, `saved_by`, `answers`, `changed_item_ids`, `initial`)
 	SELECT `id`, `updated_at`, `updated_by`, `answers`, '[]', 1 FROM `forms` WHERE `kind` = 'child' AND EXISTS (
 		SELECT 1 FROM json_each(`forms`.`answers`) AS `a` WHERE NOT (
 			`a`.`type` = 'null'
-			OR (`a`.`type` = 'text' AND trim(`a`.`value`) = '')
+			OR (`a`.`type` = 'text' AND trim(replace(replace(replace(replace(`a`.`value`, '<p>', ''), '</p>', ''), '<br>', ''), '&nbsp;', ''),
+				' ' || char(160) || char(9) || char(10) || char(13)) = '')
 			OR (`a`.`type` = 'array' AND json_array_length(`a`.`value`) = 0)
 			OR (`a`.`type` = 'object' AND json_extract(`a`.`value`, '$.value') IS NULL AND coalesce(json_extract(`a`.`value`, '$.reached'), 0) = 0
 				AND trim(coalesce(json_extract(`a`.`value`, '$.remark'), '')) = '')
