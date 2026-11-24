@@ -215,13 +215,19 @@ describe('parseUploadParts for print templates', () => {
 
   it('reads title, category and scope, the facility being the default scope', () => {
     expect(parse([file, text('title', 'Brief'), text('categoryId', '3'), text('scope', 'all')]).fields)
-      .toEqual({ title: 'Brief', categoryId: 3, scope: 'all' })
+      .toEqual({ title: 'Brief', categoryId: 3, scope: 'all', createCategories: false })
     expect(parse([file, text('title', 'Brief'), text('categoryId', '3')]).fields.scope).toBe('facility')
+  })
+
+  it('reads „Kategorie dort anlegen“ as a true/false flag (false when absent)', () => {
+    expect(parse([file, text('title', 'Brief'), text('categoryName', 'Personal'), text('scope', 'all'), text('createCategories', 'true')]).fields.createCategories).toBe(true)
+    expect(parse([file, text('title', 'Brief'), text('categoryName', 'Personal'), text('scope', 'all'), text('createCategories', 'false')]).fields.createCategories).toBe(false)
+    expect(errorCode(() => parse([file, text('title', 'Brief'), text('createCategories', 'ja')]))).toBe('invalid_input')
   })
 
   it('reads the category name and visibility of a template for all facilities', () => {
     expect(parse([file, text('title', 'Brief'), text('categoryName', 'Personal'), text('visibility', 'managers'), text('scope', 'all')]).fields)
-      .toEqual({ title: 'Brief', categoryName: 'Personal', visibility: 'managers', scope: 'all' })
+      .toEqual({ title: 'Brief', categoryName: 'Personal', visibility: 'managers', scope: 'all', createCategories: false })
     expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryName', 'x'.repeat(61))]))).toBe('invalid_input')
     expect(errorCode(() => parse([file, text('title', 'Brief'), text('visibility', 'everyone')]))).toBe('invalid_input')
   })
@@ -230,7 +236,7 @@ describe('parseUploadParts for print templates', () => {
     expect(errorCode(() => parse([text('title', 'Brief'), text('categoryId', '3')]))).toBe('file_required')
     expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryId', '3'), text('scope', 'mine')]))).toBe('invalid_input')
     expect(errorCode(() => parse([file, text('title', 'x'.repeat(201)), text('categoryId', '3')]))).toBe('invalid_input')
-    expect(parse([file, text('title', 'Brief')]).fields).toEqual({ title: 'Brief', scope: 'facility' })
+    expect(parse([file, text('title', 'Brief')]).fields).toEqual({ title: 'Brief', scope: 'facility', createCategories: false })
     expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryId', '')]))).toBe('invalid_input')
     expect(errorCode(() => parse([file, text('title', 'Brief'), text('categoryId', 'Eltern')]))).toBe('invalid_input')
     expect(parseUploadParts([file], noFields).file.filename).toBe('Elternbrief.pdf')
