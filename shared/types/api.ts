@@ -4,6 +4,7 @@ import type { OverviewColumnRef } from '../domain/childConsents'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { DocumentScope } from '../domain/documentTargets'
 import type { EveRule } from '../domain/eveRules'
+import type { ItemChange } from '../domain/formHistory'
 import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
 import type { IfsgAnchor, IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifsg'
@@ -3509,6 +3510,33 @@ export interface ChildFormDto extends ChildFormListItemDto {
   answers: FormAnswers
   child: { firstName: string; lastName: string; birthDate: IsoDate; groupName: string | null }
   facilityName: string
+  /** Per item ever changed since the history began: the last change („geändert am … von …“). */
+  itemChanges: Record<string, ItemChange>
+  /** The items changed since the viewer last opened the form (none when they open it for the first time). */
+  changedSinceSeen: string[]
+}
+
+/** One save in „Verlauf“ of a child form: when, by whom, how many items it changed; `initial`: the state before the history. */
+export interface ChildFormRevisionListItemDto {
+  id: number
+  savedAt: string
+  savedBy: string
+  changedCount: number
+  initial: boolean
+}
+
+/** A page of „Verlauf“, newest first: `total` revisions in all, this page from `offset` on, `pageSize` per page. */
+export interface ChildFormRevisionsDto {
+  revisions: ChildFormRevisionListItemDto[]
+  total: number
+  offset: number
+  pageSize: number
+}
+
+/** One stored state („Stand vom …“): the answers after that save and the items it changed. */
+export interface ChildFormRevisionDto extends ChildFormRevisionListItemDto {
+  answers: FormAnswers
+  changedItemIds: string[]
 }
 
 /** A new child form: from a template with its header, or from a parent meeting (header copied from the meeting). */

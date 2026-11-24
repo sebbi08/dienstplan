@@ -78,6 +78,9 @@ const CHILD_FORM_ROUTES = [
   'children/[id]/forms/index.get.ts', 'children/[id]/forms/index.post.ts', 'child-forms/[formId].get.ts',
   'child-forms/[formId].put.ts', 'child-forms/[formId].delete.ts', 'child-forms/[formId]/editors.get.ts',
   'child-forms/[formId]/editors.put.ts',
+  // „Verlauf“ and the last opening: whoever may open the form (the service checks it as for opening it).
+  'child-forms/[formId]/revisions/index.get.ts', 'child-forms/[formId]/revisions/[revisionId].get.ts',
+  'child-forms/[formId]/opened.post.ts',
 ]
 /**
  * The child pages check with requireChildPermission(: an account needs children.ownAccount besides the key (403

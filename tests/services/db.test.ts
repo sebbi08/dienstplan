@@ -2639,6 +2639,44 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(count(sqlite, 'knowledge_entry_targets')).toBe(0)
   })
 
+  it('0122 adds the revisions of the child forms (the state before as initial revision) and the last openings, gone with their owners', () => {
+    const { db, sqlite } = databaseAt('0121')
+    sqlite.exec(`
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at) VALUES (1, 1, 'Muster', 'Kind', '2021-03-15', 'x');
+      INSERT INTO employees (id, name, short_name, facility_id) VALUES (1, 'Anna', 'An', 1);
+      INSERT INTO users (id, username, password_hash, role, facility_id) VALUES (5, 'leitung', 'x', 'admin', 1);
+      INSERT INTO forms (id, facility_id, kind, title, content, answers, created_at, updated_at, updated_by, child_id) VALUES
+        (1, 1, 'child', 'Entwicklung', '{"sections":[]}', '{"a":"Baut gern"}', 'c', '2026-10-01T08:00:00.000Z', 'Anna', 1),
+        (2, 1, 'child', 'Leer', '{"sections":[]}', '{}', 'c', '2026-10-02T08:00:00.000Z', 'Anna', 1),
+        (3, 1, 'staff', 'Gespräch', '{"sections":[]}', '{"a":"x"}', 'c', '2026-10-03T08:00:00.000Z', 'Leitung', NULL);
+    `)
+    migrateThrough(db, '0122')
+    // Only the child form with answers gets its state before the history, naming no changed item.
+    expect(sqlite.prepare('SELECT form_id, saved_at, saved_by, answers, changed_item_ids, initial FROM form_revisions').all()).toEqual([
+      { form_id: 1, saved_at: '2026-10-01T08:00:00.000Z', saved_by: 'Anna', answers: '{"a":"Baut gern"}', changed_item_ids: '[]', initial: 1 },
+    ])
+    sqlite.exec(`INSERT INTO form_revisions (form_id, saved_at, answers) VALUES (2, 'x', '{}')`)
+    expect(sqlite.prepare('SELECT saved_by, changed_item_ids, initial FROM form_revisions WHERE form_id = 2').get())
+      .toEqual({ saved_by: '', changed_item_ids: '[]', initial: 0 })
+    sqlite.exec(`INSERT INTO form_reads (form_id, user_id, opened_at) VALUES (1, 5, 'x'), (2, 5, 'x')`)
+    sqlite.exec(`INSERT INTO form_reads (form_id, employee_id, opened_at) VALUES (1, 1, 'x'), (2, 1, 'x')`)
+    expect(() => sqlite.exec(`INSERT INTO form_reads (form_id, user_id, opened_at) VALUES (1, 5, 'y')`)).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec(`INSERT INTO form_reads (form_id, employee_id, opened_at) VALUES (1, 1, 'y')`)).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec(`INSERT INTO form_reads (form_id, employee_id, opened_at) VALUES (1, 99, 'y')`)).toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    sqlite.exec('DELETE FROM users WHERE id = 5')
+    expect(count(sqlite, 'form_reads')).toBe(0)
+    sqlite.exec(`INSERT INTO users (id, username, password_hash, role, facility_id) VALUES (6, 'traeger', 'x', 'provider', 1)`)
+    sqlite.exec(`INSERT INTO form_reads (form_id, user_id, opened_at) VALUES (1, 6, 'x')`)
+    sqlite.exec('DELETE FROM forms WHERE id = 2')
+    expect(count(sqlite, 'form_revisions')).toBe(1)
+    // The child goes with its forms, their revisions and openings.
+    sqlite.exec('DELETE FROM children WHERE id = 1')
+    expect(count(sqlite, 'form_revisions')).toBe(0)
+    expect(count(sqlite, 'form_reads')).toBe(0)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
   it('0121 adds the requests to sign, their recipients and the tablet\'s sign unlocks: one row per employee, gone with the request or the employee', () => {
     const { db, sqlite } = databaseAt('0120')
     sqlite.exec(`

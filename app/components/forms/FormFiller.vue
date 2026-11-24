@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AnswerDiff, ItemChange } from '#shared/domain/formHistory'
 import { FORM_LIMITS, RATING_LEGEND, type FormAnswer, type FormContent, type MilestoneAnswer, type RatingAnswer, type RatingValue } from '#shared/domain/forms'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
@@ -8,11 +9,23 @@ import { isBlank, sectionBlocks, sectionHasRating } from '~/utils/forms'
  * A form's own content (its copy of the template) with the answers, to fill in (`readonly` false) or to read. The
  * answers hold an entry for every answerable item (see filledAnswers); saving is up to the parent. Made for phones too:
  * everything stacks, nothing is wider than the screen.
+ *
+ * Child forms also show per item its last change (`changes`), mark the items changed since the viewer last opened the
+ * form (`marked`), and in a stored state how each item differs from today (`diff`), see FormsItemHistory.
  */
-const props = defineProps<{ content: FormContent; readonly?: boolean }>()
+const props = defineProps<{
+  content: FormContent
+  readonly?: boolean
+  changes?: Record<string, ItemChange>
+  marked?: readonly string[]
+  diff?: Record<string, AnswerDiff>
+}>()
 const answers = defineModel<Record<string, FormAnswer>>('answers', { required: true })
 const uid = useId()
 const fieldId = (itemId: string) => `${uid}-${itemId}`
+const isMarked = (id: string) => props.marked?.includes(id) ?? false
+/** A bar at the left of items that are marked or differ from today. */
+const historyClass = (id: string) => (isMarked(id) || props.diff?.[id] ? 'border-l-4 border-amber-400 pl-2' : '')
 
 const textOf = (id: string) => (typeof answers.value[id] === 'string' ? answers.value[id] as string : '')
 const choicesOf = (id: string) => (Array.isArray(answers.value[id]) ? answers.value[id] as string[] : [])
@@ -67,7 +80,7 @@ const chip = (selected: boolean) => selected
         <template v-if="block.type === 'item'">
           <p v-if="block.item.kind === 'note'" class="text-sm whitespace-pre-line text-gray-700">{{ block.item.text }}</p>
 
-          <div v-else-if="block.item.kind === 'text'" class="space-y-1">
+          <div v-else-if="block.item.kind === 'text'" class="space-y-1" :class="historyClass(block.item.id)">
             <!-- The question names the answer (the editor is no form field a label could point at). -->
             <p :id="`${fieldId(block.item.id)}-q`" class="block text-sm font-medium break-words">{{ block.item.question }}</p>
             <template v-if="props.readonly">
@@ -81,9 +94,10 @@ const chip = (selected: boolean) => selected
               v-else :model-value="textOf(block.item.id)" :labelledby="`${fieldId(block.item.id)}-q`"
               @update:model-value="setAnswer(block.item.id, $event)"
             />
+            <FormsItemHistory :item="block.item" :change="props.changes?.[block.item.id]" :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]" />
           </div>
 
-          <fieldset v-else-if="block.item.kind === 'choices'" class="space-y-1.5">
+          <fieldset v-else-if="block.item.kind === 'choices'" class="space-y-1.5" :class="historyClass(block.item.id)">
             <legend v-if="block.item.question" class="mb-1 text-sm font-medium break-words">{{ block.item.question }}</legend>
             <div class="flex flex-wrap gap-1.5">
               <button
@@ -97,9 +111,10 @@ const chip = (selected: boolean) => selected
                 <span class="min-w-0">{{ option.label }}</span>
               </button>
             </div>
+            <FormsItemHistory :item="block.item" :change="props.changes?.[block.item.id]" :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]" />
           </fieldset>
 
-          <div v-else-if="block.item.kind === 'date'" class="space-y-1">
+          <div v-else-if="block.item.kind === 'date'" class="space-y-1" :class="historyClass(block.item.id)">
             <component
               :is="props.readonly ? 'p' : 'label'" :id="`${fieldId(block.item.id)}-q`" :for="props.readonly ? undefined : fieldId(block.item.id)"
               class="block text-sm font-medium break-words"
@@ -111,11 +126,12 @@ const chip = (selected: boolean) => selected
               v-else :id="fieldId(block.item.id)" :model-value="dateOf(block.item.id)" :label="block.item.question" class="w-48"
               @update:model-value="setAnswer(block.item.id, $event || null)"
             />
+            <FormsItemHistory :item="block.item" :change="props.changes?.[block.item.id]" :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]" />
           </div>
         </template>
 
         <ul v-else-if="block.type === 'ratings'" class="divide-y divide-gray-100">
-          <li v-for="item in block.items" :key="item.id" class="space-y-1.5 py-2">
+          <li v-for="item in block.items" :key="item.id" class="space-y-1.5 py-2" :class="historyClass(item.id)">
             <p :id="fieldId(item.id)" class="text-sm break-words">{{ item.criterion }}</p>
             <div class="flex flex-wrap items-center gap-2">
               <div role="group" :aria-labelledby="fieldId(item.id)" class="inline-flex gap-1">
@@ -137,6 +153,7 @@ const chip = (selected: boolean) => selected
                 @update:model-value="setRemark(item.id, String($event ?? ''))"
               />
             </div>
+            <FormsItemHistory :item="item" :change="props.changes?.[item.id]" :marked="isMarked(item.id)" :diff="props.diff?.[item.id]" />
           </li>
         </ul>
 
@@ -144,7 +161,7 @@ const chip = (selected: boolean) => selected
           <div v-for="group in block.groups" :key="group.ageLabel" class="min-w-0 rounded-md ring-1 ring-gray-200">
             <h4 class="rounded-t-md bg-gray-50 px-2 py-1 text-sm font-semibold">{{ group.ageLabel }}</h4>
             <ul class="divide-y divide-gray-100 px-2">
-              <li v-for="item in group.items" :key="item.id" class="space-y-1 py-1.5">
+              <li v-for="item in group.items" :key="item.id" class="space-y-1 py-1.5" :class="historyClass(item.id)">
                 <UCheckbox
                   :model-value="milestoneOf(item.id).reached" :disabled="props.readonly" :label="item.text"
                   :ui="{ label: 'break-words' }" @update:model-value="setReached(item.id, $event === true)"
@@ -155,6 +172,7 @@ const chip = (selected: boolean) => selected
                   size="xs" :placeholder="de.forms.remark" :aria-label="`${de.forms.remark}: ${item.text}`" class="w-full"
                   @update:model-value="setRemark(item.id, String($event ?? ''))"
                 />
+                <FormsItemHistory :item="item" :change="props.changes?.[item.id]" :marked="isMarked(item.id)" :diff="props.diff?.[item.id]" />
               </li>
             </ul>
           </div>

@@ -306,3 +306,29 @@ export function blankSheet(
     header: byKind[template.kind].header, signatures: byKind[template.kind].signatures, closing: [], stamps: [], blank: true,
   }
 }
+
+/** A template with at least two forms of the child, for „Vergleichen“: its forms newest first (as the list has them). */
+export interface ComparableGroup<T> { templateId: number; title: string; forms: T[] }
+
+/**
+ * The templates of which the child has two forms or more, in the order of their newest form; forms whose template is
+ * gone (deleted, or the child moved facility) are left out, as nothing says they belong together.
+ */
+export function comparableGroups<T extends { templateId: number | null; title: string }>(forms: readonly T[]): ComparableGroup<T>[] {
+  const groups = new Map<number, ComparableGroup<T>>()
+  for (const form of forms) {
+    if (form.templateId === null) continue
+    const group = groups.get(form.templateId)
+    if (group) group.forms.push(form)
+    else groups.set(form.templateId, { templateId: form.templateId, title: form.title, forms: [form] })
+  }
+  return [...groups.values()].filter(group => group.forms.length >= 2)
+}
+
+/** Two picked forms as older and newer, by their place in the list (newest first); null unless two different ones. */
+export function olderAndNewer<T extends { id: number }>(forms: readonly T[], a: number, b: number): { older: T; newer: T } | null {
+  const first = forms.findIndex(form => form.id === a)
+  const second = forms.findIndex(form => form.id === b)
+  if (first < 0 || second < 0 || first === second) return null
+  return first < second ? { newer: forms[first]!, older: forms[second]! } : { newer: forms[second]!, older: forms[first]! }
+}

@@ -1703,6 +1703,41 @@ export const formEditors = sqliteTable('form_editors', {
 }, table => [primaryKey({ columns: [table.formId, table.employeeId] })])
 
 /**
+ * „Verlauf“ of a child form (kind `child`, server/services/childFormHistory.ts): one row per save that changed answers,
+ * with the answers after that save and the items it changed (shared/domain/formHistory.ts). Goes with the form (and so
+ * with the child). The person by name, as stored at the time (like forms.updatedBy). `initial`: the state before the
+ * history began (written by migration 0122 for forms with answers); it names no changed items.
+ */
+export const formRevisions = sqliteTable('form_revisions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  formId: integer('form_id').notNull().references(() => forms.id, { onDelete: 'cascade' }),
+  savedAt: text('saved_at').notNull(),
+  savedBy: text('saved_by').notNull().default(''),
+  /** JSON object: the form's answers after the save. */
+  answers: text('answers').notNull(),
+  /** JSON array of item ids whose answer the save changed. */
+  changedItemIds: text('changed_item_ids').notNull().default('[]'),
+  initial: integer('initial', { mode: 'boolean' }).notNull().default(false),
+}, table => [index('form_revisions_form').on(table.formId, table.id)])
+
+/**
+ * When a person last opened a child form, for the marker „geändert seit du den Bogen zuletzt geöffnet hast“: an account
+ * in the office, the unlocking employee at the tablet (exactly one of the two). Goes with the form, the account or the
+ * employee (and with the employee's immediate data, server/services/employeeDeletion.ts).
+ */
+export const formReads = sqliteTable('form_reads', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  formId: integer('form_id').notNull().references(() => forms.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'cascade' }),
+  openedAt: text('opened_at').notNull(),
+}, table => [
+  uniqueIndex('form_reads_user').on(table.userId, table.formId).where(sql`user_id IS NOT NULL`),
+  uniqueIndex('form_reads_employee').on(table.employeeId, table.formId).where(sql`employee_id IS NOT NULL`),
+  index('form_reads_form').on(table.formId),
+])
+
+/**
  * The starter templates (shared/domain/forms/starters.ts) a facility has been given, one row per starter key: a starter
  * is created once, a deleted or renamed one is not created again, and a new starter reaches existing facilities.
  */

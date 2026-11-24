@@ -2763,6 +2763,30 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 - **Drucken:** im Büro über **Drucken** am Bogen (A4 hoch, mit PDF): Name, Geburtsdatum, Gruppe, Datum, Uhrzeit,
   Teilnehmer, die Meilensteine als Tabelle nach Altersstufe (3;0 / 4;0 / 5;0 / 6;0 Jahre) und die Unterschriftszeilen
   „Unterschrift Fachkraft / Datum“ und „Unterschrift Erziehungsberechtigte / Datum“. Am Tablet wird nicht gedruckt.
+- **Wer hat was geändert:** Unter jeder Angabe steht klein und grau „geändert am … von …“ (der Name, wie er beim
+  Speichern hieß), sobald sie seit dem Update einmal geändert wurde. Angaben, die seit deinem letzten Öffnen des Bogens
+  geändert wurden, haben links einen gelben Balken und „neu seit deinem letzten Öffnen“; darüber steht, wie viele es
+  sind. „Zuletzt geöffnet“ merkt sich die App pro Konto (im Büro) bzw. pro Person, die das Tablet aufgeschlossen hat;
+  wer einen Bogen zum ersten Mal öffnet, sieht keine Markierungen. Speichern zählt als Öffnen.
+- **Verlauf:** Der Knopf **Verlauf** am geöffneten Bogen listet jedes Speichern, das Antworten geändert hat (nur
+  Kopffelder oder unveränderte Antworten zählen nicht) – mit Datum, Uhrzeit, Person und Zahl der geänderten Angaben,
+  neueste zuerst, 20 pro Seite („Ältere laden“). Ein Eintrag öffnet den **Stand vom …** zum Lesen; **Änderungen zeigen**
+  markiert, was heute anders ist: „neu“, „geändert“ oder „entfernt“, bei Freitexten Wort für Wort (als reiner Text,
+  ohne Formatierung), bei Auswahlfeldern hinzugekommene und weggefallene Punkte, bei Bewertungen, Meilensteinen und
+  Daten „damals → heute“. Für Bögen, die vor dem Update schon Antworten hatten, steht als ältester Eintrag „Stand vor
+  Beginn des Verlaufs“ (wer diese Antworten geschrieben hat, ist nicht bekannt; sie bekommen kein „geändert am“).
+  Es werden alle Stände aufbewahrt, gespeichert werden nur die Antworten.
+- **Vergleichen:** Gibt es von einer Vorlage mindestens zwei Bögen des Kindes, steht oben im Bereich **Vergleichen**:
+  Vorlage und zwei Bögen wählen (vorgewählt die beiden neuesten), dann stehen beide nebeneinander – links der ältere,
+  rechts der neuere, gegliedert nach dem neueren Bogen. Was ein Bogen nicht enthält, steht als „nicht im Bogen“.
+  Bewertungen und Meilensteine haben einen Pfeil: ↑ besser (bei Bewertungen + vor ~ vor −, bei Meilensteinen
+  „erreicht“), ↓ schwächer, = gleich. Auf dem Handy stehen beide Antworten untereinander. Im Büro gibt es **Vergleich
+  drucken** (A4 hoch, mit PDF), am Tablet nicht. Bögen ohne Vorlage (Vorlage gelöscht, Kind in andere Einrichtung
+  umgezogen) werden nicht angeboten.
+- **Wer sieht Verlauf und Vergleich:** genau wer den Bogen öffnen darf (auch nur lesend, auch am Tablet); alle anderen
+  bekommen „nicht gefunden“. Verlauf und „zuletzt geöffnet“ werden mit dem Bogen bzw. der Akte gelöscht; „zuletzt
+  geöffnet“ einer Person auch mit ihren sofort zu löschenden Daten (Löschfristen) und beim Umzug des Kindes in eine
+  andere Einrichtung. Datenbank-Migration 0122 (Tabellen `form_revisions` und `form_reads`).
 - **Abmeldung:** die Bögen bleiben im Archiv für Leitung und Träger lesbar und werden mit der Akte gelöscht.
 
 ### Teamsitzungen

@@ -4,6 +4,7 @@ import { formatTime, parseTime } from '#shared/domain/time'
 import type { ChildFormEditorDto, ChildFormListItemDto, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime } from '~/utils/format'
+import { comparableGroups } from '~/utils/forms'
 
 /**
  * „Beobachtungen“ in the record: the child's observation forms newest first (date, template, „zuletzt geändert“). Who
@@ -11,7 +12,8 @@ import { formatDate, formatDateTime } from '~/utils/format'
  * own account; the key educator at the tablet) gets „Bogen anlegen“; each form opens here to fill in or to read, as the
  * API says per form. Leitung and Träger also unlock employees for a form („Mitarbeiter freischalten“)
  * and delete it. One form is open at a time; closing it, opening another, deleting it or leaving the page asks first
- * while it has unsaved answers. Printing is in the office only (the tablet never prints child data).
+ * while it has unsaved answers. Printing is in the office only (the tablet never prints child data). With two forms or
+ * more of the same template, „Vergleichen“ shows two of them side by side.
  */
 const props = defineProps<{ child: ChildRecordDto }>()
 const c = de.childForms
@@ -21,6 +23,9 @@ const lookups = useChildLookups()
 const run = useAction(refresh)
 const confirm = useConfirm()
 const forms = computed(() => data.value?.forms ?? [])
+// „Vergleichen“ once the child has two forms of the same template.
+const canCompare = computed(() => comparableGroups(forms.value).length > 0)
+const compareOpen = ref(false)
 
 // One form is open at a time. Closing it, or opening another one, asks first while it has unsaved answers.
 const openFormId = ref<number | null>(null)
@@ -143,8 +148,12 @@ async function remove(form: ChildFormListItemDto) {
 
 <template>
   <ChildrenChildSection :title="c.section" :can-edit="false">
-    <template v-if="data?.canCreate" #actions>
-      <UButton class="min-h-11" color="neutral" variant="outline" icon="i-lucide-plus" :label="c.create" @click="openCreate" />
+    <template v-if="data?.canCreate || canCompare" #actions>
+      <UButton
+        v-if="canCompare" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-columns-2" :label="de.formHistory.compare"
+        @click="compareOpen = true"
+      />
+      <UButton v-if="data?.canCreate" class="min-h-11" color="neutral" variant="outline" icon="i-lucide-plus" :label="c.create" @click="openCreate" />
     </template>
 
     <p v-if="!forms.length" class="text-sm text-gray-500">{{ c.none }}</p>
@@ -181,6 +190,8 @@ async function remove(form: ChildFormListItemDto) {
         <ChildrenChildFormPanel v-if="isOpen(form.id)" :form-id="form.id" :archived="child.status === 'archived'" :refresh-list="refresh" @dirty="openDirty = $event" />
       </li>
     </ul>
+
+    <ChildrenChildFormCompareDialog v-if="canCompare" v-model:open="compareOpen" :forms="forms" :on-tablet="onTablet" />
 
     <UModal v-model:open="createOpen" :title="c.create">
       <template #body>

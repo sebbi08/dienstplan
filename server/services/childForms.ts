@@ -4,6 +4,7 @@ import {
 } from '../../shared/domain/childForms'
 import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
 import { isValidIsoDate } from '../../shared/domain/dates'
+import { changedSince } from '../../shared/domain/formHistory'
 import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/domain/forms'
 import { can } from '../../shared/domain/permissions'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
@@ -12,12 +13,13 @@ import type {
   ChildFormsDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { childGroupChanges, childParentMeetings, employees, facilities, formEditors, forms, groups } from '../db/schema'
+import { childGroupChanges, childParentMeetings, employees, facilities, formEditors, formReads, forms, groups } from '../db/schema'
 import { assertGroupRight, loadChild, type ChildRow } from '../lib/childRecord'
 import type { ChildViewer } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
 import { detachAccidentAuthors } from './accidents'
 import { settleDue } from './childGroupChanges'
+import { itemChangesOf, lastOpened, markOpened, recordRevision } from './formRevisions'
 import { listTemplates, loadTemplate, withFormErrors } from './formTemplates'
 
 export const CHILD_FORM_LIMITS = { participants: 300 } as const
@@ -115,6 +117,14 @@ function access(viewer: ChildViewer, child: VisibleChild, formId: number, editor
   return right
 }
 
+/** A child form the viewer may read, with their right on it (404 exactly as when opening it, see `getChildForm`). */
+export function readableChildForm(
+  db: Db, viewer: ChildViewer, formId: number, now: Date = new Date(),
+): { form: ChildForm; right: 'read' | 'edit' } {
+  const { form, child } = loadForm(db, viewer, formId, now)
+  return { form, right: access(viewer, child, form.id, editorsOf(db, [form.id]).get(form.id)!) }
+}
+
 /** `canManage` is off on an archived record: unlocking and deleting are refused there (409 child_archived). */
 function toListItem(form: ChildForm, right: 'read' | 'edit', viewer: ChildViewer, child: VisibleChild): ChildFormListItemDto {
   return {
@@ -143,19 +153,26 @@ export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now
   }
 }
 
-/** One form with its content, answers and the printout's header (child, group, facility). */
+/**
+ * One form with its content, answers and the printout's header (child, group, facility); per item the last change
+ * (`itemChanges`) and the items changed since the viewer last opened the form (`changedSinceSeen`; the client records
+ * the opening afterwards, see childFormHistory.ts `markChildFormOpened`).
+ */
 export function getChildForm(db: Db, viewer: ChildViewer, formId: number, now: Date = new Date()): ChildFormDto {
   const { form, child } = loadForm(db, viewer, formId, now)
   const right = access(viewer, child, form.id, editorsOf(db, [form.id]).get(form.id)!)
   const groupName = child.row.groupId === null ? null
     : db.select({ name: groups.name }).from(groups).where(eq(groups.id, child.row.groupId)).get()?.name ?? null
   const facilityName = db.select({ name: facilities.name }).from(facilities).where(eq(facilities.id, form.facilityId)).get()?.name ?? ''
+  const itemChanges = itemChangesOf(db, form.id)
   return {
     ...toListItem(form, right, viewer, child),
     content: JSON.parse(form.content) as FormContent,
     answers: JSON.parse(form.answers) as FormAnswers,
     child: { firstName: child.row.firstName, lastName: child.row.lastName, birthDate: child.row.birthDate, groupName },
     facilityName,
+    itemChanges,
+    changedSinceSeen: changedSince(itemChanges, lastOpened(db, viewer, form.id)),
   }
 }
 
@@ -233,7 +250,8 @@ export function createChildForm(
 /**
  * Stores the header and the answers (checked against the form's own content) for a viewer with the edit right (403
  * forbidden otherwise). `expectedUpdatedAt` is the last change the saver had loaded; when someone saved in between,
- * nothing is written (409 form_changed). Returns the new last change.
+ * nothing is written (409 form_changed). A save that changed answers is kept as a revision („Verlauf“), and the saver
+ * counts as having opened the form now. Returns the new last change.
  */
 export function saveChildForm(
   db: Db, viewer: ChildViewer, formId: number, input: ChildFormSaveInput, now: Date = new Date(),
@@ -245,13 +263,18 @@ export function saveChildForm(
   }
   if (form.updatedAt !== input.expectedUpdatedAt) throw new ServiceError(409, 'form_changed')
   const header = checkedHeader(input)
-  const answers = withFormErrors(() => checkAnswers(JSON.parse(form.content) as FormContent, input.answers))
+  const content = JSON.parse(form.content) as FormContent
+  const answers = withFormErrors(() => checkAnswers(content, input.answers))
   const updatedAt = now.toISOString()
-  const result = db.update(forms).set({
-    answers: JSON.stringify(answers), formDate: header.date, formStart: header.start, formParticipants: header.participants,
-    updatedAt, updatedBy: viewer.name,
-  }).where(and(eq(forms.id, form.id), eq(forms.updatedAt, input.expectedUpdatedAt))).run()
-  if (result.changes !== 1) throw new ServiceError(409, 'form_changed')
+  db.transaction((tx) => {
+    const result = tx.update(forms).set({
+      answers: JSON.stringify(answers), formDate: header.date, formStart: header.start, formParticipants: header.participants,
+      updatedAt, updatedBy: viewer.name,
+    }).where(and(eq(forms.id, form.id), eq(forms.updatedAt, input.expectedUpdatedAt))).run()
+    if (result.changes !== 1) throw new ServiceError(409, 'form_changed')
+    recordRevision(tx, form.id, content, JSON.parse(form.answers) as FormAnswers, answers, viewer.name, updatedAt)
+    markOpened(tx, viewer, form.id, updatedAt)
+  })
   return { updatedAt, updatedBy: viewer.name }
 }
 
@@ -330,6 +353,8 @@ export function moveChildForms(db: Db, childId: number, facilityId: number): voi
   if (formIds.length === 0) return
   db.update(forms).set({ facilityId, templateId: null }).where(inArray(forms.id, formIds)).run()
   db.delete(formEditors).where(inArray(formEditors.formId, formIds)).run()
+  // Who opened them when belongs to the old facility's people as well (the revisions go along with the forms).
+  db.delete(formReads).where(inArray(formReads.formId, formIds)).run()
   // Accident reports keep no author or uploader link to the old facility's people (as the child notes).
   detachAccidentAuthors(db, formIds)
 }

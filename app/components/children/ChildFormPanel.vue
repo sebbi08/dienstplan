@@ -12,10 +12,14 @@ import type { FormPanelSave } from '~/utils/forms'
  * panel, editable when the API grants the viewer `edit` on this form, else shown to read. Header and answers are saved
  * together (with the updatedAt the form was loaded with); `dirty` tells the list whether anything is unsaved.
  * `refreshList` re-reads the list (for its „zuletzt geändert“) after a save.
+ *
+ * Under each item stands its last change („geändert am … von …“); the items changed since the viewer last opened the
+ * form are marked (as the first load found them; the opening is recorded right after it). „Verlauf“ lists the saves.
  */
 const props = defineProps<{ formId: number; archived?: boolean; refreshList: () => Promise<unknown> }>()
 const emit = defineEmits<{ dirty: [value: boolean] }>()
 const c = de.childForms
+const h = de.formHistory
 
 const { data: form, error, status, refresh } = useFetch<ChildFormDto>(`/api/child-forms/${props.formId}`, { key: `child-form-${props.formId}` })
 const editable = computed(() => form.value?.right === 'edit')
@@ -35,6 +39,18 @@ const stopFirst = watch(form, (value) => {
   stopFirst()
 }, { immediate: true })
 const headerDirty = computed(() => JSON.stringify(header) !== savedHeader.value)
+
+// The items changed since the last opening, as the first load found them (a reload after saving keeps the markers);
+// then this opening is recorded.
+const marked = ref<string[]>([])
+let markedTaken = false
+watch(form, (value) => {
+  if (!value || markedTaken || import.meta.server) return
+  markedTaken = true
+  marked.value = value.changedSinceSeen
+  $fetch<{ ok: true }>(`/api/child-forms/${props.formId}/opened`, { method: 'POST' }).catch(() => {})
+}, { immediate: true })
+const historyOpen = ref(false)
 
 /** A valid date and, if given, a valid time; else the message the panel shows instead of saving. */
 function check(): string | null {
@@ -74,9 +90,13 @@ const headerLine = computed(() => {
         <UIcon name="i-lucide-lock" class="mt-0.5 size-4 shrink-0 text-gray-400" />
         <span>{{ props.archived ? c.readOnlyArchived : c.readOnly }}</span>
       </p>
+      <div class="flex flex-wrap items-center gap-2">
+        <UButton class="min-h-11" color="neutral" variant="outline" icon="i-lucide-history" :label="h.history" @click="historyOpen = true" />
+        <p v-if="marked.length" class="text-sm text-amber-900" role="status">{{ h.changedSinceSeenCount(marked.length) }}</p>
+      </div>
       <FormsFormPanel
         :key="form.id" :form="form" :save="save" :editable="editable" :refresh="refreshBoth" :extra-dirty="headerDirty"
-        :check="check" @reset="resetHeader" @dirty="emit('dirty', $event)"
+        :check="check" :changes="form.itemChanges" :marked="marked" @reset="resetHeader" @dirty="emit('dirty', $event)"
       >
         <template #before>
           <div v-if="editable" class="grid gap-3 rounded-md bg-white p-3 ring-1 ring-gray-200 sm:grid-cols-[minmax(0,12rem)_minmax(0,8rem)_minmax(0,1fr)]">
@@ -93,6 +113,7 @@ const headerLine = computed(() => {
           <p v-else-if="headerLine" class="text-sm break-words text-gray-700">{{ headerLine }}</p>
         </template>
       </FormsFormPanel>
+      <ChildrenChildFormHistory v-model:open="historyOpen" :form-id="form.id" :title="form.title" :content="form.content" :answers="form.answers" />
     </template>
   </div>
 </template>

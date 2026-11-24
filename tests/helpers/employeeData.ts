@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import {
   balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
-  employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, knowledgeConfirmations, knowledgeEntries, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps, parentalLeaveBirths, parentalLeaves,
+  employeeTrainings, formAttachments, formEditors, formReads, forms, groupBookChanges, knowledgeConfirmations, knowledgeEntries, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps, parentalLeaveBirths, parentalLeaves,
   signRequestRecipients, signRequests, signUnlocks, teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
@@ -132,7 +132,7 @@ export function fillEmployeeData(
     }).run()
     db.insert(parentalLeaveBirths).values({ employeeId: id, childBirthDate: '2023-12-01', protectionUntil: '2024-01-25', updatedAt: now.toISOString() }).run()
     const childId = addChild(db, 1, { keyEducatorId: id, firstName: `Kind von ${id}` })
-    // The rest of the references: time corrections, a week template row, a form editor grant, a tablet unlock, and the
+    // The rest of the references: time corrections, a week template row, a form editor grant and opening, a tablet unlock, and the
     // person as the one who entered something in a child's record or a group book.
     const at = now.toISOString()
     db.insert(timeRecordChanges).values({ employeeId: id, date: '2026-10-06', before: '', after: '7:30–15:45', at }).run()
@@ -141,6 +141,7 @@ export function fillEmployeeData(
       facilityId: 1, kind: 'child', title: 'Beobachtung', content: '{"sections":[]}', createdAt: at, updatedAt: at, childId,
     }).returning({ id: forms.id }).get().id
     db.insert(formEditors).values({ formId, employeeId: id, grantedAt: at }).run()
+    db.insert(formReads).values({ formId, employeeId: id, openedAt: at }).run()
     // An accident report about the person, filled in by themselves (Unfallanzeige).
     if (options.accidents) {
       const accidentId = db.insert(forms).values({

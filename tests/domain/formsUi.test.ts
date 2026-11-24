@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { FormContent, FormSection } from '../../shared/domain/forms'
 import type { ChildFormDto, TeamMeetingDto } from '../../shared/types/api'
 import {
-  blankSheet, childSheet, teamSheet, filledAnswers, isBlank, milestoneColumns, panelDirty, putAnswersTo, saveAnswers, sectionBlocks, sectionHasRating,
+  blankSheet, childSheet, comparableGroups, teamSheet, filledAnswers, isBlank, milestoneColumns, olderAndNewer, panelDirty, putAnswersTo,
+  saveAnswers, sectionBlocks, sectionHasRating,
 } from '../../app/utils/forms'
 
 const section: FormSection = {
@@ -241,5 +242,27 @@ describe('the form panel save contract', () => {
     expect(panelDirty(true, '{"a":1}', '{}', false)).toBe(true)
     expect(panelDirty(true, '{}', '{}', true)).toBe(true)
     expect(panelDirty(false, '{"a":1}', '{}', true)).toBe(false)
+  })
+})
+
+describe('comparing two child forms', () => {
+  const forms = [
+    { id: 5, templateId: 1, title: 'Entwicklungsgespräch' },
+    { id: 4, templateId: 2, title: 'Eingewöhnung' },
+    { id: 3, templateId: 1, title: 'Entwicklungsgespräch' },
+    { id: 2, templateId: null, title: 'Entwicklungsgespräch' },
+    { id: 1, templateId: 1, title: 'Entwicklungsgespräch' },
+  ]
+
+  it('offers the templates with two forms or more, newest first; forms without template are left out', () => {
+    expect(comparableGroups(forms)).toEqual([{ templateId: 1, title: 'Entwicklungsgespräch', forms: [forms[0], forms[2], forms[4]] }])
+    expect(comparableGroups(forms.slice(0, 2))).toEqual([])
+  })
+
+  it('orders two picked forms by their place in the list', () => {
+    expect(olderAndNewer(forms, 1, 5)).toEqual({ newer: forms[0], older: forms[4] })
+    expect(olderAndNewer(forms, 5, 3)).toEqual({ newer: forms[0], older: forms[2] })
+    expect(olderAndNewer(forms, 5, 5)).toBeNull()
+    expect(olderAndNewer(forms, 5, 99)).toBeNull()
   })
 })

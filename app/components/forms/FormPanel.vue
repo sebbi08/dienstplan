@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ItemChange } from '#shared/domain/formHistory'
 import type { FormAnswers } from '#shared/domain/forms'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
@@ -18,7 +19,8 @@ import {
  * the panel shows no message of its own); `reset` is emitted when the panel goes back to the stored form, so
  * the parent can reset its fields too. The slot `actions` gets `dirty`, `save` and `base` (the updatedAt the answers on
  * screen are based on, read after a save) (e.g. for „Abgeben“, which saves first). `dirty` is also emitted, so a
- * parent can ask before it closes the panel.
+ * parent can ask before it closes the panel. `changes` and `marked` go to the filler (child forms: the last change per
+ * item and the items changed since the viewer last opened the form).
  */
 const props = defineProps<{
   form: FormPanelForm
@@ -29,6 +31,8 @@ const props = defineProps<{
   extraDirty?: boolean
   check?: () => string | null
   handlesError?: (error: unknown) => boolean
+  changes?: Record<string, ItemChange>
+  marked?: readonly string[]
 }>()
 const emit = defineEmits<{ dirty: [value: boolean]; reset: [] }>()
 const toast = useToast()
@@ -100,7 +104,10 @@ async function reload() {
       </template>
     </UAlert>
     <slot name="before" />
-    <FormsFormFiller v-model:answers="answers" :content="props.form.content" :readonly="!props.editable" />
+    <FormsFormFiller
+      v-model:answers="answers" :content="props.form.content" :readonly="!props.editable" :changes="props.changes"
+      :marked="props.marked"
+    />
     <p class="text-xs text-gray-500">{{ de.forms.lastChanged(props.form.updatedBy, formatDateTime(props.form.updatedAt)) }}</p>
     <div
       v-if="props.editable || $slots.actions"

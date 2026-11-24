@@ -848,6 +848,10 @@ export const staffTalkSchema = staffTalkHeaderSchema.extend({
 export const staffTalkQuery = z.object({ employeeId: z.coerce.number().int().positive() })
 export const talkFormAddSchema = z.object({ templateId: z.number().int() })
 export const formIdParams = z.object({ formId: z.coerce.number().int().positive() })
+/** One stored state („Stand vom …“) in „Verlauf“ of a child form. */
+export const formRevisionParams = formIdParams.extend({ revisionId: z.coerce.number().int().positive() })
+/** A page of „Verlauf“: the revisions from `offset` on (newest first). */
+export const formRevisionsQuery = z.object({ offset: z.coerce.number().int().min(0).max(1_000_000).default(0) })
 /** The answers are checked against the form's own content; `expectedUpdatedAt` is the form's updatedAt the client loaded. */
 export const formAnswersSchema = z.object({ answers: z.unknown(), expectedUpdatedAt: z.string().max(40) })
 export const readReleaseSchema = z.object({ released: z.boolean() })
