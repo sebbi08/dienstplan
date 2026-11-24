@@ -26,7 +26,7 @@ const pagePaths = (readdirSync(PAGES_DIR, { recursive: true }) as string[])
 
 /** Pages every signed-in account opens (the login page is handled before the account rules). */
 const OPEN = [
-  '/', '/account/password', '/login', '/my/accidents', '/my/calendar', '/my/leave', '/my/plan/2026/10', '/my/requirements', '/my/talks',
+  '/', '/account/password', '/login', '/my/accidents', '/my/calendar', '/my/leave', '/my/plan/2026/10', '/my/requirements', '/my/sign', '/my/talks',
   '/my/talks/1', '/plan/2026/10', '/print/2026/10', '/print/accidents/1', '/print/my-forms/1', '/print/team-meetings/1', '/team-meetings',
   '/team-meetings/1',
 ]
@@ -121,7 +121,8 @@ describe('route access per role (unchanged by the permissions)', () => {
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'formTemplates.manage' })).toBeUndefined()
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'knowledge.view' })).toBeUndefined()
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: () => false })).toBe('/')
-    expect(pageKeys(DOCUMENTS)).toEqual(['printTemplates.view', 'formTemplates.manage', 'knowledge.view'])
+    expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'signRequests.manage' })).toBeUndefined()
+    expect(pageKeys(DOCUMENTS)).toEqual(['printTemplates.view', 'formTemplates.manage', 'knowledge.view', 'signRequests.manage'])
     expect(pageKeys('/notes')).toEqual(['notes.view'])
     expect(pageKeys('/')).toEqual([])
   })

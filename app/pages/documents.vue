@@ -6,7 +6,8 @@ import { chosenDocumentTab, documentTabs, type DocumentTab } from '~/utils/docum
  * „Dokumente“ (under „Mehr“ for the managers, under „Meins“ for Mitarbeiter, from the start page at the tablet): the tab
  * „Bögen“ with the form templates of the active facility (formTemplates.manage) and the tab „Vorlagen“ with the blank
  * forms to print (printTemplates.view; the tablet without an unlock) and the tab „Wissen“ with the knowledge library
- * (knowledge.view: every account, the tablet; with „Gelesen und verstanden“, the open ones counted in the tab). Only the
+ * (knowledge.view: every account, the tablet; with „Gelesen und verstanden“, the open ones counted in the tab), and the tab
+ * „Unterschriften“ with the requests to sign sent from the facility (signRequests.manage). Only the
  * tabs the viewer may use show; `?tab=` opens one (the old addresses /templates and /admin/forms send here with it).
  */
 useHead({ title: de.documents.title })
@@ -36,7 +37,9 @@ function onTabKey(event: KeyboardEvent) {
   selectTab(keys[next])
   nextTick(() => document.getElementById(`documents-tab-${keys[next]}`)?.focus())
 }
-const TAB_ICONS: Record<DocumentTab, string> = { forms: 'i-lucide-clipboard-list', templates: 'i-lucide-printer', knowledge: 'i-lucide-book-open' }
+const TAB_ICONS: Record<DocumentTab, string> = {
+  forms: 'i-lucide-clipboard-list', templates: 'i-lucide-printer', knowledge: 'i-lucide-book-open', signatures: 'i-lucide-signature',
+}
 /** The entries the account's employee still has to confirm (loaded by the layout for the menu). */
 const { data: knowledgeOpen } = useNuxtData<{ count: number }>('knowledge-open-count')
 const tabLabel = (key: DocumentTab) => (key === 'knowledge' ? de.knowledge.tabLabel(knowledgeOpen.value?.count ?? 0) : de.documents.tabs[key])
@@ -54,7 +57,7 @@ const tabLabel = (key: DocumentTab) => (key === 'knowledge' ? de.knowledge.tabLa
 
     <div
       v-if="tabs.length > 1" role="tablist" :aria-label="de.documents.tabsLabel" class="grid gap-2"
-      :class="tabs.length > 2 ? 'grid-cols-3 sm:max-w-xl' : 'grid-cols-2 sm:max-w-md'"
+      :class="tabs.length > 3 ? 'grid-cols-2 sm:max-w-3xl sm:grid-cols-4' : tabs.length > 2 ? 'grid-cols-3 sm:max-w-xl' : 'grid-cols-2 sm:max-w-md'"
     >
       <button
         v-for="key in tabs" :id="`documents-tab-${key}`" :key="key" type="button" role="tab"
@@ -73,6 +76,7 @@ const tabLabel = (key: DocumentTab) => (key === 'knowledge' ? de.knowledge.tabLa
       <FormsTemplateEditor v-if="tab === 'forms'" />
       <TemplatesLibrary v-else-if="tab === 'templates'" class="max-w-3xl" />
       <KnowledgeLibrary v-else-if="tab === 'knowledge'" class="max-w-3xl" />
+      <SignRequestsOverview v-else-if="tab === 'signatures'" class="max-w-3xl" />
     </div>
   </div>
 </template>

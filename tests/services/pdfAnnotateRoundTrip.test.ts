@@ -46,6 +46,30 @@ describe('adding text to any PDF with pdf.js', () => {
     await againTask.destroy()
   }, 30_000)
 
+  it('writes the signature footer at the bottom of the last page (its own storage key, next to the editors)', async () => {
+    const { FOOTER_STORAGE_KEY, footerAnnotation } = await import('../../app/utils/pdfAnnotate')
+    const pdfjs = await loadPdfJs()
+    const task = pdfjs.getDocument({ data: new Uint8Array(plainPdf()), enableXfa: false })
+    const document = await task.promise
+    const page = await document.getPage(document.numPages)
+    document.annotationStorage.setValue('pdfjs_internal_editor_0', freeText(pdfjs, 'Ort, Datum', [20, 150, 120, 165]))
+    document.annotationStorage.setValue(FOOTER_STORAGE_KEY,
+      footerAnnotation(pdfjs.AnnotationEditorType.FREETEXT, document.numPages - 1, page.view, 'Elektronisch unterschrieben von Anna Probe am 24.11.2026 10:15'))
+    const saved = Buffer.from(await document.saveDocument())
+    await task.destroy()
+
+    const againTask = pdfjs.getDocument({ data: new Uint8Array(saved), enableXfa: false })
+    const again = await againTask.promise
+    const texts = (await (await again.getPage(again.numPages)).getAnnotations())
+      .filter(annotation => annotation.annotationType === pdfjs.AnnotationType.FREETEXT)
+    const footer = texts.find(annotation => annotation.contentsObj?.str?.startsWith('Elektronisch'))
+    expect(footer?.contentsObj?.str).toBe('Elektronisch unterschrieben von Anna Probe am 24.11.2026 10:15')
+    // At the bottom of the page box.
+    expect(footer!.rect[1]).toBeLessThan(page.view[1]! + 40)
+    expect(texts.map(annotation => annotation.contentsObj?.str)).toContain('Ort, Datum')
+    await againTask.destroy()
+  }, 30_000)
+
   it('keeps the form fields and their values next to the added text', async () => {
     const pdfjs = await loadPdfJs()
     const task = pdfjs.getDocument({ data: new Uint8Array(fillablePdf()), enableXfa: false })

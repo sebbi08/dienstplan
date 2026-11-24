@@ -869,7 +869,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 |---|---|
 | am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit den Zusatztagen nur für ein Jahr, Elternzeiten |
-| „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz) als Nachweis, dass die Pflichten erfüllt wurden, Lesebestätigungen aus „Wissen“; Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
+| „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz) als Nachweis, dass die Pflichten erfüllt wurden, Lesebestätigungen aus „Wissen“, die Nachweise der Unterschriften in der App („Zum Unterschreiben senden“: Zeitpunkt, Prüfsumme, Grund einer Ablehnung); Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Mitarbeiter-Seite beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
 | „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
@@ -1864,6 +1864,56 @@ du außerdem überall **Text**, ein **Häkchen**, ein **Kreuz** und eine **Unter
   Mergen: `npm test` (der Test `pdfjsContract` prüft die genutzten Teile) und die Ansicht von Hand ausprobieren
   (Vorlage ausfüllen mit Feldern, Text, Häkchen, Unterschrift, Speichern, danach **Bearbeiten** und Drucken; dazu
   ein eingescanntes PDF ansehen).
+
+### Zum Unterschreiben senden
+
+Die Leitung (und der Träger) kann Mitarbeitenden ein PDF **zum Unterschreiben in der App** schicken – z. B. eine
+Belehrung, eine Datenschutz- oder Schweigepflichterklärung. Die Mitarbeitenden unterschreiben am eigenen Gerät oder am
+Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
+
+- **Senden**: unter **Dokumente → Vorlagen** bei einer Vorlage, oder in der Personalakte (Nachweise → Dokumente) bei
+  einem PDF, jeweils mit **Zum Unterschreiben senden**. Ein PDF aus der Personalakte geht nur an diese Person. Im Fenster
+  wählst du die **Bezeichnung**, **an wen** (Mitarbeitende der Einrichtung, die nicht ausgeschieden sind), die
+  **Ablage** der unterschriebenen Kopie (ein Fach der Personalakte, das du nutzen darfst; wer das Fach sehen darf, sieht
+  später auch die Kopie), freiwillig ein Datum **bis wann** und eine **Nachricht**.
+  - **Senden** schickt das PDF, wie es ist. **Vorher ausfüllen** öffnet es zuerst in der Ausfüll-Ansicht (Felder, Text
+    usw.); genau dieses ausgefüllte PDF geht dann an alle. Die App merkt sich das PDF so, wie es gesendet wurde: Alle
+    unterschreiben dieselbe Fassung, auch wenn die Vorlage später geändert wird.
+  - Klingt die Bezeichnung nach **Kündigung, Aufhebungsvertrag, Befristung, Arbeitsvertrag oder Arbeitszeugnis**, zeigt
+    das Fenster einen Hinweis (siehe unten „Rechtliches“). Senden geht trotzdem.
+- **Unterschreiben** (Mitarbeitende): unter **Meins → Zu unterschreiben** (im Menü mit der Zahl der offenen, z. B.
+  „Zu unterschreiben (2)“) oder **am Tablet**: auf der Startseite **Zu unterschreiben**, Namen antippen, PIN eingeben –
+  das Tablet zeigt dann nur die eigenen Dokumente. **Öffnen und unterschreiben** zeigt das PDF; mit **Unterschrift**
+  unterschreibst du im weißen Feld und schiebst die Unterschrift an ihren Platz, mit **Text** (z. B. Ort und Datum) und
+  **Felder** kannst du ausfüllen. **Unterschreiben** fragt noch einmal: „Ich unterschreibe dieses Dokument mit meiner
+  gezeichneten Unterschrift.“ Ohne gesetzte Unterschrift geht es nicht.
+  - Die App schreibt unten auf die letzte Seite „**Elektronisch unterschrieben von ‹Name› am ‹Datum Uhrzeit›**“ und legt
+    die Kopie in der Personalakte im gewählten Fach ab, mit der Bezeichnung „‹Titel› – unterschrieben am ‹Datum›“,
+    „hochgeladen von“ der Person selbst. Zu jeder Unterschrift merkt sich die App den Zeitpunkt und eine **Prüfsumme**
+    (SHA-256) der gespeicherten Datei; so lässt sich später zeigen, dass die Kopie seitdem nicht verändert wurde.
+  - **Nicht unterschreiben**: mit einem kurzen Grund (höchstens 300 Zeichen); die Leitung sieht ihn.
+  - Am Tablet sperrt sich das Tablet nach dem Unterschreiben oder Ablehnen und mit **Fertig** wieder; sonst gilt die
+    eingestellte Sperrzeit wie bei den Kinderakten.
+- **Übersicht**: **Dokumente → Unterschriften** (wer senden darf) zeigt jede Anfrage mit dem Stand je Person – offen,
+  unterschrieben am …, abgelehnt mit Grund, zurückgezogen –, den Link zur unterschriebenen Kopie (wenn du das Fach sehen
+  darfst) und das gesendete PDF. **Erinnern** setzt bei offenen Personen eine Erinnerung, die sie in ihrer Liste sehen;
+  **Zurückziehen** beendet die Anfrage für offene Personen; **Anfrage löschen** entfernt Anfrage und gesendetes PDF (die
+  unterschriebenen Kopien bleiben). Ist das Datum „bis“ vorbei und jemand noch offen, ist die Anfrage als **überfällig**
+  markiert (oben steht, wie viele es sind), und in der Liste der Person ist sie rot hervorgehoben.
+- **Wer darf was**: Senden und die Übersicht gehören zum Recht **„Personalakte: zum Unterschreiben senden“** (Rechte und
+  Rollen; voreingestellt Leitung, der Träger immer). Jede Person sieht nur ihre eigenen Anfragen, am Tablet nur die
+  Person, die es mit ihrer PIN entsperrt hat. Die unterschriebenen Kopien folgen den Rechten der Fächer.
+- **Aufbewahren und Löschen**: Eine Anfrage mit ihrem gesendeten PDF wird **ein Jahr, nachdem die letzte Person fertig
+  war** (unterschrieben, abgelehnt oder zurückgezogen), automatisch gelöscht; die unterschriebenen Kopien bleiben in der
+  Personalakte und folgen deren Löschfristen. Der Nachweis der Unterschrift (Zeitpunkt, Prüfsumme, Grund einer
+  Ablehnung) gehört bei einer ausgeschiedenen Person zu „Beurteilungen und Zeugnisse“; wird die Person endgültig
+  gelöscht, gehen auch ihre Einträge in den Anfragen.
+- **Rechtliches**: Eine in der App gezeichnete Unterschrift ist eine **einfache elektronische Signatur** – keine
+  qualifizierte. Sie genügt für Bestätigungen und Belehrungen, aber **nicht**, wo das Gesetz die Schriftform verlangt:
+  z. B. Kündigung oder Aufhebungsvertrag (§ 623 BGB), Befristung eines Arbeitsvertrags (§ 14 Abs. 4 TzBfG),
+  Arbeitszeugnis (§ 109 Abs. 3 GewO). Solche Dokumente bitte auf Papier unterschreiben lassen. Die gezeichnete
+  Unterschrift steckt nur in der gespeicherten Kopie; die App speichert sie nirgends sonst (auch nicht auf dem Gerät),
+  und das Unterschriftenfeld wird nach dem Einfügen geleert.
 
 ## 20. Personalschlüssel
 

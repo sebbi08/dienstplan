@@ -4398,3 +4398,56 @@ export interface ParentalLeaveSettingsDto {
   /** The viewer may change it (employees.contractEdit). */
   canEdit: boolean
 }
+
+/** „Zum Unterschreiben senden“ (server/services/signRequests.ts): one recipient of a request, as the senders see it. */
+export interface SignRequestRecipientDto {
+  id: number
+  employeeId: number
+  name: string
+  status: 'open' | 'signed' | 'declined' | 'withdrawn'
+  signedAt: string | null
+  declinedAt: string | null
+  declineReason: string | null
+  withdrawnAt: string | null
+  remindedAt: string | null
+  /** The signed copy in the personnel file; null when not signed, deleted since, or the viewer may not use its folder. */
+  signedDocumentId: number | null
+  /** SHA-256 of the signed copy as it was stored (for the record). */
+  signedHash: string | null
+}
+
+/** A request to sign, as the senders see it (Dokumente → Unterschriften). */
+export interface SignRequestDto {
+  id: number
+  title: string
+  createdAt: string
+  /** The sender's user name; null when the account was deleted. */
+  createdBy: string | null
+  sourceKind: 'template' | 'document'
+  targetFolder: EmployeeDocumentFolder
+  dueDate: IsoDate | null
+  note: string
+  fileSize: number
+  /** A recipient is still open after the due date. */
+  overdue: boolean
+  recipients: SignRequestRecipientDto[]
+}
+
+/** An open request of the employee (Meins → Zu unterschreiben, or the unlocked tablet). */
+export interface MySignRequestDto {
+  recipientId: number
+  title: string
+  sentAt: string
+  sentBy: string | null
+  dueDate: IsoDate | null
+  note: string
+  remindedAt: string | null
+  fileSize: number
+  overdue: boolean
+}
+
+export interface MySignRequestsDto {
+  /** The signing person's name (for the line „Elektronisch unterschrieben von …“). */
+  employeeName: string
+  requests: MySignRequestDto[]
+}

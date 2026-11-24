@@ -106,6 +106,15 @@ function onRefillOpen(value: boolean) {
 }
 const afterFill = () => refresh()
 
+// „Zum Unterschreiben senden“ (signRequests.manage): a PDF of the file to this person, to sign in the app.
+const canSend = computed(() => can('signRequests.manage'))
+const sending = ref<{ kind: 'document'; id: number; title: string; url: string } | null>(null)
+const sendOpen = ref(false)
+function startSend(document: EmployeeDocumentDto) {
+  sending.value = { kind: 'document', id: document.id, title: titleOf(document), url: employeeDocumentUrl(document.id) }
+  sendOpen.value = true
+}
+
 const loadError = computed(() => (error.value ? errorMessage(error.value) : null))
 const link = 'text-sky-700 hover:underline'
 const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100'
@@ -153,6 +162,10 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
               v-if="document.mimeType === 'application/pdf'" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil-line"
               :label="de.pdfFill.edit" :aria-label="de.pdfFill.editLabel(titleOf(document))" :disabled="busy" @click="refill(document)"
             />
+            <UButton
+              v-if="canSend && document.mimeType === 'application/pdf'" size="xs" color="neutral" variant="ghost" icon="i-lucide-signature"
+              :label="de.signRequests.send" :disabled="busy" @click="startSend(document)"
+            />
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="busy" @click="openEdit(document)" />
             <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(document)" />
           </div>
@@ -166,6 +179,8 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
     v-if="refilling" v-model:open="refillOpen" :source="{ url: employeeDocumentUrl(refilling.id), title: titleOf(refilling) }"
     :replace="{ kind: 'employee', documentId: refilling.id }" @saved="afterFill" @update:open="onRefillOpen"
   />
+
+  <SignRequestsSendDialog v-if="sending" v-model:open="sendOpen" :source="sending" :recipient="{ id: employeeId, name: employeeName }" />
 
   <UModal v-model:open="open" :title="editingId === null ? t.uploadTo(de.personnel.folders[form.folder]) : t.edit">
     <template #body>

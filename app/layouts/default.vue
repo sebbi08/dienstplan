@@ -34,6 +34,10 @@ const { data: knowledgeOpen } = useFetch<{ count: number }>('/api/knowledge/open
   key: 'knowledge-open-count', watch: false,
   immediate: signedIn.value && can('knowledge.view') && user.value?.employeeId != null,
 })
+// „Zu unterschreiben (1)“: the requests to sign the account's employee still has open; checked again on every page change.
+const { data: signOpen, refresh: refreshSignOpen } = useFetch<{ count: number }>('/api/my/sign-requests/count', {
+  key: 'sign-open-count', watch: false, immediate: signedIn.value && user.value?.employeeId != null,
+})
 // Switching the facility is the Träger's (PUT /api/facilities/active needs facilities.manage).
 const canSwitchFacility = computed(() => can('facilities.manage'))
 const facilityItems = computed(() => (facilities.value?.facilities ?? []).map(facility => ({ label: facility.name, value: facility.id })))
@@ -56,6 +60,7 @@ const route = useRoute()
 watch(() => route.fullPath, () => {
   if (notifications.enabled.value) notifications.refresh()
   if (signedIn.value) refreshLeave()
+  if (signedIn.value && user.value?.employeeId != null) refreshSignOpen()
   if (can('settings.facility')) refreshFacilities()
 })
 
@@ -72,6 +77,7 @@ const menu = computed<NavMenu>(() => navMenu({
   today,
   staffContacts: (staffContacts.value?.count ?? 0) > 0,
   knowledgeOpen: knowledgeOpen.value?.count ?? 0,
+  signOpen: signOpen.value?.count ?? 0,
 }))
 const isTerminal = computed(() => user.value?.role === 'terminal')
 // The Leitung/Träger header has many entries; on mid-size screens it gets tighter so it stays on one line.

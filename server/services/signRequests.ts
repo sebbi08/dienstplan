@@ -1,0 +1,299 @@
+import { createHash } from 'node:crypto'
+import { and, desc, eq, inArray } from 'drizzle-orm'
+import { isValidIsoDate, todayIso } from '../../shared/domain/dates'
+import { can } from '../../shared/domain/permissions'
+import { FOLDER_PERMISSION, type EmployeeDocumentFolder } from '../../shared/domain/personnel'
+import {
+  DECLINE_REASON_MAX, SIGN_REQUEST_MAX_RECIPIENTS, SIGN_REQUEST_NOTE_MAX, SIGN_REQUEST_TITLE_MAX, isOverdue, signedDocumentTitle,
+  signRequestExpired, type SignRequestStatus,
+} from '../../shared/domain/signRequests'
+import type { IsoDate } from '../../shared/domain/types'
+import type { MySignRequestsDto, SignRequestDto, SignRequestRecipientDto } from '../../shared/types/api'
+import type { Db } from '../db/client'
+import { employeeDocuments, employees, signRequestRecipients, signRequests, users } from '../db/schema'
+import { ServiceError } from '../lib/errors'
+import { safeFileNamePart } from '../lib/fileName'
+import { checkedDocumentFile } from '../lib/fileSignature'
+import { fillableFile } from '../lib/pdfForm'
+import { readTemplateFile, type TemplateViewer } from './printTemplates'
+import { tabletChildViewer } from './tabletUnlock'
+
+/**
+ * „Zum Unterschreiben senden“ (docs/BETRIEB.md): whoever holds signRequests.manage (Leitung and Träger by default) sends
+ * a PDF – a template of „Vorlagen“ or a document of a personnel file, possibly filled in before – to employees of the
+ * facility. The PDF is kept as it was sent (every recipient signs exactly that version). An employee signs it in the app,
+ * with the own account or at the facility's tablet unlocked with their PIN, with a drawn signature (a simple electronic
+ * signature): the signed copy becomes a document of their personnel file in the request's folder, its SHA-256 is kept
+ * with the recipient. Or they decline with a reason. The sender reminds and withdraws. An employee sees only their own
+ * requests; the senders see those of their facility; the signed copies obey the folder rights of the personnel file.
+ */
+
+/** Whoever sends and follows requests: the session user of the active facility. */
+export type SignSender = TemplateViewer & { id: number }
+
+/** Who signs: the employee (with the own account, or at the tablet unlocked by them) and the account to name as uploader. */
+export interface Signer {
+  employeeId: number
+  /** The account that signs, or null at the tablet (then the employee's own account, if any, is named as uploader). */
+  userId: number | null
+}
+
+export interface SignRequestInput {
+  title: string
+  sourceKind: 'template' | 'document'
+  sourceId: number
+  recipientIds: number[]
+  folder: EmployeeDocumentFolder
+  dueDate: IsoDate | null
+  note: string
+}
+
+const sha256 = (data: Uint8Array) => createHash('sha256').update(data).digest('hex')
+
+function assertSender(sender: SignSender): void {
+  if (!can(sender.permissions, 'signRequests.manage')) throw new ServiceError(403, 'forbidden')
+}
+
+/** The source PDF: a template the sender sees, or a PDF of a personnel file in a folder they may use (with its employee). */
+function sourceFile(db: Db, sender: SignSender, kind: 'template' | 'document', id: number): { data: Buffer; employeeId: number | null } {
+  if (kind === 'template') return { data: readTemplateFile(db, sender, id).data, employeeId: null }
+  const row = db.select({ employeeId: employeeDocuments.employeeId, folder: employeeDocuments.folder, mimeType: employeeDocuments.mimeType, facilityId: employees.facilityId })
+    .from(employeeDocuments).innerJoin(employees, eq(employees.id, employeeDocuments.employeeId))
+    .where(eq(employeeDocuments.id, id)).get()
+  if (!row || row.facilityId !== sender.facilityId) throw new ServiceError(404, 'document_not_found')
+  if (!can(sender.permissions, FOLDER_PERMISSION[row.folder])) throw new ServiceError(403, 'forbidden')
+  if (row.mimeType !== 'application/pdf') throw new ServiceError(400, 'document_type_invalid')
+  const { data } = db.select({ data: employeeDocuments.data }).from(employeeDocuments).where(eq(employeeDocuments.id, id)).get()!
+  return { data, employeeId: row.employeeId }
+}
+
+/**
+ * Sends a request (returns its id). `file`: the PDF as filled in before sending (else the source as it is); it must be a
+ * PDF (400 document_type_invalid, 413 document_too_large). The recipients are employees of the facility who have not
+ * left (400 invalid_recipients); a personnel document goes only to its own employee. The folder of the signed copies
+ * must be one the sender may use (403 forbidden).
+ */
+export function createSignRequest(
+  db: Db, sender: SignSender, input: SignRequestInput, file: Buffer | null, now: Date = new Date(),
+): number {
+  assertSender(sender)
+  const title = input.title.trim()
+  const note = input.note.trim()
+  if (title === '' || title.length > SIGN_REQUEST_TITLE_MAX || note.length > SIGN_REQUEST_NOTE_MAX) throw new ServiceError(400, 'invalid_input')
+  if (input.dueDate !== null && !isValidIsoDate(input.dueDate)) throw new ServiceError(400, 'invalid_date')
+  if (!can(sender.permissions, FOLDER_PERMISSION[input.folder])) throw new ServiceError(403, 'forbidden')
+  const recipientIds = [...new Set(input.recipientIds)]
+  if (recipientIds.length === 0 || recipientIds.length > SIGN_REQUEST_MAX_RECIPIENTS) throw new ServiceError(400, 'invalid_recipients')
+  const source = sourceFile(db, sender, input.sourceKind, input.sourceId)
+  if (source.employeeId !== null && (recipientIds.length !== 1 || recipientIds[0] !== source.employeeId)) {
+    throw new ServiceError(400, 'invalid_recipients')
+  }
+  const today = todayIso(now)
+  const staff = db.select({ id: employees.id, leftOn: employees.leftOn }).from(employees)
+    .where(and(eq(employees.facilityId, sender.facilityId), inArray(employees.id, recipientIds))).all()
+  if (staff.length !== recipientIds.length || staff.some(person => person.leftOn !== null && person.leftOn < today)) {
+    throw new ServiceError(400, 'invalid_recipients')
+  }
+  const data = file ?? source.data
+  checkedDocumentFile(data, ['application/pdf'])
+  return db.transaction((tx) => {
+    const id = tx.insert(signRequests).values({
+      facilityId: sender.facilityId, createdBy: sender.id, createdAt: now.toISOString(), title, sourceKind: input.sourceKind,
+      sourceTemplateId: input.sourceKind === 'template' ? input.sourceId : null,
+      sourceDocumentId: input.sourceKind === 'document' ? input.sourceId : null,
+      fileData: data, fileSize: data.length, targetFolder: input.folder, dueDate: input.dueDate, note,
+    }).returning({ id: signRequests.id }).get().id
+    tx.insert(signRequestRecipients).values(recipientIds.map(employeeId => ({ requestId: id, employeeId }))).run()
+    return id
+  })
+}
+
+/** The facility's request (404 sign_request_not_found otherwise). */
+function loadRequest(db: Db, sender: SignSender, id: number) {
+  assertSender(sender)
+  const row = db.select({ id: signRequests.id, facilityId: signRequests.facilityId, title: signRequests.title })
+    .from(signRequests).where(eq(signRequests.id, id)).get()
+  if (!row || row.facilityId !== sender.facilityId) throw new ServiceError(404, 'sign_request_not_found')
+  return row
+}
+
+/**
+ * The facility's requests, newest first, each with its recipients (name, status, when, reason). The signed copy is linked
+ * only when the viewer may use its folder.
+ */
+export function listSignRequests(db: Db, sender: SignSender, today: IsoDate): SignRequestDto[] {
+  assertSender(sender)
+  const requests = db.select({
+    id: signRequests.id, title: signRequests.title, createdAt: signRequests.createdAt, createdBy: users.username,
+    sourceKind: signRequests.sourceKind, targetFolder: signRequests.targetFolder, dueDate: signRequests.dueDate, note: signRequests.note,
+    fileSize: signRequests.fileSize,
+  }).from(signRequests).leftJoin(users, eq(users.id, signRequests.createdBy))
+    .where(eq(signRequests.facilityId, sender.facilityId)).orderBy(desc(signRequests.createdAt), desc(signRequests.id)).all()
+  if (requests.length === 0) return []
+  const recipients = db.select({
+    id: signRequestRecipients.id, requestId: signRequestRecipients.requestId, employeeId: signRequestRecipients.employeeId,
+    name: employees.name, status: signRequestRecipients.status, signedAt: signRequestRecipients.signedAt,
+    declinedAt: signRequestRecipients.declinedAt, declineReason: signRequestRecipients.declineReason,
+    withdrawnAt: signRequestRecipients.withdrawnAt, remindedAt: signRequestRecipients.remindedAt,
+    signedDocumentId: signRequestRecipients.signedDocumentId, signedHash: signRequestRecipients.signedHash,
+  }).from(signRequestRecipients).innerJoin(employees, eq(employees.id, signRequestRecipients.employeeId))
+    .where(inArray(signRequestRecipients.requestId, requests.map(request => request.id))).all()
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  return requests.map((request) => {
+    const own = recipients.filter(recipient => recipient.requestId === request.id)
+    const mayOpen = can(sender.permissions, FOLDER_PERMISSION[request.targetFolder])
+    const list: SignRequestRecipientDto[] = own.map(({ requestId: _request, signedDocumentId, ...recipient }) => ({
+      ...recipient, signedDocumentId: mayOpen ? signedDocumentId : null,
+    }))
+    return {
+      ...request, recipients: list,
+      overdue: own.some(recipient => isOverdue(request.dueDate, today, recipient.status)),
+    }
+  })
+}
+
+/** The PDF as it was sent (the senders' preview), named after the title. */
+export function readSignRequestFile(db: Db, sender: SignSender, id: number): { data: Buffer; fileName: string } {
+  const request = loadRequest(db, sender, id)
+  const { data } = db.select({ data: signRequests.fileData }).from(signRequests).where(eq(signRequests.id, id)).get()!
+  return { data, fileName: `${safeFileNamePart(request.title) || 'Dokument'}.pdf` }
+}
+
+/** The open recipients of the request, or the one asked for when it is open (none: 409 sign_request_closed). */
+function openRecipients(db: Db, requestId: number, recipientId: number | null): number[] {
+  const rows = db.select({ id: signRequestRecipients.id }).from(signRequestRecipients)
+    .where(and(eq(signRequestRecipients.requestId, requestId), eq(signRequestRecipients.status, 'open'),
+      recipientId === null ? undefined : eq(signRequestRecipients.id, recipientId))).all()
+  if (rows.length === 0) throw new ServiceError(409, 'sign_request_closed')
+  return rows.map(row => row.id)
+}
+
+/** „Erinnern“: marks the open recipients (or one) as reminded now; the employee's list shows it. Returns how many. */
+export function remindSignRequest(db: Db, sender: SignSender, id: number, recipientId: number | null, now: Date = new Date()): number {
+  loadRequest(db, sender, id)
+  const ids = openRecipients(db, id, recipientId)
+  return db.update(signRequestRecipients).set({ remindedAt: now.toISOString() }).where(inArray(signRequestRecipients.id, ids)).run().changes
+}
+
+/** „Zurückziehen“: the open recipients (or one) no longer have to sign. Returns how many. */
+export function withdrawSignRequest(db: Db, sender: SignSender, id: number, recipientId: number | null, now: Date = new Date()): number {
+  loadRequest(db, sender, id)
+  const ids = openRecipients(db, id, recipientId)
+  return db.update(signRequestRecipients).set({ status: 'withdrawn', withdrawnAt: now.toISOString() })
+    .where(inArray(signRequestRecipients.id, ids)).run().changes
+}
+
+/** Deletes the request with its PDF and recipients; the signed copies stay in the personnel files. */
+export function deleteSignRequest(db: Db, sender: SignSender, id: number): void {
+  loadRequest(db, sender, id)
+  db.delete(signRequests).where(eq(signRequests.id, id)).run()
+}
+
+// ---- the employee's side ----------------------------------------------------
+
+/** The own account's employee signs (403 no_employee without a linked employee). */
+export function accountSigner(user: { id: number; employeeId: number | null }): Signer {
+  if (user.employeeId === null) throw new ServiceError(403, 'no_employee')
+  return { employeeId: user.employeeId, userId: user.id }
+}
+
+/**
+ * The person who unlocked the facility's tablet with their PIN signs (403 tablet_locked without a valid unlock, the same
+ * rule as the child records; each request counts as use and keeps it unlocked). The tablet shows only their requests.
+ */
+export function tabletSigner(db: Db, terminal: { id: number; facilityId: number }, token: string | undefined, now: Date = new Date()): Signer {
+  const viewer = tabletChildViewer(db, terminal, token, now, true)
+  if (viewer.employeeId === null) throw new ServiceError(403, 'tablet_locked')
+  return { employeeId: viewer.employeeId, userId: null }
+}
+
+/** The employee's open requests (the own account or the unlocked tablet), the overdue and reminded first. */
+export function listMySignRequests(db: Db, employeeId: number, today: IsoDate): MySignRequestsDto {
+  const person = db.select({ name: employees.name }).from(employees).where(eq(employees.id, employeeId)).get()
+  if (!person) throw new ServiceError(404, 'employee_not_found')
+  const rows = db.select({
+    recipientId: signRequestRecipients.id, title: signRequests.title, sentAt: signRequests.createdAt, sentBy: users.username,
+    dueDate: signRequests.dueDate, note: signRequests.note, remindedAt: signRequestRecipients.remindedAt, fileSize: signRequests.fileSize,
+  }).from(signRequestRecipients).innerJoin(signRequests, eq(signRequests.id, signRequestRecipients.requestId))
+    .leftJoin(users, eq(users.id, signRequests.createdBy))
+    .where(and(eq(signRequestRecipients.employeeId, employeeId), eq(signRequestRecipients.status, 'open')))
+    .orderBy(desc(signRequests.createdAt)).all()
+  const requests = rows.map(row => ({ ...row, overdue: isOverdue(row.dueDate, today) }))
+    .sort((a, b) => Number(b.overdue) - Number(a.overdue) || Number(b.remindedAt !== null) - Number(a.remindedAt !== null))
+  return { employeeName: person.name, requests }
+}
+
+/** How many requests the employee still has to sign or decline (the count at „Zu unterschreiben“). */
+export function mySignRequestCount(db: Db, employeeId: number): number {
+  return db.select({ id: signRequestRecipients.id }).from(signRequestRecipients)
+    .where(and(eq(signRequestRecipients.employeeId, employeeId), eq(signRequestRecipients.status, 'open'))).all().length
+}
+
+/** The employee's open request (404 sign_request_not_found for another person's or a closed one). */
+function loadMine(db: Db, employeeId: number, recipientId: number) {
+  const row = db.select({
+    requestId: signRequests.id, title: signRequests.title, folder: signRequests.targetFolder, status: signRequestRecipients.status,
+  }).from(signRequestRecipients).innerJoin(signRequests, eq(signRequests.id, signRequestRecipients.requestId))
+    .where(and(eq(signRequestRecipients.id, recipientId), eq(signRequestRecipients.employeeId, employeeId))).get()
+  if (!row) throw new ServiceError(404, 'sign_request_not_found')
+  if (row.status !== 'open') throw new ServiceError(409, 'sign_request_closed')
+  return row
+}
+
+/** The PDF to sign, as it was sent. */
+export function readMySignRequestFile(db: Db, employeeId: number, recipientId: number): { data: Buffer; fileName: string } {
+  const row = loadMine(db, employeeId, recipientId)
+  const { data } = db.select({ data: signRequests.fileData }).from(signRequests).where(eq(signRequests.id, row.requestId)).get()!
+  return { data, fileName: `${safeFileNamePart(row.title) || 'Dokument'}.pdf` }
+}
+
+/**
+ * „Unterschreiben“: the signed PDF (saved in the browser, with the signature and the line „Elektronisch unterschrieben
+ * von …“) becomes a document of the employee's personnel file in the request's folder, titled „‹Titel› – unterschrieben
+ * am ‹Datum›“, uploaded by the employee's account; its SHA-256 is kept with the recipient. Only a PDF (400
+ * document_type_invalid, 413 document_too_large). Returns the new document's id and the hash.
+ */
+export function signMyRequest(
+  db: Db, signer: Signer, recipientId: number, file: Buffer, now: Date = new Date(),
+): { documentId: number; sha256: string } {
+  const row = loadMine(db, signer.employeeId, recipientId)
+  const mimeType = checkedDocumentFile(file, ['application/pdf'])
+  const uploadedBy = signer.userId ?? db.select({ id: users.id }).from(users)
+    .where(eq(users.employeeId, signer.employeeId)).get()?.id ?? null
+  const hash = sha256(file)
+  return db.transaction((tx) => {
+    const documentId = tx.insert(employeeDocuments).values({
+      employeeId: signer.employeeId, folder: row.folder, title: signedDocumentTitle(row.title, now), documentDate: todayIso(now), note: '',
+      mimeType, fillable: fillableFile(file, mimeType), size: file.length, data: file, uploadedBy, uploadedAt: now.toISOString(),
+    }).returning({ id: employeeDocuments.id }).get().id
+    tx.update(signRequestRecipients).set({ status: 'signed', signedAt: now.toISOString(), signedDocumentId: documentId, signedHash: hash })
+      .where(and(eq(signRequestRecipients.id, recipientId), eq(signRequestRecipients.status, 'open'))).run()
+    return { documentId, sha256: hash }
+  })
+}
+
+/** „Nicht unterschreiben“ with a reason (1 to 300 characters, else 400 decline_reason_required). */
+export function declineMyRequest(db: Db, signer: Signer, recipientId: number, reason: string, now: Date = new Date()): void {
+  loadMine(db, signer.employeeId, recipientId)
+  const text = reason.trim()
+  if (text === '' || text.length > DECLINE_REASON_MAX) throw new ServiceError(400, 'decline_reason_required')
+  db.update(signRequestRecipients).set({ status: 'declined', declinedAt: now.toISOString(), declineReason: text })
+    .where(and(eq(signRequestRecipients.id, recipientId), eq(signRequestRecipients.status, 'open'))).run()
+}
+
+/**
+ * Deletes the requests (with their PDF) whose recipients all finished more than a year ago (shared/domain/signRequests.ts
+ * `signRequestExpired`); the signed copies stay in the personnel files. Run daily; returns how many went.
+ */
+export function deleteExpiredSignRequests(db: Db, now: Date = new Date()): number {
+  const requests = db.select({ id: signRequests.id, createdAt: signRequests.createdAt }).from(signRequests).all()
+  if (requests.length === 0) return 0
+  const recipients = db.select({
+    requestId: signRequestRecipients.requestId, status: signRequestRecipients.status, signedAt: signRequestRecipients.signedAt,
+    declinedAt: signRequestRecipients.declinedAt, withdrawnAt: signRequestRecipients.withdrawnAt,
+  }).from(signRequestRecipients).all() as { requestId: number; status: SignRequestStatus; signedAt: string | null; declinedAt: string | null; withdrawnAt: string | null }[]
+  const expired = requests.filter(request => signRequestExpired(request.createdAt, recipients.filter(row => row.requestId === request.id), now))
+    .map(request => request.id)
+  if (expired.length === 0) return 0
+  return db.delete(signRequests).where(inArray(signRequests.id, expired)).run().changes
+}

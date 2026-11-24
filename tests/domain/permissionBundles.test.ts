@@ -30,6 +30,7 @@ const SPEC_TABLE: Record<BundleId, PermissionKey[]> = {
   docsQualifications: ['employees.docs.qualifications'],
   docsOther: ['employees.docs.contract', 'employees.docs.application', 'employees.docs.correspondence',
     'employees.docs.measures', 'employees.docs.salary'],
+  signRequests: ['signRequests.manage'],
   childrenView: ['children.view'],
   childrenAttendance: ['children.attendance'],
   childrenEdit: ['children.edit'],

@@ -41,7 +41,7 @@ export const BUNDLE_IDS = [
   'leaveRequest', 'leavePlan',
   'timeOwn', 'timeManage',
   'employeesView', 'employeesEdit', 'contractView', 'contractEdit', 'employeesDelete', 'talksManage',
-  'personal', 'payrollSensitive', 'docsQualifications', 'docsOther',
+  'personal', 'payrollSensitive', 'docsQualifications', 'docsOther', 'signRequests',
   'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
   'formsGroup', 'formsFill', 'formsManage', 'accidentsManage',
   'teamMeetingsWrite', 'teamMeetingsRelease',
@@ -119,6 +119,7 @@ const SPECS: readonly Spec[] = [
     'employees.docs.contract', 'employees.docs.application', 'employees.docs.correspondence',
     'employees.docs.measures', 'employees.docs.salary',
   ]),
+  bundle('signRequests', 'personnelFile', 'zum Unterschreiben senden (mit Übersicht der Unterschriften)', ['signRequests.manage']),
 
   bundle('childrenView', 'children', 'ansehen', ['children.view'], true),
   bundle('childrenAttendance', 'children', 'Anwesenheit und Gruppenbuch', ['children.attendance'], true),
@@ -245,6 +246,9 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
     'timeOwn', 'timeManage',
     'employeesView', 'employeesEdit', 'employeesDelete', 'talksManage',
     'personal', 'docsQualifications',
+    // Since 2026-11-24: „Zum Unterschreiben senden“. A role whose settings were stored before has no row for the switch,
+    // so it takes this default (no migration).
+    'signRequests',
     'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
     'formsGroup', 'formsFill', 'formsManage', 'accidentsManage',
     'teamMeetingsWrite', 'teamMeetingsRelease', 'notesWrite',

@@ -43,6 +43,7 @@ export const PERMISSION_KEYS = [
   'employees.delete', 'employees.moveFacility',
   'employees.personal', 'employees.sensitive', 'employees.payroll', 'employees.docs.qualifications', 'employees.docs.contract',
   'employees.docs.application', 'employees.docs.correspondence', 'employees.docs.measures', 'employees.docs.salary',
+  'signRequests.manage',
   'children.view', 'children.ownAccount', 'children.planned', 'children.attendance', 'children.edit', 'children.manage',
   'children.schoolSettings', 'children.deleteArchived', 'children.moveFacility',
   'childForms.group', 'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view',
@@ -126,6 +127,10 @@ export const PERMISSIONS: readonly PermissionDef[] = [
   def('employees.docs.correspondence', 'employees', 'Dokumente: Korrespondenz', { requires: ['employees.view'] }),
   def('employees.docs.measures', 'employees', 'Dokumente: Arbeitsrechtliche Maßnahmen', { requires: ['employees.view'] }),
   def('employees.docs.salary', 'employees', 'Dokumente: Gehalt', { requires: ['employees.view'] }),
+  // „Zum Unterschreiben senden“: PDFs to employees to sign in the app, with the overview of who signed. The signed copies
+  // go into a folder of the personnel file the sender may use (its key decides who sees them).
+  def('signRequests.manage', 'employees', 'Dokumente zum Unterschreiben senden und die Unterschriften verfolgen',
+    { requires: ['employees.view'] }),
 
   def('children.view', 'children',
     'Kinderliste und Akten ansehen (inkl. Bögen lesen, Dokumente, Geburtstage, Erinnerungen)', { scoped: true }),
@@ -227,7 +232,7 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
     'leave.request', 'leave.overview',
     'time.own', 'time.manage',
     'employees.view', 'employees.edit', 'employees.sickness', 'employees.delete',
-    'employees.personal', 'employees.docs.qualifications',
+    'employees.personal', 'employees.docs.qualifications', 'signRequests.manage',
     'children.view', 'children.ownAccount', 'children.planned', 'children.attendance', 'children.edit',
     'children.manage',
     'childForms.group', 'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view',

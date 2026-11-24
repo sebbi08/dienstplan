@@ -26,8 +26,8 @@ const PERSONNEL_KEYS: PermissionKey[] = ['employees.personal', 'employees.sensit
 const PERSONNEL_TRAEGER_ONLY = PERSONNEL_KEYS.filter(key => key !== 'employees.personal' && key !== 'employees.docs.qualifications')
 
 describe('permission catalog', () => {
-  it('has the 75 keys of the inventory, the personnel file, the notes, the accidents, the contacts, the own group\'s forms and „Wissen“, each once and in catalog order', () => {
-    expect(PERMISSIONS).toHaveLength(75)
+  it('has the 75 keys of the inventory, the personnel file, the notes, the accidents, the contacts, the own group\'s forms, „Wissen“ and „Zum Unterschreiben senden“, each once and in catalog order', () => {
+    expect(PERMISSIONS).toHaveLength(76)
     expect(PERMISSIONS.map(def => def.key)).toEqual([...PERMISSION_KEYS])
     expect(new Set(PERMISSION_KEYS).size).toBe(PERMISSION_KEYS.length)
   })
@@ -128,6 +128,7 @@ describe('permission catalog', () => {
       'employees.docs.correspondence requires employees.view',
       'employees.docs.measures requires employees.view',
       'employees.docs.salary requires employees.view',
+      'signRequests.manage requires employees.view',
       'children.ownAccount requires children.view',
       'children.planned requires children.view',
       'children.attendance requires children.view',
@@ -184,7 +185,7 @@ describe('role defaults', () => {
       'settings.staffing', 'employees.contractView', 'leave.plan', ...PERSONNEL_TRAEGER_ONLY]
     const expected = PERMISSIONS.filter(def => !def.providerOnly && !notDefault.includes(def.key)).map(def => def.key)
     expect(sorted(ROLE_DEFAULTS.admin)).toEqual(sorted(expected))
-    expect(ROLE_DEFAULTS.admin).toHaveLength(45)
+    expect(ROLE_DEFAULTS.admin).toHaveLength(46)
   })
 
   it('gives the Mitarbeiter the own data, the released plan, team meetings, the child keys of the tablet, the print templates to read and the own group\'s forms', () => {
@@ -246,6 +247,7 @@ describe('catalog edges', () => {
       'employees.docs.qualifications requires employees.view', 'employees.docs.contract requires employees.view',
       'employees.docs.application requires employees.view', 'employees.docs.correspondence requires employees.view',
       'employees.docs.measures requires employees.view', 'employees.docs.salary requires employees.view',
+      'signRequests.manage requires employees.view',
       'children.ownAccount requires children.view', 'children.planned requires children.view',
       'children.attendance requires children.view', 'children.edit requires children.view',
       'children.manage requires children.view', 'children.manage requires children.edit',
@@ -297,7 +299,7 @@ describe('notes rights', () => {
 describe('effectivePermissions with the old flags moved into bundles', () => {
   it('gives the Träger every key, whatever the flags', () => {
     expect(sorted(rights({ role: 'provider' }))).toEqual(sorted(PERMISSION_KEYS))
-    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(75)
+    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(76)
   })
 
   it('gives the tablet role nothing, whatever the flags', () => {
@@ -358,7 +360,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
   const actors = ACTORS as string[]
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(489)
+    expect(routes).toHaveLength(504)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 

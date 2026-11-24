@@ -4,7 +4,7 @@ import {
   balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
   employeeTrainings, formAttachments, formEditors, forms, groupBookChanges, knowledgeConfirmations, knowledgeEntries, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps, parentalLeaveBirths, parentalLeaves,
-  teamMeetingParticipants,
+  signRequestRecipients, signRequests, teamMeetingParticipants,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
 import { applyToCells } from '../../server/services/entries'
@@ -160,6 +160,11 @@ export function fillEmployeeData(
       versionAt: at, createdAt: at, updatedAt: at,
     }).returning({ id: knowledgeEntries.id }).get().id
     db.insert(knowledgeConfirmations).values({ entryId, employeeId: id, entryVersion: 1, confirmedAt: at, via: 'tablet' }).run()
+    // A request to sign (Zum Unterschreiben senden), signed.
+    const signRequestId = db.insert(signRequests).values({
+      facilityId: 1, createdAt: at, title: 'Belehrung', sourceKind: 'template', fileData: Buffer.from('%PDF'), fileSize: 4, targetFolder: 'correspondence',
+    }).returning({ id: signRequests.id }).get().id
+    db.insert(signRequestRecipients).values({ requestId: signRequestId, employeeId: id, status: 'signed', signedAt: at, signedHash: 'abc' }).run()
     db.insert(childDevelopmentDocs).values({ childId, doneOn: '2026-10-01', doneByEmployeeId: id, doneByName: 'am Tablet', createdAt: at }).run()
     db.insert(childParentMeetings).values({
       childId, date: '2026-10-02', start: 600, kind: 'development', createdAt: at, createdByEmployeeId: id, createdByName: 'am Tablet',

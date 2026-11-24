@@ -16,6 +16,7 @@ import { OFFLINE_BATCH_MAX } from '../shared/domain/offlineStamps'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { DISTRICT_FLAGS, DISTRICT_SIDES, SCHOOL_DISTRICT_LIMITS } from '../shared/domain/schoolDistricts'
+import { DECLINE_REASON_MAX, SIGN_REQUEST_NOTE_MAX, SIGN_REQUEST_TITLE_MAX, parseRecipientIds } from '../shared/domain/signRequests'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { TEMPLATE_VISIBILITIES } from '../shared/domain/templateCategories'
 import { JOB_KEYS } from '../shared/domain/tvoed'
@@ -1023,3 +1024,19 @@ export const schoolDistrictListSchema = z.object({
 })
 /** „Übernehmen“: the school of the child's district as its „künftige Schule“ (the one the page showed). */
 export const adoptDistrictSchoolSchema = z.object({ contactId: z.number().int().positive() })
+
+// „Zum Unterschreiben senden“ (multipart: the fields as text; the PDF as filled in before sending is optional).
+export const signRequestFields = z.object({
+  title: z.string().max(SIGN_REQUEST_TITLE_MAX),
+  sourceKind: z.enum(['template', 'document']),
+  sourceId: z.coerce.number().int().positive(),
+  // The employees as „3,5,8“.
+  recipients: z.string().max(5000).refine(text => parseRecipientIds(text) !== null).transform(text => parseRecipientIds(text)!),
+  folder: z.enum(EMPLOYEE_DOCUMENT_FOLDERS),
+  dueDate: z.union([z.literal(''), isoDate]).default('').transform(value => (value === '' ? null : value)),
+  note: z.string().max(SIGN_REQUEST_NOTE_MAX).default(''),
+})
+/** „Erinnern“ and „Zurückziehen“: one recipient, or (null) every open one of the request. */
+export const signRequestRecipientSchema = z.object({ recipientId: z.number().int().positive().nullable().default(null) })
+/** „Nicht unterschreiben“ with a reason (the service checks 1 to DECLINE_REASON_MAX characters after trimming). */
+export const signDeclineSchema = z.object({ reason: z.string().max(DECLINE_REASON_MAX + 100) })

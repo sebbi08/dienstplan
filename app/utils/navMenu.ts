@@ -22,7 +22,7 @@ export interface NavMenu {
   main: NavEntry[]
   mine: NavEntry[]
   more: NavEntry[]
-  /** Unread messages about changed duties, shown on "Meins" (managers) and on the phone menu button. */
+  /** Unread messages about changed duties (managers) and open requests to sign, shown on "Meins" and on the phone menu button. */
   mineCount: number
   /** Everything that is waiting: unread messages plus open leave requests (planners only). */
   totalCount: number
@@ -48,6 +48,8 @@ export interface NavViewer {
   staffContacts?: boolean
   /** Entries of „Wissen“ the account's employee still has to confirm (GET /api/knowledge/open-count), counted at „Dokumente“. */
   knowledgeOpen?: number
+  /** Requests to sign the account's employee still has open (GET /api/my/sign-requests/count), at „Zu unterschreiben“. */
+  signOpen?: number
 }
 
 /** The label with the count in brackets, e.g. "Meins (2)"; without a count the plain label. */
@@ -75,6 +77,9 @@ export function navMenu(viewer: NavViewer): NavMenu {
   const myTalks = entry(de.nav.myTalks, '/my/talks')
   // The accident reports about oneself (and filling one in): only with a linked employee.
   const myAccidents = viewer.employeeId !== null ? [entry(de.nav.myAccidents, '/my/accidents')] : []
+  // The documents to sign (Zum Unterschreiben senden), with the open ones counted: only with a linked employee.
+  const signOpen = viewer.employeeId !== null ? viewer.signOpen ?? 0 : 0
+  const mySign = viewer.employeeId !== null ? [entry(navLabelWithCount(de.nav.mySign, signOpen), '/my/sign')] : []
   const plans = shown([[can('plan.view'), plan]])
   // The calendar to edit, or the own view of it (the short label keeps the header of a laptop on one line).
   const calendar = can('calendar.edit') ? entry(de.nav.calendarShort, '/admin/calendar') : entry(de.nav.calendarShort, '/my/calendar')
@@ -130,8 +135,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
     const planning = viewer.isPlanner || can('leave.overview')
       ? [entry(navLabelWithCount(de.nav.leavePlanning, open), '/admin/leave-planning')]
       : []
-    const mine = viewer.employeeId !== null ? [myPlan, myLeave, myRequirements, myTalks, ...myAccidents] : []
-    const mineCount = mine.length ? viewer.unread : 0
+    const mine = viewer.employeeId !== null ? [myPlan, ...mySign, myLeave, myRequirements, myTalks, ...myAccidents] : []
+    const mineCount = mine.length ? viewer.unread + signOpen : 0
     return {
       main: [...plans, ...planning, ...office, calendar, ...teamPages],
       mine,
@@ -146,10 +151,10 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // managers' ones; "Mein Dienstplan" (with the unread count) stays in the row.
     main: [myPlan, ...plans, calendar, ...teamPages],
     // The templates are the facility's: a staff account without an employee belongs to none.
-    mine: [myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? [...documents, ...contacts] : [])],
+    mine: [...mySign, myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? [...documents, ...contacts] : [])],
     more: [],
-    mineCount: 0,
-    totalCount: viewer.unread,
+    mineCount: signOpen,
+    totalCount: viewer.unread + signOpen,
   }
 }
 

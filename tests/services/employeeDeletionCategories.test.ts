@@ -37,7 +37,10 @@ const TIME = [
   'time_day_notes.employee_id', 'early_sick_leaves.employee_id', 'leave_entitlements.employee_id', 'leave_extra_days.employee_id',
   'leave_forfeit_receipts.employee_id', 'parental_leaves.employee_id', 'parental_leave_births.employee_id',
 ]
-const ASSESSMENT = ['staff_talks.employee_id', 'employee_trainings.employee_id', 'employee_requirements.employee_id', 'knowledge_confirmations.employee_id']
+const ASSESSMENT = [
+  'staff_talks.employee_id', 'employee_trainings.employee_id', 'employee_requirements.employee_id', 'knowledge_confirmations.employee_id',
+  'sign_request_recipients.employee_id',
+]
 /** BEM-Unterlagen: the processes (their steps go along). */
 const BEM = 'bem_processes.employee_id'
 /** Mutterschutz-Unterlagen: the cases. */

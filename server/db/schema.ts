@@ -2164,3 +2164,46 @@ export const schoolDistricts = sqliteTable('school_districts', {
   name: text('name').notNull().default(''),
   contactId: integer('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
 }, table => [uniqueIndex('school_districts_list_code').on(table.listId, table.code), index('school_districts_contact').on(table.contactId)])
+
+/**
+ * „Zum Unterschreiben senden“: a PDF the Leitung sends to employees to sign in the app (server/services/signRequests.ts).
+ * The file is the snapshot taken when it was sent (a template or a personnel document, possibly filled in before), so
+ * every recipient signs exactly that version; it stays until the request is deleted (by the sender, or one year after
+ * the last recipient finished). The signed copies are documents of the personnel file in `targetFolder`.
+ */
+export const signRequests = sqliteTable('sign_requests', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: text('created_at').notNull(),
+  title: text('title').notNull(),
+  sourceKind: text('source_kind', { enum: ['template', 'document'] }).notNull(),
+  sourceTemplateId: integer('source_template_id').references(() => printTemplates.id, { onDelete: 'set null' }),
+  sourceDocumentId: integer('source_document_id').references(() => employeeDocuments.id, { onDelete: 'set null' }),
+  fileData: blob('file_data', { mode: 'buffer' }).notNull(),
+  fileSize: integer('file_size').notNull(),
+  targetFolder: text('target_folder', { enum: EMPLOYEE_DOCUMENT_FOLDERS }).notNull(),
+  dueDate: text('due_date'),
+  note: text('note').notNull().default(''),
+}, table => [index('sign_requests_facility').on(table.facilityId)])
+
+/**
+ * One employee of a request: open until they sign (the signed copy in their personnel file, its SHA-256 for the
+ * record), decline (with a reason) or the sender withdraws it. `remindedAt`: the sender's last reminder.
+ */
+export const signRequestRecipients = sqliteTable('sign_request_recipients', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  requestId: integer('request_id').notNull().references(() => signRequests.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  status: text('status', { enum: ['open', 'signed', 'declined', 'withdrawn'] }).notNull().default('open'),
+  signedAt: text('signed_at'),
+  declinedAt: text('declined_at'),
+  declineReason: text('decline_reason'),
+  withdrawnAt: text('withdrawn_at'),
+  signedDocumentId: integer('signed_document_id').references(() => employeeDocuments.id, { onDelete: 'set null' }),
+  signedHash: text('signed_hash'),
+  remindedAt: text('reminded_at'),
+}, table => [
+  uniqueIndex('sign_request_recipients_request_employee').on(table.requestId, table.employeeId),
+  index('sign_request_recipients_employee').on(table.employeeId, table.status),
+])

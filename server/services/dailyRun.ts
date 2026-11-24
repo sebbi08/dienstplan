@@ -2,6 +2,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { Db } from '../db/client'
 import { applyDueGroupChanges } from './childGroupChanges'
 import { leaveSchoolChildren } from './schoolChildren'
+import { deleteExpiredSignRequests } from './signRequests'
 import { deleteExpiredUnlocks } from './tabletUnlock'
 
 /** Where the daily run reports: the console in the app. Only numbers and facility ids go there, never a name. */
@@ -14,13 +15,17 @@ export interface DailyRunResult {
   deregistered: number
   /** Tablet unlocks of child records that ran out. */
   unlocksDeleted: number
+  /** Requests to sign (with their PDF) whose recipients all finished more than a year ago. */
+  signRequestsDeleted: number
 }
 
 /**
  * The daily run for all facilities (the app tries it every hour; each part does its work once): the planned group
  * changes whose day has come, then the school children who leave (a change into a group for school children is
- * applied by then), last the tablet unlocks that ran out (as of `now`). It deletes no data after a retention period:
- * child records and the data of left employees are only deleted by hand, by the Träger (spec Löschübersicht §3).
+ * applied by then), the tablet unlocks that ran out (as of `now`), last the requests to sign whose recipients all finished
+ * more than a year ago (their PDF; the signed copies stay in the personnel files). Otherwise it deletes no data after a
+ * retention period: child records and the data of left employees are only deleted by hand, by the Träger (spec
+ * Löschübersicht §3).
  *
  * `today` is the one day for all parts, so a run across midnight cannot apply changes for one day and deregister for
  * the next. No part depends on another one succeeding: one that fails is logged, counts as 0 and is tried again by the
@@ -43,5 +48,7 @@ export function runDaily(db: Db, today: IsoDate, log: DailyRunLog = console, now
   if (deregistered > 0) log.info(`Deregistered ${deregistered} school child(ren).`)
   const unlocksDeleted = part('Deleting expired tablet unlocks failed', () => deleteExpiredUnlocks(db, now))
   if (unlocksDeleted > 0) log.info(`Deleted ${unlocksDeleted} expired tablet unlock(s).`)
-  return { applied, deregistered, unlocksDeleted }
+  const signRequestsDeleted = part('Deleting expired requests to sign failed', () => deleteExpiredSignRequests(db, now))
+  if (signRequestsDeleted > 0) log.info(`Deleted ${signRequestsDeleted} finished request(s) to sign.`)
+  return { applied, deregistered, unlocksDeleted, signRequestsDeleted }
 }

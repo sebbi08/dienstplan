@@ -5,13 +5,14 @@ import type { Role } from '#shared/types/api'
 /**
  * „Dokumente“ (/documents): the form templates („Bögen“, formTemplates.manage) and the blank forms to print („Vorlagen“,
  * printTemplates.view; the tablet without a permission of its own) and „Wissen“ (knowledge.view: every account and the
- * tablet), each a tab. `?tab=forms|templates|knowledge` opens one.
+ * tablet) and „Unterschriften“ (the requests to sign sent from the facility, signRequests.manage), each a tab.
+ * `?tab=forms|templates|knowledge|signatures` opens one.
  */
-export const DOCUMENT_TABS = ['forms', 'templates', 'knowledge'] as const
+export const DOCUMENT_TABS = ['forms', 'templates', 'knowledge', 'signatures'] as const
 export type DocumentTab = typeof DOCUMENT_TABS[number]
 
 const TAB_KEYS: Record<DocumentTab, PermissionKey> = {
-  forms: 'formTemplates.manage', templates: 'printTemplates.view', knowledge: 'knowledge.view',
+  forms: 'formTemplates.manage', templates: 'printTemplates.view', knowledge: 'knowledge.view', signatures: 'signRequests.manage',
 }
 
 export interface DocumentsViewer {

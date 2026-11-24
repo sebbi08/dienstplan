@@ -2639,6 +2639,32 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(count(sqlite, 'knowledge_entry_targets')).toBe(0)
   })
 
+  it('0121 adds the requests to sign and their recipients: one row per employee, gone with the request or the employee', () => {
+    const { db, sqlite } = databaseAt('0120')
+    sqlite.exec(`
+      INSERT INTO employees (id, name, short_name, facility_id) VALUES (1, 'Anna', 'An', 1), (2, 'Ben', 'Be', 1);
+      INSERT INTO employee_documents (id, employee_id, folder, mime_type, size, data, uploaded_at) VALUES (7, 1, 'contract', 'application/pdf', 4, x'25504446', 'x');
+    `)
+    migrateThrough(db, '0121')
+    sqlite.exec(`INSERT INTO sign_requests (id, facility_id, created_at, title, source_kind, file_data, file_size, target_folder)
+      VALUES (1, 1, 'x', 'Belehrung', 'template', x'25504446', 4, 'correspondence')`)
+    expect(sqlite.prepare('SELECT note, due_date, created_by, source_template_id FROM sign_requests').get())
+      .toEqual({ note: '', due_date: null, created_by: null, source_template_id: null })
+    sqlite.exec(`INSERT INTO sign_request_recipients (request_id, employee_id) VALUES (1, 1), (1, 2)`)
+    expect(sqlite.prepare('SELECT DISTINCT status FROM sign_request_recipients').all()).toEqual([{ status: 'open' }])
+    expect(() => sqlite.exec(`INSERT INTO sign_request_recipients (request_id, employee_id) VALUES (1, 1)`)).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec(`INSERT INTO sign_request_recipients (request_id, employee_id) VALUES (1, 99)`)).toThrow(/FOREIGN KEY/)
+    // The signed copy may be deleted from the personnel file: the record of the signature stays.
+    sqlite.exec(`UPDATE sign_request_recipients SET status = 'signed', signed_document_id = 7, signed_hash = 'abc' WHERE employee_id = 1`)
+    sqlite.exec('DELETE FROM employee_documents WHERE id = 7')
+    expect(sqlite.prepare('SELECT signed_document_id, signed_hash FROM sign_request_recipients WHERE employee_id = 1').get())
+      .toEqual({ signed_document_id: null, signed_hash: 'abc' })
+    sqlite.exec('DELETE FROM employees WHERE id = 2')
+    expect(count(sqlite, 'sign_request_recipients')).toBe(1)
+    sqlite.exec('DELETE FROM sign_requests WHERE id = 1')
+    expect(count(sqlite, 'sign_request_recipients')).toBe(0)
+  })
+
   it('0120 adds the hand-entered Mutterschutz after a birth: one per employee and birth, gone with the employee', () => {
     const { db, sqlite } = databaseAt('0119')
     sqlite.exec(`INSERT INTO employees (id, name, short_name) VALUES (1, 'Anna', 'An')`)

@@ -125,6 +125,25 @@ export function tolerant<T extends object>(target: T): T {
   })
 }
 
+/**
+ * The key of the footer line in pdf.js's annotationStorage: pdf.js writes only values whose key has its editor prefix
+ * („pdfjs_internal_editor_“); the editors themselves number theirs, so a name cannot collide.
+ */
+export const FOOTER_STORAGE_KEY = 'pdfjs_internal_editor_signature_footer'
+
+/**
+ * The line „Elektronisch unterschrieben von … am …“ at the bottom of a page, as pdf.js's FreeText editor would hand it to
+ * saveDocument (a real FreeText annotation in the saved PDF): 8 pt, black, 24 pt from the left and right edges and 12 pt
+ * above the bottom of the page box `view` ([x0, y0, x1, y1] in PDF points).
+ */
+export function footerAnnotation(freeTextType: number, pageIndex: number, view: readonly number[], text: string) {
+  const [x0 = 0, y0 = 0, x1 = 595] = view
+  return {
+    annotationType: freeTextType, pageIndex, rect: [x0 + 24, y0 + 12, x1 - 24, y0 + 24], rotation: 0,
+    structTreeParentId: null, popupRef: '', color: [0, 0, 0], fontSize: 8, value: text, id: null,
+  }
+}
+
 /** How far a finger may move during a tap that places a mark (CSS pixels). */
 export const TAP_SLOP = 10
 

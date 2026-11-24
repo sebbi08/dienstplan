@@ -8,7 +8,7 @@ import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 import {
-  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, isEditorLayer, isEditorManager, FONT_SIZES, fontSizeName, MARK_LINES, MARK_POINTS, nextEditorState, nextZoom,
+  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, FOOTER_STORAGE_KEY, footerAnnotation, isEditorLayer, isEditorManager, FONT_SIZES, fontSizeName, MARK_LINES, MARK_POINTS, nextEditorState, nextZoom,
   SIGNATURE_POINTS, stampSize, ZOOMS, type AnnotateTool, type EditorState, type FontSizeName, type MarkKind,
 } from '~/utils/pdfAnnotate'
 import { pdfjsFileOptions } from '~/utils/pdfjsFiles'
@@ -32,6 +32,25 @@ const props = defineProps<{
   target?: FillTarget
   /** The document the PDF was opened from („Bearbeiten“). */
   replace?: { kind: FillKind; documentId: number }
+  /**
+   * Instead of saving into a record: the PDF goes to `handler` (Zum Unterschreiben senden: the filled-in PDF to send;
+   * Zu unterschreiben: the signed copy). `confirm` is asked first, `needsSignature` wants a placed signature, `footer`
+   * is written at the bottom of the last page at that moment („Elektronisch unterschrieben von …“).
+   */
+  submit?: {
+    label: string
+    icon: string
+    confirm?: string
+    needsSignature?: boolean
+    footer?: (at: Date) => string
+    handler: (pdf: Blob) => Promise<void>
+  }
+  /** One more action in the header (Zu unterschreiben: „Nicht unterschreiben“); the view closes for it. */
+  secondary?: { label: string; icon: string; handler: () => void }
+  /** The line under the title (else „für …“ or „Gespeichertes PDF bearbeiten“). */
+  subtitle?: string
+  /** A note above the page (e.g. how to sign). */
+  hint?: string
 }>()
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ saved: [] }>()
@@ -56,6 +75,8 @@ useDirty(() => touched.value)
 
 // ---- tools ---------------------------------------------------------------
 const tool = ref<AnnotateTool>('fields')
+/** Signatures placed in this view (for `submit.needsSignature`; one taken back with „Rückgängig“ still counts). */
+const signaturesPlaced = ref(0)
 /** pdf.js's editors are ready (they start once the first page is there). */
 const editorsReady = ref(false)
 /**
@@ -184,6 +205,7 @@ async function load() {
   const current = generation
   status.value = 'loading'
   touched.value = false
+  signaturesPlaced.value = 0
   pageNumber.value = 1
   zoom.value = 1
   editorState.value = { canUndo: false, hasSelection: false }
@@ -567,7 +589,8 @@ async function placeSignature(picture: { file: File; width: number; height: numb
     const layer = editors ? await pageLayer(pageNumber.value - 1) : undefined
     if (layer) placed = placePicture(layer, visibleMiddle(layer), picture, SIGNATURE_POINTS)
   }
-  if (!placed) toast.add({ title: t.signatureFailed, color: 'error' })
+  if (placed) signaturesPlaced.value++
+  else toast.add({ title: t.signatureFailed, color: 'error' })
 }
 
 function deleteSelected() {
@@ -614,10 +637,25 @@ function hasChanges(): boolean {
   }
 }
 
+/**
+ * A question of the app (ConfirmDialog, outside this modal) is open: moving the focus there makes the modal ask to close
+ * (close:prevent), which must not answer it or ask again.
+ */
+let asking = false
+async function ask(message: string, confirmLabel: string, danger: boolean): Promise<boolean> {
+  asking = true
+  try {
+    return await confirm(message, { confirmLabel, danger })
+  }
+  finally {
+    asking = false
+  }
+}
+
 async function requestClose() {
-  if (busy.value) return
+  if (busy.value || asking) return
   recheckTouched()
-  if (touched.value && !(await confirm(t.unsavedConfirm, { confirmLabel: t.unsavedLeave, danger: true }))) return
+  if (touched.value && !(await ask(t.unsavedConfirm, t.unsavedLeave, true))) return
   touched.value = false
   open.value = false
 }
@@ -734,6 +772,7 @@ const sheet = reactive({ typeId: 0, folder: 'correspondence' as EmployeeDocument
 async function startSave() {
   if (busy.value || !pdf) return
   finishEditing()
+  if (props.submit) return void startSubmit(props.submit)
   if (props.replace) return void persist({ mode: 'replace', ...props.replace })
   const target = props.target
   if (!target) return
@@ -772,6 +811,46 @@ function saveFromSheet() {
   }
 }
 
+/** `submit`: the checks and the question first, then the PDF (with the footer, if any) to the handler. */
+async function startSubmit(submit: NonNullable<typeof props.submit>) {
+  if (submit.needsSignature && signaturesPlaced.value === 0) return void toast.add({ title: de.signRequests.signatureMissing, color: 'warning' })
+  if (submit.confirm && !(await ask(submit.confirm, submit.label, false))) return
+  const lib = pdfjs
+  const doc = pdf
+  if (!lib || !doc || busy.value) return
+  busy.value = true
+  const storage = doc.annotationStorage
+  try {
+    finishEditing()
+    if (submit.footer) {
+      const page = await doc.getPage(doc.numPages)
+      storage.setValue(FOOTER_STORAGE_KEY, footerAnnotation(lib.AnnotationEditorType.FREETEXT, doc.numPages - 1, page.view, submit.footer(new Date())))
+    }
+    const bytes = await doc.saveDocument()
+    if (bytes.length > MAX_DOCUMENT_BYTES) return void toast.add({ title: t.tooLarge, color: 'error' })
+    await submit.handler(new Blob([bytes], { type: 'application/pdf' }))
+    touched.value = false
+    open.value = false
+  }
+  catch (error) {
+    toast.add({ title: errorMessage(error), color: 'error' })
+  }
+  finally {
+    // The footer is written only into the copy that was handed over.
+    if (submit.footer) storage.remove(FOOTER_STORAGE_KEY)
+    busy.value = false
+  }
+}
+
+/** The second action: the view closes without saving (nothing of it is kept). */
+function runSecondary() {
+  const action = props.secondary
+  if (!action || busy.value) return
+  touched.value = false
+  open.value = false
+  action.handler()
+}
+
 async function persist(save: FillSave) {
   const doc = pdf
   if (!doc || busy.value) return
@@ -808,7 +887,7 @@ onBeforeUnmount(() => {
   release()
 })
 
-const subtitle = computed(() => (props.target ? t.forTarget(props.target.name) : props.replace ? t.editing : ''))
+const subtitle = computed(() => props.subtitle ?? (props.target ? t.forTarget(props.target.name) : props.replace ? t.editing : ''))
 const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '' : t.toolHint[tool.value]))
 </script>
 
@@ -833,7 +912,14 @@ const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
             <UButton color="neutral" variant="outline" icon="i-lucide-printer" :label="t.print" :disabled="busy || status !== 'ready'" @click="print" />
-            <UButton icon="i-lucide-save" :label="t.save" :loading="busy && !sheetOpen" :disabled="busy || status !== 'ready'" @click="startSave" />
+            <UButton
+              v-if="secondary" color="neutral" variant="outline" :icon="secondary.icon" :label="secondary.label" :disabled="busy"
+              @click="runSecondary"
+            />
+            <UButton
+              :icon="submit?.icon ?? 'i-lucide-save'" :label="submit?.label ?? t.save" :loading="busy && !sheetOpen" :disabled="busy || status !== 'ready'"
+              @click="startSave"
+            />
             <UButton color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="t.close" :title="t.close" :disabled="busy" @click="requestClose" />
           </div>
         </header>
@@ -876,8 +962,9 @@ const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '
         </div>
 
         <UAlert v-if="replace && status === 'ready'" class="rounded-none" color="info" variant="soft" :title="t.replaceHint[replace.kind]" />
+        <UAlert v-if="hint && status === 'ready'" class="rounded-none" color="info" variant="soft" :title="hint" />
         <UAlert v-if="status === 'ready' && editorsUnavailable" class="rounded-none" color="warning" variant="soft" :title="t.toolsUnavailable" />
-        <UAlert v-else-if="status === 'ready' && !hasFields" class="rounded-none" color="info" variant="soft" :title="t.noFields" />
+        <UAlert v-else-if="status === 'ready' && !hasFields && !hint" class="rounded-none" color="info" variant="soft" :title="t.noFields" />
 
         <div class="relative min-h-0 flex-1">
           <p v-if="status === 'loading'" class="p-4 text-sm text-gray-600">{{ t.opening }}</p>

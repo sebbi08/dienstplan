@@ -52,6 +52,14 @@ function startFill(template: PrintTemplateDto) {
   filling.value = { id: template.id, title: template.title }
   fillOpen.value = true
 }
+// „Zum Unterschreiben senden“ (signRequests.manage): the template to employees of the facility, to sign in the app.
+const canSend = computed(() => can('signRequests.manage'))
+const sending = ref<{ kind: 'template'; id: number; title: string; url: string } | null>(null)
+const sendOpen = ref(false)
+function startSend(template: PrintTemplateDto) {
+  sending.value = { kind: 'template', id: template.id, title: template.title, url: templateFileUrl(template.id) }
+  sendOpen.value = true
+}
 useUnsavedGuard()
 
 const { data, refresh: refreshTemplates, error } = await useFetch<PrintTemplateDto[]>('/api/print-templates', { default: () => [] })
@@ -383,6 +391,10 @@ async function remove(template: PrintTemplateDto) {
                   v-if="fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
                   :label="de.pdfFill.fill" @click="startFill(template)"
                 />
+                <UButton
+                  v-if="canSend" size="sm" color="neutral" variant="outline" icon="i-lucide-signature" :label="de.signRequests.send"
+                  @click="startSend(template)"
+                />
                 <UButton v-if="canEdit && template.canEdit" size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
               </div>
             </li>
@@ -451,6 +463,10 @@ async function remove(template: PrintTemplateDto) {
                   <UButton
                     v-if="fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
                     :label="de.pdfFill.fill" @click="startFill(template)"
+                  />
+                  <UButton
+                    v-if="canSend" size="sm" color="neutral" variant="outline" icon="i-lucide-signature" :label="de.signRequests.send"
+                    @click="startSend(template)"
                   />
                   <template v-if="canEdit && template.canEdit">
                     <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
@@ -542,5 +558,6 @@ async function remove(template: PrintTemplateDto) {
 
     <TemplatesCategoryManager v-if="canEdit" v-model:open="managing" :categories="categories" :levels="categoryLevels" :refresh="refresh" />
     <PdfFillStart v-if="filling" v-model:open="fillOpen" :template="filling" />
+    <SignRequestsSendDialog v-if="sending" v-model:open="sendOpen" :source="sending" />
   </div>
 </template>

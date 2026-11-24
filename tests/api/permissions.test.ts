@@ -51,6 +51,9 @@ const USER_ROUTES = [
   // The employee's own staff talks (spec Bögen §3): only their own, only released forms.
   'my/talks/index.get.ts', 'my/talks/forms/[formId].get.ts', 'my/talks/forms/[formId].put.ts',
   'my/talks/forms/[formId]/submit.post.ts',
+  // „Zu unterschreiben“: the own employee's requests to sign (403 no_employee without one); another person's is 404.
+  'my/sign-requests/index.get.ts', 'my/sign-requests/count.get.ts', 'my/sign-requests/[id]/file.get.ts',
+  'my/sign-requests/[id]/sign.post.ts', 'my/sign-requests/[id]/decline.post.ts',
   // Accident reports about employees: the own ones („Meine Unfälle“), and for accidents.manage the facility's; the
   // service decides per report (another employee's is 404). Never the tablet.
   ...EMPLOYEE_ACCIDENT_ROUTES,
@@ -63,6 +66,9 @@ const TERMINAL_ROUTES = [
   'terminal/staff-emergency-contacts.get.ts',
   // The tablet's offline queue (stamps kept without network, sent later): the tablet only, never an account.
   'terminal/offline-stamps.post.ts',
+  // Requests to sign at the tablet: the service asks for the unlock and shows only the unlocking person's requests.
+  'terminal/sign-requests/index.get.ts', 'terminal/sign-requests/[id]/file.get.ts', 'terminal/sign-requests/[id]/sign.post.ts',
+  'terminal/sign-requests/[id]/decline.post.ts',
 ]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']

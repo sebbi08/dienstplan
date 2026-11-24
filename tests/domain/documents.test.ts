@@ -13,9 +13,10 @@ function as(role: Role) {
 }
 
 describe('„Dokumente“', () => {
-  it('shows each viewer the tabs they may use: managers all three, Mitarbeiter and the tablet „Vorlagen“ and „Wissen“', () => {
-    expect(documentTabs(as('provider'))).toEqual(['forms', 'templates', 'knowledge'])
-    expect(documentTabs(as('admin'))).toEqual(['forms', 'templates', 'knowledge'])
+  it('shows each viewer the tabs they may use: managers all four, Mitarbeiter and the tablet „Vorlagen“ and „Wissen“', () => {
+    expect(documentTabs(as('provider'))).toEqual(['forms', 'templates', 'knowledge', 'signatures'])
+    expect(documentTabs(as('admin'))).toEqual(['forms', 'templates', 'knowledge', 'signatures'])
+    expect(documentTabs({ role: 'admin', can: key => key === 'signRequests.manage' })).toEqual(['signatures'])
     expect(documentTabs(as('observer'))).toEqual(['templates', 'knowledge'])
     expect(documentTabs(as('terminal'))).toEqual(['templates', 'knowledge'])
     expect(documentTabs({ role: 'observer', can: key => key === 'knowledge.view' })).toEqual(['knowledge'])

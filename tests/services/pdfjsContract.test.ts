@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { EDITOR_MANAGER_METHODS } from '../../app/utils/pdfAnnotate'
+import { EDITOR_MANAGER_METHODS, FOOTER_STORAGE_KEY } from '../../app/utils/pdfAnnotate'
 
 /**
  * The parts of pdf.js the fill view (app/components/pdf/FillDialog.vue) relies on beyond pdf.js's typed API. pdfjs-dist
@@ -39,6 +39,11 @@ describe('pdf.js contract of the fill view', () => {
     expect(lib).toContain('"switchannotationeditormode"')
     expect(lib).toContain('"annotationeditorparamschanged"')
     expect(lib.includes('"editingstateschanged"') || lib.includes('"annotationeditorstateschanged"')).toBe(true)
+    // The footer line of a signed copy (Zu unterschreiben) is a value of its own in annotationStorage: pdf.js writes only
+    // keys with its editor prefix, and the value is taken out again after saving.
+    const prefix = /const AnnotationEditorPrefix = "([^"]+)"/.exec(source('legacy/build/pdf.worker.mjs'))?.[1]
+    expect(prefix && FOOTER_STORAGE_KEY.startsWith(prefix)).toBe(true)
+    expect(lib).toMatch(/class AnnotationStorage \{[\s\S]{0,3000}\n {2}remove\(key\) \{/)
     // The stamp editor keeps a width set before its picture is read (the size of tick, cross and signature).
     expect(lib).toMatch(/#createCanvas\(\) \{[\s\S]{0,300}if \(this\.width\)/)
   })

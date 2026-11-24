@@ -9,7 +9,7 @@ import { shiftMonth } from '~/utils/format'
 import { isServerUnreachable, REQUEST_TIMEOUT_MS, tabletClockTime } from '~/utils/offlineQueue'
 import { pinFailureText } from '~/utils/pin'
 
-type Mode = 'start' | 'stamp' | 'children'
+type Mode = 'start' | 'stamp' | 'children' | 'sign'
 /** A person of the list; clockedIn null = not known (the list kept for stamping without network has names only). */
 type Person = Omit<TerminalPersonDto, 'clockedIn'> & { clockedIn: boolean | null }
 
@@ -96,7 +96,17 @@ onBeforeUnmount(() => {
 function setMode(next: Mode) {
   backToList()
   mode.value = next
+  signer.value = null
   if (next !== 'children') lock()
+}
+
+/**
+ * „Zu unterschreiben“: the person unlocks the tablet with their PIN (the same unlock as the child records) and sees only
+ * their own requests to sign. After signing or declining, and with „Fertig“, the tablet locks and returns to the start.
+ */
+const signer = ref<{ name: string } | null>(null)
+function finishSigning() {
+  setMode('start')
 }
 
 function choose(person: Person) {
@@ -186,8 +196,9 @@ async function submit(action: StampAction) {
 async function openChildren() {
   const person = chosen.value
   if (busy.value || !person || pin.value.length !== PIN_LENGTH) return
+  const forSigning = mode.value === 'sign'
   const startedEpoch = epoch
-  const isStale = () => unmounted || startedEpoch !== epoch || chosenId.value !== person.employeeId || mode.value !== 'children'
+  const isStale = () => unmounted || startedEpoch !== epoch || chosenId.value !== person.employeeId || mode.value !== (forSigning ? 'sign' : 'children')
   busy.value = true
   try {
     const status = await $fetch<TabletUnlockStatusDto>('/api/terminal/children/unlock', { method: 'POST', body: { employeeId: person.employeeId, pin: pin.value } })
@@ -197,6 +208,10 @@ async function openChildren() {
       return
     }
     unlock.value = status
+    if (forSigning) {
+      signer.value = { name: person.name }
+      return
+    }
     await navigateTo('/children')
   }
   catch (caught) {
@@ -247,6 +262,14 @@ async function openChildren() {
         >
           <UIcon name="i-lucide-baby" class="size-12 text-sky-700" />
           {{ de.terminal.childrenTitle }}
+        </button>
+        <!-- Documents the Leitung sent to sign: the person's own only, after their PIN. -->
+        <button
+          type="button" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
+          @click="setMode('sign')"
+        >
+          <UIcon name="i-lucide-signature" class="size-12 text-sky-700" />
+          {{ de.signRequests.tabletTitle }}
         </button>
         <!-- Blank forms to print: no child data, so no PIN is needed. -->
         <NuxtLink
@@ -303,13 +326,22 @@ async function openChildren() {
 
     <template v-else>
       <div class="flex items-center gap-3">
-        <h1 class="text-2xl font-semibold">{{ mode === 'children' ? de.terminal.childrenTitle : de.terminal.title }}</h1>
+        <h1 class="text-2xl font-semibold">{{ mode === 'children' ? de.terminal.childrenTitle : mode === 'sign' ? de.signRequests.tabletTitle : de.terminal.title }}</h1>
         <UButton v-if="onTablet" class="ml-auto" size="lg" color="neutral" variant="outline" icon="i-lucide-arrow-left" :label="de.terminal.toStart" @click="setMode('start')" />
       </div>
       <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
 
+      <!-- Unlocked for signing: only this person's requests. -->
+      <section v-else-if="mode === 'sign' && signer" class="space-y-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <h2 class="text-xl font-semibold">{{ signer.name }}</h2>
+          <UButton class="ml-auto" size="lg" color="neutral" variant="outline" icon="i-lucide-lock" :label="de.signRequests.tabletDone" @click="finishSigning" />
+        </div>
+        <SignRequestsMyList base="/api/terminal/sign-requests" @changed="finishSigning" />
+      </section>
+
       <template v-else-if="!chosen">
-        <p class="text-gray-600">{{ mode === 'children' ? de.terminal.chooseChildren : de.terminal.choose }}</p>
+        <p class="text-gray-600">{{ mode === 'children' ? de.terminal.chooseChildren : mode === 'sign' ? de.signRequests.tabletChoose : de.terminal.choose }}</p>
         <p v-if="people && !people.length" class="text-gray-500">{{ de.terminal.empty }}</p>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <button
@@ -334,8 +366,8 @@ async function openChildren() {
             <p v-if="failure" class="text-sm text-red-600">{{ failure }}</p>
           </TerminalPinPad>
           <UButton
-            v-if="mode === 'children'" block size="xl" :disabled="pin.length !== PIN_LENGTH || busy" :loading="busy"
-            :label="de.terminal.unlock" @click="openChildren"
+            v-if="mode === 'children' || mode === 'sign'" block size="xl" :disabled="pin.length !== PIN_LENGTH || busy" :loading="busy"
+            :label="mode === 'sign' ? de.signRequests.tabletUnlock : de.terminal.unlock" @click="openChildren"
           />
           <div v-else-if="bothActions" class="grid grid-cols-2 gap-2">
             <UButton

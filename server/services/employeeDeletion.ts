@@ -11,7 +11,7 @@ import type { Db } from '../db/client'
 import {
   balanceAdjustments, bemProcesses, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
-  formAttachments, formEditors, forms, knowledgeConfirmations, maternityCases, parentalLeaveBirths, parentalLeaves,
+  formAttachments, formEditors, forms, knowledgeConfirmations, maternityCases, signRequestRecipients, parentalLeaveBirths, parentalLeaves,
   groupBookChanges, helpOuts, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
   releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
@@ -318,6 +318,9 @@ const ASSESSMENT_ROWS: readonly EmployeeRows[] = [
   { table: employeeRequirements, column: employeeRequirements.employeeId },
   // „Gelesen und verstanden“ in „Wissen“: proof of instruction (Unterweisung) like the trainings, kept as long.
   { table: knowledgeConfirmations, column: knowledgeConfirmations.employeeId },
+  // The record of a signature in the app (Zum Unterschreiben senden: when, the file's SHA-256, a reason for not
+  // signing); the signed copies themselves are documents of their folder and follow its period.
+  { table: signRequestRecipients, column: signRequestRecipients.employeeId },
   documentsOf('assessment'),
 ]
 

@@ -63,7 +63,8 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   // only, the categories visible to all, Mitarbeiter accounts; the tablet by tabletMayOpen). The page shows the tabs the
   // account may use.
   // The tab „Wissen“ (knowledge.view, every account) as well; its proof of reading („Nachweis“) only for knowledge.manage.
-  ['=/documents', ['printTemplates.view', 'formTemplates.manage', 'knowledge.view']],
+  // The tab „Unterschriften“ (signRequests.manage): the requests to sign sent from the facility.
+  ['=/documents', ['printTemplates.view', 'formTemplates.manage', 'knowledge.view', 'signRequests.manage']],
   ['/print/knowledge', 'knowledge.manage'],
   // The old address of the print templates (the page sends on to „Dokumente“ → „Vorlagen“).
   ['=/templates', 'printTemplates.view'],
