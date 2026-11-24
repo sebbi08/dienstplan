@@ -53,7 +53,8 @@ const props = defineProps<{
   hint?: string
 }>()
 const open = defineModel<boolean>('open', { default: false })
-const emit = defineEmits<{ saved: [] }>()
+/** `loadFailed`: the PDF could not be loaded (the caller may react to the error, e.g. the tablet's sign unlock is over). */
+const emit = defineEmits<{ saved: []; loadFailed: [error: unknown] }>()
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -242,10 +243,11 @@ async function load() {
     if (current !== generation) return
     start(lib, viewerLib, doc)
   }
-  catch {
+  catch (error) {
     if (current === generation) {
       release()
       status.value = 'failed'
+      emit('loadFailed', error)
     }
   }
 }

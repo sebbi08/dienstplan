@@ -37,7 +37,9 @@ onMounted(load)
 
 /** The tablet's sign unlock is over: say so and hand back to the start page (nothing of the person stays on screen). */
 function lockedBy(error: unknown): boolean {
-  if (errorCode(error) !== 'sign_locked') return false
+  // A PDF fetched as bytes (the fill view) carries no JSON body: then the status text has the code.
+  const code = errorCode(error) ?? (error as { statusMessage?: string } | null)?.statusMessage
+  if (code !== 'sign_locked') return false
   toast.add({ title: de.errors.sign_locked, color: 'warning' })
   signing.value = null
   emit('locked')
@@ -149,7 +151,7 @@ defineExpose({ reload: load })
 
     <PdfFillDialog
       v-if="signing" v-model:open="signOpen" :source="{ url: `${base}/${signing.recipientId}/file`, title: signing.title }"
-      :submit="submit" :secondary="secondary" :subtitle="data?.employeeName" :hint="t.signHint" @update:open="onSignOpen"
+      :submit="submit" :secondary="secondary" :subtitle="data?.employeeName" :hint="t.signHint" @update:open="onSignOpen" @load-failed="lockedBy"
     />
 
     <UModal v-model:open="declineOpen" :title="declining ? t.declineTitle(declining.title) : t.decline" :dismissible="!busy">
