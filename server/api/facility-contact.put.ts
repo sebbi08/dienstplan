@@ -1,6 +1,6 @@
 import type { FacilityContactDto } from '../../shared/domain/facilityContact'
 import { facilityContactQuery, facilityContactSchema } from '../schemas'
-import { getFacilityContact, setFacilityContact } from '../services/facilityContact'
+import { writeFacilityContact } from '../services/facilityContact'
 
 /**
  * The Träger stores the contact data of a facility: `?facilityId=` names it (a facility card on the settings page),
@@ -9,10 +9,7 @@ import { getFacilityContact, setFacilityContact } from '../services/facilityCont
  */
 export default defineServiceHandler(async (event): Promise<FacilityContactDto> => {
   const user = await requirePermission(event, 'facilities.manage')
-  const { facilityId: named } = await getValidatedQuery(event, facilityContactQuery.parse)
-  const facilityId = named ?? user.facilityId
+  const { facilityId } = await getValidatedQuery(event, facilityContactQuery.parse)
   const body = await readValidatedBody(event, facilityContactSchema.parse)
-  const db = useDb()
-  setFacilityContact(db, user, facilityId, body as FacilityContactDto)
-  return getFacilityContact(db, user, facilityId)
+  return writeFacilityContact(useDb(), user, facilityId, body as FacilityContactDto)
 })

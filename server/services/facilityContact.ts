@@ -66,6 +66,23 @@ function checkedEntry(entry: FacilityContactEntry): FacilityContactEntry {
 }
 
 /**
+ * The contact data as the routes answer them: of the facility named (`?facilityId=`, a facility card on the settings
+ * page), else of the facility the request works in; who may read which is decided by getFacilityContact.
+ */
+export function readFacilityContact(db: Db, viewer: SessionUser & { facilityId: number }, named: number | undefined): FacilityContactDto {
+  return getFacilityContact(db, viewer, named ?? viewer.facilityId)
+}
+
+/** Stores the contact data of the facility named, else of the request's facility, and answers them as stored. */
+export function writeFacilityContact(
+  db: Db, actor: SessionUser & { facilityId: number }, named: number | undefined, input: FacilityContactDto,
+): FacilityContactDto {
+  const facilityId = named ?? actor.facilityId
+  setFacilityContact(db, actor, facilityId, input)
+  return getFacilityContact(db, actor, facilityId)
+}
+
+/**
  * The Träger stores the facility's contact data (all of it at once; the contacts replace the stored list, in the given
  * order). Texts are trimmed; PLZ is five digits or empty (400 facility_postal_code_invalid), the website a host name with or
  * without https:// (400 facility_website_invalid), an e-mail plausibly formatted (400 facility_contact_email_invalid), a phone

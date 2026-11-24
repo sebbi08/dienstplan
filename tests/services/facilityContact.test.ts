@@ -1,10 +1,10 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { facilityContacts } from '../../server/db/schema'
 import { facilityContactQuery } from '../../server/schemas'
-import { facilityContactData, getFacilityContact, setFacilityContact } from '../../server/services/facilityContact'
+import {
+  facilityContactData, getFacilityContact, readFacilityContact, setFacilityContact, writeFacilityContact,
+} from '../../server/services/facilityContact'
 import { telHref, websiteHref, type FacilityContactDto } from '../../shared/domain/facilityContact'
 import { addFacility, addUser, createTestDb, errorCode } from '../helpers/fixtures'
 
@@ -154,19 +154,17 @@ describe('facility contact data', () => {
     expect(errorCode(() => getFacilityContact(db, traeger, 999))).toBe('facility_not_found')
   })
 
+  // The routes themselves (with ?facilityId=) are called in tests/api/facilityRoutes.test.ts.
   describe('per facility on the settings page (one card per facility)', () => {
-    const route = (name: string) => readFileSync(join(process.cwd(), 'server', 'api', name), 'utf8')
-
     it('names the facility in the query, else the one the request works in', () => {
       expect(facilityContactQuery.parse({ facilityId: '2' })).toEqual({ facilityId: 2 })
       expect(facilityContactQuery.parse({})).toEqual({})
       for (const facilityId of ['0', '-1', '1.5', 'abc']) expect(() => facilityContactQuery.parse({ facilityId }), facilityId).toThrow()
-      for (const name of ['facility-contact.get.ts', 'facility-contact.put.ts']) {
-        expect(route(name), name).toContain('getValidatedQuery(event, facilityContactQuery.parse)')
-      }
-      expect(route('facility-contact.get.ts')).toContain('getFacilityContact(useDb(), user, facilityId ?? user.facilityId)')
-      expect(route('facility-contact.put.ts')).toContain('const facilityId = named ?? user.facilityId')
-      expect(route('facility-contact.put.ts')).toContain("requirePermission(event, 'facilities.manage')")
+      const krippe = addFacility(db, 'Krippe')
+      expect(writeFacilityContact(db, traeger, krippe, full({ street: 'Krippenweg 1' })).street).toBe('Krippenweg 1')
+      expect(writeFacilityContact(db, traeger, undefined, full({ street: 'Parkweg 4' })).street).toBe('Parkweg 4')
+      expect([readFacilityContact(db, traeger, krippe).street, readFacilityContact(db, traeger, undefined).street]).toEqual(['Krippenweg 1', 'Parkweg 4'])
+      expect(errorCode(() => readFacilityContact(db, leitung, krippe))).toBe('forbidden')
     })
 
     it('lets the Träger read and write every facility by its id without switching, the Leitung only read her own', () => {

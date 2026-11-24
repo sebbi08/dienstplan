@@ -78,6 +78,17 @@ export function facilityOfGroup(db: Db, groupId: number): number {
   return row.facilityId
 }
 
+/**
+ * The facility of a group the user may change by its id (routes under /api/groups/[id]): any facility's with the right
+ * to edit other facilities (settings.otherFacility, the Träger), else only a group of the facility the user works in.
+ * An unknown group, and for everyone else a group of another facility, answers 404 group_not_found.
+ */
+export function facilityOfGroupInReach(db: Db, user: { permissions: ReadonlySet<PermissionKey>; facilityId: number | null }, groupId: number): number {
+  const facilityId = facilityOfGroup(db, groupId)
+  if (!can(user.permissions, 'settings.otherFacility') && facilityId !== user.facilityId) throw new ServiceError(404, 'group_not_found')
+  return facilityId
+}
+
 /** Trimmed, non-empty name no other group of the facility uses (compared case-insensitively, umlauts included). */
 function checkedName(db: Db, facilityId: number, name: string, exceptId: number | null = null): string {
   const existing = db.select({ id: groups.id, name: groups.name }).from(groups).where(eq(groups.facilityId, facilityId)).all()

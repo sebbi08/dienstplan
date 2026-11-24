@@ -46,6 +46,16 @@ export function assertFacility(db: Db, id: number): void {
 }
 
 /**
+ * A facility the user may work on by its id (routes under /api/facilities/[id]/, which name the facility themselves):
+ * with the right to edit other facilities (settings.otherFacility, the Träger) any existing one (404
+ * facility_not_found otherwise), everyone else only the facility they work in (403 forbidden, also for an unknown id).
+ */
+export function assertFacilityInReach(db: Db, user: Pick<SessionUser, 'permissions' | 'facilityId'>, id: number): void {
+  if (can(user.permissions, 'settings.otherFacility')) return assertFacility(db, id)
+  if (id !== user.facilityId) throw new ServiceError(403, 'forbidden')
+}
+
+/**
  * The facility a user works in, fresh from the database:
  * Leitung and tablet their own, the Träger the active selection (or the first facility), Gruppenleitung and Mitarbeiter
  * that of the employee.

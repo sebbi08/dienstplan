@@ -1,6 +1,6 @@
 import type { FacilityContactDto } from '../../shared/domain/facilityContact'
 import { facilityContactQuery } from '../schemas'
-import { getFacilityContact } from '../services/facilityContact'
+import { readFacilityContact } from '../services/facilityContact'
 
 /**
  * The contact data of a facility: `?facilityId=` names it (a facility card on the settings page), otherwise the one the
@@ -10,5 +10,5 @@ import { getFacilityContact } from '../services/facilityContact'
 export default defineServiceHandler(async (event): Promise<FacilityContactDto> => {
   const user = await requirePermission(event, 'settings.facility')
   const { facilityId } = await getValidatedQuery(event, facilityContactQuery.parse)
-  return getFacilityContact(useDb(), user, facilityId ?? user.facilityId)
+  return readFacilityContact(useDb(), user, facilityId)
 })
