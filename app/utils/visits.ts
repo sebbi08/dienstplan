@@ -27,9 +27,9 @@ export function filterApplicants(items: readonly ApplicantVisitListItemDto[], qu
 }
 
 /** A time of the form as text („10:00“, '' for none). */
-export const timeText = (minutes: number | null): string => (minutes === null ? '' : formatTime(minutes))
+export const visitTimeText = (minutes: number | null): string => (minutes === null ? '' : formatTime(minutes))
 /** The minutes of a typed time (null for an empty or unreadable one). */
-export const timeValue = (text: string): number | null => (text.trim() === '' ? null : parseTime(text))
+export const visitTimeValue = (text: string): number | null => (text.trim() === '' ? null : parseTime(text))
 
 /** The days of an applicant as one line („01.12.2026 – 05.12.2026“, a single day alone, '' without days). */
 export function dayRangeText(item: Pick<ApplicantVisitListItemDto, 'firstDay' | 'lastDay'>): string {
@@ -50,7 +50,7 @@ export const emptyInfoVisitForm = (today: string): InfoVisitForm => ({
 
 export function infoVisitForm(visit: InfoVisitDto): InfoVisitForm {
   return {
-    visitDate: visit.visitDate, visitStart: timeText(visit.visitStart), familyName: visit.familyName, phone: visit.phone, email: visit.email,
+    visitDate: visit.visitDate, visitStart: visitTimeText(visit.visitStart), familyName: visit.familyName, phone: visit.phone, email: visit.email,
     childFirstName: visit.childFirstName, childLastName: visit.childLastName, childBirthDate: visit.childBirthDate ?? '',
     desiredStart: visit.desiredStart ?? '', guidedByEmployeeId: visit.guidedByEmployeeId, guidedByName: visit.guidedByName, notes: visit.notes,
   }
@@ -58,7 +58,7 @@ export function infoVisitForm(visit: InfoVisitDto): InfoVisitForm {
 
 export function infoVisitBody(form: InfoVisitForm, status?: 'open' | 'declined'): InfoVisitInput {
   return {
-    ...form, visitStart: timeValue(form.visitStart), childBirthDate: form.childBirthDate || null, desiredStart: form.desiredStart || null,
+    ...form, visitStart: visitTimeValue(form.visitStart), childBirthDate: form.childBirthDate || null, desiredStart: form.desiredStart || null,
     ...(status ? { status } : {}),
   }
 }
@@ -77,11 +77,11 @@ export const emptyApplicantForm = (): ApplicantForm => ({
 export function applicantForm(visit: ApplicantVisitDto): ApplicantForm {
   return {
     name: visit.name, phone: visit.phone, email: visit.email, kind: visit.kind, notes: visit.notes, mentorEmployeeId: visit.mentorEmployeeId,
-    days: visit.days.map(day => ({ date: day.date, from: timeText(day.from), to: timeText(day.to) })),
+    days: visit.days.map(day => ({ date: day.date, from: visitTimeText(day.from), to: visitTimeText(day.to) })),
   }
 }
 
 export function applicantBody(form: ApplicantForm, status?: 'open' | 'declined'): ApplicantVisitInput {
-  const days: ApplicantDayDto[] = form.days.map(day => ({ date: day.date, from: timeValue(day.from), to: timeValue(day.to) }))
+  const days: ApplicantDayDto[] = form.days.map(day => ({ date: day.date, from: visitTimeValue(day.from), to: visitTimeValue(day.to) }))
   return { ...form, days, ...(status ? { status } : {}) }
 }

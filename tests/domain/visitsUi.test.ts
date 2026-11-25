@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ApplicantVisitListItemDto, InfoVisitListItemDto } from '../../shared/types/api'
 import {
   ALL_STATUSES, applicantBody, dayRangeText, emptyApplicantForm, emptyInfoVisitForm, filterApplicants, filterInfoVisits, infoVisitBody,
-  timeText, timeValue,
+  visitTimeText, visitTimeValue,
 } from '../../app/utils/visits'
 
 const info = (id: number, familyName: string, status: InfoVisitListItemDto['status'], childFirstName = ''): InfoVisitListItemDto => ({
@@ -30,9 +30,9 @@ describe('visit lists and forms', () => {
     })
     expect(applicantBody({ ...emptyApplicantForm(), days: [{ date: '2026-12-01', from: '8:00', to: '' }] }).days)
       .toEqual([{ date: '2026-12-01', from: 480, to: null }])
-    expect(timeText(null)).toBe('')
-    expect(timeText(540)).toBe('9:00')
-    expect(timeValue(' ')).toBeNull()
+    expect(visitTimeText(null)).toBe('')
+    expect(visitTimeText(540)).toBe('9:00')
+    expect(visitTimeValue(' ')).toBeNull()
   })
 
   it('shows the days as one line', () => {
