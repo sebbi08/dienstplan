@@ -142,7 +142,9 @@ export function getEmployeeLongAbsences(
       id: null, source: span.source, reason: span.reason, start: span.from, end: span.to, returnDay: returnOf(span.to),
       createdBy: null, createdOn: null, conflicts: null,
     }))
-  const items = [...rowsOf(db, employeeId).map(row => toDto(row, returnOf(row.end), conflictsIn(db, row.employeeId, row.start, row.end))), ...taken]
+  const rows = rowsOf(db, employeeId)
+  const conflictsOf = rows.length === 0 ? null : conflictsLoader(db, employeeId, rows.map(row => row.start).sort()[0]!)
+  const items = [...rows.map(row => toDto(row, returnOf(row.end), conflictsOf!(row.start, row.end))), ...taken]
     .sort((a, b) => (a.start < b.start ? 1 : a.start > b.start ? -1 : 0))
   return { items, canRemoveDuties: can(viewer.permissions, 'plan.edit') }
 }
@@ -191,16 +193,28 @@ function entriesIn(db: Db, employeeId: number, start: IsoDate, end: IsoDate | nu
  * with time records. No private code is among them (only the code's name, never a Sonderurlaub reason).
  */
 function conflictsIn(db: Db, employeeId: number, start: IsoDate, end: IsoDate | null): LongAbsenceConflictsDto {
-  const { duties, leave } = entriesIn(db, employeeId, start, end)
-  const stamped = stampedDaysIn(db, employeeId, start, end)
+  return conflictsLoader(db, employeeId, start)(start, end)
+}
+
+/**
+ * conflictsIn for several periods of the person: the entries, time records and open requests from `since` on are read
+ * once, each period takes its part.
+ */
+function conflictsLoader(db: Db, employeeId: number, since: IsoDate): (start: IsoDate, end: IsoDate | null) => LongAbsenceConflictsDto {
+  const all = entriesIn(db, employeeId, since, null)
+  const stampedAll = [...stampedDaysIn(db, employeeId, since, null)]
   const requests = db.select({ from: leaveRequests.startDate, to: leaveRequests.endDate, kind: leaveRequests.kind }).from(leaveRequests)
-    .where(and(eq(leaveRequests.employeeId, employeeId), eq(leaveRequests.status, 'open'), gte(leaveRequests.endDate, start),
-      end === null ? undefined : lte(leaveRequests.startDate, end)))
+    .where(and(eq(leaveRequests.employeeId, employeeId), eq(leaveRequests.status, 'open'), gte(leaveRequests.endDate, since)))
     .orderBy(asc(leaveRequests.startDate)).all()
-  return {
-    duties: duties.map(entry => ({ id: entry.id, date: entry.date, label: entry.label, stamped: stamped.has(entry.date) })),
-    leave: leave.map(entry => ({ date: entry.date, label: entry.label })),
-    openRequests: requests, stampedDays: stamped.size,
+  return (start, end) => {
+    const within = (date: IsoDate) => date >= start && (end === null || date <= end)
+    const stamped = new Set(stampedAll.filter(within))
+    return {
+      duties: all.duties.filter(entry => within(entry.date))
+        .map(entry => ({ id: entry.id, date: entry.date, label: entry.label, stamped: stamped.has(entry.date) })),
+      leave: all.leave.filter(entry => within(entry.date)).map(entry => ({ date: entry.date, label: entry.label })),
+      openRequests: requests.filter(request => request.to >= start && (end === null || request.from <= end)), stampedDays: stamped.size,
+    }
   }
 }
 
@@ -303,10 +317,10 @@ export function shownReasonFor(db: Db, viewer: Viewer, facilityId: number): (rea
 
 /**
  * The long absences of a month's plan (see LongAbsencePlanDto). The staff away on every one of their working days of the
- * month leave the plan, unless `shownEntries` hold work for them, or leave on a day of Langzeitkrank/Kur (it uses no
- * leave there, but the Leitung should see it): nothing is hidden silently. The line below the plan names everybody with
- * a period reaching into the month. The working days in a period are marked where no entry stands, and on a day of
- * Langzeitkrank/Kur also beside leave entries (the absence wins over the Urlaub); not the days of a full Elternzeit (the
+ * month leave the plan, unless `shownEntries` hold work for them, or – for viewers of the health data – leave on a day
+ * of Langzeitkrank/Kur (it uses no leave there, the Leitung should see it): nothing is hidden silently. The line below the plan names everybody with
+ * a period reaching into the month. The working days in a period are marked where no entry stands, and – for viewers of
+ * the health data – on a day of Langzeitkrank/Kur also beside leave entries (the absence wins over the Urlaub); not the days of a full Elternzeit (the
  * plan marks them already). `dutyCells`: duties in an entered period (they do not count). `known`: the spans when the
  * caller has them already.
  */
@@ -323,6 +337,10 @@ export function longAbsencePlan(
     const key = cellKey(entry.employeeId, entry.date)
     byCell.set(key, [...byCell.get(key) ?? [], entry])
   }
+  // Leave on a day of Langzeitkrank/Kur (it uses none there) keeps the person in the plan and gets the mark beside it only
+  // for viewers of the health data: only those periods have that rule, so for everybody else it would tell sickness
+  // apart from Sonstiges. They see the Urlaub as before and the same outcome for every kind (only duties keep a person).
+  const health = seesProtectedCodes(viewer)
   const result: LongAbsencePlanDto = { people: [], hidden: [], cells: {}, dutyCells: [] }
   for (const employee of staff) {
     const own = (spans.get(employee.id) ?? []).filter(span => overlapsRange({ start: span.from, end: span.to }, from, to))
@@ -330,7 +348,7 @@ export function longAbsencePlan(
     const sickOn = (date: IsoDate) => own.some(span => span.source === 'entry' && countsAsSick(span.reason) && spanCovers(span, date))
     const storedOn = (date: IsoDate) => own.some(span => span.source === 'entry' && spanCovers(span, date))
     const mine = shownEntries.filter(entry => entry.employeeId === employee.id)
-    const keeps = mine.some(entry => isDuty(entry) || (isLeaveEntry(entry) && sickOn(entry.date)))
+    const keeps = mine.some(entry => isDuty(entry) || (health && isLeaveEntry(entry) && sickOn(entry.date)))
     const days = dateRange(from, to).filter(date => isEmployedOn(employee.info, date) && contractWorkday(employee.info, date))
     if (absentThroughout(own, days, { from, to }, keeps)) result.hidden.push(employee.id)
     for (const span of joinSpans(own.map(item => ({ from: item.from, to: item.to, reason: shownReason(item.reason) })))) {
@@ -344,7 +362,7 @@ export function longAbsencePlan(
       const span = own.find(item => item.reason !== 'parental_leave' && spanCovers(item, date))
       if (!span) continue
       const cell = byCell.get(key) ?? []
-      const onlyLeave = cell.length > 0 && cell.every(isLeaveEntry) && sickOn(date)
+      const onlyLeave = health && cell.length > 0 && cell.every(isLeaveEntry) && sickOn(date)
       if (cell.length === 0 || onlyLeave) result.cells[key] = shownReason(span.reason)
     }
   }

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { dateRange, parseIsoDate } from '../../shared/domain/dates'
 import { countLeaveDays, type HalfOnEves, type LeaveEntitlement } from '../../shared/domain/leave'
-import { employmentStart, isWorkday, MONDAY_TO_FRIDAY, type EmploymentInfo } from '../../shared/domain/targets'
+import { employmentStart, isLeaveWorkday, MONDAY_TO_FRIDAY, type EmploymentInfo } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, ClosurePreviewYearDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -61,8 +61,9 @@ function previewYears(db: Db, facilityId: number, person: PreviewPerson, years: 
   const halfOnEves = halfLeaveOnEves(db, facilityId)
   return years.map(({ year, from, entitlementDays, carriedOverDays }) => {
     const dates = vacationDatesOf(closures, year)
-    // As bookClosure: only the person's working days (employed, no public holiday, a contract weekday), from `from` on.
-    const split = person.split(dates.filter(date => date >= from && isWorkday(person.info, date)))
+    // As bookClosure: only the person's working days (employed, no public holiday, a contract weekday) that are no day of
+    // Langzeitkrank or Kur/Reha (isLeaveWorkday), from `from` on.
+    const split = person.split(dates.filter(date => date >= from && isLeaveWorkday(person.info, date)))
     return {
       year, from,
       // Closures in closure-day mode take no leave: a year with only those counts as one without closures.

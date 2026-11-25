@@ -1376,8 +1376,11 @@ Wer Wochen oder Monate fehlt, steht in dieser Zeit nicht im Dienstplan – statt
     zeigt die Warnung **„‹Name›: Dienst eingetragen, obwohl längere Abwesenheit – zählt nicht mit, bitte entfernen“**.
     Dienste als Aushilfe in einer anderen Einrichtung entfernt diese selbst.
   - **Urlaub** (auch Sonderurlaub, Überstundenfrei, auch der Urlaub einer Schließzeit, die vorher gebucht wurde) und
-    **offene Urlaubsanträge**: siehe „Urlaub“ unten. Urlaub im Zeitraum lässt die Person im Plan stehen; an diesen
-    Tagen steht neben dem Urlaub die Abwesenheit.
+    **offene Urlaubsanträge**: siehe „Urlaub“ unten. Bei Langzeitkrank und Kur/Reha lässt Urlaub im Zeitraum die Person
+    für Leitung und Träger mit dem Recht für die Krankheitstage im Plan stehen, und an diesen Tagen steht neben dem
+    Urlaub die Abwesenheit. Alle anderen (Mitarbeiter, Tablet, Leitung ohne das Recht) sehen den Urlaub wie bisher, und
+    für sie hält Urlaub niemanden im Plan, gleich aus welchem Grund – sonst wäre Krankheit von Sonstigem zu
+    unterscheiden. Wer den Dienstplan bearbeitet, erreicht die Person dann über „im Plan zeigen“.
   - **Stempelzeiten** im Zeitraum: Bei Langzeitkrank und Kur/Reha zählt dort – wie bei „Krank“ – das Tagessoll, nicht die
     gestempelte Zeit.
 - **Im Hintergrund (Stunden):**
@@ -1392,8 +1395,9 @@ Wer Wochen oder Monate fehlt, steht in dieser Zeit nicht im Dienstplan – statt
   - **Urlaub (§ 9 BUrlG):** An Tagen von Langzeitkrank und Kur/Reha wird – wie bei „Krank“ – kein Urlaub verbraucht:
     Eine **Schließzeit** im Modus „Urlaub“ (oder „Schließtag“) bucht an diesen Tagen nichts, wie über einem Eintrag
     „Krank“. **Schon eingetragener oder genehmigter Urlaub** im Zeitraum zählt im Urlaubskonto, in den Urlaubslisten und
-    beim Hinweis auf Resturlaub nicht als genommen (Voraussetzung ist wie immer der ärztliche Nachweis); im Dienstplan
-    steht dort neben dem Urlaub die Abwesenheit. Ein Urlaubsantrag in diesem Zeitraum zählt keine Tage. Endet die
+    beim Hinweis auf Resturlaub und bei „Schließzeiten als Urlaub“ nicht als genommen (Voraussetzung ist wie immer der
+    ärztliche Nachweis); im Dienstplan steht dort neben dem Urlaub die Abwesenheit (nur für alle, die den Grund sehen
+    dürfen, siehe oben). Ein Urlaubsantrag in diesem Zeitraum zählt keine Tage. Endet die
     Abwesenheit früher, zählt der Urlaub danach wieder; eine Schließzeit, die an diesen Tagen nichts gebucht hat, bucht
     dann nicht von selbst nach – bitte im Dienstplan eintragen.
   - **Kur/Reha:** wie Langzeitkrank. Eine medizinische Vorsorge oder Rehabilitation wird wie eine Arbeitsunfähigkeit

@@ -4,6 +4,7 @@ import type { Db } from '../../server/db/client'
 import {
   closures, employeeHours, entries, leaveEntitlements, leaveRequests, longAbsences, maternityCases, parentalLeaves, timeRecords,
 } from '../../server/db/schema'
+import { previewClosuresForEmployee } from '../../server/services/closurePreview'
 import { createClosure } from '../../server/services/closures'
 import { getLeaveAccount } from '../../server/services/leave'
 import { bemReminders, getEmployeeBem } from '../../server/services/bem'
@@ -190,6 +191,38 @@ describe('leave during Langzeitkrank or Kur/Reha (§ 9 BUrlG), exactly as under 
     // Ended before it: the leave counts again.
     updateLongAbsence(db, scope, saved.id, input({ start: '2026-11-02', end: '2026-12-11' }))
     expect(getLeaveAccount(db, anna, 2026, TODAY).account).toMatchObject({ planned: 3, available: 27 })
+  })
+
+  it('the hint „Schließzeiten als Urlaub“ counts as the booking does: no leave on those days', () => {
+    create({ start: '2026-11-02', end: null })
+    createClosure(db, leitung, 1, { startDate: '2026-12-21', endDate: '2026-12-31', label: 'Winter', mode: 'vacation' })
+    const [year] = previewClosuresForEmployee(db, 1, anna, TODAY)
+    expect(year).toMatchObject({ year: 2026, personDays: 0, closureDaysWithoutLeave: 0 })
+    expect(getLeaveAccount(db, anna, 2026, TODAY).closures.reduce((sum, row) => sum + row.days, 0)).toBe(0)
+    // Ben without an absence: the hint counts the closure's leave as before.
+    expect(previewClosuresForEmployee(db, 1, ben, TODAY)[0]!.personDays).toBeGreaterThan(0)
+  })
+
+  it('tells nobody without the health data about it: no mark beside the Urlaub, and the same outcome for every kind', () => {
+    // Anna Langzeitkrank, Ben Sonstiges, each away the whole of December with Urlaub planned on 14.–16.12.
+    for (const employeeId of [anna, ben]) for (const date of ['2026-12-14', '2026-12-15', '2026-12-16']) codeOn(employeeId, date, 'vacation')
+    create({ start: '2026-11-02', end: null })
+    create({ start: '2026-11-02', end: null, reason: 'other' }, ben)
+    // The Leitung with the health data: Anna stays (Urlaub on sick days), with the mark beside it; Ben (no working days) not.
+    const full = getMonthPlan(db, leitung, 1, 2026, 12, TODAY).longAbsence
+    expect(full.hidden).toEqual([ben])
+    expect(full.cells[`${anna}|2026-12-14`]).toBe('sick')
+    const noHealth = { ...leitung, permissions: new Set([...leitung.permissions].filter(key => key !== 'employees.sickness')) }
+    releaseMonth(db, leitung, 1, 2026, 12)
+    const benAccount = addUser(db, 'clara', 'observer', addEmployee(db, 'Clara'))
+    for (const viewer of [noHealth, benAccount]) {
+      const plan = getMonthPlan(db, viewer, 1, 2026, 12, TODAY)
+      // Both hidden alike: Urlaub keeps nobody in the plan for them, whatever the reason.
+      expect(plan.longAbsence.hidden.sort()).toEqual([anna, ben].sort())
+      expect(Object.keys(plan.longAbsence.cells).filter(key => key.endsWith('2026-12-14'))).toEqual([])
+      expect(plan.longAbsence.people.map(item => item.reason)).toEqual([null, null])
+      expect(JSON.stringify(plan)).not.toMatch(/BUrlG|Langzeit|Kur|"sick"|"rehab"/)
+    }
   })
 
   it('counts Kur/Reha the same, Sonstiges has no working days at all', () => {
