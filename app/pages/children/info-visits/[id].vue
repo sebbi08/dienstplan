@@ -4,12 +4,12 @@ import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
 import { defaultDocumentType } from '~/utils/pdfFill'
-import { emptyInfoVisitForm, infoVisitBody, infoVisitForm } from '~/utils/visits'
+import { emptyInfoVisitForm, infoVisitBody, infoVisitForm, infoVisitName, visitTimeText } from '~/utils/visits'
 
 /**
  * An info visit (Kinder → Planung → Infogespräche): the fields, the documents and the forms; „Absagen“ / „Wieder
  * öffnen“, „Als Vormerkung übernehmen“ (creates the waitlist child and moves documents and forms there) and deleting.
- * A visit taken over is only read and links to the child's record.
+ * A visit taken over keeps only its date, status and the link to the child's record (the rest is in the record).
  */
 const t = de.visits
 useHead({ title: t.tabs.info })
@@ -61,7 +61,7 @@ async function decline() {
   if (await confirm(t.declineConfirm(form.familyName))) await save('declined', t.declined)
 }
 async function remove() {
-  if (!visit.value || !await confirm(t.deleteRecordConfirm(visit.value.familyName))) return
+  if (!visit.value || !await confirm(t.deleteRecordConfirm(infoVisitName(visit.value)))) return
   try {
     await $fetch<unknown>(`/api/info-visits/${id.value}`, { method: 'DELETE' })
     baseline.value = JSON.stringify(form)
@@ -122,7 +122,7 @@ const childNamed = computed(() => form.childFirstName.trim() !== '' && form.chil
     <p v-if="error || !visit" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorMessage(error) }}</p>
     <template v-else>
       <div class="flex flex-wrap items-center gap-2">
-        <h1 class="text-2xl font-semibold">{{ visit.familyName }}</h1>
+        <h1 class="text-2xl font-semibold">{{ infoVisitName(visit) }}</h1>
         <span class="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{{ t.infoStatus[visit.status] }}</span>
         <span class="text-xs text-gray-500">{{ t.lastChanged(visit.updatedBy, formatDateTime(visit.updatedAt)) }}</span>
       </div>
@@ -133,7 +133,10 @@ const childNamed = computed(() => form.childFirstName.trim() !== '' && form.chil
         </template>
       </UAlert>
 
-      <form class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="save()">
+      <p v-if="!open" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">
+        {{ t.fields.visitDate }}: {{ formatDate(visit.visitDate) }}<template v-if="visit.visitStart !== null">, {{ visitTimeText(visit.visitStart) }}</template>
+      </p>
+      <form v-else class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="save()">
         <fieldset :disabled="!open" class="grid gap-3 sm:grid-cols-2">
           <UFormField :label="t.fields.visitDate" required>
             <DateTextInput v-model="form.visitDate" :label="t.fields.visitDate" class="w-full" required :disabled="!open" />
@@ -194,8 +197,10 @@ const childNamed = computed(() => form.childFirstName.trim() !== '' && form.chil
         <p v-else-if="open && !childNamed" class="text-xs text-gray-500">{{ t.takeOverNeedsName }}</p>
       </form>
 
-      <VisitsDocuments kind="info" :record-id="visit.id" :owner-name="visit.familyName" :documents="visit.documents" :editable="open" @changed="refresh" />
-      <VisitsForms kind="info" :record-id="visit.id" :forms="visit.forms" :templates="visit.templates" :editable="open" :refresh-list="refresh" />
+      <template v-if="open">
+        <VisitsDocuments kind="info" :record-id="visit.id" :owner-name="visit.familyName" :documents="visit.documents" :editable="open" @changed="refresh" />
+        <VisitsForms kind="info" :record-id="visit.id" :forms="visit.forms" :templates="visit.templates" :editable="open" :refresh-list="refresh" />
+      </template>
 
       <div class="flex justify-end">
         <UButton color="error" variant="ghost" icon="i-lucide-trash-2" :label="t.deleteRecord" @click="remove" />

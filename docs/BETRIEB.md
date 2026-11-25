@@ -3375,8 +3375,9 @@ Mitarbeiterliste). Beides gibt es nicht am Tablet.
 
 **Recht:** „Infogespräche & Hospitationen: führen“ (Rechte und Rollen, voreingestellt für Leitung; der Träger darf es
 immer). Es schließt „Hospitationen und Bewerbungen ansehen“ ein. Dieses Recht allein (voreingestellt aus) kann z. B. eine
-Gruppenleitung bekommen: Sie sieht dann die Bewerbungen und Hospitationen mit Terminen, Notizen, Dokumenten und Bögen,
-ändert aber nichts (Menüpunkt „Bewerbungen & Hospitationen“). Rollen, deren Rechte schon gespeichert waren, bekommen die
+Gruppenleitung bekommen: Sie sieht dann die offenen und abgesagten Bewerbungen und Hospitationen mit Terminen, Notizen,
+Dokumenten und Bögen, ändert aber nichts (Menüpunkt „Bewerbungen & Hospitationen“). Von Eingestellten sieht sie nur Art,
+Termine, Stand und den Verweis auf die Personalakte. Rollen, deren Rechte schon gespeichert waren, bekommen die
 Voreinstellung ohne Umstellung. Jede Einrichtung sieht nur ihre eigenen Einträge.
 
 **Infogespräch:** Datum (und Uhrzeit), Familie, Telefon, E-Mail (wird geprüft), Kind (Vor- und Nachname, Geburtsdatum),
@@ -3389,18 +3390,25 @@ ausfüllen“ und „Bearbeiten“ wie in der Kinderakte) und **Bögen** aus den
 Vormerkung angelegt (Name, Geburtsdatum – im Dialog bestätigt –, gewünschter Beginn als geplanter Eintritt, Datum des
 Infogesprächs, Notizen als Notiz der Akte), die Familie als Bezugsperson (Telefon, E-Mail in der Notiz). Die Dokumente
 kommen mit der gewählten Dokumentart (voreingestellt „Sonstiges“) in die Kinderakte, die Bögen in die Bögen der
-Kinderakte (dort nur zum Lesen, mit dem Hinweis „aus dem Infogespräch“). Der Eintrag bleibt als „übernommen“ mit einem
-Link zur Akte stehen, lässt sich nicht mehr ändern und wird mit der Kinderakte gelöscht.
+Kinderakte (mit dem Hinweis „aus dem Infogespräch“; nur zum Lesen und nur für Leitung und Träger – nicht für die
+Gruppe und nicht am Tablet; sie lassen sich dort weder freischalten noch löschen und gehen mit der Kinderakte). Der
+Eintrag bleibt als „übernommen“ mit einem Link zur Akte stehen, behält aber nur Datum, Uhrzeit und Stand: Namen,
+Kontakt und Notizen stehen ab dann nur noch in der Kinderakte (mit deren Rechten; zieht das Kind in eine andere
+Einrichtung um, steht hier nur noch „nicht mehr in dieser Einrichtung“). Er lässt sich nicht mehr ändern und wird mit
+der Kinderakte gelöscht.
 
 **Bewerbung, Hospitation, Praktikum:** Name, Telefon, E-Mail, Art, begleitet von (Mentor), Notizen und Einschätzung,
 **Termine** (bis zu 30 Tage mit Uhrzeit von–bis), Dokumente und Bögen aus Vorlagen der Art „Hospitationen“. **Absagen**
 merkt den Tag der Absage, „Wieder öffnen“ nimmt sie zurück. **Einstellen** (braucht zusätzlich das Recht, Mitarbeiter
-anzulegen) legt die Person als Mitarbeiter an (Name, Kürzel, Beginn, Wochenstunden, Gruppe; Telefon und E-Mail als
-Anschrift und Kontakt) – die Vertragsangaben ergänzt der Träger. Die Dokumente kommen in ein gewähltes Fach der
+anzulegen) legt die Person als Mitarbeiter an (Name, Kürzel, Beginn, Wochenstunden, Gruppe) – die Vertragsangaben
+ergänzt der Träger. Telefon und E-Mail kommen in „Anschrift und Kontakt“, wenn man dieses Recht hat; sonst bleiben sie
+im Eintrag der Bewerbung (nur mit dem Recht „führen“ sichtbar), und das Fenster weist darauf hin. Die Dokumente kommen in ein gewähltes Fach der
 Personalakte, für das man das Recht hat (voreingestellt „Bewerbung“, sonst das erste erlaubte), die Bögen erscheinen in
 der Personalakte unter Nachweise → Dokumente als „Bögen aus der Bewerbung“ (nur lesen; sichtbar mit dem Fach „Bewerbung“
-oder dem Recht „Infogespräche & Hospitationen führen“). Der Eintrag bleibt als „eingestellt“ stehen und gehört dann zu
-den „Beurteilungen und Zeugnissen“ der Person (gelöscht mit dieser Frist, zusammen mit den übernommenen Bögen).
+oder dem Recht „Infogespräche & Hospitationen führen“). Der Eintrag bleibt als „eingestellt“ stehen (ein Tag der Absage
+entfällt) und behält nur Art, Termine, Stand und den Verweis: Name, Notizen und Einschätzung stehen ab dann nur in der
+Personalakte. Er gehört dann zu den „Beurteilungen und Zeugnissen“ der Person (gelöscht mit dieser Frist, zusammen mit
+den übernommenen Bögen).
 
 **Löschfristen:** Die App löscht nichts von selbst. Unter Mehr → Löschfristen (Träger) erscheinen
 - Infogespräche, die **nicht** übernommen wurden (offen oder abgesagt): löschbar **12 Monate nach dem Gesprächstag**
@@ -3408,7 +3416,8 @@ den „Beurteilungen und Zeugnissen“ der Person (gelöscht mit dieser Frist, z
 - abgesagte Bewerbungen, Hospitationen und Praktika: löschbar **6 Monate nach der Absage** (einstellbar 1–24 Monate).
   Hintergrund: Ansprüche nach § 15 Abs. 4 AGG sind binnen 2 Monaten schriftlich geltend zu machen, die Klage binnen
   3 weiterer Monate (§ 61b ArbGG); 6 Monate lassen Zeit für den Postweg. Bitte im Zweifel mit dem Datenschutz klären;
-- offene Einträge **ohne Abschluss**, die 12 Monate lang nicht geändert wurden (letzte Änderung oder letzter Termin;
-  neue Dokumente und Bögen zählen als Änderung): sofort löschbar, damit sie nicht vergessen werden.
+- offene Einträge **ohne Abschluss**, die 12 Monate lang nicht geändert wurden (einstellbar 1–60 Monate; letzte
+  Änderung oder letzter Termin; neue Dokumente und Bögen zählen als Änderung): sofort löschbar, damit sie nicht
+  vergessen werden.
 Löschen entfernt den Eintrag mit Terminen, Dokumenten und Bögen; die Datenbank schreibt die Löschung sofort fest (wie bei
 den anderen Dokumenten). Auch die Leitung kann einen Eintrag jederzeit selbst löschen („Eintrag löschen“).

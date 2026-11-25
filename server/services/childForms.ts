@@ -25,7 +25,8 @@ import { loadTemplate, templateChoices, withFormErrors } from './formTemplates'
 export const CHILD_FORM_LIMITS = { participants: 300 } as const
 /**
  * The forms of a child's record: its observation forms (kind `child`) and, read only, those of the info visit it was
- * taken over from (kind `info`, server/services/visits.ts).
+ * taken over from (kind `info`, server/services/visits.ts). Those are pre-admission records: only childForms.manage
+ * (Leitung, Träger) with the own account sees them (`seesInfoForms`), nobody unlocks, deletes or changes them.
  */
 const CHILD_RECORD_KINDS: ('child' | 'info')[] = ['child', 'info']
 
@@ -84,11 +85,17 @@ function loadVisibleChild(db: Db, viewer: ChildViewer, childId: number, now: Dat
   return { row: settled, archived, ownGroup: inHomeGroup(db, viewer, settled.groupId) }
 }
 
-/** A child form of the viewer's facility (404 form_not_found otherwise) with its child as the viewer sees it. */
+/** Whether the viewer sees the forms of the info visit (kind `info`): childForms.manage with the own account, never the tablet. */
+const seesInfoForms = (viewer: ChildViewer) => canManageChildForms(viewer) && !viewer.onTablet
+
+/**
+ * A child form of the viewer's facility (404 form_not_found otherwise, also for a form of the info visit the viewer
+ * does not see) with its child as the viewer sees it.
+ */
 function loadForm(db: Db, viewer: ChildViewer, formId: number, now: Date, settle = false): { form: ChildForm; child: VisibleChild } {
   const form = db.select().from(forms)
     .where(and(eq(forms.id, formId), eq(forms.facilityId, viewer.facilityId), inArray(forms.kind, CHILD_RECORD_KINDS))).get()
-  if (!form || form.childId === null) throw new ServiceError(404, 'form_not_found')
+  if (!form || form.childId === null || (form.kind === 'info' && !seesInfoForms(viewer))) throw new ServiceError(404, 'form_not_found')
   return { form: form as ChildForm, child: loadVisibleChild(db, viewer, form.childId, now, settle) }
 }
 
@@ -135,12 +142,16 @@ export function readableChildForm(
   return { form, right: access(viewer, child, form, editorsOf(db, [form.id]).get(form.id)!) }
 }
 
-/** `canManage` is off on an archived record: unlocking and deleting are refused there (409 child_archived). */
+/**
+ * `canManage` is off on an archived record (unlocking and deleting are refused there, 409 child_archived) and on a form
+ * of the info visit (409 info_form_read_only).
+ */
 function toListItem(form: ChildForm, right: 'read' | 'edit', viewer: ChildViewer, child: VisibleChild): ChildFormListItemDto {
   return {
     id: form.id, childId: form.childId, templateId: form.templateId, title: form.title, date: form.formDate ?? '',
     start: form.formStart, participants: form.formParticipants, parentMeetingId: form.parentMeetingId,
-    updatedAt: form.updatedAt, updatedBy: form.updatedBy, right, canManage: canManageChildForms(viewer) && !child.archived,
+    updatedAt: form.updatedAt, updatedBy: form.updatedBy, right,
+    canManage: canManageChildForms(viewer) && !child.archived && form.kind !== 'info',
     ...(form.kind === 'info' ? { infoVisit: true as const } : {}),
   }
 }
@@ -148,7 +159,7 @@ function toListItem(form: ChildForm, right: 'read' | 'edit', viewer: ChildViewer
 /** The child's forms, newest first (by date, then time), each with the viewer's right; and whether they may start one. */
 export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now: Date = new Date()): ChildFormsDto {
   const child = loadVisibleChild(db, viewer, childId, now)
-  const rows = db.select().from(forms).where(and(eq(forms.childId, childId), inArray(forms.kind, CHILD_RECORD_KINDS)))
+  const rows = db.select().from(forms).where(and(eq(forms.childId, childId), inArray(forms.kind, seesInfoForms(viewer) ? CHILD_RECORD_KINDS : ['child'])))
     .orderBy(desc(forms.formDate), desc(forms.formStart), desc(forms.id)).all() as ChildForm[]
   const editors = editorsOf(db, rows.map(row => row.id))
   const canCreate = !child.archived && canCreateChildForm(asRightViewer(viewer, child), { keyEducatorId: child.row.keyEducatorId })
@@ -293,10 +304,16 @@ function assertManager(viewer: ChildViewer): void {
   if (!canManageChildForms(viewer)) throw new ServiceError(403, 'forbidden')
 }
 
+/** A form of the info visit is neither unlocked nor deleted (409 info_form_read_only); it goes with the child's record. */
+function assertNotInfoForm(form: ChildForm): void {
+  if (form.kind === 'info') throw new ServiceError(409, 'info_form_read_only')
+}
+
 /** Deletes a form with its unlocked employees (Leitung and Träger only). */
 export function deleteChildForm(db: Db, viewer: ChildViewer, formId: number, now: Date = new Date()): void {
   const { form, child } = loadForm(db, viewer, formId, now)
   assertManager(viewer)
+  assertNotInfoForm(form)
   assertNotArchived(child)
   db.delete(forms).where(eq(forms.id, form.id)).run()
 }
@@ -312,6 +329,7 @@ function editorList(db: Db, formId: number): ChildFormEditorDto[] {
 export function listChildFormEditors(db: Db, viewer: ChildViewer, formId: number, now: Date = new Date()): ChildFormEditorDto[] {
   const { form } = loadForm(db, viewer, formId, now)
   assertManager(viewer)
+  assertNotInfoForm(form)
   return editorList(db, form.id)
 }
 
@@ -325,6 +343,7 @@ export function setChildFormEditors(
 ): ChildFormEditorDto[] {
   const { form, child } = loadForm(db, viewer, formId, now)
   assertManager(viewer)
+  assertNotInfoForm(form)
   assertNotArchived(child)
   const wanted = [...new Set(employeeIds)]
   const current = editorsOf(db, [form.id]).get(form.id)!

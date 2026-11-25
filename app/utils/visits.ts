@@ -4,6 +4,7 @@ import type {
   ApplicantDayDto, ApplicantVisitDto, ApplicantVisitInput, ApplicantVisitListItemDto, InfoVisitDto, InfoVisitInput,
   InfoVisitListItemDto,
 } from '#shared/types/api'
+import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
 
 /**
@@ -14,16 +15,25 @@ import { formatDate } from '~/utils/format'
 /** The status filter's value for every status. */
 export const ALL_STATUSES = 'all'
 
+/**
+ * The name shown for a record: its own, or – once taken over or hired, when it keeps none – the child's or employee's
+ * while they are in this facility, else „nicht mehr in dieser Einrichtung“.
+ */
+export const infoVisitName = (item: Pick<InfoVisitListItemDto, 'familyName' | 'linkedName'>): string =>
+  item.familyName || item.linkedName || de.visits.linkedGone
+export const applicantName = (item: Pick<ApplicantVisitListItemDto, 'name' | 'linkedName'>): string =>
+  item.name || item.linkedName || de.visits.linkedGone
+
 /** The info visits matching the search (family, child, guide) and the status filter. */
 export function filterInfoVisits(items: readonly InfoVisitListItemDto[], query: string, status: string): InfoVisitListItemDto[] {
   return items.filter(item => (status === ALL_STATUSES || item.status === status)
-    && matchesSearch([item.familyName, item.childFirstName, item.childLastName, item.guidedBy, item.email, item.phone], query))
+    && matchesSearch([infoVisitName(item), item.childFirstName, item.childLastName, item.guidedBy, item.email, item.phone], query))
 }
 
 /** The applicants matching the search (name, mentor, contact) and the status filter. */
 export function filterApplicants(items: readonly ApplicantVisitListItemDto[], query: string, status: string): ApplicantVisitListItemDto[] {
   return items.filter(item => (status === ALL_STATUSES || item.status === status)
-    && matchesSearch([item.name, item.mentorName ?? '', item.email, item.phone], query))
+    && matchesSearch([applicantName(item), item.mentorName ?? '', item.email, item.phone], query))
 }
 
 /** A time of the form as text („10:00“, '' for none). */

@@ -42,7 +42,7 @@ const later = computed(() => shown.value.filter(item => !item.due))
 
 /** „‹Name› – ‹Datenart›“; BEM and Mutterschutz records also say when the BEM ended and whether the person is still employed. */
 const whatOf = (item: RetentionItemDto) => {
-  if (item.applicantState === 'open') return t.itemLabel(item.name, `${t.kinds.applicant} (${t.openApplicant})`)
+  if (item.applicantState === 'open') return t.itemLabel(item.name, `${t.kinds.applicant} (${t.openApplicant(item.quietMonths ?? 12)})`)
   const what = t.itemLabel(item.name, item.kind === 'employee' ? t.categories[item.category ?? 'record'] : t.categories[item.kind])
   if (item.bem) return `${what} (${t.bemDetail(formatDate(item.bem.endedOn), item.bem.employed)})`
   if (item.accidentHold) return `${what} (${t.accidentHold})`

@@ -2049,6 +2049,7 @@ export const retentionSettings = sqliteTable('retention_settings', {
   infoVisitMonths: integer('info_visit_months').notNull().default(12),
   /** Declined applicants may be deleted this many months after the refusal (1–24; § 15 Abs. 4 AGG, § 61b ArbGG). */
   applicantMonths: integer('applicant_months').notNull().default(6),
+  openApplicantMonths: integer('open_applicant_months').notNull().default(12),
 })
 
 /**

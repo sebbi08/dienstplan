@@ -173,9 +173,9 @@ export const PERMISSIONS: readonly PermissionDef[] = [
     'Unfälle: Übersicht, Unfallanzeigen der Mitarbeiter, Unfallberichte der Kinder ändern und löschen, Erinnerung zur Meldung',
     { requires: ['employees.view', 'children.view'] }),
 
-  // „Infogespräche & Hospitationen“ (Mehr): the records with documents and forms. Taking an info visit over as a
-  // Vormerkung also needs children.edit (with children.ownAccount), hiring an applicant employees.edit; both are checked
-  // by the service. The view of the applicants alone (e.g. for a Gruppenleitung) is off by default.
+  // „Infogespräche“ (Kinder → Planung) and „Bewerbungen & Hospitationen“ (Mitarbeiter): the records with documents and
+  // forms. Taking an info visit over as a Vormerkung also needs children.edit (with children.ownAccount), hiring an
+  // applicant employees.edit; both are checked by the service. The view of the applicants alone (e.g. for a Gruppenleitung) is off by default.
   def('visits.manage', 'visits',
     'Infogespräche und Hospitationen führen (anlegen, Dokumente, Bögen, als Vormerkung übernehmen, einstellen, absagen, löschen)',
     { implies: ['visits.applicants.view'] }),

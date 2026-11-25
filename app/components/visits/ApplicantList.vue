@@ -3,7 +3,7 @@ import { APPLICANT_KINDS, APPLICANT_STATUSES } from '#shared/domain/visits'
 import type { ApplicantVisitListItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
-import { ALL_STATUSES, applicantBody, dayRangeText, emptyApplicantForm, filterApplicants } from '~/utils/visits'
+import { ALL_STATUSES, applicantBody, applicantName, dayRangeText, emptyApplicantForm, filterApplicants } from '~/utils/visits'
 
 /**
  * Mitarbeiter → „Bewerbungen & Hospitationen“: the facility's applicants (Bewerbung, Hospitation, Praktikum), searchable
@@ -66,7 +66,7 @@ const badge = (value: ApplicantVisitListItemDto['status']) =>
       <li v-for="visit in shown" :key="visit.id">
         <NuxtLink :to="`/admin/employees/applicants/${visit.id}`" class="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 hover:bg-gray-50">
           <span class="min-w-0 flex-1 basis-48">
-            <span class="font-medium">{{ visit.name }}</span>
+            <span class="font-medium">{{ applicantName(visit) }}</span>
             <span class="text-gray-600"> · {{ t.kinds[visit.kind] }}</span>
             <span class="block text-xs text-gray-500">
               {{ [dayRangeText(visit), visit.dayCount ? t.days(visit.dayCount) : '', visit.mentorName ? `${t.fields.mentor}: ${visit.mentorName}` : ''].filter(Boolean).join(' · ') }}

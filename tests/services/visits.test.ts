@@ -5,7 +5,9 @@ import {
   applicantVisitDays, applicantVisits, childDocuments, children, employeeDocuments, employees, forms, infoVisits, visitDocuments,
 } from '../../server/db/schema'
 import { listContacts } from '../../server/services/childContacts'
-import { getChildForm, listChildForms, saveChildForm } from '../../server/services/childForms'
+import {
+  deleteChildForm, getChildForm, listChildFormEditors, listChildForms, saveChildForm, setChildFormEditors,
+} from '../../server/services/childForms'
 import { categoryHasData, deleteAssessmentData, deleteImmediateData, deletePaidOvertimeData } from '../../server/services/employeeDeletion'
 import { createTemplate, updateTemplate } from '../../server/services/formTemplates'
 import { saveRoleBundle } from '../../server/services/permissions'
@@ -24,7 +26,8 @@ import { addEmployee, addFacility, addUser, asChildViewer, createTestDb, documen
 /**
  * „Infogespräche & Hospitationen“: CRUD and checks, documents (type sniffing, limit, fillable flag), forms of the kinds
  * info and applicant, „Als Vormerkung übernehmen“, „Einstellen“, „Absagen“, the retention items and their deletion,
- * rights and facility isolation, and the employee deletion categories of the moved data.
+ * rights and facility isolation, and the employee deletion categories of the moved data. A taken-over or hired record
+ * keeps only its date, kind, status and link; the info forms in the child record are for childForms.manage only.
  */
 
 const NOW = new Date('2026-11-25T09:00:00.000Z')
@@ -167,6 +170,12 @@ describe('info visits and applicants', () => {
       expect(db.select({ childId: forms.childId, infoVisitId: forms.infoVisitId }).from(forms).where(eq(forms.id, formId)).get())
         .toEqual({ childId, infoVisitId: null })
       expect(getInfoVisit(db, leitung, id)).toMatchObject({ status: 'waitlisted', childId, documents: [], forms: [] })
+      // The record keeps only its date, time, status and the link; the name shown is the child's while it is here.
+      expect(db.select().from(infoVisits).where(eq(infoVisits.id, id)).get()).toMatchObject({
+        visitDate: '2026-11-20', visitStart: 600, status: 'waitlisted', childId, familyName: '', phone: '', email: '', childFirstName: '',
+        childLastName: '', childBirthDate: null, desiredStart: null, guidedByEmployeeId: null, guidedByName: '', notes: '',
+      })
+      expect(listInfoVisits(db, leitung)).toEqual([expect.objectContaining({ id, familyName: '', linkedName: 'Lena Kurz', phone: '', email: '' })])
       // The info form is in the record's forms, read only.
       const viewer = asChildViewer(leitung)
       const list = listChildForms(db, viewer, childId, LATER)
@@ -178,8 +187,30 @@ describe('info visits and applicants', () => {
       // A taken-over visit is only read; it goes with the child.
       expect(errorCode(() => updateInfoVisit(db, leitung, id, infoInput, LATER))).toBe('visit_transferred')
       expect(errorCode(() => uploadVisitDocument(db, leitung, 'info', id, '', file(plainPdf()), LATER))).toBe('visit_transferred')
+      // The child moves to another facility: its name is not shown here any more.
+      db.update(children).set({ facilityId: addFacility(db, 'Hort') }).where(eq(children.id, childId)).run()
+      expect(listInfoVisits(db, leitung)[0]).toMatchObject({ linkedName: null, familyName: '' })
       db.delete(children).where(eq(children.id, childId)).run()
       expect(db.select().from(infoVisits).all()).toEqual([])
+    })
+
+    it('keeps the info forms in the child record read only and for childForms.manage alone: no unlocking, no deleting', () => {
+      const id = createInfoVisit(db, leitung, infoInput, NOW)
+      const formId = createVisitForm(db, leitung, 'info', id, infoTemplate, NOW)
+      const childId = takeOverInfoVisit(db, leitung, id, { birthDate: '2024-05-02', documentTypeId: null }, LATER)
+      const viewer = asChildViewer(leitung)
+      expect(listChildForms(db, viewer, childId, LATER).forms).toEqual([expect.objectContaining({ id: formId, canManage: false, infoVisit: true })])
+      expect(errorCode(() => setChildFormEditors(db, viewer, formId, [anna], LATER))).toBe('info_form_read_only')
+      expect(errorCode(() => listChildFormEditors(db, viewer, formId, LATER))).toBe('info_form_read_only')
+      expect(errorCode(() => deleteChildForm(db, viewer, formId, LATER))).toBe('info_form_read_only')
+      // Whoever sees the record without childForms.manage (group staff), and the tablet, does not see the form at all.
+      const staff = { ...viewer, permissions: new Set([...viewer.permissions].filter(key => key !== 'childForms.manage')) }
+      expect(listChildForms(db, staff, childId, LATER).forms).toEqual([])
+      expect(errorCode(() => getChildForm(db, staff, formId, LATER))).toBe('form_not_found')
+      const tablet = { ...viewer, onTablet: true }
+      expect(listChildForms(db, tablet, childId, LATER).forms).toEqual([])
+      expect(errorCode(() => getChildForm(db, tablet, formId, LATER))).toBe('form_not_found')
+      expect(db.select().from(forms).where(eq(forms.id, formId)).get()).toBeDefined()
     })
 
     it('needs the child\'s names and the right to create children', () => {
@@ -220,6 +251,33 @@ describe('info visits and applicants', () => {
       expect(getApplicant(db, reader, id)).toMatchObject({ canManage: false, templates: [], staff: [] })
       expect(errorCode(() => updateApplicant(db, reader, id, applicantInput, NOW))).toBe('forbidden')
       expect(errorCode(() => listInfoVisits(db, reader))).toBe('forbidden')
+      // Once hired, the reader sees only kind, days, status and the link – no notes, contact or name of the record.
+      hireApplicant(db, leitung, id, { shortName: 'ML', validFrom: '2027-01-01', weeklyMinutes: 600, groupId: null, folder: null }, LATER)
+      const hired = getApplicant(db, reader, id)
+      expect(hired).toMatchObject({ status: 'hired', kind: 'hospitation', dayCount: 2, name: '', notes: '', phone: '', email: '', mentorName: null, linkedName: 'Mara Lind' })
+      expect(listApplicants(db, reader)).toEqual([expect.objectContaining({ id, name: '', phone: '', email: '', linkedName: 'Mara Lind' })])
+    })
+
+    it('„Einstellen“ without „Anschrift und Kontakt“: phone and e-mail stay on the record, for visits.manage only', () => {
+      const id = createApplicant(db, leitung, applicantInput, NOW)
+      const hirer: VisitActor = { ...leitung, permissions: new Set([...leitung.permissions].filter(key => key !== 'employees.personal')) }
+      const result = hireApplicant(db, hirer, id, { shortName: 'ML', validFrom: '2027-01-01', weeklyMinutes: 600, groupId: null, folder: null }, LATER)
+      expect(result.contactCopied).toBe(false)
+      expect(db.select({ phone: employees.phone, email: employees.email }).from(employees).where(eq(employees.id, result.employeeId)).get())
+        .toEqual({ phone: null, email: null })
+      expect(db.select().from(applicantVisits).where(eq(applicantVisits.id, id)).get())
+        .toMatchObject({ status: 'hired', name: '', notes: '', phone: '0160 555', email: 'mara@example.de' })
+      expect(getApplicant(db, leitung, id)).toMatchObject({ phone: '0160 555', email: 'mara@example.de' })
+      const lead = addUser(db, 'gruppenleitung', 'group_lead', addEmployee(db, 'Gabi'))
+      saveRoleBundle(db, 'group_lead', 'visitsApplicantsView', true)
+      expect(getApplicant(db, actorOf(refreshPermissions(db, lead)), id)).toMatchObject({ phone: '', email: '' })
+    })
+
+    it('„Einstellen“ of a declined applicant drops the refusal date', () => {
+      const id = createApplicant(db, leitung, applicantInput, NOW)
+      updateApplicant(db, leitung, id, { ...applicantInput, status: 'declined' }, NOW)
+      hireApplicant(db, leitung, id, { shortName: 'ML', validFrom: '2027-01-01', weeklyMinutes: 600, groupId: null, folder: null }, LATER)
+      expect(getApplicant(db, leitung, id)).toMatchObject({ status: 'hired', declinedAt: null })
     })
 
     it('„Einstellen“: creates the employee with contact data, moves documents into the folder and forms into the personnel file', () => {
@@ -230,9 +288,15 @@ describe('info visits and applicants', () => {
       // The Leitung may not use the folder „Bewerbung“ by default; „Qualifikationen“ yes.
       expect(errorCode(() => hireApplicant(db, leitung, id, hire, LATER))).toBe('forbidden')
       expect(errorCode(() => hireApplicant(db, leitung, id, { ...hire, folder: null }, LATER))).toBe('folder_required')
-      const employeeId = hireApplicant(db, leitung, id, { ...hire, folder: 'qualifications' }, LATER)
+      const { employeeId, contactCopied } = hireApplicant(db, leitung, id, { ...hire, folder: 'qualifications' }, LATER)
+      expect(contactCopied).toBe(true)
       expect(db.select().from(employees).where(eq(employees.id, employeeId)).get())
         .toMatchObject({ name: 'Mara Lind', shortName: 'ML', phone: '0160 555', email: 'mara@example.de', facilityId: 1 })
+      // The record keeps only kind, days, status and the link.
+      expect(db.select().from(applicantVisits).where(eq(applicantVisits.id, id)).get()).toMatchObject({
+        status: 'hired', employeeId, kind: 'hospitation', name: '', phone: '', email: '', notes: '', mentorEmployeeId: null, declinedAt: null,
+      })
+      expect(db.select().from(applicantVisitDays).where(eq(applicantVisitDays.visitId, id)).all()).toHaveLength(2)
       expect(db.select({ folder: employeeDocuments.folder, title: employeeDocuments.title }).from(employeeDocuments)
         .where(eq(employeeDocuments.employeeId, employeeId)).all()).toEqual([{ folder: 'qualifications', title: 'Lebenslauf' }])
       expect(getApplicant(db, leitung, id)).toMatchObject({ status: 'hired', employeeId, documents: [], forms: [] })
@@ -265,7 +329,7 @@ describe('info visits and applicants', () => {
   })
 
   describe('Löschfristen', () => {
-    it('lists info visits not taken over by visit day and declined applicants by refusal, open ones after 12 quiet months', () => {
+    it('lists info visits not taken over by visit day and declined applicants by refusal, open ones after the quiet months', () => {
       setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, infoVisitMonths: 3, applicantMonths: 2 })
       const old = createInfoVisit(db, leitung, { ...infoInput, visitDate: '2026-05-10' }, NOW)
       const recent = createInfoVisit(db, leitung, { ...infoInput, familyName: 'Berg', visitDate: '2026-11-01' }, NOW)
@@ -292,6 +356,17 @@ describe('info visits and applicants', () => {
       expect(db.select().from(forms).where(eq(forms.kind, 'info')).all()).toHaveLength(0)
       expect(deleteRetentionItem(db, traeger, `applicant:${declined}`, '2026-11-25')).toBe(1)
       expect(getApplicant(db, leitung, quiet).id).toBe(quiet)
+      expect(retentionOverview(db, '2026-11-25').find(item => item.key === `applicant:${quiet}`)).toMatchObject({ quietMonths: 12 })
+    })
+
+    it('takes the „ohne Abschluss“ months from the settings (1–60)', () => {
+      const quiet = createApplicant(db, leitung, { ...applicantInput, days: [{ date: '2026-06-01', from: null, to: null }] }, new Date('2026-05-01T10:00:00Z'))
+      const item = () => retentionOverview(db, '2026-11-25').find(entry => entry.key === `applicant:${quiet}`)
+      expect(item()).toBeUndefined()
+      setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, openApplicantMonths: 5 })
+      expect(item()).toMatchObject({ deletableFrom: '2026-11-01', due: true, applicantState: 'open', quietMonths: 5 })
+      expect(errorCode(() => setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, openApplicantMonths: 61 }))).toBe('retention_settings_invalid')
+      expect(errorCode(() => setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, openApplicantMonths: 0 }))).toBe('retention_settings_invalid')
     })
   })
 })

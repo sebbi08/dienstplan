@@ -6,13 +6,14 @@ import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
 import { usableFolders } from '~/utils/pdfFill'
-import { applicantBody, applicantForm, emptyApplicantForm } from '~/utils/visits'
+import { applicantBody, applicantForm, applicantName, dayRangeText, emptyApplicantForm } from '~/utils/visits'
 
 /**
  * An applicant (Mitarbeiter → Bewerbungen & Hospitationen): name, contact, kind, mentor, notes and assessment, the days
  * („Termine“), documents and forms; „Absagen“ / „Wieder öffnen“, „Einstellen“ (creates the employee and moves documents
  * and forms into the personnel file) and deleting. With visits.applicants.view only read; a hired one links to the
- * personnel file.
+ * personnel file and keeps only its kind, days, status and that link (phone and e-mail only when they could not go into
+ * the personal data, for visits.manage).
  */
 const t = de.visits
 useHead({ title: t.tabs.applicants })
@@ -70,7 +71,7 @@ async function decline() {
   if (await confirm(t.declineConfirm(form.name))) await save('declined', t.declined)
 }
 async function remove() {
-  if (!visit.value || !await confirm(t.deleteRecordConfirm(visit.value.name))) return
+  if (!visit.value || !await confirm(t.deleteRecordConfirm(applicantName(visit.value)))) return
   try {
     await $fetch<unknown>(`/api/applicant-visits/${id.value}`, { method: 'DELETE' })
     baseline.value = JSON.stringify(form)
@@ -84,6 +85,8 @@ async function remove() {
 
 // „Einstellen“
 const canHire = computed(() => can('employees.edit'))
+// Phone and e-mail go into „Anschrift und Kontakt“ only with that right (else they stay on this record).
+const contactStays = computed(() => !can('employees.personal') && (form.phone.trim() !== '' || form.email.trim() !== ''))
 const folders = computed(() => usableFolders(can))
 const folderItems = computed(() => folders.value.map(folder => ({ label: de.personnel.folders[folder], value: folder })))
 const groupItems = computed(() => [{ label: t.noGroup, value: 0 }, ...(groups.value ?? []).map(group => ({ label: group.name, value: group.id }))])
@@ -105,7 +108,7 @@ async function confirmHire() {
   const hours = Number(hire.weeklyHours.replace(',', '.'))
   busy.value = true
   try {
-    const { employeeId } = await $fetch<{ employeeId: number }>(`/api/applicant-visits/${id.value}/hire`, {
+    const { employeeId } = await $fetch<{ employeeId: number; contactCopied: boolean }>(`/api/applicant-visits/${id.value}/hire`, {
       method: 'POST',
       body: {
         shortName: hire.shortName, validFrom: hire.validFrom, weeklyMinutes: Math.round(hours * 60), groupId: hire.groupId || null,
@@ -133,7 +136,7 @@ async function confirmHire() {
     <p v-if="error || !visit" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorMessage(error) }}</p>
     <template v-else>
       <div class="flex flex-wrap items-center gap-2">
-        <h1 class="text-2xl font-semibold">{{ visit.name }}</h1>
+        <h1 class="text-2xl font-semibold">{{ applicantName(visit) }}</h1>
         <span class="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{{ t.kinds[visit.kind] }} · {{ t.applicantStatus[visit.status] }}</span>
         <span v-if="visit.declinedAt" class="text-xs text-gray-500">{{ t.declinedOn(formatDate(visit.declinedAt)) }}</span>
         <span class="text-xs text-gray-500">{{ t.lastChanged(visit.updatedBy, formatDateTime(visit.updatedAt)) }}</span>
@@ -146,7 +149,14 @@ async function confirmHire() {
       </UAlert>
       <p v-else-if="!visit.canManage" class="text-sm text-gray-600">{{ t.readOnly }}</p>
 
-      <form class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="save()">
+      <div v-if="visit.status === 'hired'" class="space-y-1 rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">
+        <p v-if="visit.dayCount">{{ t.termine }}: {{ dayRangeText(visit) }} · {{ t.days(visit.dayCount) }}</p>
+        <p v-if="visit.phone || visit.email">
+          {{ [visit.phone && `${t.fields.phone}: ${visit.phone}`, visit.email && `${t.fields.email}: ${visit.email}`].filter(Boolean).join(' · ') }}
+          <span class="block text-xs text-gray-500">{{ t.hireContactStayed }}</span>
+        </p>
+      </div>
+      <form v-else class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200" @submit.prevent="save()">
         <fieldset :disabled="!editable" class="grid gap-3 sm:grid-cols-2">
           <UFormField :label="t.fields.name" required>
             <UInput v-model="form.name" maxlength="120" class="w-full" required />
@@ -205,8 +215,10 @@ async function confirmHire() {
         <p v-if="editable && !canHire" class="text-xs text-gray-500">{{ t.hireNoRight }}</p>
       </form>
 
-      <VisitsDocuments kind="applicant" :record-id="visit.id" :owner-name="visit.name" :documents="visit.documents" :editable="editable" @changed="refresh" />
-      <VisitsForms kind="applicant" :record-id="visit.id" :forms="visit.forms" :templates="visit.templates" :editable="editable" :refresh-list="refresh" />
+      <template v-if="visit.status !== 'hired'">
+        <VisitsDocuments kind="applicant" :record-id="visit.id" :owner-name="visit.name" :documents="visit.documents" :editable="editable" @changed="refresh" />
+        <VisitsForms kind="applicant" :record-id="visit.id" :forms="visit.forms" :templates="visit.templates" :editable="editable" :refresh-list="refresh" />
+      </template>
 
       <div v-if="visit.canManage" class="flex justify-end">
         <UButton color="error" variant="ghost" icon="i-lucide-trash-2" :label="t.deleteRecord" @click="remove" />
@@ -217,6 +229,7 @@ async function confirmHire() {
       <template #body>
         <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="confirmHire">
           <p class="text-sm text-gray-600 sm:col-span-2">{{ t.hireIntro }}</p>
+          <p v-if="contactStays" class="text-sm text-amber-800 sm:col-span-2">{{ t.hireContactHint }}</p>
           <UFormField :label="t.shortName" required>
             <UInput v-model="hire.shortName" maxlength="10" class="w-full" required />
           </UFormField>

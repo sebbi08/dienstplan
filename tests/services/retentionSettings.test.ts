@@ -7,7 +7,7 @@ import { getRetentionSettings, setRetentionSettings } from '../../server/service
 import { RETENTION_DEFAULTS } from '../../shared/domain/retention'
 import { addFacility, createTestDb, errorCode } from '../helpers/fixtures'
 
-const valid = { timeYears: 4, assessmentYears: 5, paidOvertimeYears: 12, pensionYears: 35, cashYears: 8, bemYears: 4, maternityYears: 3, employeeDelete: 'provider', payrollOffice: false, infoVisitMonths: 18, applicantMonths: 4 }
+const valid = { timeYears: 4, assessmentYears: 5, paidOvertimeYears: 12, pensionYears: 35, cashYears: 8, bemYears: 4, maternityYears: 3, employeeDelete: 'provider', payrollOffice: false, infoVisitMonths: 18, applicantMonths: 4, openApplicantMonths: 9 }
 
 describe('retention settings', () => {
   let db: Db
@@ -67,9 +67,12 @@ describe('retention settings', () => {
 
   it('keeps the stored BEM years when a body from before the BEM leaves them out', () => {
     setRetentionSettings(db, 1, valid)
-    const { bemYears: _left, maternityYears: _also, payrollOffice: _payroll, infoVisitMonths: _info, applicantMonths: _applicant, ...old } = valid
+    const {
+      bemYears: _left, maternityYears: _also, payrollOffice: _payroll, infoVisitMonths: _info, applicantMonths: _applicant,
+      openApplicantMonths: _open, ...old
+    } = valid
     expect(setRetentionSettings(db, 1, { ...old, timeYears: 6 })).toEqual({ ...valid, timeYears: 6 })
-    expect(getRetentionSettings(db, 1)).toMatchObject({ timeYears: 6, bemYears: 4, maternityYears: 3, payrollOffice: false, infoVisitMonths: 18, applicantMonths: 4 })
+    expect(getRetentionSettings(db, 1)).toMatchObject({ timeYears: 6, bemYears: 4, maternityYears: 3, payrollOffice: false, infoVisitMonths: 18, applicantMonths: 4, openApplicantMonths: 9 })
   })
 
   it('answers 404 for a facility that does not exist', () => {

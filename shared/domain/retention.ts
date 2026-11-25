@@ -32,6 +32,11 @@ export interface RetentionSettings {
   infoVisitMonths: number
   /** Declined applicants (Bewerbung, Hospitation, Praktikum): whole months after the refusal (1–24, default 6). */
   applicantMonths: number
+  /**
+   * Open applicants without any activity („ohne Abschluss“): listed under Löschfristen this many whole months after the
+   * last change or day (1–60, default 12).
+   */
+  openApplicantMonths: number
 }
 
 /** Without a Lohnbüro: „Lohn und Steuer“ are kept 6 years after the end of the leaving year (§ 41 EStG, § 147 AO). */
@@ -49,6 +54,7 @@ export const RETENTION_DEFAULTS: RetentionSettings = {
   payrollOffice: true,
   infoVisitMonths: 12,
   applicantMonths: 6,
+  openApplicantMonths: 12,
 }
 
 export const RETENTION_YEARS_RANGE = { min: 1, max: 40 } as const
@@ -58,6 +64,8 @@ export const INFO_VISIT_MONTHS_RANGE = { min: 1, max: 60 } as const
  * AGG, the three months for the lawsuit (§ 61b ArbGG) and the time the post takes.
  */
 export const APPLICANT_MONTHS_RANGE = { min: 1, max: 24 } as const
+/** Open applicants without activity: 1 to 60 months, like the info visits. */
+export const OPEN_APPLICANT_MONTHS_RANGE = { min: 1, max: 60 } as const
 /**
  * „Ausgezahlte Überstunden, Verträge, Gehalt“ are kept at least this long: Buchungsbelege 8 years (§ 147 Abs. 3 AO,
  * § 257 Abs. 4 HGB); it also covers the 5 years of the accident reports in it (DGUV Vorschrift 1 § 24 Abs. 6).
@@ -147,5 +155,6 @@ export function checkRetentionSettings(input: unknown, storedPaidOvertimeYears?:
     payrollOffice: raw.payrollOffice,
     infoVisitMonths: years(raw.infoVisitMonths, INFO_VISIT_MONTHS_RANGE.min, INFO_VISIT_MONTHS_RANGE.max),
     applicantMonths: years(raw.applicantMonths, APPLICANT_MONTHS_RANGE.min, APPLICANT_MONTHS_RANGE.max),
+    openApplicantMonths: years(raw.openApplicantMonths, OPEN_APPLICANT_MONTHS_RANGE.min, OPEN_APPLICANT_MONTHS_RANGE.max),
   }
 }

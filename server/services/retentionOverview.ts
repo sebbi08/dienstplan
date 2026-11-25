@@ -4,7 +4,7 @@ import { can } from '../../shared/domain/permissions'
 import { retentionDueDates, type RetentionSettings } from '../../shared/domain/retention'
 import type { IsoDate } from '../../shared/domain/types'
 import {
-  addMonths, applicantDeletableFrom, applicantLastActivity, infoVisitDeletableFrom, OPEN_APPLICANT_MONTHS,
+  addMonths, applicantDeletableFrom, applicantLastActivity, infoVisitDeletableFrom,
 } from '../../shared/domain/visits'
 import type { RetentionDeleteResult, RetentionItemCategory, RetentionItemDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -221,19 +221,21 @@ type ApplicantRow = { id: number; facilityId: number; name: string; status: stri
 
 /**
  * An applicant not hired: declined, deletable the Träger's months after the refusal; open without any activity
- * (applicantLastActivity: last change or last day) for OPEN_APPLICANT_MONTHS, due from then on („ohne Abschluss“; not
+ * (applicantLastActivity: last change or last day) for the Träger's openApplicantMonths, due from then on („ohne Abschluss“; not
  * listed before). null for a hired one (it goes with the personnel file) and an open one with recent activity.
  */
 function applicantItem(db: Db, row: ApplicantRow, ctx: Context): RetentionItemDto | null {
   let deletableFrom: IsoDate
   let applicantState: 'declined' | 'open'
+  let quietMonths: number | undefined
   if (row.status === 'declined' && row.declinedAt !== null) {
     deletableFrom = applicantDeletableFrom(row.declinedAt, ctx.settings(row.facilityId).applicantMonths)
     applicantState = 'declined'
   }
   else if (row.status === 'open') {
     const days = db.select({ date: applicantVisitDays.date }).from(applicantVisitDays).where(eq(applicantVisitDays.visitId, row.id)).all()
-    deletableFrom = addMonths(applicantLastActivity(row.updatedAt, days.map(day => day.date)), OPEN_APPLICANT_MONTHS)
+    quietMonths = ctx.settings(row.facilityId).openApplicantMonths
+    deletableFrom = addMonths(applicantLastActivity(row.updatedAt, days.map(day => day.date)), quietMonths)
     if (deletableFrom > ctx.today) return null
     applicantState = 'open'
   }
@@ -242,7 +244,7 @@ function applicantItem(db: Db, row: ApplicantRow, ctx: Context): RetentionItemDt
   }
   return {
     key: `applicant:${row.id}`, kind: 'applicant', category: null, facilityId: row.facilityId, facilityName: ctx.facilityName(row.facilityId),
-    name: row.name, deletableFrom, applicantState, due: deletableFrom <= ctx.today,
+    name: row.name, deletableFrom, applicantState, ...(quietMonths === undefined ? {} : { quietMonths }), due: deletableFrom <= ctx.today,
   }
 }
 

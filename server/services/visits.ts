@@ -14,7 +14,7 @@ import type {
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  applicantVisitDays, applicantVisits, childDocuments, employeeDocuments, employees, forms, infoVisits, users, visitDocuments,
+  applicantVisitDays, applicantVisits, childDocuments, children, employeeDocuments, employees, forms, infoVisits, users, visitDocuments,
 } from '../db/schema'
 import { asChildPermission } from '../lib/childViewer'
 import { ServiceError } from '../lib/errors'
@@ -30,12 +30,15 @@ import { actorName, loadTemplate, templateChoices, withFormErrors } from './form
 import { resolveChildViewer } from './tabletUnlock'
 
 /**
- * „Infogespräche & Hospitationen“ (Mehr): info visits of families and applicants' visits (Bewerbung, Hospitation,
- * Praktikum) of the facility, with documents (stored like the child documents) and forms of the kinds `info` and
+ * „Infogespräche“ (Kinder → Planung) and „Bewerbungen & Hospitationen“ (Mitarbeiter): info visits of families and
+ * applicants' visits (Bewerbung, Hospitation, Praktikum) of the facility, with documents (stored like the child documents) and forms of the kinds `info` and
  * `applicant`. visits.manage maintains them; visits.applicants.view (which visits.manage includes) reads the applicants
  * only. „Als Vormerkung übernehmen“ needs the right to create children as well, „Einstellen“ the right to create
  * employees. Another facility's record is 404; nothing of it reaches the tablet (the routes do not let it in). The app
  * deletes nothing by itself: the Träger deletes the records under Löschfristen (server/services/retentionOverview.ts).
+ * Once taken over or hired, a record keeps only its date, kind, status and the link (minimiseInfoVisit /
+ * minimiseApplicant): the contact data, names and notes live in the child's or the personnel record from then on, under
+ * that record's rights, so neither a later move of the child or employee nor visits.applicants.view shows them here.
  */
 
 /** Whoever works with the visits: the session user in the facility of the request. */
@@ -146,10 +149,25 @@ function assertInfoOpen(row: InfoVisitRow): void {
   if (row.status === 'waitlisted') throw new ServiceError(409, 'visit_transferred')
 }
 
-function infoListItem(row: InfoVisitRow, guides: Map<number, string>, counts: ReturnType<typeof countsOf>): InfoVisitListItemDto {
+/**
+ * The names of the children the visits were taken over as, for those still in the facility (a child that moved away is
+ * not named here any more).
+ */
+function linkedChildNames(db: Db, facilityId: number, rows: InfoVisitRow[]): Map<number, string> {
+  const ids = [...new Set(rows.map(row => row.childId).filter((id): id is number => id !== null))]
+  if (ids.length === 0) return new Map()
+  return new Map(db.select({ id: children.id, firstName: children.firstName, lastName: children.lastName }).from(children)
+    .where(and(inArray(children.id, ids), eq(children.facilityId, facilityId))).all()
+    .map(row => [row.id, `${row.firstName} ${row.lastName}`.trim()]))
+}
+
+function infoListItem(
+  row: InfoVisitRow, guides: Map<number, string>, counts: ReturnType<typeof countsOf>, linked: Map<number, string>,
+): InfoVisitListItemDto {
   return {
     id: row.id, visitDate: row.visitDate, visitStart: row.visitStart, familyName: row.familyName, childFirstName: row.childFirstName,
     childLastName: row.childLastName, status: row.status, childId: row.childId,
+    linkedName: row.childId === null ? null : linked.get(row.childId) ?? null,
     guidedBy: row.guidedByEmployeeId !== null ? guides.get(row.guidedByEmployeeId) ?? row.guidedByName : row.guidedByName,
     phone: row.phone, email: row.email, documentCount: counts.documents.get(row.id) ?? 0, formCount: counts.forms.get(row.id) ?? 0,
     updatedAt: row.updatedAt,
@@ -170,7 +188,8 @@ export function listInfoVisits(db: Db, actor: VisitActor): InfoVisitListItemDto[
     .orderBy(desc(infoVisits.visitDate), desc(infoVisits.visitStart), desc(infoVisits.id)).all()
   const counts = countsOf(db, 'info', rows.map(row => row.id))
   const guides = guideNames(db, rows)
-  return rows.map(row => infoListItem(row, guides, counts))
+  const linked = linkedChildNames(db, actor.facilityId, rows)
+  return rows.map(row => infoListItem(row, guides, counts, linked))
 }
 
 /** One info visit with its documents, forms, the templates to start a form from and the staff to choose the guide from. */
@@ -179,7 +198,7 @@ export function getInfoVisit(db: Db, actor: VisitActor, id: number, today: IsoDa
   const row = loadInfoVisit(db, actor.facilityId, id)
   const names = usernames(db, [row.createdBy, row.updatedBy])
   return {
-    ...infoListItem(row, guideNames(db, [row]), countsOf(db, 'info', [row.id])),
+    ...infoListItem(row, guideNames(db, [row]), countsOf(db, 'info', [row.id]), linkedChildNames(db, actor.facilityId, [row])),
     childBirthDate: row.childBirthDate, desiredStart: row.desiredStart, guidedByEmployeeId: row.guidedByEmployeeId,
     guidedByName: row.guidedByName, notes: row.notes, createdAt: row.createdAt,
     createdBy: row.createdBy === null ? null : names.get(row.createdBy) ?? null,
@@ -224,11 +243,18 @@ export function deleteInfoVisit(db: Db, actor: VisitActor, id: number): void {
   db.delete(infoVisits).where(eq(infoVisits.id, id)).run()
 }
 
+/** What a taken-over visit keeps no more (its date, time, status and the child link stay). */
+const MINIMISED_INFO_VISIT = {
+  familyName: '', phone: '', email: '', childFirstName: '', childLastName: '', childBirthDate: null, desiredStart: null,
+  guidedByEmployeeId: null, guidedByName: '', notes: '',
+} as const
+
 /**
  * „Als Vormerkung übernehmen“: creates the waitlist child (names and birth date, the desired start as planned entry, the
  * visit day as info meeting date, the notes as the record's note), the family as a contact (phone, e-mail in its note),
  * moves the documents into the child's record with the chosen document type (its confidentiality default) and the forms
- * (they stay readable in the record's forms) and marks the visit as waitlisted with the child. Needs the right to create
+ * (they stay readable in the record's forms, for childForms.manage only) and marks the visit as waitlisted with the
+ * child, keeping only its date, time, status and that link (MINIMISED_INFO_VISIT). Needs the right to create
  * children with the own account (403 children_tablet_only / forbidden otherwise, as the child pages). The child needs a
  * first and last name (400 visit_child_name_required) and a birth date (given here, prefilled from the visit). With
  * documents a document type of the facility is required (400 document_type_required, 404 document_type_not_found).
@@ -274,7 +300,8 @@ export function takeOverInfoVisit(
       settleDocumentReview(tx, childId)
     }
     tx.update(forms).set({ childId, infoVisitId: null, formDate: row.visitDate, formStart: row.visitStart }).where(formsOf('info', id)).run()
-    tx.update(infoVisits).set({ status: 'waitlisted', childId, updatedAt: at, updatedBy: actor.id }).where(eq(infoVisits.id, id)).run()
+    tx.update(infoVisits).set({ ...MINIMISED_INFO_VISIT, status: 'waitlisted', childId, updatedAt: at, updatedBy: actor.id })
+      .where(eq(infoVisits.id, id)).run()
     return childId
   })
 }
@@ -304,14 +331,31 @@ function daysOf(db: Db, ids: number[]): Map<number, { date: IsoDate; from: numbe
   return result
 }
 
+/** The names of the employees the applicants were hired as, for those still in the facility. */
+function linkedEmployeeNames(db: Db, facilityId: number, rows: ApplicantRow[]): Map<number, string> {
+  const ids = [...new Set(rows.map(row => row.employeeId).filter((id): id is number => id !== null))]
+  if (ids.length === 0) return new Map()
+  return new Map(db.select({ id: employees.id, name: employees.name }).from(employees)
+    .where(and(inArray(employees.id, ids), eq(employees.facilityId, facilityId))).all().map(row => [row.id, row.name]))
+}
+
+/**
+ * A hired applicant's phone and e-mail stay on the record only when they could not go into the personal data (see
+ * hireApplicant); then only visits.manage reads them.
+ */
+const contactOf = (row: ApplicantRow, manager: boolean) =>
+  (row.status === 'hired' && !manager ? { phone: '', email: '' } : { phone: row.phone, email: row.email })
+
 function applicantListItem(
   row: ApplicantRow, days: { date: IsoDate }[], mentors: Map<number, string>, counts: ReturnType<typeof countsOf>,
+  linked: Map<number, string>, manager: boolean,
 ): ApplicantVisitListItemDto {
   return {
     id: row.id, name: row.name, kind: row.kind, status: row.status, declinedAt: row.declinedAt, employeeId: row.employeeId,
+    linkedName: row.employeeId === null ? null : linked.get(row.employeeId) ?? null,
     firstDay: days[0]?.date ?? null, lastDay: days.at(-1)?.date ?? null, dayCount: days.length,
     mentorName: row.mentorEmployeeId === null ? null : mentors.get(row.mentorEmployeeId) ?? null,
-    phone: row.phone, email: row.email, documentCount: counts.documents.get(row.id) ?? 0, formCount: counts.forms.get(row.id) ?? 0,
+    ...contactOf(row, manager), documentCount: counts.documents.get(row.id) ?? 0, formCount: counts.forms.get(row.id) ?? 0,
     updatedAt: row.updatedAt,
   }
 }
@@ -331,7 +375,9 @@ export function listApplicants(db: Db, actor: VisitActor): ApplicantVisitListIte
   const days = daysOf(db, rows.map(row => row.id))
   const counts = countsOf(db, 'applicant', rows.map(row => row.id))
   const mentors = mentorNames(db, rows)
-  return rows.map(row => applicantListItem(row, days.get(row.id)!, mentors, counts))
+  const linked = linkedEmployeeNames(db, actor.facilityId, rows)
+  const manager = can(actor.permissions, 'visits.manage')
+  return rows.map(row => applicantListItem(row, days.get(row.id)!, mentors, counts, linked, manager))
     .sort((a, b) => (b.firstDay ?? '').localeCompare(a.firstDay ?? '') || b.id - a.id)
 }
 
@@ -343,7 +389,7 @@ export function getApplicant(db: Db, actor: VisitActor, id: number, today: IsoDa
   const names = usernames(db, [row.createdBy, row.updatedBy])
   const manager = can(actor.permissions, 'visits.manage')
   return {
-    ...applicantListItem(row, days, mentorNames(db, [row]), countsOf(db, 'applicant', [row.id])),
+    ...applicantListItem(row, days, mentorNames(db, [row]), countsOf(db, 'applicant', [row.id]), linkedEmployeeNames(db, actor.facilityId, [row]), manager),
     notes: row.notes, mentorEmployeeId: row.mentorEmployeeId, days, createdAt: row.createdAt,
     createdBy: row.createdBy === null ? null : names.get(row.createdBy) ?? null,
     updatedBy: row.updatedBy === null ? null : names.get(row.updatedBy) ?? null,
@@ -404,13 +450,17 @@ export function deleteApplicant(db: Db, actor: VisitActor, id: number): void {
 
 /**
  * „Einstellen“: creates the employee in the facility (name; short name, start and weekly hours as the hire form gives
- * them; the phone and e-mail as personal data – the Träger completes the contract data), moves the documents into the
- * chosen folder of the personnel file (one the actor may use: 403 forbidden; required with documents: 400
- * folder_required) and the forms into the personnel file (readable there under Dokumente) and marks the applicant as
- * hired with the employee. Needs the right to create employees (403 forbidden). Answers the employee's id; the route
- * checkpoints the WAL.
+ * them – the Träger completes the contract data), moves the documents into the chosen folder of the personnel file (one
+ * the actor may use: 403 forbidden; required with documents: 400 folder_required) and the forms into the personnel file
+ * (readable there under Dokumente) and marks the applicant as hired with the employee (a refusal date goes). The phone
+ * and e-mail go into the personal data only for an actor with employees.personal („Anschrift und Kontakt“); otherwise
+ * they stay on the record (`contactCopied` false). Apart from that the record keeps only its kind, days, status and the
+ * link (name, notes and mentor go). Needs the right to create employees (403 forbidden). Answers the employee's id; the
+ * route checkpoints the WAL.
  */
-export function hireApplicant(db: Db, actor: VisitActor, id: number, input: ApplicantHireInput, now: Date = new Date()): number {
+export function hireApplicant(
+  db: Db, actor: VisitActor, id: number, input: ApplicantHireInput, now: Date = new Date(),
+): { employeeId: number; contactCopied: boolean } {
   assertManager(actor)
   if (!can(actor.permissions, 'employees.edit')) throw new ServiceError(403, 'forbidden')
   const row = loadApplicant(db, actor.facilityId, id)
@@ -422,12 +472,15 @@ export function hireApplicant(db: Db, actor: VisitActor, id: number, input: Appl
     if (!can(actor.permissions, FOLDER_PERMISSION[folder])) throw new ServiceError(403, 'forbidden')
   }
   const at = now.toISOString()
+  const contactCopied = can(actor.permissions, 'employees.personal')
   return db.transaction((tx) => {
     const employeeId = createEmployee(tx, actor, actor.facilityId, {
       name: row.name, shortName: input.shortName, weeklyMinutes: input.weeklyMinutes, validFrom: input.validFrom, groupId: input.groupId,
     }, now)
-    tx.update(employees).set({ phone: row.phone === '' ? null : row.phone, email: row.email === '' ? null : row.email })
-      .where(eq(employees.id, employeeId)).run()
+    if (contactCopied) {
+      tx.update(employees).set({ phone: row.phone === '' ? null : row.phone, email: row.email === '' ? null : row.email })
+        .where(eq(employees.id, employeeId)).run()
+    }
     if (folder !== null) {
       for (const documentId of documentIds) {
         const doc = tx.select().from(visitDocuments).where(eq(visitDocuments.id, documentId)).get()!
@@ -439,8 +492,11 @@ export function hireApplicant(db: Db, actor: VisitActor, id: number, input: Appl
       tx.delete(visitDocuments).where(ownerOf('applicant', id)).run()
     }
     tx.update(forms).set({ employeeId, applicantVisitId: null }).where(formsOf('applicant', id)).run()
-    tx.update(applicantVisits).set({ status: 'hired', employeeId, updatedAt: at, updatedBy: actor.id }).where(eq(applicantVisits.id, id)).run()
-    return employeeId
+    tx.update(applicantVisits).set({
+      status: 'hired', employeeId, declinedAt: null, name: '', notes: '', mentorEmployeeId: null,
+      ...(contactCopied ? { phone: '', email: '' } : {}), updatedAt: at, updatedBy: actor.id,
+    }).where(eq(applicantVisits.id, id)).run()
+    return { employeeId, contactCopied }
   })
 }
 

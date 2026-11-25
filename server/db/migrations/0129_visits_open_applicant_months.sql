@@ -1,0 +1,1 @@
+ALTER TABLE `retention_settings` ADD `open_applicant_months` integer DEFAULT 12 NOT NULL;

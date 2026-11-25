@@ -1032,9 +1032,12 @@ export interface RetentionItemDto {
   accidentHold?: true
   /**
    * Only for an applicant: 'declined' (counted from the refusal) or 'open' („ohne Abschluss“: no activity for
-   * OPEN_APPLICANT_MONTHS, listed as due from then on). Info visits and applicants name the family or person.
+   * `quietMonths`, the facility's setting, listed as due from then on). Info visits and applicants name the family or
+   * person.
    */
   applicantState?: 'declined' | 'open'
+  /** Only for an open applicant: the months without activity after which it is listed. */
+  quietMonths?: number
   /** May be deleted today. */
   due: boolean
 }
@@ -4676,6 +4679,8 @@ export interface InfoVisitListItemDto {
   status: InfoVisitStatus
   /** The waitlist child it was taken over as (null otherwise, or once that record is gone). */
   childId: number | null
+  /** That child's name while it is in this facility (a taken-over record keeps no names of its own). */
+  linkedName: string | null
   /** The employee's name, else the free text. */
   guidedBy: string
   phone: string
@@ -4738,6 +4743,8 @@ export interface ApplicantVisitListItemDto {
   declinedAt: IsoDate | null
   /** The employee it was hired as (null otherwise, or once that record is gone). */
   employeeId: number | null
+  /** That employee's name while they are in this facility (a hired record keeps no name of its own). */
+  linkedName: string | null
   firstDay: IsoDate | null
   lastDay: IsoDate | null
   dayCount: number

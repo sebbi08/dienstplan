@@ -1517,6 +1517,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(sqlite.prepare('SELECT * FROM retention_settings').all()).toEqual([{
       facility_id: 2, time_years: 2, assessment_years: 3, paid_overtime_years: 8, pension_years: 30, cash_years: 10,
       employee_delete: 'managers', bem_years: 3, maternity_years: 2, payroll_office: 1, info_visit_months: 12, applicant_months: 6,
+      open_applicant_months: 12,
     }])
     sqlite.exec(`INSERT INTO balance_adjustments (employee_id, date, minutes, reason) VALUES (1, '2026-10-01', 60, 'Neu')`)
     expect(sqlite.prepare(`SELECT paid_out FROM balance_adjustments WHERE reason = 'Neu'`).get()).toEqual({ paid_out: 0 })
@@ -2777,6 +2778,13 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     sqlite.exec('DELETE FROM form_templates WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
     expect(sqlite.prepare('SELECT count(*) AS n FROM form_template_categories WHERE facility_id = 2').get()).toEqual({ n: 0 })
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0129 adds the months after which open applicants without activity are listed (default 12)', () => {
+    const { db, sqlite } = databaseAt('0128')
+    sqlite.exec('INSERT INTO retention_settings (facility_id, applicant_months) VALUES (1, 4)')
+    migrateThrough(db, '0129')
+    expect(sqlite.prepare('SELECT applicant_months, open_applicant_months FROM retention_settings').get()).toEqual({ applicant_months: 4, open_applicant_months: 12 })
   })
 
   it('0126 adds info visits, applicants with their days and documents, forms of a visit and the retention months; all gone with their record', () => {

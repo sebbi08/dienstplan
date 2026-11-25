@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
-  APPLICANT_MONTHS_RANGE, EMPLOYEE_DELETE_MODES, INFO_VISIT_MONTHS_RANGE, PAID_OVERTIME_MIN_YEARS, RETENTION_CASH_YEARS_RANGE,
+  APPLICANT_MONTHS_RANGE, EMPLOYEE_DELETE_MODES, INFO_VISIT_MONTHS_RANGE, OPEN_APPLICANT_MONTHS_RANGE, PAID_OVERTIME_MIN_YEARS,
+  RETENTION_CASH_YEARS_RANGE,
   RETENTION_DEFAULTS, RETENTION_YEARS_RANGE, type RetentionSettings,
 } from '#shared/domain/retention'
 import { de } from '~/locales/de'
@@ -79,6 +80,15 @@ const save = () => dirty.value && run(() => $fetch<RetentionSettings>('/api/rete
           <UInput
             v-model.number="form.applicantMonths" type="number" :min="APPLICANT_MONTHS_RANGE.min" :max="APPLICANT_MONTHS_RANGE.max" step="1"
             required class="w-24" :disabled="!canEditRetention"
+          />
+          <span class="text-sm text-gray-600">{{ t.months }}</span>
+        </div>
+      </UFormField>
+      <UFormField :label="t.openApplicantMonths" :help="t.openApplicantMonthsHelp">
+        <div class="flex items-center gap-2">
+          <UInput
+            v-model.number="form.openApplicantMonths" type="number" :min="OPEN_APPLICANT_MONTHS_RANGE.min" :max="OPEN_APPLICANT_MONTHS_RANGE.max"
+            step="1" required class="w-24" :disabled="!canEditRetention"
           />
           <span class="text-sm text-gray-600">{{ t.months }}</span>
         </div>

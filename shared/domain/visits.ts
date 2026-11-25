@@ -3,9 +3,10 @@ import { emailError } from './personnel'
 import type { IsoDate } from './types'
 
 /**
- * „Infogespräche & Hospitationen“ (Mehr, server/services/visits.ts): info visits of families before a Vormerkung and
- * the visits of applicants (Bewerbung, Hospitation, Praktikum) with their days. The rules both sides share: statuses,
- * limits, the checks of the input and the retention dates (deleted by hand under Mehr → Löschfristen).
+ * „Infogespräche“ (Kinder → Planung) and „Bewerbungen & Hospitationen“ (Mitarbeiter; server/services/visits.ts): info
+ * visits of families before a Vormerkung and the visits of applicants (Bewerbung, Hospitation, Praktikum) with their
+ * days. The rules both sides share: statuses, limits, the checks of the input and the retention dates (deleted by hand
+ * under Mehr → Löschfristen).
  */
 
 export const INFO_VISIT_STATUSES = ['open', 'waitlisted', 'declined'] as const
@@ -18,9 +19,6 @@ export type ApplicantStatus = typeof APPLICANT_STATUSES[number]
 export const VISIT_LIMITS = {
   name: 120, phone: 50, email: 200, notes: 2000, guidedByName: 100, documentTitle: 200, days: 30,
 } as const
-
-/** Open applicants without any activity are listed under Löschfristen („ohne Abschluss“) this many months after it. */
-export const OPEN_APPLICANT_MONTHS = 12
 
 /** Domain error with a machine-readable code; the services answer it as 400. */
 export class VisitError extends Error {

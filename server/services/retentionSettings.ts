@@ -28,12 +28,12 @@ export function getRetentionSettings(db: Db, facilityId: number): RetentionSetti
  * hand); data deleted under the old periods stays deleted. Answers the settings as stored. A body without `bemYears`
  * (a settings page loaded before the BEM existed) keeps the stored BEM years, one without `maternityYears` the stored
  * Mutterschutz years, one without `payrollOffice` the stored „Lohnbüro“ switch, one without `infoVisitMonths` /
- * `applicantMonths` the stored months of the info visits and the applicants.
+ * `applicantMonths` / `openApplicantMonths` the stored months of the info visits and the applicants.
  */
 export function setRetentionSettings(db: Db, facilityId: number, input: unknown): RetentionSettings {
   const stored = getRetentionSettings(db, facilityId)
   const isObject = typeof input === 'object' && input !== null && !Array.isArray(input)
-  type Kept = 'bemYears' | 'maternityYears' | 'payrollOffice' | 'infoVisitMonths' | 'applicantMonths'
+  type Kept = 'bemYears' | 'maternityYears' | 'payrollOffice' | 'infoVisitMonths' | 'applicantMonths' | 'openApplicantMonths'
   const raw = isObject ? input as Partial<Record<Kept, unknown>> : null
   const kept = (key: Kept) => (raw![key] === undefined ? stored[key] : raw![key])
   const body = raw
@@ -44,6 +44,7 @@ export function setRetentionSettings(db: Db, facilityId: number, input: unknown)
         payrollOffice: kept('payrollOffice'),
         infoVisitMonths: kept('infoVisitMonths'),
         applicantMonths: kept('applicantMonths'),
+        openApplicantMonths: kept('openApplicantMonths'),
       }
     : input
   let settings: RetentionSettings
