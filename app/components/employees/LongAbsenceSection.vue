@@ -96,7 +96,7 @@ async function remove(item: LongAbsenceDto) {
 <template>
   <section class="space-y-4 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <div class="flex flex-wrap items-start gap-3">
-      <div class="min-w-0 flex-1">
+      <div class="min-w-0 flex-1 basis-64">
         <h2 class="font-semibold">{{ t.title }}</h2>
         <MoreHint class="text-sm text-gray-500" :text="t.intro" :more="t.introMore" />
       </div>

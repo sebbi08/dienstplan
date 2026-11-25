@@ -276,7 +276,7 @@ export const de = {
   sickDays: {
     title: 'Krankheitstage', printTitle: (year: number) => `Krankheitstage ${year}`, name: 'Mitarbeiter:in', periods: 'Zeiträume',
     total: 'Arbeitstage gesamt', none: 'keine', days: (count: number) => (count === 1 ? '1 Tag' : `${count} Tage`),
-    hint: 'Grundlage sind die Einträge „Krank“ im Dienstplan. Gezählt werden Arbeitstage (ohne Wochenenden und Feiertage).',
+    hint: 'Grundlage sind die Einträge „Krank“ im Dienstplan und eine längere Abwesenheit Langzeitkrank oder Kur/Reha (bis heute). Gezählt werden Arbeitstage (ohne Wochenenden und Feiertage).',
     allStaff: 'Alle Mitarbeitenden', noneThisYear: 'Keine Krankheitstage in diesem Jahr.',
   },
   /** "Im Dienst erkrankt": someone fell ill during the duty and left early (Leitung and Träger only). */
@@ -2940,7 +2940,7 @@ export const de = {
     intro: 'Wer innerhalb eines Jahres länger als 6 Wochen ununterbrochen oder wiederholt arbeitsunfähig oder teilweise arbeitsunfähig war, bekommt ein BEM angeboten (§ 167 Abs. 2 SGB IX). Diesen Bereich sehen nur Leitung und Träger, nie die Person selbst.',
     introMore: 'Maßgeblich ist die Fassung seit 30.07.2026. Teilweise Arbeitsunfähigkeit gibt es erst ab 01.01.2028 – bis dahin zählt die App nur „Krank“. Die Teilnahme ist freiwillig.',
     sickDays: (days: number, limit: number) => `Krankheitstage letzte 12 Monate: ${days} von ${limit}`,
-    sickDaysHint: (workdays: number) => `Gezählt werden Arbeitstage mit „Krank“ (nicht „Kind krank“, nicht „im Dienst erkrankt“). Mehr als 6 Wochen sind mehr als 6 × ${workdays} Arbeitstage.`,
+    sickDaysHint: (workdays: number) => `Gezählt werden Arbeitstage mit „Krank“ und einer längeren Abwesenheit Langzeitkrank oder Kur/Reha (nicht „Kind krank“, nicht „im Dienst erkrankt“). Mehr als 6 Wochen sind mehr als 6 × ${workdays} Arbeitstage.`,
     restarted: (date: string) => `Gezählt ab ${date} (nach dem Ende des letzten BEM).`,
     over: 'Mehr als 6 Wochen: bitte ein BEM anbieten.',
     none: 'Zurzeit läuft kein BEM.',
