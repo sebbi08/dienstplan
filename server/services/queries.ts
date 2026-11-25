@@ -9,7 +9,8 @@ import { planEntryColor } from '../../shared/domain/weekTemplates'
 import type { ClosureDto, CodeDto, ColorKey, CoverageRuleDto, EntryDto, TemplateDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
-  absenceCodes, closures, coverageRules, employeeHours, employees, entries, facilities, helpOuts, parentalLeaves, shiftTemplates,
+  absenceCodes, closures, coverageRules, employeeHours, employees, entries, facilities, helpOuts, longAbsences, parentalLeaves,
+  shiftTemplates,
 } from '../db/schema'
 import { allFacilityEveRules } from './holidayRules'
 
@@ -153,6 +154,9 @@ function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
     partTimeWeeklyMinutes: parentalLeaves.partTimeWeeklyMinutes, partTimeWorkdays: parentalLeaves.partTimeWorkdays,
     reduceLeave: parentalLeaves.reduceLeave,
   }).from(parentalLeaves).orderBy(asc(parentalLeaves.start)).all()
+  const absences = db.select({
+    employeeId: longAbsences.employeeId, start: longAbsences.start, end: longAbsences.end, reason: longAbsences.reason,
+  }).from(longAbsences).orderBy(asc(longAbsences.start)).all()
   const eveRules = allFacilityEveRules(db)
   return db.select({
     row: RECORD_COLUMNS, state: facilities.state, assumptionDay: facilities.assumptionDay, balanceFrom: employees.balanceFrom,
@@ -176,6 +180,9 @@ function loadEmployeeRecords(db: Db, where: SQL | undefined): EmployeeRecord[] {
           balanceFrom,
           // Elternzeit: no target (full) or the part-time hours; no working days in a full one (targets.ts).
           parentalLeaves: leaves.filter(leave => leave.employeeId === row.id)
+            .map(({ employeeId: _, ...period }) => period),
+          // „Längere Abwesenheit“: Langzeitkrank and Kur/Reha credit their target, Sonstiges has none (targets.ts, balance.ts).
+          longAbsences: absences.filter(absence => absence.employeeId === row.id)
             .map(({ employeeId: _, ...period }) => period),
         },
       }

@@ -348,6 +348,7 @@ function navigate(nextYear: number, nextMonth: number) {
             @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
             @remove-helper="onRemoveHelper" @sick-leave="openSickLeave" @warnings-changed="refresh" @quick-entry="onQuickEntry"
           />
+          <PlanLongAbsences :plan="plan" />
           <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
         </div>
       </div>

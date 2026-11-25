@@ -76,6 +76,19 @@ export type Warning =
     type: 'staffing'; date: IsoDate; groupId: number; groupName: string; from: Minutes; to: Minutes
     have: number; need: number; fachkraft: boolean
   }
+  /**
+   * „Dienst während längerer Abwesenheit“: work is still planned on a day of an entered long absence (Langzeitkrank,
+   * Kur/Reha, Sonstiges, shared/domain/longAbsence.ts); it does not count for the coverage. Tells no reason.
+   */
+  | { type: 'long_absence_duty'; date: IsoDate; employeeId: number }
+
+/**
+ * A long absence on the day (shared/domain/longAbsence.ts): `stored` = an entered one (Langzeitkrank, Kur/Reha,
+ * Sonstiges) – the person is not expected and planned duties do not count for the coverage; `derived` = Mutterschutz
+ * booked in the plan or a full Elternzeit – not expected, but a duty planned anyway (e.g. work chosen before the birth)
+ * counts as before.
+ */
+export type LongAbsenceDay = 'stored' | 'derived'
 
 export interface EmployeeDay {
   employeeId: number
@@ -87,6 +100,8 @@ export interface EmployeeDay {
   coverageOnly?: boolean
   /** The day belongs to another facility's plan (helping out there): it counts as filled; its entries are not passed. */
   busyElsewhere?: boolean
+  /** A long absence on the day: no „Eintrag fehlt“, no gap; see LongAbsenceDay. */
+  longAbsence?: LongAbsenceDay
 }
 
 /** Smaller remaining times (e.g. VZ + F2 = 7:45 h of 7:48 h) are not worth a hint; the balance still counts them. */
@@ -207,13 +222,19 @@ export function dayWarnings(
   hours: DayHoursContext = NO_HOURS,
 ): Warning[] {
   if (!isCheckedDay(date, isClosureDay, holidays)) return []
-  // Effective group of a duty: its own group, otherwise the employee's home group (helpers have none here).
-  const allEntries = employees.flatMap(employee => employee.entries
+  // Effective group of a duty: its own group, otherwise the employee's home group (helpers have none here). Someone in an
+  // entered long absence is not there: duties still planned for them do not count.
+  const allEntries = employees.filter(employee => employee.longAbsence !== 'stored').flatMap(employee => employee.entries
     .map(entry => ({ entry, groupId: entry.groupId ?? employee.groupId })))
   const warnings = coverageWarnings(date, allEntries, rules, hours)
 
-  for (const { employeeId, info, entries, coverageOnly, busyElsewhere } of employees) {
+  for (const { employeeId, info, entries, coverageOnly, busyElsewhere, longAbsence } of employees) {
     if (coverageOnly || busyElsewhere) continue
+    // A long absence: nothing is missing; work still planned in an entered one is named (it does not count).
+    if (longAbsence) {
+      if (longAbsence === 'stored' && entries.some(isWorkEntry)) warnings.push({ type: 'long_absence_duty', date, employeeId })
+      continue
+    }
     // Days off of part-time staff (and days outside employment) need no entry.
     if (!isWorkday(info, date)) continue
     if (entries.length === 0) {

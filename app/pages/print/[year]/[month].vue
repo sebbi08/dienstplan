@@ -41,6 +41,7 @@ const fileName = computed(() => `Dienstplan-${year}-${String(month).padStart(2, 
     <p v-if="error" class="text-red-700">{{ errorText }}</p>
     <template v-if="plan">
       <PlanGrid :plan="plan" :group-filter="group" print />
+      <PlanLongAbsences :plan="plan" print class="mt-2 print:mt-1" />
       <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs print:mt-1 print:break-inside-avoid">
         <span class="font-semibold">{{ de.plan.legend }}:</span>
         <span v-for="template in plan.templates" :key="template.id">

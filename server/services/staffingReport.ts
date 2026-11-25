@@ -23,7 +23,8 @@ import { listCareTypes } from './careTypes'
 import { listGroups } from './groups'
 import { facilityPublicHolidayRules } from './holidayRules'
 import { loadHoursContext } from './openingHours'
-import { closureOn, loadClosures, loadEntries } from './queries'
+import { storedAbsenceCells } from './longAbsence'
+import { closureOn, loadClosures, loadEmployees, loadEntries } from './queries'
 import { occupancyChildren, schoolRules } from './schoolChildren'
 import { staffingRulesFor } from './staffing'
 
@@ -90,8 +91,11 @@ function loadMonth(db: Db, facilityId: number, year: number, month: number): Mon
     })
   }
 
-  // The plan of the facility: its staff's entries that are no help-out elsewhere, and the helpers' entries made here.
+  // The plan of the facility: its staff's entries that are no help-out elsewhere, and the helpers' entries made here –
+  // not those on a day of an entered long absence (the person is not there, server/services/longAbsence.ts).
+  const away = storedAbsenceCells(db, loadEmployees(db, facilityId), monthStart, monthEnd)
   const planEntries = loadEntries(db, { from: monthStart, to: monthEnd, planFacilityId: facilityId })
+    .filter(entry => !away.has(`${entry.employeeId}|${entry.date}`))
   const ids = [...new Set(planEntries.map(entry => entry.employeeId))]
   const people = ids.length === 0
     ? []

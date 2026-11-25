@@ -916,7 +916,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 | Löschbar ab | Was |
 |---|---|
 | am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
-| „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit den Zusatztagen nur für ein Jahr, Elternzeiten |
+| „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, längere Abwesenheiten (Langzeitkrank, Kur/Reha, Sonstiges), Urlaubsansprüche mit den Zusatztagen nur für ein Jahr, Elternzeiten |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz) als Nachweis, dass die Pflichten erfüllt wurden, Lesebestätigungen aus „Wissen“, die Nachweise der Unterschriften in der App („Zum Unterschreiben senden“: Zeitpunkt, Prüfsumme, Grund einer Ablehnung); Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Unter „Jetzt löschbar“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Seite *Mitarbeitende* beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
@@ -1016,8 +1016,8 @@ mehreren Abschnitten (auf dem Handy untereinander):
 - **Nachweise:** **Pflichtdokumente**, Pflichttermine und Fortbildungen, **Personalakte** (die Dokumente, nur die Fächer,
   für die du das Recht hast, siehe unten).
 - **Gesundheit:** **Unfälle** (Recht „Unfallanzeigen“), **Krankheitstage** eines wählbaren Jahres (mit Link zur Liste
-  aller), **BEM** und **Mutterschutz** (Recht „Krankheitstage …“) – nur mit dem jeweiligen Recht; Krankheitstage, BEM
-  und Mutterschutz nie auf der eigenen Seite.
+  aller), **Längere Abwesenheit**, **BEM** und **Mutterschutz** (Recht „Krankheitstage …“) – nur mit dem jeweiligen
+  Recht; Krankheitstage, Längere Abwesenheit, BEM und Mutterschutz nie auf der eigenen Seite.
 - **Gespräche** und **Zugang**.
 
 Ältere Links mit einem früheren Reiter oder Abschnitt (z. B. `?tab=bem`, `?tab=hours`, `?tab=stamping`) öffnen den
@@ -1303,6 +1303,57 @@ und was bald abläuft.
 - **Löschen:** Die Elternzeit bestimmt Soll-Stunden und Urlaubskonto und wird deshalb mit den **Zeitdaten** gelöscht
   (nicht schon mit den persönlichen Daten), mit der Person endgültig.
 
+### Längere Abwesenheit
+
+Wer Wochen oder Monate fehlt, steht in dieser Zeit nicht im Dienstplan – statt jeden Tag einzeln „Krank“ einzutragen.
+
+- **Wo:** Reiter **Gesundheit**, Abschnitt **„Längere Abwesenheit“**. Sehen, eintragen, ändern und löschen darf, wer die
+  Krankheitstage sehen darf (Leitung und Träger), nie über sich selbst (die eigene trägt der Träger ein), nie am Tablet.
+- **„Längere Abwesenheit eintragen“:** Grund, **Von** und **Bis**; Bis bleibt leer, wenn das Ende noch nicht bekannt ist
+  („bis auf Weiteres“). Gründe: **Langzeitkrank**, **Kur/Reha**, **Sonstiges (z. B. Sabbatical)**. Zwei längere
+  Abwesenheiten einer Person dürfen sich nicht überschneiden. Endet sie früher oder später, das Bis ändern – ab dem Tag
+  danach steht die Person von selbst wieder im Dienstplan.
+- **Mutterschutz/Beschäftigungsverbot und Elternzeit** werden **nicht** noch einmal eingetragen: Der Abschnitt zeigt sie
+  als „übernommen“ – den Mutterschutz, sobald die Schutzfristen bzw. das Beschäftigungsverbot im Dienstplan eingetragen
+  sind („Schutzfristen eintragen“), jede volle Elternzeit (ohne Teilzeit) für alle, die die Vertragsangaben sehen.
+  Geändert werden sie dort, wo sie eingetragen sind. Es gibt also nur eine Stelle für jede Angabe.
+- **Im Dienstplan:** Wer an allen eigenen Arbeitstagen des Monats abwesend ist, hat keine Spalte mehr (Monatsplan,
+  Tagesübersicht, Drucken und PDF). Unter dem Plan steht nur **„Längere Abwesenheit: N Personen“**; ein Klick zeigt
+  Namen und Zeitraum. Den Grund sehen nur Leitung und Träger (Recht für die Krankheitstage), alle anderen – Mitarbeiter,
+  Tablet, Kollegen – sehen nur die Namen und Zeiträume, bei der Elternzeit wie bisher im Plan („Elternzeit“ oder
+  „abwesend“). Aufeinanderfolgende Zeiträume mit gleichem sichtbarem Grund stehen in einer Zeile (wer nur „abwesend“
+  sieht, erkennt nicht, wo Mutterschutz in Elternzeit übergeht). Beginnt oder endet die Abwesenheit mitten im Monat,
+  bleibt die Spalte; an den Arbeitstagen der Abwesenheit ohne Eintrag steht der Grund bzw. „abwesend“. Die Person fehlt
+  nicht in „Eintrag fehlt“ und zählt nicht für Pflichtdienste, Öffnung/Schließung, „anwesend“ und den Personalschlüssel.
+  Die Person selbst sieht unter „Mein Dienstplan“ an diesen Tagen **„Längere Abwesenheit“**.
+- **Schon geplante Dienste im Zeitraum** werden nie still gelöscht: Nach dem Speichern nennt der Abschnitt sie
+  („In diesem Zeitraum sind noch 3 Dienste eingetragen …“) mit **„Dienste entfernen“** (nur mit dem Recht, den
+  Dienstplan zu bearbeiten; jede Entfernung ist eine Änderung im Plan bis zur nächsten Freigabe) oder **„Behalten“**.
+  Ein behaltener Dienst lässt die Person im Plan stehen, zählt aber nicht mit; der Tag zeigt die Warnung **„‹Name›:
+  Dienst eingetragen, obwohl längere Abwesenheit – zählt nicht mit, bitte entfernen“**. Dienste als Aushilfe in einer
+  anderen Einrichtung entfernt diese selbst.
+- **Im Hintergrund (Stunden):**
+  - **Langzeitkrank:** Jeder Arbeitstag der Person im Zeitraum (nach ihren Wochenstunden und Arbeitstagen, ohne
+    Feiertage) zählt wie ein Tag „Krank“: im **Stundenkonto** wird das Tagessoll gutgeschrieben (das Konto bleibt
+    stehen), in den **Krankheitstagen** (Mitarbeitende → Krankheitstage und Abschnitt „Krankheitstage“, nur bis heute)
+    und beim **BEM** (mehr als 6 Wochen in 12 Monaten) zählt er als Krankheitstag – ohne Schließtage, wie bei einzeln
+    eingetragenen Krankheitstagen. Es wird nichts je Tag gespeichert: Wird die Abwesenheit kürzer, länger oder
+    gelöscht, stimmen die Zahlen sofort; einzeln eingetragene „Krank“-Tage bleiben, wie sie sind, und zählen nicht
+    doppelt. Im **Jahreskalender** stehen die Tage als „Krank“ (für alle ohne das Recht als „abwesend“).
+  - **Kur/Reha:** wie Langzeitkrank. Eine medizinische Vorsorge oder Rehabilitation wird wie eine Arbeitsunfähigkeit
+    bezahlt (§ 9 EFZG); vorher hat man eine Kur meist als „Krank“ eingetragen, das bleibt so.
+  - **Sonstiges (z. B. Sabbatical, unbezahlte Freistellung):** unbezahlt – keine Soll-Stunden und keine Arbeitstage (wie
+    eine volle Elternzeit), keine Krankheitstage. Der Urlaubsanspruch wird nicht von selbst gekürzt (bei Bedarf beim
+    Urlaubsanspruch des Jahres anpassen).
+  - **Mutterschutz/Beschäftigungsverbot und Elternzeit:** alles bleibt, wie es ist (Stunden, Urlaub, „abwesend“).
+- **Erinnerung:** 2 Wochen vor dem ersten Arbeitstag nach einem bekannten Ende erscheint im Kasten „Erinnerungen“
+  **„‹Name› kommt am ‹TT.MM.JJJJ› zurück (längere Abwesenheit) – Rückkehr planen“** mit „zur Person“ – für Leitung und
+  Träger (Recht für die Krankheitstage, nicht am Tablet, nie über sich selbst), bis zu diesem Tag; ohne Grund. Folgt
+  direkt eine weitere längere Abwesenheit, zählt deren Ende. Die Rückkehr aus der Elternzeit hat ihre eigene Erinnerung
+  (4 Wochen vorher).
+- **Löschen:** Wie die Krankheitstage mit den **Zeitdaten** („Sonstige Überstunden- und Zeitdaten“), mit der Person
+  endgültig.
+
 ### Gesetzlicher Mindesturlaub (nur ein Hinweis)
 
 Beim **Anlegen eines Mitarbeiters** und unter **„Zeiten & Urlaub“ → Urlaubsanspruch** (je Jahr, auch beim Eintragen)
@@ -1565,6 +1616,10 @@ Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum
 - **Probezeit** (wer die Vertragsangaben sieht: der Träger, die Leitung mit „Vertragsangaben ansehen“; nicht am
   Tablet): „Probezeit von ‹Name› endet am ‹TT.MM.JJJJ›“ mit „zum Vertrag“, ab 4 Wochen vor dem letzten Tag der Probezeit
   bis einschließlich zu diesem Tag (Abschnitt 15, „Probezeit und Entgeltgruppe“).
+- **Rückkehr aus längerer Abwesenheit** (Leitung und Träger mit dem Recht für die Krankheitstage; nicht am Tablet, nie
+  über sich selbst): „‹Name› kommt am ‹TT.MM.JJJJ› zurück (längere Abwesenheit) – Rückkehr planen“ mit „zur Person“, ab
+  2 Wochen vor dem ersten Arbeitstag nach einem bekannten Ende bis zu diesem Tag, ohne Grund (Abschnitt 15, „Längere
+  Abwesenheit“).
 
 Ist die aufschließende Person als Bezugserzieher des Kindes eingetragen, steht beim Eintrag **„dein Kind“**. Der
 Name eines Kindes führt zu seiner Akte.

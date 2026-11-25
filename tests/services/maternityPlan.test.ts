@@ -82,15 +82,17 @@ describe('the codes are hidden from everybody without the right, and always at t
   it('the draft plan shows plan editors without the right „abwesend“ without key or id, and not the codes to enter', () => {
     bookMaternity(db, leitung, scope, create(), 'protection', false)
     const editor = without(leitung, 'employees.sickness')
-    const plan = getMonthPlan(db, editor, 1, 2026, 11, TODAY)
+    // October: the protection period begins on 05.10., so Anna is still in the plan (a whole month of it takes her out
+    // of the plan as a long absence, tests/services/longAbsence.test.ts).
+    const plan = getMonthPlan(db, editor, 1, 2026, 10, TODAY)
     expect(JSON.stringify(plan)).not.toMatch(SECRETS)
-    expect(plan.entries.find(entry => entry.employeeId === anna && entry.date === '2026-11-17'))
+    expect(plan.entries.find(entry => entry.employeeId === anna && entry.date === '2026-10-06'))
       .toMatchObject({ kind: 'code', codeKey: null, codeId: null, label: 'abwesend', shortLabel: null, color: 'gray', creditMode: 'daily_target' })
     expect(plan.codes.map(code => code.key)).not.toContain('maternity')
     // The hours are those of the real entries: neutral.
-    expect(plan.admin!.balances).toEqual(getMonthPlan(db, leitung, 1, 2026, 11, TODAY).admin!.balances)
+    expect(plan.admin!.balances).toEqual(getMonthPlan(db, leitung, 1, 2026, 10, TODAY).admin!.balances)
     // The Leitung sees them.
-    expect(JSON.stringify(getMonthPlan(db, leitung, 1, 2026, 11, TODAY))).toContain('Mutterschutz')
+    expect(JSON.stringify(getMonthPlan(db, leitung, 1, 2026, 10, TODAY))).toContain('Mutterschutz')
   })
 
   it('the released plan and its changes show staff and the tablet „abwesend“', () => {

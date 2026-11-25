@@ -382,6 +382,24 @@ describe('API route permissions', () => {
     }
   })
 
+  it('opens the long absences to whoever has the sick days right, in the active facility, never about themselves', () => {
+    const touching = routes.filter(route => /long-absence/.test(route) || source(route).includes('services/longAbsence\''))
+    expect(touching).toEqual([
+      'employees/[id]/long-absences/index.get.ts', 'employees/[id]/long-absences/index.post.ts', 'long-absences/[id].delete.ts',
+      'long-absences/[id].put.ts', 'long-absences/[id]/remove-duties.post.ts',
+    ])
+    for (const route of touching) {
+      const code = source(route)
+      // The reason is health data: Leitung and Träger by default, never a Mitarbeiter or the tablet; never the viewer's
+      // own. Removing duties checks plan.edit in the service.
+      expect(permissionCalls(route), route).toEqual([{ key: 'employees.sickness', options: '' }])
+      expect(code, route).toContain('admin.facilityId')
+      expect(code, route).toContain('ownEmployeeId: admin.employeeId')
+      expect(code, route).not.toMatch(/allowTerminal|facility: 'none'/)
+      expect(fixture[route], route).toEqual(['provider', 'admin'])
+    }
+  })
+
   it('opens the Elternzeit to whoever sees the contract data, changes to whoever edits it, in the active facility', () => {
     const touching = routes.filter(route => /parental-leave/.test(route) || source(route).includes('services/parentalLeave\''))
     expect(touching).toEqual([

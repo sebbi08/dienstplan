@@ -2930,6 +2930,26 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
+  it('0131 only adds the empty long absences (open end allowed), gone with the employee, and keeps every existing row', () => {
+    const { db, sqlite } = databaseAt('0130')
+    sqlite.exec(`INSERT INTO employees (id, name, short_name) VALUES (1, 'Anna', 'An')`)
+    sqlite.exec(`INSERT INTO employee_hours (employee_id, weekly_minutes, valid_from) VALUES (1, 2340, '2026-01-01')`)
+    const before = sqlite.prepare('SELECT * FROM employee_hours').all()
+    migrateThrough(db, '0131')
+    const statements = readFileSync(join(process.cwd(), 'server', 'db', 'migrations', '0131_long_absences.sql'), 'utf8')
+      .split('--> statement-breakpoint').map(part => part.replace(/^--.*$/gm, '').trim()).filter(part => part !== '')
+    expect(statements.map(statement => statement.split(' ').slice(0, 2).join(' '))).toEqual(['CREATE TABLE', 'CREATE INDEX'])
+    expect(sqlite.prepare('SELECT * FROM employee_hours').all()).toEqual(before)
+    expect(count(sqlite, 'long_absences')).toBe(0)
+    sqlite.exec(`INSERT INTO long_absences (employee_id, reason, start, end, created_at, updated_at) VALUES (1, 'sick', '2026-11-16', NULL, 'x', 'x')`)
+    expect(sqlite.prepare('SELECT reason, start, end, created_by FROM long_absences').get())
+      .toEqual({ reason: 'sick', start: '2026-11-16', end: null, created_by: '' })
+    expect(() => sqlite.exec(`INSERT INTO long_absences (employee_id, reason, start, created_at, updated_at) VALUES (99, 'rehab', '2026-11-16', 'x', 'x')`))
+      .toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(count(sqlite, 'long_absences')).toBe(0)
+  })
+
   it('0120 adds the hand-entered Mutterschutz after a birth: one per employee and birth, gone with the employee', () => {
     const { db, sqlite } = databaseAt('0119')
     sqlite.exec(`INSERT INTO employees (id, name, short_name) VALUES (1, 'Anna', 'An')`)

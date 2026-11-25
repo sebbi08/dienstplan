@@ -10,6 +10,7 @@ import { DOCUMENT_SCOPES } from '../shared/domain/documentTargets'
 import { FORM_KINDS, FORM_LIMITS } from '../shared/domain/forms'
 import { KNOWLEDGE_KINDS, KNOWLEDGE_LIMITS } from '../shared/domain/knowledge'
 import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
+import { STORED_LONG_ABSENCE_REASONS } from '../shared/domain/longAbsence'
 import { EMPLOYMENT_BAN_KINDS, MATERNITY_NOTE_MAX } from '../shared/domain/maternity'
 import { PARENTAL_LEAVE_NOTE_MAX } from '../shared/domain/parentalLeave'
 import { OFFLINE_BATCH_MAX } from '../shared/domain/offlineStamps'
@@ -287,6 +288,11 @@ export const maternityBookingSchema = z.object({
 })
 /** Deleting a case: also remove the days it booked in the plan. */
 export const maternityDeleteQuery = z.object({ removeEntries: z.enum(['0', '1']).optional() })
+
+/** „Längere Abwesenheit“: Langzeitkrank, Kur/Reha or Sonstiges; `end` null = „bis auf Weiteres“ (the order again in the service). */
+export const longAbsenceSchema = z.object({
+  reason: z.enum(STORED_LONG_ABSENCE_REASONS), start: isoDate, end: isoDate.nullable(),
+})
 
 /** „Elternzeit eintragen“: the end comes computed from a duration in months when the dialog took one; the service checks. */
 export const parentalLeaveSchema = z.object({

@@ -80,6 +80,7 @@ function rowClass(day: MyPlanDayDto): string {
           <span v-if="day.holidayKey" class="truncate text-blue-700">{{ de.holidays[day.holidayKey] }}</span>
           <span v-else-if="day.closureLabel" class="truncate text-blue-700">{{ day.closureLabel }}</span>
           <span v-if="day.parentalLeave" class="truncate text-gray-600">{{ de.parentalLeave.planLabel }}</span>
+          <span v-if="day.longAbsence" class="truncate text-gray-600">{{ de.longAbsence.myPlanLabel }}</span>
         </div>
         <div
           v-else class="space-y-1 rounded-lg p-2 text-sm ring-1 ring-gray-200"
@@ -90,6 +91,7 @@ function rowClass(day: MyPlanDayDto): string {
             <span v-if="day.holidayKey" class="text-xs text-blue-700">{{ de.holidays[day.holidayKey] }}</span>
             <span v-else-if="day.closureLabel" class="text-xs text-blue-700">{{ day.closureLabel }}</span>
             <span v-if="day.parentalLeave" class="text-xs text-gray-600">{{ de.parentalLeave.planLabel }}</span>
+            <span v-if="day.longAbsence" class="text-xs text-gray-600">{{ de.longAbsence.myPlanLabel }}</span>
           </div>
           <div v-if="day.entries.length || helpFacilityNames(day).length" class="flex flex-wrap items-center gap-1 rounded px-1 py-0.5" :class="fillClass(day)">
             <PlanEntryChip v-for="entry in day.entries" :key="entry.id" :entry="entry" />
@@ -127,6 +129,7 @@ function rowClass(day: MyPlanDayDto): string {
             <div v-if="day.holidayKey" class="text-xs font-normal text-blue-700">{{ de.holidays[day.holidayKey] }}</div>
             <div v-else-if="day.closureLabel" class="text-xs font-normal text-blue-700">{{ day.closureLabel }}</div>
             <div v-if="day.parentalLeave" class="text-xs font-normal text-gray-600">{{ de.parentalLeave.planLabel }}</div>
+            <div v-if="day.longAbsence" class="text-xs font-normal text-gray-600">{{ de.longAbsence.myPlanLabel }}</div>
           </td>
           <td class="px-3 py-1.5" :class="fillClass(day)">
             <div class="flex flex-wrap items-center gap-1">

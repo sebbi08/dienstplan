@@ -11,7 +11,7 @@ import type { Db } from '../db/client'
 import {
   balanceAdjustments, bemProcesses, changeLog, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, children,
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
-  formAttachments, formEditors, forms, knowledgeConfirmations, maternityCases, signRequestRecipients, signUnlocks, parentalLeaveBirths, parentalLeaves,
+  formAttachments, formEditors, forms, knowledgeConfirmations, longAbsences, maternityCases, signRequestRecipients, signUnlocks, parentalLeaveBirths, parentalLeaves,
   groupBookChanges, helpOuts, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
   formReads, releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
@@ -25,7 +25,7 @@ import { getRetentionSettings } from './retentionSettings'
 const EMPLOYEE_WARNING_TYPES = new Set([
   'missing_entry', 'target_gap', 'open_record', 'missing_record', 'break_rule', 'record_without_plan', 'record_on_absence',
   'max_hours', 'max_hours_recorded', 'short_rest', 'short_rest_recorded', 'long_stretch', 'child_sick_days', 'work_limit',
-  'youth_birth_year', 'youth_birthday',
+  'youth_birth_year', 'youth_birthday', 'long_absence_duty',
 ])
 
 /** Release snapshots of every facility (home, former home, help-out plans) without the employee's column and cells. */
@@ -291,13 +291,17 @@ const TIME_ROWS: readonly EmployeeRows[] = [
   { table: parentalLeaves, column: parentalLeaves.employeeId },
   // „Mutterschutz nach der Geburt bis“ entered with the Elternzeit: it counts towards its 36 months.
   { table: parentalLeaveBirths, column: parentalLeaveBirths.employeeId },
+  // „Längere Abwesenheit“ (Langzeitkrank, Kur/Reha, Sonstiges): its days are Krankheitstage and decide the target hours,
+  // so it stays as long as the plan entries with „Krank“ do.
+  { table: longAbsences, column: longAbsences.employeeId },
 ]
 
 /**
  * „Sonstige Überstunden-/Zeitdaten“: plan entries of every month (draft and released: they leave the release snapshots
  * too) with their change log, time records with corrections and notes, sick-leave markers, balance adjustments not
  * paid out, leave entitlements and one-off extra leave days with the read receipts of the notice on remaining leave
- * and the acknowledged warnings about the person, the Elternzeit periods (target hours and leave follow them); and the
+ * and the acknowledged warnings about the person, the Elternzeit periods (target hours and leave follow them), the long
+ * absences (their days are Krankheitstage or days without target); and the
  * weekly hours history and the
  * help-outs, since a person is in a month's plan, Stundenkonto, release and leave overview only through their weekly
  * hours (isEmployedInRange), and the help-out facility's plan shows them only through the help-out.

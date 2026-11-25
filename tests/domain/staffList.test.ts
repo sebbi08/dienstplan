@@ -60,7 +60,7 @@ describe('employee page tabs', () => {
   }
   const allSections = [
     'master', 'qualification', 'contract', 'parentalLeave', 'payroll', 'hours', 'balance', 'leave', 'stamping',
-    'requiredDocuments', 'requirements', 'documents', 'accidents', 'bem', 'maternity', 'sickDays', 'talks', 'access',
+    'requiredDocuments', 'requirements', 'documents', 'accidents', 'bem', 'maternity', 'sickDays', 'longAbsence', 'talks', 'access',
   ]
   const allTabs = ['master', 'contract', 'times', 'records', 'health', 'talks', 'access']
   const withoutContract = (sections: string[]) => sections.filter(section => !['contract', 'parentalLeave', 'payroll'].includes(section))
@@ -73,8 +73,8 @@ describe('employee page tabs', () => {
     // Nobody manages a talk about themselves: no „Gespräche“ on the own page.
     expect(employeeSections(canOf('admin'), true)).not.toContain('talks')
     expect(employeeSections(canOf('provider'), true)).not.toContain('talks')
-    // BEM, Mutterschutz and Krankheitstage with the sick days right (Leitung and Träger), never on the own page.
-    for (const section of ['bem', 'maternity', 'sickDays']) {
+    // BEM, Mutterschutz, Krankheitstage and Längere Abwesenheit with the sick days right (Leitung and Träger), never on the own page.
+    for (const section of ['bem', 'maternity', 'sickDays', 'longAbsence']) {
       expect(employeeSections(canOf('admin'), true), section).not.toContain(section)
       expect(employeeSections(canOf('provider'), true), section).not.toContain(section)
       expect(employeeSections(canOf('admin')), section).toContain(section)

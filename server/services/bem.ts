@@ -16,7 +16,8 @@ import { bemProcesses, bemSteps, employees, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { facilityContactData } from './facilityContact'
 import { actorName } from './formTemplates'
-import { loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
+import { longSickDays } from './longAbsence'
+import { loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 import { getRetentionSettings } from './retentionSettings'
 
 // Betriebliches Eingliederungsmanagement (§ 167 Abs. 2 SGB IX). Health data: only for whoever has employees.sickness
@@ -100,7 +101,8 @@ function lastEnd(processes: ProcessRow[]): IsoDate | null {
 /**
  * The sick working days the BEM counts for the employee today: „Krank“ entries (not „Kind krank“, not „im Dienst
  * erkrankt“) on working days, in the last 12 months but only after the last ended BEM; the limit from the working days
- * per week of the hours period valid today. `sickDates` are the employee's „Krank“ days (at least the window).
+ * per week of the hours period valid today. `sickDates` are the employee's „Krank“ days (at least the window), with the
+ * days of a long absence Langzeitkrank or Kur/Reha (longSickDays; a day with both counts once).
  */
 function sickDaysOf(employee: EmployeeRecord, sickDates: IsoDate[], restartAfter: IsoDate | null, today: IsoDate): BemSickDaysDto {
   const window = bemWindow(today, restartAfter)
@@ -112,11 +114,19 @@ function sickDaysOf(employee: EmployeeRecord, sickDates: IsoDate[], restartAfter
   }
 }
 
-/** The „Krank“ days of the employees of the facility from `from` to `to`, by employee. */
-function sickDatesByEmployee(db: Db, facilityId: number, from: IsoDate, to: IsoDate): Map<number, IsoDate[]> {
+/**
+ * The „Krank“ days of the employees of the facility from `from` to `to`, by employee, with the days of a long absence
+ * Langzeitkrank or Kur/Reha (computed from the period: its working days without public holidays and closure days).
+ */
+function sickDatesByEmployee(db: Db, facilityId: number, staff: readonly EmployeeRecord[], from: IsoDate, to: IsoDate): Map<number, IsoDate[]> {
   const result = new Map<number, IsoDate[]>()
   for (const entry of loadEntries(db, { homeFacilityId: facilityId, codeKey: 'sick', from, to })) {
     result.set(entry.employeeId, [...result.get(entry.employeeId) ?? [], entry.date])
+  }
+  const closures = loadClosures(db, facilityId)
+  for (const employee of staff) {
+    const days = longSickDays(employee, closures, from, to)
+    if (days.length > 0) result.set(employee.id, [...result.get(employee.id) ?? [], ...days])
   }
   return result
 }
@@ -127,7 +137,10 @@ export function getEmployeeBem(db: Db, scope: BemScope, employeeId: number, toda
   const employee = loadEmployee(db, employeeId)!
   const processes = processesOf(db, [employeeId])
   const steps = stepsByProcess(db, processes.map(process => process.id))
-  const sickDates = loadEntries(db, { employeeId, codeKey: 'sick', from: addDays(today, -364), to: today }).map(entry => entry.date)
+  const sickDates = [
+    ...loadEntries(db, { employeeId, codeKey: 'sick', from: addDays(today, -364), to: today }).map(entry => entry.date),
+    ...longSickDays(employee, loadClosures(db, employee.facilityId), addDays(today, -364), today),
+  ]
   const open = processes.find(process => isBemOpen(process.status))
   return {
     sickDays: sickDaysOf(employee, sickDates, lastEnd(processes), today),
@@ -358,7 +371,7 @@ export function bemReminders(
     .filter(employee => employee.id !== viewer.employeeId && isEmployedOn(employee.info, today))
   if (staff.length === 0) return []
   const processes = processesOf(db, staff.map(employee => employee.id))
-  const sickDates = sickDatesByEmployee(db, viewer.facilityId, addDays(today, -364), today)
+  const sickDates = sickDatesByEmployee(db, viewer.facilityId, staff, addDays(today, -364), today)
   const items: ReminderDto[] = []
   const push = (employee: EmployeeRecord, stage: NonNullable<ReminderDto['bem']>['stage'], date: IsoDate, days: number, limit: number) =>
     items.push({

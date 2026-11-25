@@ -1,5 +1,6 @@
 import { weekday } from './dates'
 import { isHolidayIn, type HolidayRules } from './holidays'
+import type { LongAbsencePeriod } from './longAbsence'
 import type { ParentalLeavePeriod } from './parentalLeave'
 import type { IsoDate } from './types'
 
@@ -28,6 +29,25 @@ export interface EmploymentInfo {
    * target follows its weekly hours on the contract's working days (missing = none).
    */
   parentalLeaves?: readonly ParentalLeavePeriod[]
+  /**
+   * „Längere Abwesenheit“ (shared/domain/longAbsence.ts): Langzeitkrank and Kur/Reha keep the working days and credit
+   * their target (longSickOn, balance.ts); Sonstiges has no working days and no target, like a full Elternzeit (missing = none).
+   */
+  longAbsences?: readonly LongAbsencePeriod[]
+}
+
+/** The entered long absence on the date (the same lookup as longAbsenceOn, kept here so targets.ts imports no other module). */
+function longAbsenceOf(info: EmploymentInfo, date: IsoDate): LongAbsencePeriod | null {
+  return info.longAbsences?.find(period => period.start <= date && (period.end === null || date <= period.end)) ?? null
+}
+
+/**
+ * A day of Langzeitkrank or Kur/Reha: the hours account credits its daily target as for a whole day „Krank“
+ * (computeDay), and it counts as a sick day on the person's working days (no plan entry is stored).
+ */
+export function longSickOn(info: EmploymentInfo, date: IsoDate): boolean {
+  const reason = longAbsenceOf(info, date)?.reason
+  return reason === 'sick' || reason === 'rehab'
 }
 
 /** The Elternzeit on the date (the same lookup as parentalLeaveOn, kept here so targets.ts imports no other module). */
@@ -111,10 +131,12 @@ export function isEmployedInRange(info: EmploymentInfo, from: IsoDate, to: IsoDa
 
 /**
  * A day the employee is expected to work: employed, one of the contract's working days, no public holiday of the home
- * facility, not in a full Elternzeit (part-time work during it keeps the working days).
+ * facility, not in a full Elternzeit (part-time work during it keeps the working days), not in a long absence
+ * „Sonstiges“ (unpaid, no target; Langzeitkrank and Kur/Reha keep the working days: they are sick days).
  */
 export function isWorkday(info: EmploymentInfo, date: IsoDate): boolean {
   if (!isEmployedOn(info, date) || isHolidayIn(date, info.holidays) || !worksOnWeekday(workdaysOn(info, date), weekday(date))) return false
+  if (longAbsenceOf(info, date)?.reason === 'other') return false
   const leave = parentalLeaveOf(info, date)
   return leave === null || leave.partTimeWeeklyMinutes !== null
 }

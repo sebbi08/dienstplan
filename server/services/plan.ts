@@ -30,6 +30,7 @@ import { childSickWarnings } from './employeeChildren'
 import { groupNames, snapshotGroupNames } from './groups'
 import { listHelpers } from './helpOuts'
 import { facilityHolidayRules } from './holidayRules'
+import { longAbsenceDays, longAbsencePlan, ownLongAbsenceDates, storedAbsenceCells } from './longAbsence'
 import { maternityPlanWarnings } from './maternity'
 import { loadHoursContext, withOpeningHours } from './openingHours'
 import { fullParentalLeaveDates, parentalLeavePlanCells } from './parentalLeave'
@@ -115,6 +116,8 @@ function buildAdminData(
 
   // Birth years (personal data) only to tell the days a person is under 18; never sent.
   const birthYears = birthYearsOf(db, staffIds)
+  // „Längere Abwesenheit“: such a day needs no entry; duties still planned in an entered one do not count for coverage.
+  const absenceDays = longAbsenceDays(db, staff, rangeStart < dayBefore ? rangeStart : dayBefore, rangeEnd)
   const warnings: Warning[] = monthDates(year, month).flatMap((date) => {
     const staffDays: EmployeeDay[] = staff.map((employee) => {
       const dayEntries = (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date)
@@ -122,6 +125,7 @@ function buildAdminData(
       const busyElsewhere = dayEntries.some(entry => entry.helpFacilityId !== null)
       return {
         employeeId: employee.id, groupId: employee.groupId, info: employee.info, entries: busyElsewhere ? [] : dayEntries, busyElsewhere,
+        longAbsence: absenceDays.get(cellKey(employee.id, date)),
       }
     })
     // Helpers have no home group here: their duties count for a group only with an entry group. They count for
@@ -168,7 +172,10 @@ function buildAdminData(
         const records = recordsByCell.get(key) ?? []
         const marked = key in sickLeaves
         if (!marked) {
-          warnings.push(...timeWarnings(date, employee.id, dayEntries, records, employee.breakMode))
+          // A duty left in an entered long absence has its own hint („Dienst während längerer Abwesenheit“), no „Stempel fehlt“.
+          const away = absenceDays.get(key) === 'stored'
+          warnings.push(...timeWarnings(date, employee.id, dayEntries, records, employee.breakMode)
+            .filter(warning => !away || warning.type !== 'missing_record'))
           const before = addDays(date, -1)
           const beforeKey = cellKey(employee.id, before)
           // The day before counts only when it lies in the tracking range too and is not marked „Im Dienst erkrankt“.
@@ -294,6 +301,11 @@ function dayRows(
   }))
 }
 
+/** The admin data without the hints about persons taken out of the plan (a long absence through the month). */
+function withoutHidden<T extends { warnings: Warning[] }>(data: T, isShown: (employeeId: number) => boolean): T {
+  return { ...data, warnings: data.warnings.filter(warning => !('employeeId' in warning) || isShown(warning.employeeId)) }
+}
+
 export function getMonthPlan(
   db: Db, viewer: SessionUser, facilityId: number, year: number, month: number, today: IsoDate,
 ): MonthPlanDto {
@@ -331,14 +343,20 @@ export function getMonthPlan(
 
   const { monthStart, monthEnd } = monthBounds(year, month)
   const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
+  // „Längere Abwesenheit“, as it is now (also in a released month): who leaves the shown plan, the line below it. The
+  // hidden persons' columns, entries and hints are not sent; duties left in an entered one do not count as present.
+  const longAbsence = longAbsencePlan(db, viewer, facilityId, staff, shown.entries, year, month)
+  const hidden = new Set(longAbsence.hidden)
+  const awayCells = storedAbsenceCells(db, staff, monthStart, monthEnd)
+  const isShown = (employeeId: number) => !hidden.has(employeeId)
   let admin: MonthPlanAdminDto | null = null
   if (isAdmin) {
     const helpers = listHelpers(db, facilityId, year, month)
     admin = {
-      ...buildAdminData(
+      ...withoutHidden(buildAdminData(
         db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today, hours,
         can(viewer.permissions, 'employees.personal'), showsProtected, can(viewer.permissions, 'employees.personal'),
-      ),
+      ), isShown),
       pendingChanges,
       releasedEmployees: latest?.data.employees ?? [],
     }
@@ -357,10 +375,12 @@ export function getMonthPlan(
       pendingCount: Object.keys(pendingChanges).length,
     },
     days,
-    employees: shown.employees,
-    entries: shown.entries,
+    employees: shown.employees.filter(employee => isShown(employee.id)),
+    entries: shown.entries.filter(entry => isShown(entry.employeeId)),
     groups: shown.groups ?? [],
-    attendance: attendanceOf(facilityId, shown, year, month),
+    attendance: attendanceOf(facilityId, {
+      ...shown, entries: shown.entries.filter(entry => !awayCells.has(cellKey(entry.employeeId, entry.date))),
+    }, year, month),
     changes,
     templates: loadTemplates(db, facilityId),
     codes: showsProtected ? codes : withoutPrivateCodes(codes),
@@ -369,6 +389,7 @@ export function getMonthPlan(
     // A full Elternzeit is marked on the staff's working days without stored entries, as it is now (also in a released
     // month): „Elternzeit“ or „abwesend“ (server/services/parentalLeave.ts).
     parentalLeave: parentalLeavePlanCells(db, viewer, facilityId, staff, year, month),
+    longAbsence,
     admin: admin && !showsProtected
       // The acknowledgements of the Mutterschutz hints name the rule, the „Im Dienst erkrankt“ markers tell a sickness:
       // neither for whoever sees only „abwesend“ and „Arbeitszeitgrenze überschritten“.
@@ -420,7 +441,10 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
   const homeHolidays = facilityHolidayRules(db, employee.facilityId)
   // The person's own full Elternzeit: „Elternzeit“ on its working days (as it is now, no stored entry).
   const { monthStart, monthEnd } = monthBounds(year, month)
-  const ownLeave = new Set(fullParentalLeaveDates(loadEmployee(db, employee.id)!.info, monthStart, monthEnd))
+  const record = loadEmployee(db, employee.id)!
+  const ownLeave = new Set(fullParentalLeaveDates(record.info, monthStart, monthEnd))
+  // The person's own long absence: „Längere Abwesenheit“ on its working days without an entry (no reason).
+  const ownAbsence = ownLongAbsenceDates(db, record, monthStart, monthEnd)
   const days: MyPlanDayDto[] = dayRows(db, employee.facilityId, year, month, home?.data.days ?? [], homeHolidays).map((day) => {
     const key = cellKey(employee.id, day.date)
     // One day, one plan: when two releases disagree (one is not re-released yet), the newer release wins.
@@ -435,6 +459,7 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
       // The day's changes from every plan it was in, e.g. a home duty given up before helping out that day.
       changes: sources.flatMap(source => source.changes[key] ?? []).sort((a, b) => a.changedAt.localeCompare(b.changedAt)),
       ...(ownLeave.has(day.date) ? { parentalLeave: true } : {}),
+      ...(ownAbsence.has(day.date) && !newest ? { longAbsence: true } : {}),
     }
   })
   return {

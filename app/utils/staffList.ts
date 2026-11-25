@@ -50,7 +50,8 @@ export type EmployeeTab = typeof EMPLOYEE_TABS[number]
  * The sections of the employee page whose showing depends on the viewer, in their order, each with its tab:
  * „Stammdaten“ | „Vertrag & Lohn“ (Vertragsangaben with Probezeit, Elternzeit, Lohn und Steuer) | „Zeiten & Urlaub“
  * (Wochenstunden, Stundenkonto, Urlaub with Zusatztagen, PIN and Stempeln) | „Nachweise“ (Pflichtdokumente,
- * Pflichttermine und Fortbildungen, Personalakte) | „Gesundheit“ (Unfälle, BEM, Mutterschutz, Krankheitstage) |
+ * Pflichttermine und Fortbildungen, Personalakte) | „Gesundheit“ (Unfälle, Krankheitstage, Längere Abwesenheit, BEM,
+ * Mutterschutz) |
  * „Gespräche“ | „Zugang“. The keys include every former tab and section key: a link with an old `?tab=` (e.g.
  * `?tab=stamping`, `?tab=bem`, `?tab=hours`) still opens the tab that holds it now.
  */
@@ -59,7 +60,7 @@ export const EMPLOYEE_SECTIONS = {
   contract: 'contract', parentalLeave: 'contract', payroll: 'contract',
   hours: 'times', balance: 'times', leave: 'times', stamping: 'times',
   requiredDocuments: 'records', requirements: 'records', documents: 'records',
-  accidents: 'health', bem: 'health', maternity: 'health', sickDays: 'health',
+  accidents: 'health', bem: 'health', maternity: 'health', sickDays: 'health', longAbsence: 'health',
   talks: 'talks', access: 'access',
 } as const satisfies Record<string, EmployeeTab>
 export type EmployeeSection = keyof typeof EMPLOYEE_SECTIONS
@@ -68,8 +69,8 @@ export type EmployeeSection = keyof typeof EMPLOYEE_SECTIONS
  * The sections the viewer sees on the employee page (reached with employees.view; „Zugang“ uses the users' routes and
  * needs users.manage, „Gespräche“ the staff talk routes and talks.manage, „Vertragsangaben“ and „Elternzeit“
  * employees.contractView, „Lohn und Steuer“ employees.payroll, „Pflichtdokumente“ and „Dokumente“ the key of at least
- * one folder, „Unfälle“ accidents.manage, „BEM“, „Mutterschutz“ and „Krankheitstage“ employees.sickness). On their own
- * page (`own`) nobody gets „Gespräche“, „BEM“, „Mutterschutz“ or „Krankheitstage“: a Leitung's talks and health matters
+ * one folder, „Unfälle“ accidents.manage, „BEM“, „Mutterschutz“, „Krankheitstage“ and „Längere Abwesenheit“
+ * employees.sickness). On their own page (`own`) nobody gets „Gespräche“ or any of these health sections: a Leitung's talks and health matters
  * are held by the Träger (or another Leitung); they see the talks under „Meine Gespräche“.
  */
 export function employeeSections(can: (key: PermissionKey) => boolean, own = false): EmployeeSection[] {
@@ -80,7 +81,7 @@ export function employeeSections(can: (key: PermissionKey) => boolean, own = fal
     contract: can('employees.contractView'), parentalLeave: can('employees.contractView'), payroll: can('employees.payroll'),
     hours: true, balance: true, leave: true, stamping: true,
     requiredDocuments: documents, requirements: true, documents,
-    accidents: can('accidents.manage'), bem: health, maternity: health, sickDays: health,
+    accidents: can('accidents.manage'), bem: health, maternity: health, sickDays: health, longAbsence: health,
     talks: can('talks.manage') && !own, access: can('users.manage'),
   }
   return (Object.keys(EMPLOYEE_SECTIONS) as EmployeeSection[]).filter(section => shown[section])

@@ -1,5 +1,5 @@
 import { dateRange } from './dates'
-import { balanceStart, dailyTarget, isEmployedOn, type EmploymentInfo } from './targets'
+import { balanceStart, dailyTarget, isEmployedOn, longSickOn, type EmploymentInfo } from './targets'
 import type { CodeKey, DomainEntry, IsoDate } from './types'
 
 export interface DayResult {
@@ -149,7 +149,10 @@ export function creditsRecords(actual: ActualTime | undefined, date: IsoDate): b
 export function computeDay(info: EmploymentInfo, date: IsoDate, entries: DomainEntry[], actual?: ActualTime): DayResult {
   const target = dailyTarget(info, date)
   let credit = 0
-  if (isEmployedOn(info, date)) {
+  // Langzeitkrank and Kur/Reha (a long absence, shared/domain/longAbsence.ts): credited as a whole day „Krank“, whatever
+  // is still planned or stamped, without a plan entry.
+  if (isEmployedOn(info, date) && longSickOn(info, date)) credit = target
+  else if (isEmployedOn(info, date)) {
     const planned = dayCredit(entries, target)
     // A full-day absence or a whole Büro/home-office day counts its target, also on days of the records.
     if (creditsDailyTarget(entries) || !usesRecords(actual, date)) {

@@ -10,6 +10,7 @@ import { formatDateTime, formatDayLong, formatDayShort } from '~/utils/format'
 import { planBlocks } from '~/utils/groups'
 import { busyCellKeys, isMarker } from '~/utils/helpOuts'
 import { dayHoursText } from '~/utils/openingHours'
+import { longAbsenceCells } from '~/utils/longAbsence'
 import { parentalLeaveCells } from '~/utils/parentalLeave'
 import { gridStep, quickEntryHandlers, rovingStop } from '~/utils/quickEntry'
 import { templateUseHint } from '~/utils/templateUses'
@@ -129,6 +130,8 @@ function removableHelpOut(employeeId: number): number | null {
 }
 /** The working days of a full Elternzeit: „Elternzeit“ or „abwesend“ (no stored entry, see MonthPlanDto.parentalLeave). */
 const parentalLeave = computed(() => parentalLeaveCells(props.plan))
+/** The working days of a long absence without an entry: the reason or „abwesend“ (no stored entry, see MonthPlanDto.longAbsence). */
+const longAbsence = computed(() => longAbsenceCells(props.plan))
 /** Helper days that belong to another plan: "belegt", not selectable. */
 const busy = computed(() => busyCellKeys(props.plan))
 
@@ -258,8 +261,10 @@ const rows = computed(() => props.plan.days.map((day) => {
       actual: props.plan.admin?.actuals[key] ?? null,
       sickLeave,
       parentalLeave: parentalLeave.value.get(key) ?? null,
+      longAbsence: longAbsence.value.get(key) ?? null,
       title: joinLines([
         sickLeave,
+        longAbsence.value.has(key) && !props.print ? de.longAbsence.planCellHint : undefined,
         parentalLeave.value.get(key) === de.parentalLeave.planLabel && !props.print ? de.parentalLeave.planHint : undefined,
         busy.value.has(key) && !props.print ? de.plan.helperBusyHint : undefined,
         marker && props.editable ? de.plan.markerHint : undefined,
@@ -448,6 +453,9 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
                   <span
                     v-if="cell.parentalLeave" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 ring-1 ring-gray-300 print:ring-0"
                   >{{ cell.parentalLeave }}</span>
+                  <span
+                    v-if="cell.longAbsence" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 ring-1 ring-gray-300 print:ring-0"
+                  >{{ cell.longAbsence }}</span>
                   <!-- A double click on a chip that opens its edit dialog stays with the dialog (data-quick-skip). -->
                   <PlanEntryChip
                     v-for="entry in cell.entries" :key="entry.id" :entry="entry" :removable="editable"

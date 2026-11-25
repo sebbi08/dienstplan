@@ -12,6 +12,7 @@ import type { IfsgAnchor, IfsgDisease, IfsgKind, IfsgProof } from '../domain/ifs
 import type { IfsgDifference, IfsgLocalDateRule, IfsgLocalRule } from '../domain/ifsgLocal'
 import type { KnowledgeConfirmState, KnowledgeKind } from '../domain/knowledge'
 import type { LeaveAccount, LeaveRange } from '../domain/leave'
+import type { LongAbsenceReason, StoredLongAbsenceReason } from '../domain/longAbsence'
 import type { EmploymentBanKind } from '../domain/maternity'
 import type { DayMeal } from '../domain/meals'
 import type { OfflineStampReason, OfflineTabletStatus } from '../domain/offlineStamps'
@@ -491,6 +492,8 @@ export interface ReminderDto {
   probation?: { employeeId: number }
   /** For a return from Elternzeit (whoever sees the contract data): the employee; `date` is the first working day after it. */
   parentalLeave?: { employeeId: number; toPartTime: boolean }
+  /** For a return from a long absence (employees.sickness): the employee; `date` is the first working day after it (no reason). */
+  longAbsence?: { employeeId: number }
 }
 
 /** The record's „Entwicklungsdokumentation“. */
@@ -1380,6 +1383,31 @@ export interface MonthPlanDto {
    * all, else „abwesend“.
    */
   parentalLeave: { cells: string[]; label: 'parental_leave' | 'absent' }
+  /** „Längere Abwesenheit“ (server/services/longAbsence.ts): who is out of the plan and the line below it. */
+  longAbsence: LongAbsencePlanDto
+}
+
+/**
+ * The long absences of a month's plan, as they are now (also in a released month). The reason (`null` = „abwesend“)
+ * only for viewers who may see it: Langzeitkrank, Kur/Reha, Sonstiges and Mutterschutz with employees.sickness (never at
+ * the tablet), Elternzeit as the plan shows it (seesParentalLeave).
+ */
+export interface LongAbsencePlanDto {
+  /**
+   * The line „Längere Abwesenheit: N Personen“: each period reaching into the month, per person (staff order), periods
+   * with the same shown reason that follow each other joined. `to` null = „bis auf Weiteres“.
+   */
+  people: { employeeId: number; name: string; from: IsoDate; to: IsoDate | null; reason: LongAbsenceReason | null }[]
+  /**
+   * The staff taken out of this plan (their columns, entries and hints are not sent): away on every working day of the
+   * month, nothing planned for them to work.
+   */
+  hidden: number[]
+  /**
+   * Shown persons' working days in a long absence without any entry, keyed by cellKey: the reason to show (null =
+   * „abwesend“). Not the days of a full Elternzeit (`parentalLeave` marks them).
+   */
+  cells: Record<string, LongAbsenceReason | null>
 }
 
 /** An entry in "Mein Dienstplan"; a help-out duty carries the name of the facility it is in. */
@@ -1392,6 +1420,8 @@ export interface MyPlanDayDto extends DayRowDto {
   changes: ChangeDto[]
   /** A working day of the person's own full Elternzeit („Elternzeit“; no stored entry). */
   parentalLeave?: boolean
+  /** A working day of the person's own long absence without an entry („Längere Abwesenheit“; no reason). */
+  longAbsence?: boolean
 }
 
 export interface MyPlanDto {
@@ -4101,6 +4131,52 @@ export interface MaternityBookingDto {
   returnedLeave: number
   /** Booking again: leave days on new days of the period, left as they were (give back with „… eintragen“). */
   keptLeave: number
+}
+
+/**
+ * A long absence on the employee page (server/services/longAbsence.ts): entered (`source` 'entry': Langzeitkrank,
+ * Kur/Reha, Sonstiges) or taken over from the Mutterschutz booked in the plan and from a full Elternzeit (changed there).
+ */
+export interface LongAbsenceDto {
+  /** The entry's id; null for a period taken over. */
+  id: number | null
+  source: 'entry' | 'maternity' | 'parentalLeave'
+  reason: LongAbsenceReason
+  start: IsoDate
+  /** null = „bis auf Weiteres“. */
+  end: IsoDate | null
+  /** The first working day after a known end (no public holiday, no closure, no further long absence); null otherwise. */
+  returnDay: IsoDate | null
+  /** Who entered it and when (entries only). */
+  createdBy: string | null
+  createdOn: IsoDate | null
+}
+
+/** The section „Längere Abwesenheit“ (tab „Gesundheit“, employees.sickness). */
+export interface EmployeeLongAbsenceDto {
+  items: LongAbsenceDto[]
+  /** Duties still planned in a period can be removed here (plan.edit). */
+  canRemoveDuties: boolean
+}
+
+export interface LongAbsenceInput {
+  reason: StoredLongAbsenceReason
+  start: IsoDate
+  /** null = „bis auf Weiteres“. */
+  end: IsoDate | null
+}
+
+/** A duty still planned in a long absence (shift, special shift, VZ, Büro …; this facility's plan only). */
+export interface LongAbsenceDutyDto {
+  id: number
+  date: IsoDate
+  label: string
+}
+
+/** Saving: the id and the duties still planned in the period (they stay until removed; never deleted silently). */
+export interface LongAbsenceSaveDto {
+  id: number
+  duties: LongAbsenceDutyDto[]
 }
 
 /** Saving a case: its id and, when the plan was booked before and the period changed, what booking again did. */

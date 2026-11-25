@@ -113,6 +113,8 @@ export function warningText(warning: Warning, names: Map<number, string>): strin
       return de.warnings.breakRule(names.get(warning.employeeId) ?? '?')
     case 'record_on_absence':
       return de.warnings.recordOnAbsence(names.get(warning.employeeId) ?? '?')
+    case 'long_absence_duty':
+      return de.warnings.longAbsenceDuty(names.get(warning.employeeId) ?? '?')
     case 'record_without_plan':
       return de.warnings.recordWithoutPlan(names.get(warning.employeeId) ?? '?')
     case 'max_hours':

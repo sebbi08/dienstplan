@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isFullDayTimed, isWorkEntry } from '#shared/domain/balance'
 import { buildDayOverview, type SlotState } from '#shared/domain/dayOverview'
 import { formatTime } from '#shared/domain/time'
 import type { MonthPlanDto } from '#shared/types/api'
@@ -7,6 +8,7 @@ import { slotClasses } from '~/utils/colors'
 import { formatDate } from '~/utils/format'
 import { shownEmployees } from '~/utils/groups'
 import { isMarker } from '~/utils/helpOuts'
+import { longAbsentOn } from '~/utils/longAbsence'
 import { parentalLeaveCells } from '~/utils/parentalLeave'
 
 /**
@@ -19,14 +21,17 @@ const emit = defineEmits<{ close: [] }>()
 const LEGEND: SlotState[] = ['work', 'support', 'break', 'absent', 'prep_time', 'office', 'doctor', 'office_day', 'home_office', 'holiday', 'other']
 const names = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
 const day = computed(() => props.plan.days.find(candidate => candidate.date === props.date))
-// Helpers count with their duties here; a help-out elsewhere counts in the other facility, not here.
+// Helpers count with their duties here; a help-out elsewhere counts in the other facility, not here. Someone in a long
+// absence that day is not listed unless work is planned for them (it stays visible, the plan warns).
+const present = computed(() => props.plan.employees.filter(employee => !longAbsentOn(props.plan, employee.id, props.date)
+  || props.plan.entries.some(entry => entry.employeeId === employee.id && entry.date === props.date && (isWorkEntry(entry) || isFullDayTimed(entry)))))
 const people = computed(() => {
   const groupId = props.groupId ?? null
-  if (groupId === null) return props.plan.employees
+  if (groupId === null) return present.value
   const shown = new Set(shownEmployees(props.plan, groupId).map(employee => employee.id))
   const helping = new Set(props.plan.entries.filter(entry => entry.date === props.date && entry.groupId === groupId)
     .map(entry => entry.employeeId))
-  return props.plan.employees.filter(employee => shown.has(employee.id) || helping.has(employee.id))
+  return present.value.filter(employee => shown.has(employee.id) || helping.has(employee.id))
 })
 const overview = computed(() => buildDayOverview(
   people.value.map(employee => ({

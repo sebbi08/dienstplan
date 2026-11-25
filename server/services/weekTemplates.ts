@@ -4,6 +4,7 @@ import { addDays, isValidIsoDate, weekday } from '../../shared/domain/dates'
 import { describeEntry } from '../../shared/domain/describe'
 import { isHolidayIn } from '../../shared/domain/holidays'
 import { isProtectedCode, PROTECTED_CODE_KEYS } from '../../shared/domain/maternity'
+import { longAbsenceOn } from '../../shared/domain/longAbsence'
 import { type EmploymentInfo, isEmployedOn, isWorkday, MONDAY_TO_FRIDAY } from '../../shared/domain/targets'
 import type { TimeSpan } from '../../shared/domain/time'
 import type { CodeKey, DomainEntry, IsoDate } from '../../shared/domain/types'
@@ -501,12 +502,14 @@ export function weekTemplateUsesOf(
 /**
  * Whether filling a week writes the template's day into the plan, before closures and occupied cells: Monday–Friday on
  * the employee's working days; Saturday/Sunday on every day employed without a public holiday, a whole Büro/VZ day only
- * on a working day (see applyWeekTemplate).
+ * on a working day (see applyWeekTemplate). Never on a day of an entered long absence (Langzeitkrank, Kur/Reha,
+ * Sonstiges): the person is not there.
  */
 function fillsDay(
   info: EmploymentInfo, date: IsoDate, day: number,
   cell: Pick<typeof weekTemplateEntries.$inferSelect, 'kind' | 'absenceCodeId' | 'start' | 'end'>[],
 ): boolean {
+  if (longAbsenceOn(info.longAbsences, date)) return false
   if (!isTemplateWeekend(day) || cell.some(row => row.kind === 'code' && row.start === null && row.end === null)) {
     return isWorkday(info, date)
   }

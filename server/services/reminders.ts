@@ -16,6 +16,7 @@ import { bemReminders } from './bem'
 import { ifsgClusterReminders, ifsgReminders } from './ifsg'
 import { maternityReminders } from './maternity'
 import { offlineStampReminders } from './offlineStamps'
+import { longAbsenceReminders } from './longAbsence'
 import { parentalLeaveReminders } from './parentalLeave'
 import { probationReminders } from './probation'
 import { meetingsOnDay } from './parentMeetings'
@@ -158,6 +159,8 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
   items.push(...probationReminders(db, viewer, today))
   // And a return from Elternzeit within 4 weeks (the first working day after it).
   items.push(...parentalLeaveReminders(db, viewer, today))
+  // Whoever has employees.sickness: a return from a long absence with a known end within 2 weeks (no reason named).
+  items.push(...longAbsenceReminders(db, viewer, today))
   return sortReminders(items)
 }
 

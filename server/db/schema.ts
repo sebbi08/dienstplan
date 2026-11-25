@@ -1948,6 +1948,24 @@ export const parentalLeaveBirths = sqliteTable('parental_leave_births', {
   updatedAt: text('updated_at').notNull(),
 }, table => [uniqueIndex('parental_leave_births_employee_birth').on(table.employeeId, table.childBirthDate)])
 
+/**
+ * „Längere Abwesenheit“ entered on the employee page (shared/domain/longAbsence.ts): Langzeitkrank, Kur/Reha or Sonstiges
+ * from `start` to `end` (null = „bis auf Weiteres“); no two of a person share a day. The person leaves the roster for
+ * that time; Langzeitkrank and Kur/Reha count as sick days on the working days without a plan entry (computed, nothing
+ * is stored per day). The reason is health data: entered and seen only with employees.sickness. Deleted with the plan
+ * entries and the Krankheitstage (Löschfrist „Sonstige Überstunden- und Zeitdaten“).
+ */
+export const longAbsences = sqliteTable('long_absences', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  reason: text('reason', { enum: ['sick', 'rehab', 'other'] }).notNull(),
+  start: text('start').notNull(),
+  end: text('end'),
+  createdBy: text('created_by').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, table => [index('long_absences_employee').on(table.employeeId)])
+
 /** The forms of a staff talk: the employee's self-assessment (`self`) or an assessment, in the order of `sort`. */
 export const staffTalkForms = sqliteTable('staff_talk_forms', {
   talkId: integer('talk_id').notNull().references(() => staffTalks.id, { onDelete: 'cascade' }),

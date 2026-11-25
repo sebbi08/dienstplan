@@ -1,4 +1,5 @@
 import type { SlotState } from '#shared/domain/dayOverview'
+import type { LongAbsenceReason, StoredLongAbsenceReason } from '#shared/domain/longAbsence'
 import type { Qualification, StaffingMethod } from '#shared/domain/staffing/types'
 import type { GroupColor, MeetingKind, StaffingEstimateReason } from '#shared/types/api'
 
@@ -523,6 +524,8 @@ export const de = {
   },
   warnings: {
     missingEntry: (name: string) => `${name}: kein Eintrag`,
+    // A duty still planned on a day of an entered long absence (Langzeitkrank, Kur/Reha, Sonstiges); no reason told.
+    longAbsenceDuty: (name: string) => `${name}: Dienst eingetragen, obwohl längere Abwesenheit – zählt nicht mit, bitte entfernen`,
     /** A group rule names its group first: „Mäuse – Frühdienst ab 7:00: 1× eingetragen (2 benötigt)“. */
     coverage: (label: string, found: number, required: number, group?: string) =>
       `${group ? `${group} – ` : ''}${label}: ${found}× eingetragen (${required} benötigt)`,
@@ -2492,11 +2495,14 @@ export const de = {
     parentalLeave: (date: string) => ({ before: '', after: ` kommt am ${date} aus der Elternzeit zurück` }),
     parentalLeaveToPartTime: (date: string) => ({ before: '', after: ` wechselt am ${date} in Teilzeit-Elternzeit` }),
     parentalLeaveLink: 'zur Elternzeit',
+    // „‹Name› kommt am ‹dd.mm.yyyy› zurück (längere Abwesenheit)“ (employees.sickness, from 2 weeks before; no reason).
+    longAbsence: (date: string) => ({ before: '', after: ` kommt am ${date} zurück (längere Abwesenheit) – Rückkehr planen` }),
+    longAbsenceLink: 'zur Person',
     kinds: {
       doc: 'Entwicklungsdokumentation', meeting: 'Elterngespräch', birthday: 'Geburtstag', staffBirthday: 'Geburtstag',
       leaving: 'Abschied', retention: 'Jetzt löschbar', accident: 'Unfallanzeige', ifsg: 'Meldepflichtige Krankheit',
       ifsgCluster: 'Häufung von Erkrankungen', offlineStamp: 'Offline-Stempel', bem: 'BEM', maternity: 'Mutterschutz',
-      probation: 'Probezeit', parentalLeave: 'Elternzeit',
+      probation: 'Probezeit', parentalLeave: 'Elternzeit', longAbsence: 'Längere Abwesenheit',
     },
     // The record's section.
     section: 'Entwicklungsdokumentation',
@@ -3354,6 +3360,66 @@ export const de = {
     },
   },
   /** Mutterschutz (MuSchG): the section of the employee page (employees.sickness, never on the own page). */
+  /**
+   * „Längere Abwesenheit“: the section of the employee page (tab „Gesundheit“, employees.sickness), the line below the
+   * plan and the marks in the plan and in „Mein Dienstplan“.
+   */
+  longAbsence: {
+    title: 'Längere Abwesenheit',
+    intro: 'Wer länger fehlt, steht in dieser Zeit nicht im Dienstplan. Krankheitstage zählen von selbst. Gesundheitsdaten: nur für Leitung und Träger sichtbar.',
+    introMore: 'Langzeitkrank und Kur/Reha zählen an jedem Arbeitstag der Person als Krankheitstag (ohne Feiertage und Schließtage) – für das Stundenkonto (wie „Krank“), die Krankheitstage und das BEM. Ein einzelner Eintrag „Krank“ im Zeitraum zählt nicht doppelt. Sonstiges (z. B. Sabbatical) ist unbezahlt: keine Soll-Stunden.\nMutterschutz/Beschäftigungsverbot und Elternzeit werden hier nicht noch einmal eingetragen: Sie kommen aus „Mutterschutz“ (sobald die Schutzfristen im Dienstplan eingetragen sind) und „Elternzeit“ und werden dort geändert.\nIm Dienstplan steht unten nur „Längere Abwesenheit: N Personen“; den Grund sehen nur Leitung und Träger, alle anderen sehen „abwesend“. 2 Wochen vor einem bekannten Ende erinnert die App an die Rückkehr.',
+    loading: 'Lädt …',
+    none: 'Keine längere Abwesenheit eingetragen.',
+    add: 'Längere Abwesenheit eintragen',
+    editTitle: 'Längere Abwesenheit ändern',
+    edit: 'Ändern',
+    remove: 'Löschen',
+    removeConfirm: 'Diese längere Abwesenheit löschen? Die Person steht dann wieder im Dienstplan; die Krankheitstage dieses Zeitraums zählen nicht mehr.',
+    removed: 'Gelöscht.',
+    reason: 'Grund',
+    reasons: {
+      sick: 'Langzeitkrank', maternity: 'Mutterschutz/Beschäftigungsverbot', parental_leave: 'Elternzeit', rehab: 'Kur/Reha',
+      other: 'Sonstiges (z. B. Sabbatical)',
+    } as Record<LongAbsenceReason, string>,
+    // The short form in the plan's cells and the line below the plan.
+    shortReasons: {
+      sick: 'Langzeitkrank', maternity: 'Mutterschutz', parental_leave: 'Elternzeit', rehab: 'Kur/Reha', other: 'Sonstiges',
+    } as Record<LongAbsenceReason, string>,
+    reasonHints: {
+      sick: 'Zählt an jedem Arbeitstag als Krankheitstag (Stundenkonto, Krankheitstage, BEM).',
+      rehab: 'Zählt wie Krank (Entgeltfortzahlung wie bei Arbeitsunfähigkeit, § 9 EFZG).',
+      other: 'Unbezahlt: keine Soll-Stunden, keine Krankheitstage.',
+    } as Record<StoredLongAbsenceReason, string>,
+    takenOverHint: 'Mutterschutz und Elternzeit werden aus ihren Einträgen übernommen.',
+    start: 'Von',
+    end: 'Bis',
+    openEnd: 'bis auf Weiteres',
+    endHint: 'Leer lassen, wenn das Ende noch nicht bekannt ist.',
+    period: (from: string, to: string | null) => (to === null ? `ab ${from}, bis auf Weiteres` : `${from} – ${to}`),
+    returnLine: (date: string) => `Erster Arbeitstag danach: ${date}`,
+    createdBy: (date: string, name: string) => `eingetragen am ${date}${name ? ` von ${name}` : ''}`,
+    fromMaternity: 'aus „Mutterschutz“ (im Dienstplan eingetragen) – dort ändern',
+    fromParentalLeave: 'aus „Elternzeit“ – dort ändern',
+    toMaternity: 'zum Mutterschutz',
+    toParentalLeave: 'zur Elternzeit',
+    // Duties still planned in the period (never removed without asking).
+    duties: (count: number) => (count === 1
+      ? 'In diesem Zeitraum ist noch 1 Dienst eingetragen. Er zählt nicht mit und steht als Warnung im Dienstplan.'
+      : `In diesem Zeitraum sind noch ${count} Dienste eingetragen. Sie zählen nicht mit und stehen als Warnung im Dienstplan.`),
+    dutiesQuestion: 'Jetzt aus dem Dienstplan entfernen?',
+    dutiesNoRight: 'Bitte im Dienstplan entfernen (dafür fehlt hier das Recht „Dienstplan bearbeiten“).',
+    removeDuties: 'Dienste entfernen',
+    keepDuties: 'Behalten',
+    dutiesRemoved: (days: number) => (days === 1 ? '1 Tag im Dienstplan geleert.' : `${days} Tage im Dienstplan geleert.`),
+    dutyLine: (date: string, label: string) => `${date}: ${label}`,
+    // The line below the plan.
+    planLine: (count: number) => `Längere Abwesenheit: ${count === 1 ? '1 Person' : `${count} Personen`}`,
+    planLineHint: 'Diese Personen stehen in dieser Zeit nicht im Dienstplan (an Tagen mit Einträgen stehen sie weiter da).',
+    planAbsent: 'abwesend',
+    planCellHint: 'Längere Abwesenheit (bei der Person eingetragen, kein Eintrag im Dienstplan)',
+    // „Mein Dienstplan“: the person's own days (no reason).
+    myPlanLabel: 'Längere Abwesenheit',
+  },
   maternity: {
     title: 'Mutterschutz',
     intro: 'Schwangerschaft, Schutzfristen, Beschäftigungsverbot und Stillzeit (MuSchG). Gesundheitsdaten: nur für Leitung und Träger sichtbar.',
@@ -3953,6 +4019,10 @@ export const de = {
     parental_leave_protection_invalid: 'Der Mutterschutz nach der Geburt endet frühestens am Tag der Geburt und höchstens 20 Wochen danach.',
     parental_leave_note_too_long: 'Die Notiz ist zu lang (höchstens 2000 Zeichen).',
     maternity_own: 'Deinen eigenen Mutterschutz trägt der Träger ein.',
+    long_absence_own: 'Deine eigene längere Abwesenheit trägt der Träger ein.',
+    long_absence_not_found: 'Diese längere Abwesenheit wurde nicht gefunden. Bitte lade die Seite neu.',
+    long_absence_end_before_start: '„Bis“ darf nicht vor „Von“ liegen.',
+    long_absence_overlap: 'In diesem Zeitraum ist schon eine längere Abwesenheit eingetragen. Bitte die andere ändern.',
     maternity_not_found: 'Dieser Eintrag zum Mutterschutz wurde nicht gefunden.',
     maternity_date_future: 'Das Datum darf nicht in der Zukunft liegen.',
     maternity_birth_invalid: 'Der Tag der Entbindung passt nicht zum voraussichtlichen Termin. Bitte das Jahr prüfen.',

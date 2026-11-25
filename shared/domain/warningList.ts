@@ -67,7 +67,7 @@ const ID = /^[1-9]\d*$/
 const SUBJECT_FORMATS: Record<Warning['type'], RegExp> = {
   missing_entry: ID, target_gap: ID, open_record: ID, missing_record: ID, break_rule: ID, record_without_plan: ID, record_on_absence: ID,
   max_hours: ID, max_hours_recorded: ID, short_rest: ID, short_rest_recorded: ID, long_stretch: ID, child_sick_days: ID,
-  work_limit: ID,
+  work_limit: ID, long_absence_duty: ID,
   youth_birth_year: ID, youth_birthday: ID,
   maternity: /^[1-9]\d*\|(hours|late|early|sunday|rest|average|doubleWeek|protected|ban)$/,
   youth: /^[1-9]\d*\|(hours|week|days|early|late|saturday|sunday|holiday|rest|break|stretch|schoolDay|schoolBefore|eve|examBan)$/,

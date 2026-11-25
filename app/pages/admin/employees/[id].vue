@@ -911,14 +911,17 @@ async function onTabKey(event: KeyboardEvent) {
       </div>
     </div>
 
-    <!-- „Gesundheit“: each part mounted only with its right (never BEM, Mutterschutz and Krankheitstage on the own page),
-         loaded once the tab is opened. -->
+    <!-- „Gesundheit“: each part mounted only with its right (never BEM, Mutterschutz, Krankheitstage and Längere
+         Abwesenheit on the own page), loaded once the tab is opened. -->
     <div v-if="visibleTabs.includes('health')" v-show="tab === 'health'" v-bind="panel('health')">
       <div v-if="shows('accidents')" id="employee-section-accidents" class="scroll-mt-32 space-y-4">
         <EmployeesAccidentsSection :employee-id="id" :active="tab === 'health'" />
       </div>
       <div v-if="shows('sickDays')" id="employee-section-sickDays" class="scroll-mt-32">
         <EmployeesSickDaysSection :employee-id="id" :active="tab === 'health'" />
+      </div>
+      <div v-if="shows('longAbsence')" id="employee-section-longAbsence" class="scroll-mt-32 space-y-4">
+        <EmployeesLongAbsenceSection :employee-id="id" :active="tab === 'health'" />
       </div>
       <div v-if="shows('bem')" id="employee-section-bem" class="scroll-mt-32 space-y-4">
         <EmployeesBemSection :employee-id="id" :active="tab === 'health'" />

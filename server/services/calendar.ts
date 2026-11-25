@@ -1,7 +1,8 @@
 import { and, asc, eq, gte, lte } from 'drizzle-orm'
 import { groupLeaveRanges } from '../../shared/domain/leave'
-import { dateRange, isWeekend } from '../../shared/domain/dates'
+import { dateRange, isWeekend, todayIso } from '../../shared/domain/dates'
 import { isHolidayIn } from '../../shared/domain/holidays'
+import { countsAsSick, spanCovers } from '../../shared/domain/longAbsence'
 import { isPrivateCode } from '../../shared/domain/maternity'
 import { isEmployedInRange, isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
@@ -12,8 +13,9 @@ import { ServiceError } from '../lib/errors'
 import { autoEventsFor } from './autoEvents'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
+import { absenceSpansOf, contractWorkday, longSickDays } from './longAbsence'
 import { fullParentalLeaveDates, parentalLeaveLabel } from './parentalLeave'
-import { type EmployeeRecord, loadCodes, loadEmployees, loadEntries } from './queries'
+import { type EmployeeRecord, loadClosures, loadCodes, loadEmployees, loadEntries } from './queries'
 
 type ParentalLeaveLabel = 'parental_leave' | 'absent'
 
@@ -49,12 +51,21 @@ function staffOfYear(db: Db, facilityId: number, year: number) {
   return loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, from, to))
 }
 
-/** Sick periods (Mon–Fri without holidays, bridging weekends) and the number of sick workdays per employee of the facility. */
-export function getSickYear(db: Db, facilityId: number, year: number): SickYearRowDto[] {
-  const sickDates = loadEntries(db, { ...yearBounds(year), codeKey: 'sick', homeFacilityId: facilityId })
+/**
+ * Sick periods (Mon–Fri without holidays, bridging weekends) and the number of sick workdays per employee of the
+ * facility: the „Krank“ entries and the days of a long absence Langzeitkrank or Kur/Reha up to today (its working days
+ * without closure days, computed; a day with both counts once).
+ */
+export function getSickYear(db: Db, facilityId: number, year: number, today: IsoDate = todayIso()): SickYearRowDto[] {
+  const { from, to } = yearBounds(year)
+  const sickDates = loadEntries(db, { from, to, codeKey: 'sick', homeFacilityId: facilityId })
+  const closures = loadClosures(db, facilityId)
   return staffOfYear(db, facilityId, year).map((employee) => {
     const ranges = groupLeaveRanges(
-      sickDates.filter(entry => entry.employeeId === employee.id).map(entry => entry.date),
+      [...new Set([
+        ...sickDates.filter(entry => entry.employeeId === employee.id).map(entry => entry.date),
+        ...longSickDays(employee, closures, from, to < today ? to : today),
+      ])],
       date => isWorkday(employee.info, date),
     )
     return { employeeId: employee.id, name: employee.name, total: ranges.reduce((sum, range) => sum + range.days, 0), ranges }
@@ -138,6 +149,21 @@ export function getYearCalendar(
     const kind: CalendarKind = employee.id === options.sickOnlyOf ? 'parental_leave' : leaveLabel ?? 'parental_leave'
     for (const date of leaveDays.get(employee.id)!) days[employee.id]![date] ??= kind
   }
+  // An entered long absence on the person's working days where no entry says otherwise: Langzeitkrank and Kur/Reha as
+  // Krank for viewers of the health data and for the person themselves, everybody else (and Sonstiges) „abwesend“.
+  const absenceDays = new Map(staff.map(employee => [employee.id, new Set<IsoDate>()]))
+  const spans = absenceSpansOf(db, staff)
+  for (const employee of staff) {
+    const own = (spans.get(employee.id) ?? []).filter(span => span.source === 'entry')
+    if (own.length === 0) continue
+    const sees = hideSick ? employee.id === options.sickOnlyOf : showsProtected
+    for (const date of dateRange(`${year}-01-01`, `${year}-12-31`)) {
+      const span = own.find(item => spanCovers(item, date))
+      if (!span || !isEmployedOn(employee.info, date) || !contractWorkday(employee.info, date)) continue
+      absenceDays.get(employee.id)!.add(date)
+      days[employee.id]![date] ??= sees && countsAsSick(span.reason) ? 'sick' : 'absent'
+    }
+  }
   const { rows, groups } = groupedRows(db, facilityId, staff)
   return {
     year,
@@ -150,7 +176,7 @@ export function getYearCalendar(
     // skipped when entering absences.
     freeDays: Object.fromEntries(staff.map(employee => [employee.id, dateRange(`${year}-01-01`, `${year}-12-31`)
       .filter(date => !isWeekend(date) && !isHolidayIn(date, employee.info.holidays) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date)
-        && !leaveDays.get(employee.id)!.has(date))])),
+        && !leaveDays.get(employee.id)!.has(date) && !absenceDays.get(employee.id)!.has(date))])),
     absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key) && (showsProtected || !isPrivateCode(code.key))),
     events: listCalendarEvents(db, facilityId, year),
     // Anonymous (no child names), so the staff calendar keeps them all.

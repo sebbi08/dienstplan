@@ -228,8 +228,10 @@ describe('the plan of a facility without groups', () => {
   it('gives the plan as before, with only empty groups and attendance added (Review Focus 1)', () => {
     const dto = getMonthPlan(db, admin, 1, 2026, 10, today)
     // reportSickCodeId came later with „Krank melden“ (tests/services/reportSick.test.ts): none with the sick days right.
-    // parentalLeave came later with the Elternzeit (tests/services/parentalLeave.test.ts): no marked cells here.
-    const { groups: shownGroups, attendance, reportSickCodeId, parentalLeave, ...rest } = dto
+    // parentalLeave came later with the Elternzeit (tests/services/parentalLeave.test.ts): no marked cells here; the same
+    // for longAbsence (tests/services/longAbsence.test.ts).
+    const { groups: shownGroups, attendance, reportSickCodeId, parentalLeave, longAbsence, ...rest } = dto
+    expect(longAbsence).toEqual({ people: [], hidden: [], cells: {} })
     expect(shownGroups).toEqual([])
     expect(attendance).toEqual({})
     expect(reportSickCodeId).toBeNull()

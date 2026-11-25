@@ -48,7 +48,7 @@ const icons: Record<ReminderDto['kind'], string> = {
   doc: 'i-lucide-notebook-pen', meeting: 'i-lucide-messages-square', birthday: 'i-lucide-cake', staffBirthday: 'i-lucide-party-popper',
   leaving: 'i-lucide-door-open', retention: 'i-lucide-trash-2', accident: 'i-lucide-bandage', ifsg: 'i-lucide-shield-alert', ifsgCluster: 'i-lucide-users-round',
   offlineStamp: 'i-lucide-wifi-off', bem: 'i-lucide-heart-handshake', maternity: 'i-lucide-baby', probation: 'i-lucide-file-clock',
-  parentalLeave: 'i-lucide-baby',
+  parentalLeave: 'i-lucide-baby', longAbsence: 'i-lucide-calendar-clock',
 }
 
 /** The text around the name. A documentation's day carries the year when it is not this year (long overdue, or due next January). */
@@ -105,6 +105,9 @@ function textOf(entry: ReminderDto): { before: string; after: string } {
     case 'parentalLeave':
       // „‹Name› wechselt am ‹dd.mm.yyyy› in Teilzeit-Elternzeit“ when a part-time Elternzeit follows directly.
       return entry.parentalLeave?.toPartTime ? r.parentalLeaveToPartTime(formatDate(entry.date)) : r.parentalLeave(formatDate(entry.date))
+    // „‹Name› kommt am ‹dd.mm.yyyy› zurück (längere Abwesenheit) – Rückkehr planen“ (no reason).
+    case 'longAbsence':
+      return r.longAbsence(formatDate(entry.date))
   }
 }
 
@@ -205,6 +208,10 @@ async function markDone(entry: ReminderDto) {
             v-if="entry.kind === 'parentalLeave' && entry.parentalLeave" :to="`/admin/employees/${entry.parentalLeave.employeeId}?tab=parentalLeave`"
             class="ml-2 text-xs text-sky-700 hover:underline"
           >{{ r.parentalLeaveLink }}</NuxtLink>
+          <NuxtLink
+            v-if="entry.kind === 'longAbsence' && entry.longAbsence" :to="`/admin/employees/${entry.longAbsence.employeeId}?tab=longAbsence`"
+            class="ml-2 text-xs text-sky-700 hover:underline"
+          >{{ r.longAbsenceLink }}</NuxtLink>
         </span>
         <UButton
           v-if="entry.kind === 'maternity' && entry.maternity?.task === 'banCheck'" class="min-h-11" color="neutral" variant="outline"

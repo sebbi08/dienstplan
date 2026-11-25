@@ -81,6 +81,21 @@ const sameFacts = (a: SyncFacts, b: SyncFacts) => JSON.stringify(syncFactsOf(a a
 /** The days a kind books: both protection periods, or a full ban's days (never protection days); none after the end. */
 const datesOf = (facts: SyncFacts, kind: MaternityBookingKind): IsoDate[] => (kind === 'protection' ? protectionDates(facts) : banDates(facts))
 
+/**
+ * The days the employees' cases booked in the plan (both protection periods and a full ban, as last written to it), by
+ * employee: a long absence „Mutterschutz/Beschäftigungsverbot“ in the roster (server/services/longAbsence.ts). A case
+ * not booked yet gives none, so the roster shows only what the Leitung entered in the plan.
+ */
+export function bookedMaternityDates(db: Db, employeeIds: readonly number[]): Map<number, IsoDate[]> {
+  const result = new Map<number, IsoDate[]>()
+  for (const row of casesOf(db, [...employeeIds])) {
+    const sync = readSync(row)
+    const dates = KINDS.flatMap(kind => (sync[kind] ? datesOf(sync[kind]!, kind) : []))
+    if (dates.length > 0) result.set(row.employeeId, [...result.get(row.employeeId) ?? [], ...dates])
+  }
+  return result
+}
+
 /** The plan no longer matches the case: a booked kind whose facts changed since it was written (e.g. saved without plan.edit). */
 function planOutdated(row: CaseRow): boolean {
   const sync = readSync(row)

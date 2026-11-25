@@ -918,6 +918,13 @@
       "when": 1795626972236,
       "tag": "0130_contact_category_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "6",
+      "when": 1795636536116,
+      "tag": "0131_long_absences",
+      "breakpoints": true
     }
   ]
 }
