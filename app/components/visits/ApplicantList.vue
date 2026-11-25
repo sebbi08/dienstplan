@@ -65,7 +65,7 @@ const badge = (value: ApplicantVisitListItemDto['status']) =>
     <ul v-else class="divide-y divide-gray-100 overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
       <li v-for="visit in shown" :key="visit.id">
         <NuxtLink :to="`/admin/employees/applicants/${visit.id}`" class="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 hover:bg-gray-50">
-          <span class="min-w-0 flex-1">
+          <span class="min-w-0 flex-1 basis-48">
             <span class="font-medium">{{ visit.name }}</span>
             <span class="text-gray-600"> · {{ t.kinds[visit.kind] }}</span>
             <span class="block text-xs text-gray-500">

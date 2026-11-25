@@ -65,7 +65,7 @@ const badge = (value: InfoVisitListItemDto['status']) =>
       <li v-for="visit in shown" :key="visit.id">
         <NuxtLink :to="`/children/info-visits/${visit.id}`" class="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 hover:bg-gray-50">
           <span class="w-24 shrink-0 text-gray-600">{{ formatDate(visit.visitDate) }}</span>
-          <span class="min-w-0 flex-1">
+          <span class="min-w-0 flex-1 basis-48">
             <span class="font-medium">{{ visit.familyName }}</span>
             <span v-if="visit.childFirstName || visit.childLastName" class="text-gray-600"> · {{ `${visit.childFirstName} ${visit.childLastName}`.trim() }}</span>
             <span v-if="visit.guidedBy" class="block text-xs text-gray-500">{{ t.fields.guidedBy }}: {{ visit.guidedBy }}</span>
