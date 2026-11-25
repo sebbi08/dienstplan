@@ -15,7 +15,9 @@ import type {
   EmployeeSensitiveDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users } from '../db/schema'
+import {
+  applicantVisits, balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users,
+} from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { bookClosuresBetween, bookClosuresFor, unbookClosuresFrom } from './closures'
 import { employeesWithPaidOvertimeData } from './employeeDeletion'
@@ -590,7 +592,9 @@ export function setStampingOptions(
  * from today on: the old facility's are removed, the new facility's are booked (same rules as for a new employee).
  * The employee's Mitarbeiter account follows automatically; a linked Leitung or tablet account is moved along.
  * Records of mandatory appointments are re-pointed to the new facility's kinds; trainings stay with the employee. Staff
- * talks and their forms move to the new facility, and so do the accident reports about the employee.
+ * talks and their forms move to the new facility, and so do the accident reports about the employee. Phone and e-mail
+ * still on the hired application record (Bewerbungen & Hospitationen, kept there when the hiring user could not write
+ * the personal data) leave the old facility: see settleApplicationContact.
  */
 export function moveEmployeeToFacility(
   db: Db, actor: SessionUser, employeeId: number, facilityId: number, now: Date = new Date(),
@@ -623,6 +627,27 @@ export function moveEmployeeToFacility(
     moveEmployeeAccidents(tx, employeeId, facilityId)
     // Bezugserzieher must belong to the child's facility: the children of the old facility lose this one.
     tx.update(children).set({ keyEducatorId: null }).where(eq(children.keyEducatorId, employeeId)).run()
+    settleApplicationContact(tx, actor, employeeId)
     bookClosuresFor(tx, actor, employeeId, now, today)
   })
+}
+
+/**
+ * A hired applicant's record stays in the old facility with its kind, days and link only; phone and e-mail left on it
+ * (the hiring user could not write „Anschrift und Kontakt“) go. A mover with employees.personal first copies them into
+ * the employee's personal data where that is still empty; without that right they are only cleared (the old facility
+ * must not keep them, and the mover may not write them).
+ */
+function settleApplicationContact(tx: Db, actor: SessionUser, employeeId: number): void {
+  const stubs = tx.select({ id: applicantVisits.id, phone: applicantVisits.phone, email: applicantVisits.email }).from(applicantVisits)
+    .where(and(eq(applicantVisits.employeeId, employeeId), eq(applicantVisits.status, 'hired'))).all()
+    .filter(stub => stub.phone !== '' || stub.email !== '')
+  if (stubs.length === 0) return
+  if (can(actor.permissions, 'employees.personal')) {
+    const person = tx.select({ phone: employees.phone, email: employees.email }).from(employees).where(eq(employees.id, employeeId)).get()!
+    const phone = person.phone ?? stubs.find(stub => stub.phone !== '')?.phone ?? null
+    const email = person.email ?? stubs.find(stub => stub.email !== '')?.email ?? null
+    tx.update(employees).set({ phone, email }).where(eq(employees.id, employeeId)).run()
+  }
+  tx.update(applicantVisits).set({ phone: '', email: '' }).where(inArray(applicantVisits.id, stubs.map(stub => stub.id))).run()
 }

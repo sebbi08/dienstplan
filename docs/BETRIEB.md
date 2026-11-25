@@ -3402,7 +3402,9 @@ der Kinderakte gelöscht.
 merkt den Tag der Absage, „Wieder öffnen“ nimmt sie zurück. **Einstellen** (braucht zusätzlich das Recht, Mitarbeiter
 anzulegen) legt die Person als Mitarbeiter an (Name, Kürzel, Beginn, Wochenstunden, Gruppe) – die Vertragsangaben
 ergänzt der Träger. Telefon und E-Mail kommen in „Anschrift und Kontakt“, wenn man dieses Recht hat; sonst bleiben sie
-im Eintrag der Bewerbung (nur mit dem Recht „führen“ sichtbar), und das Fenster weist darauf hin. Die Dokumente kommen in ein gewähltes Fach der
+im Eintrag der Bewerbung (nur mit dem Recht „führen“ sichtbar), und das Fenster weist darauf hin. Zieht die
+Person später in eine andere Einrichtung um, verlassen Telefon und E-Mail den Eintrag: Hat, wer den Umzug macht, das
+Recht „Anschrift und Kontakt“, kommen sie in die Personalakte (wo dort noch nichts steht); sonst werden sie nur gelöscht. Die Dokumente kommen in ein gewähltes Fach der
 Personalakte, für das man das Recht hat (voreingestellt „Bewerbung“, sonst das erste erlaubte), die Bögen erscheinen in
 der Personalakte unter Nachweise → Dokumente als „Bögen aus der Bewerbung“ (nur lesen; sichtbar mit dem Fach „Bewerbung“
 oder dem Recht „Infogespräche & Hospitationen führen“). Der Eintrag bleibt als „eingestellt“ stehen (ein Tag der Absage

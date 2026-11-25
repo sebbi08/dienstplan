@@ -9,6 +9,7 @@ import {
   deleteChildForm, getChildForm, listChildFormEditors, listChildForms, saveChildForm, setChildFormEditors,
 } from '../../server/services/childForms'
 import { categoryHasData, deleteAssessmentData, deleteImmediateData, deletePaidOvertimeData } from '../../server/services/employeeDeletion'
+import { moveEmployeeToFacility } from '../../server/services/employees'
 import { createTemplate, updateTemplate } from '../../server/services/formTemplates'
 import { saveRoleBundle } from '../../server/services/permissions'
 import { deleteRetentionItem, retentionOverview } from '../../server/services/retentionOverview'
@@ -271,6 +272,26 @@ describe('info visits and applicants', () => {
       const lead = addUser(db, 'gruppenleitung', 'group_lead', addEmployee(db, 'Gabi'))
       saveRoleBundle(db, 'group_lead', 'visitsApplicantsView', true)
       expect(getApplicant(db, actorOf(refreshPermissions(db, lead)), id)).toMatchObject({ phone: '', email: '' })
+    })
+
+    it('a move to another facility takes the contact left on the record along (with „Anschrift und Kontakt“) or clears it', () => {
+      const hirer: VisitActor = { ...leitung, permissions: new Set([...leitung.permissions].filter(key => key !== 'employees.personal')) }
+      const hireInput = { shortName: 'ML', validFrom: '2027-01-01', weeklyMinutes: 600, groupId: null, folder: null }
+      const contact = (employeeId: number) => db.select({ phone: employees.phone, email: employees.email }).from(employees).where(eq(employees.id, employeeId)).get()
+      const stub = (id: number) => db.select({ phone: applicantVisits.phone, email: applicantVisits.email }).from(applicantVisits).where(eq(applicantVisits.id, id)).get()
+      const hort = addFacility(db, 'Hort')
+      // The Träger (with the right) moves her: the contact goes into the personal data, the record keeps none.
+      const first = createApplicant(db, leitung, applicantInput, NOW)
+      const { employeeId: mara } = hireApplicant(db, hirer, first, hireInput, LATER)
+      moveEmployeeToFacility(db, traeger, mara, hort, LATER)
+      expect(contact(mara)).toEqual({ phone: '0160 555', email: 'mara@example.de' })
+      expect(stub(first)).toEqual({ phone: '', email: '' })
+      // Without the right: only cleared.
+      const second = createApplicant(db, leitung, { ...applicantInput, name: 'Ole Berg', phone: '0151 1', email: 'ole@example.de' }, NOW)
+      const { employeeId: ole } = hireApplicant(db, hirer, second, { ...hireInput, shortName: 'OB' }, LATER)
+      moveEmployeeToFacility(db, { ...traeger, permissions: new Set([...traeger.permissions].filter(key => key !== 'employees.personal')) }, ole, hort, LATER)
+      expect(contact(ole)).toEqual({ phone: null, email: null })
+      expect(stub(second)).toEqual({ phone: '', email: '' })
     })
 
     it('„Einstellen“ of a declined applicant drops the refusal date', () => {
