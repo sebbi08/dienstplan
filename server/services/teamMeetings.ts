@@ -10,7 +10,7 @@ import type {
 import type { Db } from '../db/client'
 import { employees, facilities, forms, groups, teamMeetingParticipants, teamMeetings } from '../db/schema'
 import { ServiceError } from '../lib/errors'
-import { actorName, listTemplates, loadTemplate, withFormErrors } from './formTemplates'
+import { actorName, loadTemplate, templateChoices, withFormErrors } from './formTemplates'
 import { verifyEmployeePin } from './terminal'
 
 export const TEAM_MEETING_LIMITS = { participants: 300, recorder: 80, reason: 200 } as const
@@ -175,8 +175,7 @@ export function listTeamMeetings(
   const signers = signersOf(db, rows.map(row => row.meeting.id), today)
   return {
     meetings: rows.map(row => toListItem(row.meeting, row.form, names, signers.get(row.meeting.id)!, member)),
-    templates: listTemplates(db, member.facilityId, 'team').filter(template => !template.archived)
-      .map(template => ({ id: template.id, name: template.name })),
+    templates: templateChoices(db, member.facilityId, 'team'),
     groups: facilityGroups(db, member.facilityId),
     staff: choosableStaff(db, member.facilityId, today),
     toSign: toSign(db, member, today),

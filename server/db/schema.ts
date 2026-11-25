@@ -1638,11 +1638,13 @@ export const cashLog = sqliteTable('cash_log', {
  * `content` is JSON FormContent (sections and items with stable ids, see shared/domain/forms.ts). `starterKey` marks a
  * starter template created by the app (null for the facility's own templates and for copies). `selfAssessment`: filled
  * in by the employee. `subject`: whom an accident template's forms are about (null for the other kinds). `updatedBy` is
- * the name at the time ('' for the starters).
+ * the name at the time ('' for the starters). `categoryId`: the facility's category or subcategory it is filed in (null =
+ * none); `sortOrder` is its place within that list.
  */
 export const formTemplates = sqliteTable('form_templates', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  categoryId: integer('category_id').references((): AnySQLiteColumn => formTemplateCategories.id, { onDelete: 'set null' }),
   kind: text('kind', { enum: FORM_KIND_VALUES }).notNull(),
   subject: text('subject', { enum: ['child', 'employee'] }),
   name: text('name').notNull(),
@@ -1656,7 +1658,27 @@ export const formTemplates = sqliteTable('form_templates', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   updatedBy: text('updated_by').notNull().default(''),
-}, table => [index('form_templates_facility_kind').on(table.facilityId, table.kind)])
+}, table => [
+  index('form_templates_facility_kind').on(table.facilityId, table.kind),
+  index('form_templates_category').on(table.categoryId),
+])
+
+/**
+ * A category of the facility's form templates (Dokumente → Bögen, server/services/formTemplateCategories.ts), or with
+ * `parentId` a subcategory of one (one level). The name is unique among its siblings regardless of case; only an empty
+ * category without subcategories may be deleted (the service checks).
+ */
+export const formTemplateCategories = sqliteTable('form_template_categories', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): AnySQLiteColumn => formTemplateCategories.id),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, table => [
+  uniqueIndex('form_template_categories_facility_parent_name')
+    .on(table.facilityId, sql`(case when ${table.parentId} is null then 0 else ${table.parentId} end)`, sql`lower(${table.name})`),
+  index('form_template_categories_parent').on(table.parentId),
+])
 
 /**
  * A filled form („Bogen“): `content` is the template's content copied when the form was made (later template changes

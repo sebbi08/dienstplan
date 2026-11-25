@@ -20,7 +20,7 @@ import { ServiceError } from '../lib/errors'
 import { detachAccidentAuthors } from './accidents'
 import { settleDue } from './childGroupChanges'
 import { itemChangesOf, lastOpened, markOpened, recordRevision } from './formRevisions'
-import { listTemplates, loadTemplate, withFormErrors } from './formTemplates'
+import { loadTemplate, templateChoices, withFormErrors } from './formTemplates'
 
 export const CHILD_FORM_LIMITS = { participants: 300 } as const
 /**
@@ -154,8 +154,7 @@ export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now
   const canCreate = !child.archived && canCreateChildForm(asRightViewer(viewer, child), { keyEducatorId: child.row.keyEducatorId })
   // The tablet cannot read the template list itself (managers only), so whoever may start a form gets the choice here.
   const templates = canCreate
-    ? listTemplates(db, viewer.facilityId, 'child').filter(template => !template.archived)
-        .map(template => ({ id: template.id, name: template.name }))
+    ? templateChoices(db, viewer.facilityId, 'child')
     : []
   return {
     forms: rows.map(row => toListItem(row, access(viewer, child, row, editors.get(row.id)!), viewer, child)),

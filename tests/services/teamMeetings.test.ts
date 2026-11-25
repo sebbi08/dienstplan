@@ -197,7 +197,7 @@ describe('team meetings', () => {
     updateTemplate(db, leitungUser, 1, own, { archived: true }, NOW)
     expect(failure(() => createTeamMeeting(db, anna, input(own), NOW))).toBe('409 form_template_archived')
     // The list offers only the active team templates.
-    expect(listTeamMeetings(db, tablet, { year: 2026 }, NOW).templates).toEqual([{ id: template, name: 'Teamsitzung' }])
+    expect(listTeamMeetings(db, tablet, { year: 2026 }, NOW).templates).toEqual([{ id: template, name: 'Teamsitzung', category: 'Team' }])
 
     // The meeting keeps its own copy: later template changes never reach it.
     const id = create(anna)

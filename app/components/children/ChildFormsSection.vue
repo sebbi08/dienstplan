@@ -4,7 +4,7 @@ import { formatTime, parseTime } from '#shared/domain/time'
 import type { ChildFormEditorDto, ChildFormListItemDto, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime } from '~/utils/format'
-import { comparableGroups } from '~/utils/forms'
+import { comparableGroups, templatePickerItems } from '~/utils/forms'
 
 /**
  * „Beobachtungen“ in the record: the child's observation forms newest first (date, template, „zuletzt geändert“). Who
@@ -72,7 +72,7 @@ function titleLine(form: ChildFormListItemDto): string {
 const createOpen = ref(false)
 const createError = ref('')
 const draft = reactive({ templateId: undefined as number | undefined, date: todayIso(), start: '', participants: '' })
-const templateItems = computed(() => (data.value?.templates ?? []).map(template => ({ label: template.name, value: template.id })))
+const templateItems = computed(() => templatePickerItems(data.value?.templates ?? []))
 function openCreate() {
   Object.assign(draft, { templateId: data.value?.templates[0]?.id, date: todayIso(), start: '', participants: '' })
   createError.value = ''

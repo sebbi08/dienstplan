@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
+import { groupTemplateChoices } from '#shared/domain/formCategories'
 import { formatTime, parseTime } from '#shared/domain/time'
 import type { FormTemplateDto, StaffTalkDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -19,6 +20,8 @@ const run = useAction()
 const STARTERS = ['staff_self_assessment', 'staff_assessment']
 const form = reactive({ date: '', start: '', participants: '', period: '', templateIds: [] as number[] })
 const active = computed(() => props.templates.filter(template => !template.archived))
+/** The active templates grouped by „Kategorie › Unterkategorie“, in the categories' order. */
+const activeGroups = computed(() => groupTemplateChoices(active.value))
 
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -85,11 +88,14 @@ async function save() {
         <fieldset v-if="!talk && !reuseFrom" class="col-span-2 space-y-1">
           <legend class="mb-1 text-sm font-medium">{{ de.talks.forms }}</legend>
           <p v-if="!active.length" class="text-sm text-gray-500">{{ de.talks.noTemplates }}</p>
-          <UCheckbox
-            v-for="template in active" :key="template.id" :model-value="form.templateIds.includes(template.id)"
-            :label="template.name" :description="template.selfAssessment ? de.talks.roles.self : de.talks.roles.assessment"
-            @update:model-value="toggleTemplate(template.id, $event === true)"
-          />
+          <template v-for="group in activeGroups" :key="group.heading ?? ''">
+            <p v-if="group.heading" class="pt-1 text-xs font-semibold text-gray-500">{{ group.heading }}</p>
+            <UCheckbox
+              v-for="template in group.choices" :key="template.id" :model-value="form.templateIds.includes(template.id)"
+              :label="template.name" :description="template.selfAssessment ? de.talks.roles.self : de.talks.roles.assessment"
+              @update:model-value="toggleTemplate(template.id, $event === true)"
+            />
+          </template>
         </fieldset>
         <div class="col-span-2 flex flex-wrap justify-end gap-2">
           <UButton color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />

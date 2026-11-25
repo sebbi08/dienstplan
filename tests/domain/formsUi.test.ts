@@ -4,7 +4,7 @@ import type { ChildFormDto, TeamMeetingDto } from '../../shared/types/api'
 import { de } from '../../app/locales/de'
 import {
   blankSheet, childSheet, compareLabels, comparableGroups, teamSheet, filledAnswers, isBlank, milestoneColumns, olderAndNewer, panelDirty, putAnswersTo,
-  saveAnswers, sectionBlocks, sectionHasRating,
+  saveAnswers, sectionBlocks, sectionHasRating, templatePickerItems,
 } from '../../app/utils/forms'
 
 const section: FormSection = {
@@ -20,6 +20,20 @@ const section: FormSection = {
     { id: 'r3', kind: 'rating', criterion: 'C' },
   ],
 }
+
+describe('templatePickerItems', () => {
+  it('groups the choices under their „Kategorie › Unterkategorie“ heading, those without a category last without one', () => {
+    expect(templatePickerItems([
+      { id: 1, name: 'A', category: 'Kinder' }, { id: 2, name: 'B', category: 'Kinder › Krippe' }, { id: 3, name: 'C', category: null },
+    ])).toEqual([
+      [{ type: 'label', label: 'Kinder', value: 0 }, { label: 'A', value: 1 }],
+      [{ type: 'label', label: 'Kinder › Krippe', value: 0 }, { label: 'B', value: 2 }],
+      [{ label: 'C', value: 3 }],
+    ])
+    expect(templatePickerItems([{ id: 4, name: 'D', category: null }])).toEqual([[{ label: 'D', value: 4 }]])
+    expect(templatePickerItems([])).toEqual([])
+  })
+})
 
 describe('sectionBlocks', () => {
   it('groups consecutive ratings and all milestones by age at the first milestone', () => {

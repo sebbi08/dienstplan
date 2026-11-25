@@ -4,6 +4,7 @@ import { formatTime, parseTime } from '#shared/domain/time'
 import { MEETING_KINDS, type ChildRecordDto, type MeetingKind, type ParentMeetingDto, type ParentMeetingInput } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
+import { templatePickerItems } from '~/utils/forms'
 
 /**
  * „Elterngespräche“ in the record: the meetings newest first (planned ones marked), and for whoever may edit the record
@@ -28,7 +29,7 @@ const c = de.childForms
 
 // „Bogen ausfüllen“: the template to fill (the first one preselected), the header comes from the meeting.
 const canFill = computed(() => !!childForms.data.value?.canCreate)
-const fillTemplates = computed(() => (childForms.data.value?.templates ?? []).map(template => ({ label: template.name, value: template.id })))
+const fillTemplates = computed(() => templatePickerItems(childForms.data.value?.templates ?? []))
 const fillOpen = ref(false)
 const fillMeeting = ref<ParentMeetingDto | null>(null)
 const fillTemplateId = ref<number | undefined>(undefined)

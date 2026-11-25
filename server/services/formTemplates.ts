@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { and, count, eq, max } from 'drizzle-orm'
+import { and, count, eq, isNull, max } from 'drizzle-orm'
+import { formCategoryRanks, formCategorySpot, type TemplateChoice } from '../../shared/domain/formCategories'
 import {
   checkContent, FORM_KINDS, FORM_LIMITS, FORM_SUBJECTS, FormError, type FormContent, type FormKind, type FormSubject,
 } from '../../shared/domain/forms'
@@ -9,6 +10,7 @@ import type { Db } from '../db/client'
 import { employees, facilities, forms, formStarterSeeds, formTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
+import { chosenFormCategory, exampleCategoryOf, facilityFormCategories, seedFormCategories } from './formTemplateCategories'
 
 export type FormTemplateRow = typeof formTemplates.$inferSelect
 
@@ -18,6 +20,8 @@ export interface FormTemplateInput {
   selfAssessment: boolean
   /** Required for an accident template (whom its forms are about), ignored for the other kinds. */
   subject?: string | null
+  /** The facility's category or subcategory to file it in (null or left out = none). */
+  categoryId?: number | null
 }
 
 /** Any subset of the template's fields; `content` is the whole content as the editor holds it (new parts without ids). */
@@ -26,6 +30,8 @@ export interface FormTemplateUpdate {
   archived?: boolean
   selfAssessment?: boolean
   content?: unknown
+  /** Another category or subcategory of the facility (null = none); the template goes to the end of that list. */
+  categoryId?: number | null
   /** The template's updatedAt the editor loaded; when given, a newer save in between is 409 form_template_changed. */
   expectedUpdatedAt?: string
 }
@@ -130,31 +136,50 @@ function checkedSubject(kind: FormKind, subject: unknown): FormSubject | null {
   return subject as FormSubject
 }
 
-function nextSortOrder(db: Db, facilityId: number, kind: FormKind): number {
+/** The place after the last template of the facility filed in the category (null = the templates without one). */
+function nextSortOrder(db: Db, facilityId: number, categoryId: number | null): number {
   const row = db.select({ value: max(formTemplates.sortOrder) }).from(formTemplates)
-    .where(and(eq(formTemplates.facilityId, facilityId), eq(formTemplates.kind, kind))).get()
+    .where(and(eq(formTemplates.facilityId, facilityId), categoryId === null ? isNull(formTemplates.categoryId) : eq(formTemplates.categoryId, categoryId))).get()
   return (row?.value ?? -1) + 1
 }
 
-function toDto(row: FormTemplateRow, inUse: boolean): FormTemplateDto {
+function toDto(row: FormTemplateRow, inUse: boolean, categories: ReturnType<typeof facilityFormCategories>): FormTemplateDto {
+  const spot = formCategorySpot(categories, row.categoryId)
   return {
     id: row.id, kind: row.kind, subject: row.subject, printLayout: row.printLayout, name: row.name, starterKey: row.starterKey, selfAssessment: row.selfAssessment,
     archived: row.archived, sortOrder: row.sortOrder, content: templateContent(row), updatedAt: row.updatedAt,
-    updatedBy: row.updatedBy, inUse,
+    updatedBy: row.updatedBy, inUse, categoryId: spot.categoryId, subcategoryId: spot.subcategoryId, category: spot.path,
   }
 }
 
-/** The facility's templates (of one kind, or all): active before archived, then by kind and order. */
+/**
+ * The facility's templates (of one kind, or all): active before archived, then by where they are filed (the categories'
+ * order, each category followed by its subcategories, those without a category last) and their order there.
+ */
 export function listTemplates(db: Db, facilityId: number, kind?: FormKind): FormTemplateDto[] {
   const rows = db.select().from(formTemplates).where(and(
     eq(formTemplates.facilityId, facilityId), kind === undefined ? undefined : eq(formTemplates.kind, kind),
   )).all()
   const used = new Set(db.selectDistinct({ templateId: forms.templateId }).from(forms)
     .where(eq(forms.facilityId, facilityId)).all().map(row => row.templateId))
+  const categories = facilityFormCategories(db, facilityId)
+  const rank = formCategoryRanks(categories)
   return rows
-    .sort((a, b) => Number(a.archived) - Number(b.archived) || FORM_KINDS.indexOf(a.kind) - FORM_KINDS.indexOf(b.kind)
-      || a.sortOrder - b.sortOrder || a.id - b.id)
-    .map(row => toDto(row, used.has(row.id)))
+    .sort((a, b) => Number(a.archived) - Number(b.archived) || rank(a.categoryId) - rank(b.categoryId)
+      || a.sortOrder - b.sortOrder || FORM_KINDS.indexOf(a.kind) - FORM_KINDS.indexOf(b.kind) || a.id - b.id)
+    .map(row => toDto(row, used.has(row.id), categories))
+}
+
+/**
+ * The active templates of the kind to start a form from (child forms, staff talks, team meetings, accidents, visits), in
+ * the order of their categories, each with its „Kategorie › Unterkategorie“ for the picker's groups; `only` narrows them
+ * further (e.g. the accident templates of one subject).
+ */
+export function templateChoices(
+  db: Db, facilityId: number, kind: FormKind, only: (template: FormTemplateDto) => boolean = () => true,
+): TemplateChoice[] {
+  return listTemplates(db, facilityId, kind).filter(template => !template.archived && only(template))
+    .map(template => ({ id: template.id, name: template.name, category: template.category }))
 }
 
 /**
@@ -165,10 +190,11 @@ export function createTemplate(db: Db, actor: SessionUser, facilityId: number, i
   assertKind(input.kind)
   const subject = checkedSubject(input.kind, input.subject)
   const name = checkedName(db, facilityId, input.kind, input.name, null)
+  const categoryId = chosenFormCategory(db, facilityId, input.categoryId ?? null)
   const at = now.toISOString()
   return db.insert(formTemplates).values({
-    facilityId, kind: input.kind, subject, name, selfAssessment: input.kind === 'staff' && input.selfAssessment,
-    sortOrder: nextSortOrder(db, facilityId, input.kind), content: JSON.stringify({ sections: [] }),
+    facilityId, kind: input.kind, subject, name, selfAssessment: input.kind === 'staff' && input.selfAssessment, categoryId,
+    sortOrder: nextSortOrder(db, facilityId, categoryId), content: JSON.stringify({ sections: [] }),
     createdAt: at, updatedAt: at, updatedBy: actorName(db, actor),
   }).returning({ id: formTemplates.id }).get().id
 }
@@ -199,6 +225,10 @@ export function updateTemplate(
     if (name !== row.name) values.name = name
   }
   if (input.archived !== undefined && input.archived !== row.archived) values.archived = input.archived
+  if (input.categoryId !== undefined) {
+    const categoryId = chosenFormCategory(db, facilityId, input.categoryId)
+    if (categoryId !== row.categoryId) Object.assign(values, { categoryId, sortOrder: nextSortOrder(db, facilityId, categoryId) })
+  }
   if (input.selfAssessment !== undefined) {
     const selfAssessment = row.kind === 'staff' && input.selfAssessment
     if (selfAssessment !== row.selfAssessment) values.selfAssessment = selfAssessment
@@ -219,14 +249,16 @@ export function updateTemplate(
 }
 
 /**
- * The new order of the facility's active templates of a kind (▲/▼ on „Bögen“; the pickers list them in it): exactly
- * those, each once (else 400 invalid_order). Archived templates keep their places in between, so one reactivated comes
- * back where it was. The kind's whole list is numbered afresh.
+ * The new order of the facility's active templates filed directly in a category or subcategory (null = those without a
+ * category; ▲/▼ on „Bögen“, the pickers list them in it): exactly those, each once (else 400 invalid_order; another
+ * facility's category 400 form_category_invalid). Archived templates keep their places in between, so one reactivated
+ * comes back where it was. The list is numbered afresh.
  */
-export function orderTemplates(db: Db, facilityId: number, kind: FormKind, ids: readonly number[]): void {
-  assertKind(kind)
+export function orderTemplates(db: Db, facilityId: number, categoryId: number | null, ids: readonly number[]): void {
+  chosenFormCategory(db, facilityId, categoryId)
   const all = db.select({ id: formTemplates.id, archived: formTemplates.archived, sortOrder: formTemplates.sortOrder })
-    .from(formTemplates).where(and(eq(formTemplates.facilityId, facilityId), eq(formTemplates.kind, kind))).all()
+    .from(formTemplates).where(and(eq(formTemplates.facilityId, facilityId),
+      categoryId === null ? isNull(formTemplates.categoryId) : eq(formTemplates.categoryId, categoryId))).all()
     .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
   const active = new Set(all.filter(row => !row.archived).map(row => row.id))
   if (ids.length !== active.size || new Set(ids).size !== ids.length || !ids.every(id => active.has(id))) {
@@ -257,7 +289,7 @@ function copyName(db: Db, facilityId: number, kind: FormKind, name: string): str
   }
 }
 
-/** A copy at the end of its kind: same texts and settings (print layout included), new ids, active, no starter key; returns its id. */
+/** A copy at the end of its category: same texts and settings (print layout included), new ids, active, no starter key; returns its id. */
 export function copyTemplate(
   db: Db, actor: SessionUser, facilityId: number, id: number, now: Date = new Date(), newId: () => string = randomUUID,
 ): number {
@@ -265,7 +297,7 @@ export function copyTemplate(
   const at = now.toISOString()
   return db.insert(formTemplates).values({
     facilityId, kind: row.kind, subject: row.subject, printLayout: row.printLayout, name: copyName(db, facilityId, row.kind, row.name), selfAssessment: row.selfAssessment,
-    sortOrder: nextSortOrder(db, facilityId, row.kind), content: JSON.stringify(freshIds(templateContent(row), newId)),
+    categoryId: row.categoryId, sortOrder: nextSortOrder(db, facilityId, row.categoryId), content: JSON.stringify(freshIds(templateContent(row), newId)),
     createdAt: at, updatedAt: at, updatedBy: actorName(db, actor),
   }).returning({ id: formTemplates.id }).get().id
 }
@@ -285,6 +317,8 @@ function seededKeys(db: Db, facilityId: number): Set<string> {
 export function seedStarterTemplates(
   db: Db, facilityId: number, now: Date = new Date(), newId: () => string = randomUUID, only?: readonly StarterKey[],
 ): void {
+  // The example categories first (once), so the starters are filed into the one of their kind.
+  seedFormCategories(db, facilityId, now)
   const seeded = seededKeys(db, facilityId)
   const present = new Set(db.select({ key: formTemplates.starterKey }).from(formTemplates)
     .where(eq(formTemplates.facilityId, facilityId)).all().map(row => row.key))
@@ -295,10 +329,12 @@ export function seedStarterTemplates(
       // A template of the facility's own may already use the name; the starter then gets a free one.
       const taken = existingNames(db, facilityId, starter.kind)
         .some(row => row.name.toLocaleLowerCase('de') === starter.name.toLocaleLowerCase('de'))
+      const categoryId = exampleCategoryOf(db, facilityId, starter.kind)
       db.insert(formTemplates).values({
+        categoryId,
         facilityId, kind: starter.kind, subject: starter.subject ?? null, printLayout: starter.printLayout ?? null, starterKey: starter.key, selfAssessment: starter.selfAssessment,
         name: taken ? copyName(db, facilityId, starter.kind, starter.name) : starter.name,
-        sortOrder: nextSortOrder(db, facilityId, starter.kind),
+        sortOrder: nextSortOrder(db, facilityId, categoryId),
         content: JSON.stringify(checkContent(starterContent(starter, newId))), createdAt: at, updatedAt: at, updatedBy: '',
       }).run()
     }

@@ -5,6 +5,7 @@ import { formatTime, parseTime } from '#shared/domain/time'
 import type { AccidentListItemDto, AccidentsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
+import { templatePickerItems } from '~/utils/forms'
 
 /**
  * „Unfälle“ of one person (child record, Personalakte, „Meine Unfälle“): the accident reports newest first (Datum,
@@ -65,7 +66,7 @@ const createLabel = computed(() => (props.subject === 'child' ? a.createChild : 
 const createOpen = ref(false)
 const createError = ref('')
 const draft = reactive({ templateId: undefined as number | undefined, date: todayIso(), start: '', doctor: false, unfit: false })
-const templateItems = computed(() => (data.value?.templates ?? []).map(template => ({ label: template.name, value: template.id })))
+const templateItems = computed(() => templatePickerItems(data.value?.templates ?? []))
 function openCreate() {
   Object.assign(draft, { templateId: data.value?.templates[0]?.id, date: todayIso(), start: '', doctor: false, unfit: false })
   createError.value = ''

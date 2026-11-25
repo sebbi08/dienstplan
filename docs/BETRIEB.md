@@ -2751,23 +2751,35 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 
 ## 25. Bögen, Mitarbeitergespräche, Beobachtungsbögen und Teamsitzungen
 
-- **Vorlagen:** im Menü unter **Mehr → Dokumente**, Reiter **Bögen** (Leitung und Träger). Die Seite zeigt die Vorlagen in Kästen:
-  **Kinder** (Beobachtungen, Entwicklungsgespräche), **Fachkräfte** (Mitarbeitergespräche), **Team** (Teamsitzungen) und
-  **Unfälle**, jeder mit eigenem „Vorlage anlegen“; auf großen Bildschirmen stehen die Kästen nebeneinander. Mit dem **Drucker-Zeichen** bei einer Vorlage druckst du
+- **Vorlagen:** im Menü unter **Mehr → Dokumente**, Reiter **Bögen** (Leitung und Träger). Die Seite sieht aus wie
+  „Vorlagen“: Die **eigenen Kategorien** der Einrichtung stehen als Reiter oben, darunter die **Unterkategorien** der
+  offenen Kategorie als kleine Reiter („Alle“, „Allgemein“ und je Unterkategorie, mit Anzahl; in „Alle“ ist jede Liste ein
+  Abschnitt, den du einklappen kannst – das Gerät merkt sich das). Die **Suche** findet Vorlagen über alle Kategorien,
+  geordnet nach „Kategorie › Unterkategorie“. Vorlagen ohne Kategorie stehen im Reiter **Ohne Kategorie** (nur solange es
+  welche gibt). **Neue Vorlage** fragt Namen, **Wofür?** (für Kinder, für Mitarbeitergespräche, für Teamsitzungen, für
+  Unfälle – dann auch „für Kind oder Mitarbeiter“ –, für Infogespräche, für Hospitationen; legt fest, wo die Vorlage zur
+  Auswahl steht, und lässt sich später nicht ändern) und Kategorie/Unterkategorie (vorbelegt mit dem offenen Reiter).
+  „Wofür“ steht als Kennzeichen an jeder Vorlage. **Verschieben** legt eine Vorlage in eine andere (Unter-)Kategorie
+  (sie kommt dort ans Ende). **Kategorien verwalten**: anlegen, umbenennen, mit Pfeilen ordnen, Unterkategorien (eine
+  Ebene) anlegen; löschen nur, solange keine Vorlage (auch keine stillgelegte) und keine Unterkategorie darin liegt.
+  Mit dem Update (Migration 0128) bekam jede Einrichtung die Beispielkategorien **Kinder, Fachkräfte, Team, Unfälle,
+  Infogespräche, Hospitationen** (alle sechs, auch leere – nicht gebrauchte einfach löschen), jede Vorlage liegt in der
+  Kategorie ihrer Art, die Reihenfolge blieb. Neue Einrichtungen bekommen dieselben Beispielkategorien; eine gelöschte
+  kommt nicht wieder. Mit dem **Drucker-Zeichen** bei einer Vorlage druckst du
   sie **leer** (A4 hochkant) – zum Ausfüllen von Hand, mit leeren Kopffeldern, Kästchen, Schreiblinien und Unterschriftszeilen. Die Einrichtungen von vor dem Update haben die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
   Fachkräfte**. Du kannst Vorlagen anlegen, **kopieren**, **stilllegen** (steht dann eingeklappt unten, schon angelegte
   Bögen bleiben lesbar) und löschen – Löschen geht nur, solange noch kein Bogen damit angelegt wurde.
 - **Reihenfolge:** Mit den Pfeilen **Nach oben / Nach unten** rechts bei jeder aktiven Vorlage schiebst du sie innerhalb
-  ihres Kastens (bei **Unfälle** stehen die Vorlagen für Kinder und für Mitarbeiter zusammen in einem Kasten). In dieser
-  Reihenfolge bietet die App die Vorlagen überall zur Auswahl an: beim Anlegen eines Bogens in der Kinderakte, beim
-  Mitarbeitergespräch, bei der Teamsitzung und beim Unfallbericht bzw. der Unfallanzeige. Neue und kopierte Vorlagen
-  kommen ans Ende. Stillgelegte Vorlagen haben keine Pfeile; sie behalten ihren Platz und stehen nach dem
+  ihrer Liste (die Vorlagen direkt in einer Kategorie, oder die einer Unterkategorie). Überall, wo eine Vorlage gewählt
+  wird (Bogen in der Kinderakte, Mitarbeitergespräch, Teamsitzung, Unfallbericht bzw. Unfallanzeige, Infogespräch,
+  Hospitation), stehen nur die Vorlagen der passenden Art – gruppiert nach „Kategorie › Unterkategorie“ in der Reihenfolge
+  der Kategorien und darin in dieser Reihenfolge; Vorlagen ohne Kategorie zuletzt. Neue und kopierte Vorlagen
+  kommen ans Ende ihrer Liste. Stillgelegte Vorlagen haben keine Pfeile; sie behalten ihren Platz und stehen nach dem
   **Wieder aktivieren** wieder dort, wo sie vorher waren.
 - **Neue Einrichtungen** (unter Einstellungen neu angelegt, seit dem Update mit „Dokumente“) bekommen nur die
   Startvorlagen für Unfälle (**Unfallbericht Kind** und **Unfallanzeige (U 1000)**). Selbstbeurteilung,
-  Beurteilungsbogen, Entwicklungsgespräch und Teamsitzung legt die App dort nicht an – auch später nicht. Ein Kasten
-  ohne Vorlage zeigt einen Hinweis: Namen eintragen und auf **Vorlage anlegen** tippen. Bestehende Einrichtungen
-  behalten alle ihre Vorlagen.
+  Beurteilungsbogen, Entwicklungsgespräch und Teamsitzung legt die App dort nicht an – auch später nicht. Eine Kategorie
+  ohne Vorlage zeigt einen Hinweis („Neue Vorlage“). Bestehende Einrichtungen behalten alle ihre Vorlagen.
 - **Vorlage bearbeiten:** Name, bei Mitarbeitergesprächen „Vom Mitarbeiter auszufüllen“, dann **Bereiche** (Titel,
   Hinweistext) und darin **Punkte**: Hinweis, Freitext, Ankreuzliste (mit Möglichkeiten), Bewertung (+ / ~ / −),
   Meilenstein (mit Altersstufe) und Datum. Mit den Pfeilen verschiebst du Bereiche und Punkte (Punkte auch in den

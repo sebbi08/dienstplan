@@ -4,6 +4,7 @@ import {
 } from '../../shared/domain/accidents'
 import { childStatus, hiddenFromViewer } from '../../shared/domain/children'
 import { isValidIsoDate } from '../../shared/domain/dates'
+import type { TemplateChoice } from '../../shared/domain/formCategories'
 import { checkAnswers, type FormAnswers, type FormContent, type FormSubject, type PrefillKey } from '../../shared/domain/forms'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { formatTime } from '../../shared/domain/time'
@@ -23,7 +24,7 @@ import { ServiceError } from '../lib/errors'
 import { DOCUMENT_EXTENSIONS, checkedDocumentFile, type DocumentMime } from '../lib/fileSignature'
 import { safeFileNamePart } from '../lib/fileName'
 import { facilityContactData } from './facilityContact'
-import { actorName, listTemplates, loadTemplate, withFormErrors } from './formTemplates'
+import { actorName, loadTemplate, templateChoices, withFormErrors } from './formTemplates'
 
 /**
  * Accident reports („Unfälle“, forms of kind `accident`, see shared/domain/accidents.ts): an Unfallbericht about a child
@@ -280,9 +281,8 @@ function accidentTemplate(db: Db, facilityId: number, templateId: number, subjec
   return template
 }
 
-function activeTemplates(db: Db, facilityId: number, subject: FormSubject): { id: number; name: string }[] {
-  return listTemplates(db, facilityId, 'accident').filter(template => !template.archived && template.subject === subject)
-    .map(template => ({ id: template.id, name: template.name }))
+function activeTemplates(db: Db, facilityId: number, subject: FormSubject): TemplateChoice[] {
+  return templateChoices(db, facilityId, 'accident', template => template.subject === subject)
 }
 
 interface NewForm {

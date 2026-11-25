@@ -3,6 +3,7 @@ import { todayIso } from '../../shared/domain/dates'
 import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/domain/forms'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { FOLDER_PERMISSION, type EmployeeDocumentFolder } from '../../shared/domain/personnel'
+import type { TemplateChoice } from '../../shared/domain/formCategories'
 import type { IsoDate } from '../../shared/domain/types'
 import {
   VISIT_LIMITS, VisitError, checkApplicant, checkInfoVisit, type ApplicantFields, type InfoVisitFields,
@@ -25,7 +26,7 @@ import { createChild } from './children'
 import { settleDocumentReview } from './documentReview'
 import { assertDocumentType } from './documentTypes'
 import { createEmployee } from './employees'
-import { actorName, listTemplates, loadTemplate, withFormErrors } from './formTemplates'
+import { actorName, loadTemplate, templateChoices, withFormErrors } from './formTemplates'
 import { resolveChildViewer } from './tabletUnlock'
 
 /**
@@ -125,8 +126,8 @@ function countsOf(db: Db, kind: VisitKind, ids: number[]): { documents: Map<numb
   }
 }
 
-function activeTemplates(db: Db, facilityId: number, kind: VisitKind): { id: number; name: string }[] {
-  return listTemplates(db, facilityId, kind).filter(template => !template.archived).map(template => ({ id: template.id, name: template.name }))
+function activeTemplates(db: Db, facilityId: number, kind: VisitKind): TemplateChoice[] {
+  return templateChoices(db, facilityId, kind)
 }
 
 // ---- info visits ------------------------------------------------------------------------------------------

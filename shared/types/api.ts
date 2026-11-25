@@ -4,6 +4,7 @@ import type { OverviewColumnRef } from '../domain/childConsents'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
 import type { DocumentScope } from '../domain/documentTargets'
 import type { EveRule } from '../domain/eveRules'
+import type { TemplateChoice } from '../domain/formCategories'
 import type { ItemChange } from '../domain/formHistory'
 import type { FormAnswers, FormContent, FormKind, FormSubject } from '../domain/forms'
 import type { HolidayKey, HolidayRules } from '../domain/holidays'
@@ -3518,6 +3519,26 @@ export interface FormTemplateDto {
   updatedBy: string
   /** Forms were made from it (then it can only be archived, not deleted). */
   inUse: boolean
+  /** The facility's category it is filed in (the top one; null = none) and its subcategory (null = directly in it). */
+  categoryId: number | null
+  subcategoryId: number | null
+  /** „Kategorie › Unterkategorie“; null without a category. */
+  category: string | null
+}
+
+/** A category of the facility's form templates (Dokumente → Bögen), or with `parentId` a subcategory of one. */
+export interface FormTemplateCategoryDto {
+  id: number
+  parentId: number | null
+  name: string
+  /** How many templates (also stopped ones) are filed directly in it. */
+  templateCount: number
+}
+
+/** A new category (with `parentId`: a subcategory of that category) or a new name. */
+export interface FormTemplateCategoryInput {
+  name: string
+  parentId?: number | null
 }
 
 export type TalkFormRole = 'self' | 'assessment'
@@ -3588,7 +3609,7 @@ export interface ChildFormListItemDto {
 export interface ChildFormsDto {
   forms: ChildFormListItemDto[]
   canCreate: boolean
-  templates: { id: number; name: string }[]
+  templates: TemplateChoice[]
 }
 
 /** One child form with its own copy of the template content, the answers and what the printout's header needs. */
@@ -3684,7 +3705,7 @@ export interface AccidentListItemDto {
 export interface AccidentsDto {
   forms: AccidentListItemDto[]
   canCreate: boolean
-  templates: { id: number; name: string }[]
+  templates: TemplateChoice[]
 }
 
 /** A file attached to an accident report (photo, PDF). */
@@ -3798,7 +3819,7 @@ export interface TeamMeetingListItemDto {
  */
 export interface TeamMeetingsDto {
   meetings: TeamMeetingListItemDto[]
-  templates: { id: number; name: string }[]
+  templates: TemplateChoice[]
   groups: { id: number; name: string }[]
   staff: { id: number; name: string; shortName: string }[]
   toSign: { count: number; firstId: number | null }
@@ -4682,7 +4703,7 @@ export interface InfoVisitDto extends InfoVisitListItemDto {
   documents: VisitDocumentDto[]
   forms: VisitFormListItemDto[]
   /** The facility's active templates of the kind „Infogespräch“. */
-  templates: { id: number; name: string }[]
+  templates: TemplateChoice[]
   staff: VisitStaffDto[]
 }
 
@@ -4737,7 +4758,7 @@ export interface ApplicantVisitDto extends ApplicantVisitListItemDto {
   updatedBy: string | null
   documents: VisitDocumentDto[]
   forms: VisitFormListItemDto[]
-  templates: { id: number; name: string }[]
+  templates: TemplateChoice[]
   staff: VisitStaffDto[]
   /** visits.manage: may change it (else read only, e.g. visits.applicants.view). */
   canManage: boolean

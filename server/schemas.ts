@@ -853,17 +853,25 @@ export const cashCsvQuery = yearQuery.extend({ month: z.coerce.number().int().mi
 // (form_template_name_too_long, form_content_invalid …), so the answers are in German.
 const formKind = z.enum(FORM_KINDS as ['staff', 'child', 'team', 'accident', 'info', 'applicant'])
 export const formTemplateQuery = z.object({ kind: formKind.optional() })
-/** The new order of the active templates of one kind. */
-export const formTemplateOrderSchema = z.object({ kind: formKind, ids: z.array(z.number().int().positive()).max(500) })
-/** `subject` is required for an accident template; the service checks it (form_subject_invalid). */
+/** A category of the form templates: the name (checked by the service, 1–60) and, for a subcategory, its category. */
+export const formCategorySchema = z.object({ name: z.string().max(200), parentId: z.number().int().positive().nullish() })
+export const formCategoryNameSchema = z.object({ name: z.string().max(200) })
+/** The new order of the active templates filed directly in one category or subcategory (null = those without one). */
+export const formTemplateOrderSchema = z.object({ categoryId: z.number().int().positive().nullable(), ids: z.array(z.number().int().positive()).max(500) })
+/**
+ * `subject` is required for an accident template; the service checks it (form_subject_invalid). `categoryId` the
+ * facility's category or subcategory to file it in (left out or null = none; the service checks it).
+ */
 export const formTemplateSchema = z.object({
   kind: formKind, name: z.string().max(200), selfAssessment: z.boolean().default(false), subject: z.string().max(20).nullish(),
+  categoryId: z.number().int().positive().nullish(),
 })
 /** Any subset; `content` is the whole content as the editor holds it (new sections, items and options without ids). */
 export const formTemplateUpdateSchema = z.object({
   name: z.string().max(200).optional(),
   archived: z.boolean().optional(),
   selfAssessment: z.boolean().optional(),
+  categoryId: z.number().int().positive().nullable().optional(),
   content: z.unknown().optional(),
   expectedUpdatedAt: z.string().max(40).optional(),
 })

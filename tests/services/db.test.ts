@@ -2746,6 +2746,46 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(types(1)).toHaveLength(6)
   })
 
+  it('0128 gives every facility the example form categories and files each template into the one of its kind, order kept', () => {
+    const { db, sqlite } = databaseAt('0127')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      DELETE FROM form_templates;
+      INSERT INTO form_templates (id, facility_id, kind, name, sort_order, content, created_at, updated_at) VALUES
+        (1, 1, 'child', 'Beobachtung', 1, '{"sections":[]}', 'c', 'u'), (2, 1, 'child', 'Entwicklung', 0, '{"sections":[]}', 'c', 'u'),
+        (3, 1, 'staff', 'Gespräch', 0, '{"sections":[]}', 'c', 'u'), (4, 2, 'accident', 'Unfall', 0, '{"sections":[]}', 'c', 'u'),
+        (5, 2, 'applicant', 'Hospitation', 0, '{"sections":[]}', 'c', 'u');
+    `)
+    migrateThrough(db, '0128')
+    const names = sqlite.prepare('SELECT facility_id, name, sort_order, parent_id FROM form_template_categories ORDER BY facility_id, sort_order').all()
+    expect(names).toHaveLength(12)
+    expect(names.slice(0, 6)).toEqual(['Kinder', 'Fachkräfte', 'Team', 'Unfälle', 'Infogespräche', 'Hospitationen']
+      .map((name, index) => ({ facility_id: 1, name, sort_order: index, parent_id: null })))
+    expect(sqlite.prepare(`SELECT t.id, t.sort_order, c.facility_id, c.name FROM form_templates t JOIN form_template_categories c ON c.id = t.category_id
+      ORDER BY t.id`).all()).toEqual([
+      { id: 1, sort_order: 1, facility_id: 1, name: 'Kinder' }, { id: 2, sort_order: 0, facility_id: 1, name: 'Kinder' },
+      { id: 3, sort_order: 0, facility_id: 1, name: 'Fachkräfte' }, { id: 4, sort_order: 0, facility_id: 2, name: 'Unfälle' },
+      { id: 5, sort_order: 0, facility_id: 2, name: 'Hospitationen' },
+    ])
+    expect(sqlite.prepare(`SELECT facility_id FROM form_starter_seeds WHERE starter_key = 'categories' ORDER BY facility_id`).all())
+      .toEqual([{ facility_id: 1 }, { facility_id: 2 }])
+    // Names unique per facility and parent regardless of case; a deleted category leaves its templates without one.
+    expect(() => sqlite.exec(`INSERT INTO form_template_categories (facility_id, name) VALUES (1, 'kinder')`)).toThrow(/UNIQUE/)
+    sqlite.exec(`INSERT INTO form_template_categories (facility_id, parent_id, name) SELECT 1, id, 'Kinder' FROM form_template_categories WHERE facility_id = 1 AND name = 'Team'`)
+    sqlite.exec(`DELETE FROM form_template_categories WHERE facility_id = 1 AND name = 'Fachkräfte'`)
+    expect(sqlite.prepare('SELECT category_id FROM form_templates WHERE id = 3').get()).toEqual({ category_id: null })
+    sqlite.exec('DELETE FROM form_templates WHERE facility_id = 2; DELETE FROM facilities WHERE id = 2')
+    expect(sqlite.prepare('SELECT count(*) AS n FROM form_template_categories WHERE facility_id = 2').get()).toEqual({ n: 0 })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0129 adds the months after which open applicants without activity are listed (default 12)', () => {
+    const { db, sqlite } = databaseAt('0128')
+    sqlite.exec('INSERT INTO retention_settings (facility_id, applicant_months) VALUES (1, 4)')
+    migrateThrough(db, '0129')
+    expect(sqlite.prepare('SELECT applicant_months, open_applicant_months FROM retention_settings').get()).toEqual({ applicant_months: 4, open_applicant_months: 12 })
+  })
+
   it('0126 adds info visits, applicants with their days and documents, forms of a visit and the retention months; all gone with their record', () => {
     const { db, sqlite } = databaseAt('0125')
     sqlite.exec(`

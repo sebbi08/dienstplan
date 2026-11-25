@@ -363,7 +363,7 @@ describe('child observation forms', () => {
     updateTemplate(db, leitung, 1, own, { archived: true }, NOW)
     expect(create(own)).toBe('409 form_template_archived')
     // The choice to start from: the facility's active child templates, only for whoever may start a form.
-    expect(listChildForms(db, annaTablet, kid, NOW).templates).toEqual([{ id: template, name: 'Entwicklungsgespräch' }])
+    expect(listChildForms(db, annaTablet, kid, NOW).templates).toEqual([{ id: template, name: 'Entwicklungsgespräch', category: 'Kinder' }])
     expect(listChildForms(db, bertaTablet, kid, NOW).templates).toEqual([])
   })
 

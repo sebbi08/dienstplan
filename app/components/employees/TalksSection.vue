@@ -3,6 +3,7 @@ import { formatTime } from '#shared/domain/time'
 import type { FormTemplateDto, StaffTalkDto, TalkFormDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate, formatDateTime } from '~/utils/format'
+import { templatePickerItems } from '~/utils/forms'
 
 /**
  * The tab „Gespräche“ of an employee (Leitung and Träger): the talks newest first with their forms. Per form its state,
@@ -114,8 +115,7 @@ function openCompare(form: TalkFormDto) {
 }
 const originLabel = (form: TalkFormDto) => (form.source ? de.formHistory.carriedOver(formatDate(form.source.talkDate)) : undefined)
 
-const activeTemplates = computed(() => (templates.value ?? []).filter(template => !template.archived)
-  .map(template => ({ label: template.name, value: template.id })))
+const activeTemplates = computed(() => templatePickerItems((templates.value ?? []).filter(template => !template.archived)))
 const addPick = reactive<Record<number, number | undefined>>({})
 async function addForm(talk: StaffTalkDto) {
   const templateId = addPick[talk.id]

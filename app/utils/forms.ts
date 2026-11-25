@@ -1,6 +1,7 @@
 import {
   emptyAnswer, type AnswerableItem, type FormAnswer, type FormAnswers, type FormContent, type FormItem, type FormSection,
 } from '#shared/domain/forms'
+import { groupTemplateChoices, type TemplateChoice } from '#shared/domain/formCategories'
 import { richTextToPlain } from '#shared/domain/richText'
 import { formatTime } from '#shared/domain/time'
 import type {
@@ -355,4 +356,22 @@ export function olderAndNewer<T extends { id: number }>(forms: readonly T[], a: 
   const second = forms.findIndex(form => form.id === b)
   if (first < 0 || second < 0 || first === second) return null
   return first < second ? { newer: forms[first]!, older: forms[second]! } : { newer: forms[second]!, older: forms[first]! }
+}
+
+/**
+ * An entry of a template picker (USelect): a choice, or the heading of a category's group (`type: 'label'`, not
+ * selectable; its value is never used).
+ */
+export interface TemplatePickerItem { label: string; value: number; type?: 'label' }
+
+/**
+ * The items of a template picker (child forms, staff talks, team meetings, accidents, visits): the templates grouped by
+ * „Kategorie › Unterkategorie“ in the categories' order (as the server sends them), each group headed by its path; those
+ * without a category last, without a heading. Without any category one group without a heading. Empty without templates.
+ */
+export function templatePickerItems(templates: readonly TemplateChoice[]): TemplatePickerItem[][] {
+  return groupTemplateChoices(templates).map(group => [
+    ...(group.heading === null ? [] : [{ type: 'label' as const, label: group.heading, value: 0 }]),
+    ...group.choices.map(choice => ({ label: choice.name, value: choice.id })),
+  ])
 }

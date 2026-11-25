@@ -5,7 +5,7 @@ import type { TeamMeetingListItemDto, TeamMeetingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
-import { teamMeetingGroup } from '~/utils/forms'
+import { teamMeetingGroup, templatePickerItems } from '~/utils/forms'
 import {
   checkHeader, filterFromQuery, filterGroupId, headerBody, headerForm, participantsLine, signingProgress, type TeamMeetingFilter,
 } from '~/utils/teamMeetings'
@@ -69,7 +69,7 @@ const templateId = ref<number | undefined>(undefined)
 const form = ref(headerForm(null, todayIso()))
 const creating = ref(false)
 const toast = useToast()
-const templateItems = computed(() => (data.value?.templates ?? []).map(template => ({ label: template.name, value: template.id })))
+const templateItems = computed(() => templatePickerItems(data.value?.templates ?? []))
 function openDialog() {
   const templates = data.value?.templates ?? []
   templateId.value = templates.length === 1 ? templates[0]!.id : undefined

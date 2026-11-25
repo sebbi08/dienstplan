@@ -1793,7 +1793,9 @@ export const de = {
     infoVisitMonths: 'Infogespräche ohne Vormerkung',
     infoVisitMonthsHelp: 'Ein Infogespräch, das nicht als Vormerkung übernommen wurde, darf so viele Monate nach dem Gesprächstag gelöscht werden – mit seinen Dokumenten und Bögen (1 bis 60 Monate, voreingestellt 12). Ein übernommenes gehört zur Kinderakte und wird mit ihr gelöscht.',
     applicantMonths: 'Abgesagte Bewerbungen und Hospitationen',
-    applicantMonthsHelp: 'Eine abgesagte Bewerbung, Hospitation oder ein abgesagtes Praktikum darf so viele Monate nach der Absage gelöscht werden – mit Dokumenten und Bögen (1 bis 24 Monate, voreingestellt 6). Hintergrund: Ansprüche nach § 15 Abs. 4 AGG sind innerhalb von 2 Monaten schriftlich geltend zu machen, die Klage innerhalb von 3 weiteren Monaten (§ 61b ArbGG); 6 Monate lassen Zeit für den Postweg. Offene Einträge ohne Abschluss stehen nach 12 Monaten ohne Änderung unter Mehr → Löschfristen. Wer eingestellt wurde, gehört zur Personalakte.',
+    applicantMonthsHelp: 'Eine abgesagte Bewerbung, Hospitation oder ein abgesagtes Praktikum darf so viele Monate nach der Absage gelöscht werden – mit Dokumenten und Bögen (1 bis 24 Monate, voreingestellt 6). Hintergrund: Ansprüche nach § 15 Abs. 4 AGG sind innerhalb von 2 Monaten schriftlich geltend zu machen, die Klage innerhalb von 3 weiteren Monaten (§ 61b ArbGG); 6 Monate lassen Zeit für den Postweg. Wer eingestellt wurde, gehört zur Personalakte.',
+    openApplicantMonths: 'Bewerbungen und Hospitationen ohne Abschluss',
+    openApplicantMonthsHelp: 'Ein offener Eintrag (weder abgesagt noch eingestellt), an dem so viele Monate nichts geändert wurde und dessen letzter Termin so lange vorbei ist, steht unter Löschfristen und darf gelöscht werden – mit Dokumenten und Bögen (1 bis 60 Monate, voreingestellt 12).',
     /** The archive line: „Persönliche Daten dürfen schon gelöscht werden (…). Zeitdaten dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ */
     archive: {
       labels: {
@@ -1832,8 +1834,8 @@ export const de = {
     maternityDetail: (date: string, employed: boolean) => `Mutterschutz beendet am ${date}${employed ? ' – Person noch beschäftigt' : ''}`,
     // A child record kept longer because of an accident report (DGUV Vorschrift 1 § 24 Abs. 6).
     accidentHold: 'Unfallanzeigen bleiben 5 Jahre ab dem Unfall',
-    // An open applicant without any activity for 12 months: listed without a refusal.
-    openApplicant: 'ohne Abschluss, seit 12 Monaten unverändert',
+    // An open applicant without any activity for the facility's months: listed without a refusal.
+    openApplicant: (months: number) => `ohne Abschluss, seit ${months === 1 ? '1 Monat' : `${months} Monaten`} unverändert`,
     delete: 'Löschen', deleteAll: 'Alle fälligen löschen',
     confirmOne: (what: string) => `Das wird endgültig gelöscht: ${what}. Lade vorher eine Datensicherung herunter.`,
     confirmAll: (counts: string) => `Das wird endgültig gelöscht: ${counts}. Lade vorher eine Datensicherung herunter.`,

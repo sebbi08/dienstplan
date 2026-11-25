@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import type { TemplateChoice } from '#shared/domain/formCategories'
 import type { VisitFormListItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
+import { templatePickerItems } from '~/utils/forms'
 
 /**
  * „Bögen“ of an info visit or an applicant: start one from a template of the matching kind („Infogespräch“ /
@@ -13,7 +15,7 @@ const props = defineProps<{
   kind: 'info' | 'applicant'
   recordId: number
   forms: VisitFormListItemDto[]
-  templates: { id: number; name: string }[]
+  templates: TemplateChoice[]
   editable: boolean
   refreshList: () => Promise<unknown>
 }>()
@@ -24,7 +26,7 @@ const templateId = ref<number | undefined>(undefined)
 watch(() => props.templates, (list) => {
   if (templateId.value === undefined || !list.some(template => template.id === templateId.value)) templateId.value = list[0]?.id
 }, { immediate: true })
-const templateItems = computed(() => props.templates.map(template => ({ label: template.name, value: template.id })))
+const templateItems = computed(() => templatePickerItems(props.templates))
 
 const openId = ref<number | null>(null)
 const openDirty = ref(false)
