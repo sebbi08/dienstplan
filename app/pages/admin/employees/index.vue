@@ -84,6 +84,12 @@ function takeLevel(employee: EmployeeListItemDto, level: number) {
   }, de.common.saved)
 }
 const recordsLink = (employee: EmployeeListItemDto) => ({ path: `/admin/employees/${employee.id}`, query: { tab: 'records' } })
+// Column „Pflichtdokumente“: the missing or expired ones (types in folders the viewer may use; absent without a folder key),
+// with the filter „Nur mit fehlenden Pflichtdokumenten“ (rows hidden, so the order buttons keep working).
+const seesRequiredDocs = computed(() => (extras.value ?? []).some(row => row.requiredDocuments !== undefined))
+const missingDocsOf = (id: number) => extrasOf.value.get(id)?.requiredDocuments ?? []
+const onlyMissingDocs = ref(false)
+const shownRow = (id: number) => !onlyMissingDocs.value || missingDocsOf(id).length > 0
 
 const toast = useToast()
 const emptyForm = () => ({
@@ -266,6 +272,7 @@ const td = 'px-3 py-2'
     </div>
     <VisitsApplicantList v-if="tab === 'applicants'" />
     <template v-else>
+    <UCheckbox v-if="seesRequiredDocs" v-model="onlyMissingDocs" :label="de.requiredDocuments.filter" />
     <!-- From sm on a table, on a phone one compact card per person. -->
     <table class="hidden w-full overflow-hidden rounded-lg bg-white text-sm shadow-sm ring-1 ring-gray-200 sm:table">
       <thead class="bg-gray-50 text-left text-xs text-gray-500">
@@ -277,13 +284,14 @@ const td = 'px-3 py-2'
           <th :class="[th, 'text-right']">{{ de.employees.leaveLeft(year) }}</th>
           <th v-if="seesLevel" :class="th">{{ de.employees.nextLevel }}</th>
           <th :class="th">{{ de.employees.requirementsColumn }}</th>
+          <th v-if="seesRequiredDocs" :class="th">{{ de.requiredDocuments.column }}</th>
           <th :class="th"><span class="sr-only">{{ de.employees.badgesLabel }}</span></th>
           <th v-if="seesSpecialRights" :class="th">{{ de.employees.specialRights }}</th>
           <th v-if="reordering" :class="th"><span class="sr-only">{{ de.employees.order }}</span></th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(employee, index) in split.active" :key="employee.id" class="border-t border-gray-100 align-top">
+        <tr v-for="(employee, index) in split.active" v-show="shownRow(employee.id)" :key="employee.id" class="border-t border-gray-100 align-top">
           <td :class="td">
             <NuxtLink :to="`/admin/employees/${employee.id}`" class="font-semibold text-sky-700 hover:underline">{{ employee.name }}</NuxtLink>
             <span v-if="employee.shortName" class="ml-1.5 text-gray-500">{{ employee.shortName }}</span>
@@ -332,6 +340,17 @@ const td = 'px-3 py-2'
               </span>
             </NuxtLink>
           </td>
+          <td v-if="seesRequiredDocs" :class="td">
+            <NuxtLink v-if="extrasOf.get(employee.id)" :to="recordsLink(employee)" class="hover:opacity-80">
+              <UBadge
+                v-if="missingDocsOf(employee.id).length" size="sm" variant="soft" color="error" :label="de.requiredDocuments.badge(missingDocsOf(employee.id).length)"
+                :title="de.requiredDocuments.tooltip(missingDocsOf(employee.id).map(row => row.name))"
+              />
+              <span v-else class="font-medium text-green-700" :title="de.requiredDocuments.okLabel">
+                <span aria-hidden="true">{{ de.requiredDocuments.ok }}</span><span class="sr-only">{{ de.requiredDocuments.okLabel }}</span>
+              </span>
+            </NuxtLink>
+          </td>
           <td :class="td">
             <span class="flex flex-wrap gap-1">
               <UBadge v-for="badge in badgesOf.get(employee.id)" :key="badge" size="sm" variant="soft" :color="BADGE_COLOR[badge]" :label="de.employees.badges[badge]" />
@@ -350,7 +369,7 @@ const td = 'px-3 py-2'
     </table>
 
     <ul class="space-y-2 sm:hidden">
-      <li v-for="(employee, index) in split.active" :key="employee.id" class="rounded-lg bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-gray-200">
+      <li v-for="(employee, index) in split.active" v-show="shownRow(employee.id)" :key="employee.id" class="rounded-lg bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-gray-200">
         <div class="flex items-start gap-2">
           <div class="min-w-0 flex-1">
             <NuxtLink :to="`/admin/employees/${employee.id}`" class="font-semibold text-sky-700 hover:underline">{{ employee.name }}</NuxtLink>
@@ -400,6 +419,13 @@ const td = 'px-3 py-2'
             :color="requirementBadge(row).tone" :label="requirementBadge(row).text"
           />
           <span v-if="!extrasOf.get(employee.id)!.requirements.length" class="font-medium text-green-700" :title="de.employees.requirementsOkLabel"><span aria-hidden="true">{{ de.employees.requirementsOk }}</span><span class="sr-only">{{ de.employees.requirementsOkLabel }}</span></span>
+        </NuxtLink>
+        <NuxtLink
+          v-if="seesRequiredDocs && missingDocsOf(employee.id).length" :to="recordsLink(employee)" class="mt-1 flex flex-wrap items-center gap-1"
+        >
+          <span class="text-gray-600">{{ de.requiredDocuments.column }}:</span>
+          <UBadge size="sm" variant="soft" color="error" :label="de.requiredDocuments.badge(missingDocsOf(employee.id).length)" />
+          <span class="text-xs text-gray-600">{{ de.requiredDocuments.tooltip(missingDocsOf(employee.id).map(row => row.name)) }}</span>
         </NuxtLink>
         <div v-if="badgesOf.get(employee.id)?.length" class="mt-1.5 flex flex-wrap gap-1">
           <UBadge v-for="badge in badgesOf.get(employee.id)" :key="badge" size="sm" variant="soft" :color="BADGE_COLOR[badge]" :label="de.employees.badges[badge]" />

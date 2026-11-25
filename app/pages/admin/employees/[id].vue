@@ -895,6 +895,8 @@ async function onTabKey(event: KeyboardEvent) {
 
     <div v-show="tab === 'records'" v-bind="panel('records')">
       <EmployeesRequirementsSection :employee-id="id" />
+      <!-- Pflichtdokumente: only with a folder of the personnel file (the rows follow the folder keys), loaded once the tab is opened. -->
+      <EmployeesRequiredDocumentsSection v-if="shows('documents')" :employee-id="id" :employee-name="employee.name" :active="tab === 'records'" />
       <!-- Personalakte: mounted only with the rights, loaded in the browser only once the tab is opened. -->
       <div v-if="shows('documents')" id="employee-section-documents" class="scroll-mt-32 space-y-4">
         <EmployeesDocumentsSection :employee-id="id" :employee-name="employee.name" :active="tab === 'records'" />

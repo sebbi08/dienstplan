@@ -23,7 +23,7 @@ describe('visibleSettingsAreas', () => {
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'consent-questions', 'overview-sheets', 'school-children', 'school-districts', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
-      ['staff', ['staffing', 'employee-retention', 'child-sick-days', 'bem-invitation', 'parental-leave']],
+      ['staff', ['staffing', 'required-documents', 'employee-retention', 'child-sick-days', 'bem-invitation', 'parental-leave']],
     ])
   })
 
@@ -34,7 +34,7 @@ describe('visibleSettingsAreas', () => {
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting', 'leave-forfeit']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'consent-questions', 'overview-sheets', 'school-children', 'school-districts', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
-      ['staff', ['staffing', 'employee-retention', 'child-sick-days', 'bem-invitation']],
+      ['staff', ['staffing', 'required-documents', 'employee-retention', 'child-sick-days', 'bem-invitation']],
     ])
   })
 

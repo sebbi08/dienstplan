@@ -10,7 +10,7 @@ export type SetupArea = typeof SETUP_AREAS[number]
 export const SETUP_ITEM_KEYS = [
   'opening_hours', 'terminal_account', 'group_type', 'facility_capacity',
   'employee_pin', 'employee_pin_locked', 'employee_qualification', 'employee_birthday', 'employee_access',
-  'child_care_type', 'group_documentation',
+  'employee_required_document', 'child_care_type', 'group_documentation',
 ] as const
 export type SetupItemKey = typeof SETUP_ITEM_KEYS[number]
 
@@ -45,6 +45,11 @@ export interface SetupFacts {
   }[]
   /** The facility's children with a contract today (entered and not left), as the children list shows them. */
   children: { id: number; name: string; hasCareType: boolean }[]
+  /**
+   * Per active Pflichtdokument (in folders the viewer may use) the employees it is missing or expired for (only types
+   * with someone affected; absent: none known).
+   */
+  requiredDocuments?: { typeId: number; name: string; employees: { id: number; name: string }[] }[]
 }
 
 export interface SetupName { name: string; to: string }
@@ -60,6 +65,8 @@ export interface SetupItem {
   to: string
   /** Only the Träger sees it. */
   providerOnly: boolean
+  /** The Pflichtdokument a „‹n› Mitarbeitende ohne ‹Typ›“ item is about (one item per type; hidden all together). */
+  label?: string
 }
 
 export interface SetupChecklist {
@@ -101,6 +108,10 @@ export function setupItems(facts: SetupFacts): SetupItem[] {
     listItem('employee_qualification', 'staff', active.filter(e => !e.hasQualification), e => employeePath(e.id, 'qualification'), '/admin/employees'),
     listItem('employee_birthday', 'staff', active.filter(e => !e.hasBirthday), e => employeePath(e.id, 'master'), '/admin/employees'),
     listItem('employee_access', 'staff', active.filter(e => !e.hasAccount), e => employeePath(e.id, 'access'), '/admin/users'),
+    ...(facts.requiredDocuments ?? []).map((type) => {
+      const item = listItem('employee_required_document', 'staff', type.employees, e => employeePath(e.id, 'records'), '/admin/employees')
+      return item && { ...item, label: type.name }
+    }),
     listItem('child_care_type', 'children', facts.children.filter(child => !child.hasCareType), child => `/children/${child.id}`, '/children'),
     listItem('group_documentation', 'children', facts.groups.filter(group => !group.documentationOn), group => groupPath(group.id), '/admin/settings/groups'),
   ]

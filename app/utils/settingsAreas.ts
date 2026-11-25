@@ -169,6 +169,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['Personal', 'Fachkraft', 'Betreuungsschlüssel', 'Schlüssel', 'Mindestpersonal', 'Bundesland'],
     },
     {
+      // Leitung and Träger; only the types in folders of the personnel file the editor may use.
+      key: 'required-documents', title: de.requiredDocuments.title, permission: 'settings.facility', replaces: [],
+      keywords: ['Pflichtdokument', 'Führungszeugnis', 'Masernnachweis', 'Arbeitsvertrag', 'Erste Hilfe', 'Datenschutz', 'Schweigepflicht', 'Belehrung', 'Personalakte', 'Nachweis'],
+    },
+    {
       // The Leitung sees it read-only; only the Träger changes it.
       key: 'employee-retention', title: de.retention.title, replaces: [],
       keywords: ['Löschfrist', 'Aufbewahrung', 'Datenschutz', 'ausgeschieden', 'Mitarbeiter löschen', 'endgültig löschen', 'ausgezahlt', 'Überstunden', 'Beurteilung', 'Zeugnis', 'Altersvorsorge', 'Kasse', 'Lohnbüro', 'Steuerbüro', 'Lohnunterlagen', 'Lohnkonto'],

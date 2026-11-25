@@ -2687,6 +2687,38 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
+  it('0127 adds the Pflichtdokumente with the examples for every facility; a deleted type leaves its documents unlinked, all gone with the facility', () => {
+    const { db, sqlite } = databaseAt('0126')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO employees (id, name, short_name, facility_id) VALUES (1, 'Anna', 'An', 1);
+      INSERT INTO employee_documents (id, employee_id, folder, mime_type, size, data, uploaded_at) VALUES (7, 1, 'contract', 'application/pdf', 4, x'25504446', 'x');
+    `)
+    migrateThrough(db, '0127')
+    const types = (facilityId: number) => sqlite.prepare('SELECT name, folder, applies_to, validity_months, sort_order, active FROM required_document_types WHERE facility_id = ? ORDER BY sort_order').all(facilityId)
+    expect(types(1)).toEqual([
+      { name: 'Arbeitsvertrag', folder: 'contract', applies_to: 'all', validity_months: null, sort_order: 0, active: 1 },
+      { name: 'Erweitertes Führungszeugnis', folder: 'application', applies_to: 'all', validity_months: 60, sort_order: 1, active: 1 },
+      { name: 'Masernnachweis', folder: 'application', applies_to: 'all', validity_months: null, sort_order: 2, active: 1 },
+      { name: 'Belehrung Infektionsschutz', folder: 'qualifications', applies_to: 'all', validity_months: null, sort_order: 3, active: 1 },
+      { name: 'Verpflichtung auf den Datenschutz', folder: 'contract', applies_to: 'all', validity_months: null, sort_order: 4, active: 1 },
+      { name: 'Erste-Hilfe-Nachweis', folder: 'qualifications', applies_to: 'all', validity_months: 24, sort_order: 5, active: 1 },
+      { name: 'Schweigepflichterklärung', folder: 'contract', applies_to: 'all', validity_months: null, sort_order: 6, active: 1 },
+    ])
+    expect(types(2)).toEqual(types(1))
+    // The documents from before stay unlinked; a link goes with the type, the document stays.
+    expect(sqlite.prepare('SELECT required_type_id FROM employee_documents WHERE id = 7').get()).toEqual({ required_type_id: null })
+    const contract = (sqlite.prepare('SELECT id FROM required_document_types WHERE facility_id = 1 AND name = ?').get('Arbeitsvertrag') as { id: number }).id
+    sqlite.prepare('UPDATE employee_documents SET required_type_id = ? WHERE id = 7').run(contract)
+    expect(() => sqlite.exec('UPDATE employee_documents SET required_type_id = 9999 WHERE id = 7')).toThrow(/FOREIGN KEY/)
+    sqlite.prepare('DELETE FROM required_document_types WHERE id = ?').run(contract)
+    expect(sqlite.prepare('SELECT required_type_id FROM employee_documents WHERE id = 7').get()).toEqual({ required_type_id: null })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    sqlite.exec('DELETE FROM facilities WHERE id = 2')
+    expect(types(2)).toEqual([])
+    expect(types(1)).toHaveLength(6)
+  })
+
   it('0126 adds info visits, applicants with their days and documents, forms of a visit and the retention months; all gone with their record', () => {
     const { db, sqlite } = databaseAt('0125')
     sqlite.exec(`

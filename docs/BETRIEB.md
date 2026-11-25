@@ -1068,6 +1068,43 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   (voreingestellt 8 Jahre; auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
   wie immer von Hand durch den Träger unter **Mehr → Löschfristen** (siehe oben).
 
+### Pflichtdokumente
+
+Welche Dokumente jede Person in der Personalakte haben muss (z. B. Arbeitsvertrag, erweitertes Führungszeugnis,
+Masernnachweis), legt die Einrichtung als **Pflichtdokumente** fest. Die App zeigt dann je Person, was da ist, was fehlt
+und was bald abläuft.
+
+- **Einstellen:** *Einstellungen → Personal → Pflichtdokumente* (Leitung und Träger, Recht „Einstellungen der
+  Einrichtung“). Je Pflichtdokument: **Name**, das **Fach** der Personalakte, in das es gehört, **gilt für** (alle oder nur
+  bestimmte Qualifikationen; wer keine Qualifikation eingetragen hat, braucht nur die für alle), freiwillig **gültig für**
+  (Monate, z. B. 60 beim Führungszeugnis; leer = unbegrenzt), freiwillig eine **Vorlage** zum Ausfüllen oder Unterschreiben
+  und **aktiv** (ein inaktives wird nirgends verlangt). ▲/▼ ändert die Reihenfolge. Löschen fragt nach; die schon
+  abgelegten Dokumente bleiben in der Akte, nur nicht mehr als Pflichtdokument zugeordnet. Namen sind je Einrichtung
+  eindeutig.
+- **Beispiele:** Jede Einrichtung – auch jede neu angelegte – startet mit sieben aktiven Beispielen, die du ändern oder
+  löschen kannst: Arbeitsvertrag, Verpflichtung auf den Datenschutz und Schweigepflichterklärung (Fach Vertrag),
+  Erweitertes Führungszeugnis (Fach Bewerbung, 60 Monate) und Masernnachweis (Fach Bewerbung), Belehrung
+  Infektionsschutz und Erste-Hilfe-Nachweis (Fach Qualifikationen, 24 Monate).
+- **Bei der Person:** Reiter **Nachweise**, Kasten **Pflichtdokumente**: je Pflichtdokument, das für sie gilt, der Stand –
+  **vorhanden** (mit Datum und **Öffnen**), **fehlt**, **läuft ab am …** (in den letzten zwei Monaten der Gültigkeit) oder
+  **abgelaufen am …**. Es zählt das neueste zugeordnete Dokument (sein Datum, sonst der Tag des Hochladens).
+  - **Hochladen** legt eine neue Datei im Fach des Pflichtdokuments ab und ordnet sie zu (ohne Titel heißt sie wie das
+    Pflichtdokument).
+  - **Vorhandenes Dokument zuordnen** wählt ein Dokument, das schon im richtigen Fach liegt.
+  - **Ausfüllen** (nur mit Vorlage) öffnet die Vorlage in der Ausfüll-Ansicht; die gespeicherte Kopie im Fach des
+    Pflichtdokuments wird danach zugeordnet.
+  - **Zum Unterschreiben senden** (nur mit Vorlage und dem Recht dazu) schickt die Vorlage an die Person; die
+    unterschriebene Kopie wird von selbst zugeordnet (siehe *Zum Unterschreiben senden*).
+- **Mitarbeiterliste:** Spalte **Pflichtdokumente** mit der Zahl der fehlenden oder abgelaufenen (die Namen beim
+  Darüberfahren, am Handy darunter) und der Filter **Nur mit fehlenden Pflichtdokumenten**. Es zählen nur Mitarbeitende,
+  die noch nicht ausgeschieden sind.
+- **Was noch fehlt:** je Pflichtdokument ein Punkt „‹n› Mitarbeitende ohne ‹Pflichtdokument›“ (fehlt oder abgelaufen),
+  mit den Namen und dem Link auf den Reiter Nachweise der Person.
+- **Rechte:** Es gelten die Rechte der Fächer („Dokumente: …“). Ein Pflichtdokument in einem Fach, das du nicht sehen
+  darfst, erscheint für dich nirgends – nicht in den Einstellungen, nicht bei der Person, nicht in der Liste und nicht
+  unter „Was noch fehlt“. Ohne Recht auf irgendein Fach fehlt die Spalte ganz. Jede Einrichtung hat ihre eigenen
+  Pflichtdokumente.
+
 ### Probezeit und Entgeltgruppe
 
 - **„Probezeit bis“** (Reiter **Vertrag & Lohn**, Vertragsangaben; der Träger trägt es ein, sehen darf es, wer die
@@ -1876,7 +1913,9 @@ Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
   einem PDF, jeweils mit **Zum Unterschreiben senden**. Ein PDF aus der Personalakte geht nur an diese Person. Im Fenster
   wählst du die **Bezeichnung**, **an wen** (Mitarbeitende der Einrichtung, die nicht ausgeschieden sind), die
   **Ablage** der unterschriebenen Kopie (ein Fach der Personalakte, das du nutzen darfst; wer das Fach sehen darf, sieht
-  später auch die Kopie), freiwillig ein Datum **bis wann** und eine **Nachricht**.
+  später auch die Kopie), freiwillig ein Datum **bis wann** und eine **Nachricht**. Gibt es für das gewählte Fach
+  Pflichtdokumente, kannst du die Kopie **als Pflichtdokument ‹Name› ablegen** lassen; sie ist dann nach dem
+  Unterschreiben dort zugeordnet (siehe *Pflichtdokumente*). Aus dem Kasten Pflichtdokumente ist das schon vorgewählt.
   - **Senden** schickt das PDF, wie es ist. **Vorher ausfüllen** öffnet es zuerst in der Ausfüll-Ansicht (Felder, Text
     usw.); genau dieses ausgefüllte PDF geht dann an alle. Die App merkt sich das PDF so, wie es gesendet wurde: Alle
     unterschreiben dieselbe Fassung, auch wenn die Vorlage später geändert wird.
@@ -2625,7 +2664,9 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Einrichtung noch nicht eingetragen ist, sortiert nach **Einrichtung**, **Mitarbeiter** und **Kinder**: z. B. fehlende
   Öffnungszeiten, kein Tablet-Konto, Gruppen ohne Gruppenart (nur wenn das Bundesland Gruppenarten kennt), Mitarbeiter
   ohne PIN (nur mit Zeiterfassung), PINs, die erst entsperrt werden müssen, ohne Qualifikation, ohne Geburtstag oder ohne
-  Zugang, Kinder mit Vertrag ohne Betreuungsart und Gruppen ohne Erinnerung an die Entwicklungsdoku. Die Höchstzahl Kinder der Einrichtung
+  Zugang, Kinder mit Vertrag ohne Betreuungsart und Gruppen ohne Erinnerung an die Entwicklungsdoku. Unter Mitarbeiter
+  steht außerdem je Pflichtdokument „‹n› Mitarbeitende ohne ‹Pflichtdokument›“ (nur Fächer, die du sehen darfst; siehe
+  *Pflichtdokumente*). Die Höchstzahl Kinder der Einrichtung
   sieht nur der Träger, weil nur er sie einträgt. „PIN fehlt“ und „PIN gesperrt“ sehen nur Leitung und Träger (nur sie
   setzen PINs), nicht ein Mitarbeiter, dem der Träger „Einstellungen der Einrichtung“ gegeben hat.
 - Bei jedem Punkt stehen bis zu fünf Namen; ein Tipp auf den Punkt oder einen Namen führt dorthin, wo man es einträgt.

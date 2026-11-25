@@ -16,6 +16,7 @@ import { seedStarterTemplates } from './formTemplates'
 import { seedKnowledgeStarters } from './knowledge'
 import { facilityHolidayRules } from './holidayRules'
 import { seedDefaultMeals } from './meals'
+import { seedRequiredDocumentTypes } from './requiredDocuments'
 import { seedBuiltinRequirementTypes } from './requirements'
 import { adaptStaffingToState } from './staffing'
 
@@ -123,6 +124,7 @@ export function createFacility(db: Db, name: string, state: GermanState = 'BW', 
       { facilityId: facility.id, fromYear: parseIsoDate(today).year, mode: 'paid' },
     ]).run()
     seedBuiltinRequirementTypes(tx, facility.id)
+    seedRequiredDocumentTypes(tx, facility.id)
     seedDefaultMeals(tx, facility.id)
     if (source !== null) {
       const templates = tx.select().from(shiftTemplates).where(eq(shiftTemplates.facilityId, source))

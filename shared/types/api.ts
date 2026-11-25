@@ -20,6 +20,7 @@ import type { BundleArea, BundleId, BundleScope, RightsRole } from '../domain/pe
 import type { PermissionKey } from '../domain/permissions'
 import type { EmployeeDocumentFolder } from '../domain/personnel'
 import type { DocSettings, ReminderKind } from '../domain/reminders'
+import type { RequiredAppliesTo, RequiredDocumentState } from '../domain/requiredDocuments'
 import type { RequirementState } from '../domain/requirements'
 import type { DistrictLegendEntry, DistrictRow } from '../domain/schoolDistricts'
 import type { BreakMode, StampChannel } from '../domain/stamping'
@@ -1662,6 +1663,43 @@ export interface EmployeeDocumentDto extends EmployeeDocumentMeta {
   uploadedAt: string
   /** A PDF that still has form fields („Weiter ausfüllen“). */
   fillable: boolean
+  /** The Pflichtdokument it is filed as (null = none). */
+  requiredTypeId: number | null
+}
+
+/** A Pflichtdokument of the facility as entered (Einstellungen → Personal → Pflichtdokumente). */
+export interface RequiredDocumentTypeInput {
+  name: string
+  /** The folder of the personnel file it is filed in; its key decides who sees and files it. */
+  folder: EmployeeDocumentFolder
+  appliesTo: RequiredAppliesTo
+  /** Valid for this many months from the document's date (null = no end). */
+  validityMonths: number | null
+  /** A print template to fill it from („Ausfüllen“); null = none. */
+  templateId: number | null
+  active: boolean
+}
+
+/** A Pflichtdokument of the facility, in its order (only those in folders the viewer may use). */
+export interface RequiredDocumentTypeDto extends RequiredDocumentTypeInput {
+  id: number
+  /** The template's title (null without one, or when the viewer does not see it). */
+  templateTitle: string | null
+}
+
+/** The status of one Pflichtdokument for an employee (Nachweise → Pflichtdokumente). */
+export interface EmployeeRequiredDocumentDto {
+  typeId: number
+  name: string
+  folder: EmployeeDocumentFolder
+  validityMonths: number | null
+  templateId: number | null
+  state: RequiredDocumentState
+  /** The date of the newest linked document (null = missing). */
+  date: IsoDate | null
+  /** The end of validity of that document (null without a validity or a document). */
+  expiresOn: IsoDate | null
+  documentId: number | null
 }
 
 /**
@@ -2273,6 +2311,11 @@ export interface EmployeeListExtrasDto {
   probationUntil?: IsoDate | null
   /** Mandatory appointments that are overdue, missing or due soon (empty = nothing open). */
   requirements: { typeId: number; typeName: string; state: DueRequirementDto['state']; dueOn: IsoDate | null }[]
+  /**
+   * The Pflichtdokumente missing or expired (only types in folders the viewer may use; absent without any folder right;
+   * empty = nothing missing).
+   */
+  requiredDocuments?: { typeId: number; name: string; state: 'missing' | 'expired' }[]
   /**
    * The notice on remaining leave: only with leave.overview (otherwise the key is absent); null outside the notice
    * window (1 October until the forfeiture date) or when the person has no leave left. `year` is the year whose

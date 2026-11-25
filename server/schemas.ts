@@ -17,6 +17,7 @@ import { EMPLOYEE_DOCUMENT_FOLDERS } from '../shared/domain/personnel'
 import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { DISTRICT_FLAGS, DISTRICT_SIDES, SCHOOL_DISTRICT_LIMITS } from '../shared/domain/schoolDistricts'
 import { DECLINE_REASON_MAX, SIGN_REQUEST_NOTE_MAX, SIGN_REQUEST_TITLE_MAX, parseRecipientIds } from '../shared/domain/signRequests'
+import { QUALIFICATIONS } from '../shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { TEMPLATE_VISIBILITIES } from '../shared/domain/templateCategories'
 import { JOB_KEYS } from '../shared/domain/tvoed'
@@ -595,6 +596,27 @@ export const fileQuery = z.object({ download: z.enum(['1']).optional() })
 /** An attachment of an accident report: only the file (its name is kept as shown), no further fields. */
 export const attachmentFields = z.object({})
 // Personnel file documents: the form fields of the upload (multipart, all text) and the change of folder and details alike.
+/** A Pflichtdokument of the facility as entered; the service checks the name, the folder's key, the template. */
+export const requiredDocumentTypeSchema = z.object({
+  name: z.string().max(200),
+  folder: z.enum(EMPLOYEE_DOCUMENT_FOLDERS),
+  appliesTo: z.union([z.literal('all'), z.array(z.enum(QUALIFICATIONS)).max(QUALIFICATIONS.length)]),
+  validityMonths: z.number().int().nullable(),
+  templateId: z.number().int().positive().nullable(),
+  active: z.boolean(),
+})
+/** „Hochladen“ of a Pflichtdokument (multipart; the folder comes from the type). */
+export const requiredDocumentUploadFields = z.object({
+  title: z.string().max(200).default(''),
+  documentDate: isoDate,
+  note: z.string().max(1000).default(''),
+})
+/** „Vorhandenes Dokument zuordnen“: the type, or null to remove the link. */
+export const requiredDocumentLinkSchema = z.object({ typeId: z.number().int().positive().nullable() })
+/** ▲/▼ of a Pflichtdokument. */
+export const requiredDocumentMoveSchema = z.object({ direction: z.enum(['up', 'down']) })
+/** An employee and one of the facility's Pflichtdokumente (upload into its folder). */
+export const requiredDocumentParams = z.object({ id: z.coerce.number().int().positive(), typeId: z.coerce.number().int().positive() })
 export const employeeDocumentSchema = z.object({
   folder: z.enum(EMPLOYEE_DOCUMENT_FOLDERS),
   title: z.string().max(200),
@@ -1059,6 +1081,8 @@ export const signRequestFields = z.object({
   folder: z.enum(EMPLOYEE_DOCUMENT_FOLDERS),
   dueDate: z.union([z.literal(''), isoDate]).default('').transform(value => (value === '' ? null : value)),
   note: z.string().max(SIGN_REQUEST_NOTE_MAX).default(''),
+  // „Als Pflichtdokument … ablegen“ ('' = none).
+  requiredTypeId: z.union([z.literal(''), z.coerce.number().int().positive()]).default('').transform(value => (value === '' ? null : value)),
 })
 /** „Erinnern“ and „Zurückziehen“: one recipient, or (null) every open one of the request. */
 export const signRequestRecipientSchema = z.object({ recipientId: z.number().int().positive().nullable().default(null) })

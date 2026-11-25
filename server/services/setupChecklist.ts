@@ -11,6 +11,7 @@ import type { Db } from '../db/client'
 import { children, employees, facilities, groups, setupHidden, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { loadHoursContext } from './openingHours'
+import { missingRequiredDocuments } from './requiredDocuments'
 import { staffingRulesFor } from './staffing'
 
 /** Whoever runs the facility's settings sees „Was noch fehlt“ (the routes check it as well). */
@@ -18,8 +19,11 @@ function assertManager(user: SessionUser): void {
   if (!can(user.permissions, 'settings.facility')) throw new ServiceError(403, 'forbidden')
 }
 
-/** What the checklist needs to know about the facility today. */
-export function loadSetupFacts(db: Db, facilityId: number, now: Date = new Date()): SetupFacts {
+/**
+ * What the checklist needs to know about the facility today; with a viewer also the Pflichtdokumente missing or expired
+ * (only types in folders the viewer may use).
+ */
+export function loadSetupFacts(db: Db, facilityId: number, now: Date = new Date(), viewer?: Pick<SessionUser, 'permissions'>): SetupFacts {
   const today = todayIso(now)
   const facility = db.select().from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!facility) throw new ServiceError(404, 'facility_not_found')
@@ -54,7 +58,24 @@ export function loadSetupFacts(db: Db, facilityId: number, now: Date = new Date(
       hasAccount: linked.has(employee.id),
     })),
     children: kids.map(child => ({ id: child.id, name: `${child.firstName} ${child.lastName}`, hasCareType: child.careTypeId !== null })),
+    requiredDocuments: viewer ? requiredDocumentFacts(db, viewer, facilityId, today, staff) : undefined,
   }
+}
+
+/** Per Pflichtdokument the employees (in the list's order) it is missing or expired for; types nobody misses are left out. */
+function requiredDocumentFacts(
+  db: Db, viewer: Pick<SessionUser, 'permissions'>, facilityId: number, today: string, staff: readonly { id: number; name: string }[],
+): NonNullable<SetupFacts['requiredDocuments']> {
+  const missing = missingRequiredDocuments(db, viewer, facilityId, today)
+  const byType = new Map<number, { typeId: number; name: string; employees: { id: number; name: string }[] }>()
+  for (const person of staff) {
+    for (const type of missing.get(person.id) ?? []) {
+      const entry = byType.get(type.typeId) ?? { typeId: type.typeId, name: type.name, employees: [] }
+      entry.employees.push({ id: person.id, name: person.name })
+      byType.set(type.typeId, entry)
+    }
+  }
+  return [...byType.values()]
 }
 
 function hiddenKeys(db: Db, facilityId: number): string[] {
@@ -71,7 +92,7 @@ export function getSetupChecklist(db: Db, user: SessionUser, facilityId: number,
     isProvider: can(user.permissions, 'facilities.manage'),
     managesPins: mayManagePins(user.role, key => can(user.permissions, key)),
   }
-  return setupChecklist(loadSetupFacts(db, facilityId, now), viewer, hiddenKeys(db, facilityId))
+  return setupChecklist(loadSetupFacts(db, facilityId, now, user), viewer, hiddenKeys(db, facilityId))
 }
 
 /** A known item this viewer sees: a Leitung cannot hide or show the items for the Träger only. */

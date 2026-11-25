@@ -814,6 +814,24 @@ export const employeeChildren = sqliteTable('employee_children', {
 }, table => [index('employee_children_employee').on(table.employeeId)])
 
 /**
+ * A Pflichtdokument of the facility (shared/domain/requiredDocuments.ts): a document its employees – all, or those of
+ * the chosen qualifications (`appliesTo`: 'all' or a JSON list) – must have in the personnel file, filed in `folder`
+ * (whose key decides who sees and files it), valid for `validityMonths` (null = no end), optionally filled from a
+ * print template. Inactive types are kept but not asked for. Deleting one keeps its documents (their link goes).
+ */
+export const requiredDocumentTypes = sqliteTable('required_document_types', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  folder: text('folder', { enum: EMPLOYEE_DOCUMENT_FOLDERS }).notNull(),
+  appliesTo: text('applies_to').notNull().default('all'),
+  validityMonths: integer('validity_months'),
+  templateId: integer('template_id').references((): AnySQLiteColumn => printTemplates.id, { onDelete: 'set null' }),
+  sortOrder: integer('sort_order').notNull().default(0),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+}, table => [index('required_document_types_facility').on(table.facilityId)])
+
+/**
  * An uploaded document (PDF, JPEG or PNG) in an employee's personnel file, in one of the folders (each with its own
  * permission and retention category, shared/domain/personnel.ts); the file itself lives in the database.
  */
@@ -831,7 +849,9 @@ export const employeeDocuments = sqliteTable('employee_documents', {
   uploadedAt: text('uploaded_at').notNull(),
   /** A PDF form with fields to fill in the app (server/lib/pdfForm.ts, judged when the file is stored); null = not judged yet. */
   fillable: integer('fillable', { mode: 'boolean' }),
-}, table => [index('employee_documents_employee').on(table.employeeId)])
+  /** The Pflichtdokument it is (server/services/requiredDocuments.ts); null = none, or its type was deleted. */
+  requiredTypeId: integer('required_type_id').references(() => requiredDocumentTypes.id, { onDelete: 'set null' }),
+}, table => [index('employee_documents_employee').on(table.employeeId), index('employee_documents_required_type').on(table.requiredTypeId)])
 
 /**
  * "Im Dienst erkrankt": the employee fell ill during the duty of that day and left early. The day stays a working day
@@ -2277,6 +2297,8 @@ export const signRequests = sqliteTable('sign_requests', {
   sourceEmployeeId: integer('source_employee_id').references(() => employees.id, { onDelete: 'set null' }),
   deletedAt: text('deleted_at'),
   targetFolder: text('target_folder', { enum: EMPLOYEE_DOCUMENT_FOLDERS }).notNull(),
+  /** The signed copies are this Pflichtdokument (a type of the facility with the target folder); null = none. */
+  requiredTypeId: integer('required_type_id').references(() => requiredDocumentTypes.id, { onDelete: 'set null' }),
   dueDate: text('due_date'),
   note: text('note').notNull().default(''),
 }, table => [index('sign_requests_facility').on(table.facilityId), index('sign_requests_source_employee').on(table.sourceEmployeeId)])

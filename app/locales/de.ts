@@ -1068,6 +1068,40 @@ export const de = {
       beforeStart: 'Hinweis: Die Probezeit endet vor dem Tag „In der Einrichtung seit“.',
     },
   },
+  // Pflichtdokumente: per facility the documents every employee (or those of chosen qualifications) must have.
+  requiredDocuments: {
+    title: 'Pflichtdokumente',
+    settingsHint: 'Welche Dokumente jede Person in der Personalakte haben muss. Jedes liegt in einem Fach der Personalakte: '
+      + 'Wer das Fach nicht sehen darf, sieht auch das Pflichtdokument nicht.',
+    none: 'Noch keine Pflichtdokumente.',
+    add: 'Pflichtdokument hinzufügen', edit: 'Pflichtdokument ändern',
+    name: 'Bezeichnung', folder: 'Fach der Personalakte', appliesTo: 'Gilt für', appliesAll: 'alle Mitarbeitenden',
+    appliesChosen: 'nur bestimmte Qualifikationen', validity: 'Gültig (Monate)', validityHint: 'Leer = ohne Ablauf.',
+    template: 'Vorlage zum Ausfüllen', noTemplate: 'keine', active: 'aktiv (wird bei den Mitarbeitenden abgefragt)',
+    inactive: 'inaktiv', validFor: (months: number) => (months % 12 === 0 ? `${months / 12} Jahre gültig` : `${months} Monate gültig`),
+    forQualifications: (names: string[]) => `nur ${names.join(', ')}`,
+    deleteConfirm: (name: string) => `„${name}“ löschen? Die Dokumente bleiben in den Personalakten, sind dann aber kein Pflichtdokument mehr.`,
+    moveUp: 'Nach oben', moveDown: 'Nach unten',
+    noFolders: 'Du darfst in kein Fach der Personalakte ablegen. Dafür braucht es das passende Recht.',
+    // The box under Nachweise.
+    boxHint: 'Nur die Pflichtdokumente in Fächern, die du sehen darfst.',
+    boxNone: 'Für diese Person gibt es keine Pflichtdokumente (oder keine in Fächern, die du sehen darfst).',
+    states: { missing: 'fehlt', present: 'vorhanden', expiring: 'läuft ab', expired: 'abgelaufen' },
+    presentOn: (date: string) => `vorhanden (${date})`,
+    expiresOn: (date: string) => `läuft ab am ${date}`,
+    expiredOn: (date: string) => `abgelaufen am ${date}`,
+    open: 'Öffnen', upload: 'Hochladen', fill: 'Ausfüllen', sign: 'Zum Unterschreiben senden', link: 'Vorhandenes Dokument zuordnen',
+    uploadTitle: (name: string) => `${name} hochladen`, linkTitle: (name: string) => `${name}: vorhandenes Dokument zuordnen`,
+    documentDate: 'Datum des Dokuments', file: 'Datei (PDF, JPEG oder PNG)', note: 'Notiz',
+    linkNone: 'In diesem Fach liegt noch kein Dokument dieser Person.',
+    linkedTo: (name: string) => `ist „${name}“`,
+    linked: 'Zugeordnet', uploaded: 'Hochgeladen',
+    // The employee list.
+    column: 'Pflichtdokumente', ok: '✓', okLabel: 'Alle Pflichtdokumente vorhanden',
+    badge: (count: number) => (count === 1 ? '1 fehlt' : `${count} fehlen`),
+    tooltip: (names: string[]) => names.join(', '),
+    filter: 'Nur mit fehlenden Pflichtdokumenten',
+  },
   requirements: {
     title: 'Pflichttermine und Fortbildungen', kinds: 'Pflichttermine', myTitle: 'Meine Termine',
     kind: 'Art', interval: 'Wiederholung', lastDate: 'Zuletzt', dueOn: 'Fällig am', state: 'Stand', none: '–',
@@ -1473,6 +1507,8 @@ export const de = {
     fixedRecipient: (name: string) => `Geht an ${name} (das Dokument liegt in deren Personalakte).`,
     noStaffAvailable: 'Es gibt keine Mitarbeitenden in dieser Einrichtung.', loadingStaff: 'Wird geladen …',
     folder: 'Ablage der unterschriebenen Kopie', folderHint: 'Ein Fach der Personalakte. Wer das Fach sehen darf, sieht später auch die unterschriebene Kopie.',
+    requiredType: 'Als Pflichtdokument ablegen', requiredTypeNone: 'nein',
+    requiredTypeHint: 'Die unterschriebene Kopie zählt dann als dieses Pflichtdokument (nur Pflichtdokumente des gewählten Fachs).',
     noFolders: 'Du darfst in kein Fach der Personalakte ablegen. Dafür braucht es das passende Recht.',
     due: 'Zu unterschreiben bis (freiwillig)', note: 'Nachricht an die Empfänger (freiwillig)',
     writtenForm: 'Achtung: Eine in der App gezeichnete Unterschrift ist eine einfache elektronische Signatur. Für Kündigung, '
@@ -2542,7 +2578,10 @@ export const de = {
       group_documentation: (count: number) => count === 1
         ? '1 Gruppe ohne Erinnerung an die Entwicklungsdoku'
         : `${count} Gruppen ohne Erinnerung an die Entwicklungsdoku`,
+      employee_required_document: (count: number) => (count === 1 ? '1 Person ohne Pflichtdokument' : `${count} Mitarbeitende ohne Pflichtdokument`),
     },
+    /** One line per Pflichtdokument (missing or expired). */
+    requiredDocument: (count: number, name: string) => (count === 1 ? `1 Person ohne ${name}` : `${count} Mitarbeitende ohne ${name}`),
     more: (count: number) => `und ${count} weitere`,
     hide: 'Brauchen wir nicht',
     hideLabel: (text: string) => `${text}: brauchen wir nicht`,
@@ -3440,6 +3479,12 @@ export const de = {
     help_out_not_paired: 'Aushilfe aus dieser Einrichtung ist nicht freigegeben.',
     help_out_not_paired_from: (facility: string) => `Aushilfe aus ${facility} ist nicht freigegeben.`,
     helpout_pair_invalid: 'Bitte zwei verschiedene Einrichtungen wählen.',
+    required_type_not_found: 'Dieses Pflichtdokument gibt es nicht (mehr). Bitte lade die Seite neu.',
+    required_type_name_required: 'Bitte eine Bezeichnung eingeben (höchstens 100 Zeichen).',
+    required_type_name_taken: 'Ein Pflichtdokument mit dieser Bezeichnung gibt es schon.',
+    required_type_invalid: 'Die Angaben zum Pflichtdokument passen nicht (Gültigkeit 1 bis 240 Monate).',
+    required_type_template_invalid: 'Diese Vorlage gibt es nicht (mehr) oder du siehst sie nicht.',
+    required_type_folder_mismatch: 'Das Dokument liegt nicht im Fach dieses Pflichtdokuments.',
     help_out_not_found: 'Diese Aushilfe gibt es nicht mehr.',
     cell_taken: 'An diesem Tag ist die Person schon in einem anderen Plan eingetragen.',
     cell_helps_elsewhere: 'An diesem Tag hilft die Person in einer anderen Einrichtung aus. Hier kann nur eine Abwesenheit eingetragen werden (z. B. Krank oder Urlaub).',

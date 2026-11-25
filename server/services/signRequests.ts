@@ -10,12 +10,13 @@ import {
 import type { IsoDate } from '../../shared/domain/types'
 import type { MySignRequestsDto, SignRequestDto, SignRequestRecipientDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employeeDocuments, employees, signRequestRecipients, signRequests, users } from '../db/schema'
+import { employeeDocuments, employees, requiredDocumentTypes, signRequestRecipients, signRequests, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
 import { fillableFile } from '../lib/pdfForm'
 import { listTemplates, readTemplateFile, templateVisibility, type TemplateViewer } from './printTemplates'
+import { checkedSignRequestType } from './requiredDocuments'
 import { removeSignRequest } from './signRequestRecords'
 
 /**
@@ -51,6 +52,8 @@ export interface SignRequestInput {
   folder: EmployeeDocumentFolder
   dueDate: IsoDate | null
   note: string
+  /** „Als Pflichtdokument … ablegen“: the signed copies are linked to this type (of the facility, in `folder`). */
+  requiredTypeId?: number | null
 }
 
 const sha256 = (data: Uint8Array) => createHash('sha256').update(data).digest('hex')
@@ -95,6 +98,7 @@ export function createSignRequest(
   if (title === '' || title.length > SIGN_REQUEST_TITLE_MAX || note.length > SIGN_REQUEST_NOTE_MAX) throw new ServiceError(400, 'invalid_input')
   if (input.dueDate !== null && !isValidIsoDate(input.dueDate)) throw new ServiceError(400, 'invalid_date')
   if (!can(sender.permissions, FOLDER_PERMISSION[input.folder])) throw new ServiceError(403, 'forbidden')
+  const requiredTypeId = checkedSignRequestType(db, sender, sender.facilityId, input.requiredTypeId ?? null, input.folder)
   const recipientIds = [...new Set(input.recipientIds)]
   if (recipientIds.length === 0 || recipientIds.length > SIGN_REQUEST_MAX_RECIPIENTS) throw new ServiceError(400, 'invalid_recipients')
   const source = sourceFile(db, sender, input.sourceKind, input.sourceId)
@@ -116,7 +120,7 @@ export function createSignRequest(
       sourceTemplateId: input.sourceKind === 'template' ? input.sourceId : null,
       sourceDocumentId: input.sourceKind === 'document' ? input.sourceId : null,
       sourceFolder: source.folder, sourceVisibility: source.visibility, sourceEmployeeId: source.employeeId,
-      fileData: data, fileSize: data.length, fileSha256: sha256(data), targetFolder: input.folder, dueDate: input.dueDate, note,
+      fileData: data, fileSize: data.length, fileSha256: sha256(data), targetFolder: input.folder, dueDate: input.dueDate, note, requiredTypeId,
     }).returning({ id: signRequests.id }).get().id
     tx.insert(signRequestRecipients).values(recipientIds.map(employeeId => ({ requestId: id, employeeId }))).run()
     return id
@@ -307,7 +311,7 @@ export function mySignRequestCount(db: Db, employeeId: number, today: IsoDate = 
 function loadMine(db: Db, signer: Pick<Signer, 'employeeId' | 'facilityId'>, recipientId: number) {
   const row = db.select({
     requestId: signRequests.id, title: signRequests.title, folder: signRequests.targetFolder, status: signRequestRecipients.status,
-    facilityId: signRequests.facilityId,
+    facilityId: signRequests.facilityId, requiredTypeId: signRequests.requiredTypeId,
   }).from(signRequestRecipients).innerJoin(signRequests, eq(signRequests.id, signRequestRecipients.requestId))
     .where(and(eq(signRequestRecipients.id, recipientId), eq(signRequestRecipients.employeeId, signer.employeeId))).get()
   if (!row || (signer.facilityId !== undefined && row.facilityId !== signer.facilityId)) throw new ServiceError(404, 'sign_request_not_found')
@@ -345,10 +349,13 @@ export function signMyRequest(
   const uploadedBy = signer.userId ?? db.select({ id: users.id }).from(users)
     .where(eq(users.employeeId, signer.employeeId)).get()?.id ?? null
   const hash = sha256(file)
+  // Sent „als Pflichtdokument“: the copy is that type's, as long as the type still files into the request's folder.
+  const requiredTypeId = row.requiredTypeId === null ? null : db.select({ folder: requiredDocumentTypes.folder }).from(requiredDocumentTypes)
+    .where(eq(requiredDocumentTypes.id, row.requiredTypeId)).get()?.folder === row.folder ? row.requiredTypeId : null
   return db.transaction((tx) => {
     const documentId = tx.insert(employeeDocuments).values({
       employeeId: signer.employeeId, folder: row.folder, title: signedDocumentTitle(row.title, now), documentDate: todayIso(now), note: '',
-      mimeType, fillable: fillableFile(file, mimeType), size: file.length, data: file, uploadedBy, uploadedAt: now.toISOString(),
+      mimeType, fillable: fillableFile(file, mimeType), size: file.length, data: file, uploadedBy, uploadedAt: now.toISOString(), requiredTypeId,
     }).returning({ id: employeeDocuments.id }).get().id
     tx.update(signRequestRecipients).set({ status: 'signed', signedAt: now.toISOString(), signedDocumentId: documentId, signedHash: hash })
       .where(and(eq(signRequestRecipients.id, recipientId), eq(signRequestRecipients.status, 'open'))).run()

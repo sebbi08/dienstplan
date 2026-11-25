@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { careTypes, children, employees, facilities, groups } from '../../server/db/schema'
+import { careTypes, children, employees, facilities, groups, requiredDocumentTypes } from '../../server/db/schema'
 import { setFacilityOpeningHours } from '../../server/services/openingHours'
 import { saveBundleOverride } from '../../server/services/permissions'
 import { getSetupChecklist, hideSetupItem, showSetupItem } from '../../server/services/setupChecklist'
@@ -31,6 +31,8 @@ describe('setup checklist service', () => {
   })
 
   it('gathers the facts of the facility, and items disappear once fixed', () => {
+    // Without the example Pflichtdokumente (their items: tests/services/requiredDocuments.test.ts).
+    db.delete(requiredDocumentTypes).run()
     const checklist = getSetupChecklist(db, traeger, 1, now)
     expect(checklist.open.map(item => item.key)).toEqual([
       'opening_hours', 'terminal_account', 'facility_capacity', 'employee_qualification', 'employee_birthday',

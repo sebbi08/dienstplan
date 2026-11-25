@@ -1,4 +1,5 @@
 import { can } from '../../shared/domain/permissions'
+import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION } from '../../shared/domain/personnel'
 import { probationRunning } from '../../shared/domain/probation'
 import { levelStepState } from '../../shared/domain/tvoed'
 import type { IsoDate } from '../../shared/domain/types'
@@ -8,6 +9,7 @@ import type { EmployeeViewer } from './employees'
 import { getLeaveForfeitStatuses } from './leaveForfeit'
 import { shiftedLevelStep } from './parentalLeave'
 import { loadEmployees, type EmployeeRecord } from './queries'
+import { missingRequiredDocuments } from './requiredDocuments'
 import { listDueRequirements } from './requirements'
 
 /** The next level step of one employee, moved by Elternzeit (null without a level or a start of employment). */
@@ -24,7 +26,8 @@ function levelOf(employee: EmployeeRecord, today: IsoDate): EmployeeListExtrasDt
  * What the employee list shows beside each person, in one go (no request per row): „Nächste Stufe“ and „in Probezeit
  * bis …“ while the probation period runs (employees.contractView),
  * the mandatory appointments that are open (everyone who sees the list) and the state of the notice on remaining leave
- * (leave.overview). A part the viewer may not see is left out of the row (the key is absent). Staff who left before
+ * (leave.overview), and the Pflichtdokumente missing or expired (types in folders the viewer may use; absent without
+ * any folder key). A part the viewer may not see is left out of the row (the key is absent). Staff who left before
  * today are skipped, as in the level-up notice.
  */
 export function listEmployeeListExtras(db: Db, facilityId: number, today: IsoDate, viewer: EmployeeViewer): EmployeeListExtrasDto[] {
@@ -37,10 +40,16 @@ export function listEmployeeListExtras(db: Db, facilityId: number, today: IsoDat
     open.set(due.employeeId, rows)
   }
   const forfeit = withForfeit ? getLeaveForfeitStatuses(db, facilityId, today) : null
+  const required = EMPLOYEE_DOCUMENT_FOLDERS.some(folder => can(viewer, FOLDER_PERMISSION[folder]))
+    ? missingRequiredDocuments(db, { permissions: viewer }, facilityId, today)
+    : null
   return loadEmployees(db, facilityId)
     .filter(employee => employee.leftOn === null || employee.leftOn >= today)
     .map((employee) => {
       const row: EmployeeListExtrasDto = { employeeId: employee.id, requirements: open.get(employee.id) ?? [] }
+      if (required) {
+        row.requiredDocuments = (required.get(employee.id) ?? []).map(({ typeId, name, state }) => ({ typeId, name, state: state === 'expired' ? 'expired' : 'missing' }))
+      }
       if (withLevel) {
         row.level = levelOf(employee, today)
         row.probationUntil = probationRunning(employee.probationUntil, today) ? employee.probationUntil : null

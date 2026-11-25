@@ -12,7 +12,9 @@ const { data, error, refresh } = useFetch<SetupChecklist>('/api/setup-checklist'
 const { busy, guard } = useBusy()
 const act = useAction(refresh)
 
-const text = (item: SetupItem) => t.items[item.key](item.count)
+const text = (item: SetupItem) => (item.key === 'employee_required_document' ? t.requiredDocument(item.count, item.label ?? '') : t.items[item.key](item.count))
+/** One item per Pflichtdokument share their key. */
+const itemKey = (item: SetupItem) => `${item.key}:${item.label ?? ''}`
 // While the Träger looks at another facility's settings, a link out of the settings would open the active facility's
 // page instead: such places are shown as plain text with a hint.
 const chosenFacility = useSettingsFacility()
@@ -40,7 +42,7 @@ const show = (item: SetupItem) => guard(() => act(() => $fetch(path(item), { met
       <div v-for="entry in byArea" :key="entry.area" class="space-y-1.5">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t.areas[entry.area] }}</h3>
         <ul class="divide-y divide-gray-100 rounded-md ring-1 ring-gray-100">
-          <li v-for="item in entry.items" :key="item.key" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
+          <li v-for="item in entry.items" :key="itemKey(item)" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
             <div class="min-w-0 flex-1 basis-56">
               <NuxtLink v-if="linked(item.to)" :to="item.to" class="font-medium text-sky-800 hover:underline">{{ text(item) }}</NuxtLink>
               <span v-else class="font-medium">{{ text(item) }}</span>
@@ -64,7 +66,7 @@ const show = (item: SetupItem) => guard(() => act(() => $fetch(path(item), { met
         <summary class="cursor-pointer text-gray-600">{{ t.hidden(data.hidden.length) }}</summary>
         <p class="mt-1 text-xs text-gray-500">{{ t.hiddenHint }}</p>
         <ul class="mt-1.5 divide-y divide-gray-100 rounded-md ring-1 ring-gray-100">
-          <li v-for="item in data.hidden" :key="item.key" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
+          <li v-for="item in data.hidden" :key="itemKey(item)" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
             <span class="min-w-0 flex-1 basis-56 text-gray-600">{{ text(item) }}</span>
             <UButton
               size="xs" color="neutral" variant="outline" :label="t.show" :aria-label="t.showLabel(text(item))"

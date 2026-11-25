@@ -39,11 +39,12 @@ const META_COLUMNS = {
   uploadedBy: employeeDocuments.uploadedBy,
   uploadedAt: employeeDocuments.uploadedAt,
   fillable: employeeDocuments.fillable,
+  requiredTypeId: employeeDocuments.requiredTypeId,
 }
 
 type MetaRow = {
   id: number; employeeId: number; folder: EmployeeDocumentFolder; title: string; documentDate: string | null; note: string
-  mimeType: string; size: number; uploadedBy: number | null; uploadedAt: string; fillable: boolean | null
+  mimeType: string; size: number; uploadedBy: number | null; uploadedAt: string; fillable: boolean | null; requiredTypeId: number | null
 }
 
 const mayUse = (actor: DocumentActor, folder: EmployeeDocumentFolder) => can(actor.permissions, FOLDER_PERMISSION[folder])
@@ -53,7 +54,7 @@ function assertFolder(actor: DocumentActor, folder: EmployeeDocumentFolder): voi
 }
 
 /** The document day; every write sets one, the column is only nullable like the child documents'. */
-const dayOf = (row: { documentDate: string | null; uploadedAt: string }): IsoDate => row.documentDate ?? row.uploadedAt.slice(0, 10)
+export const dayOf = (row: { documentDate: string | null; uploadedAt: string }): IsoDate => row.documentDate ?? row.uploadedAt.slice(0, 10)
 
 /** Folder kept, title and note trimmed, a real date (400 invalid_date). */
 function checkedMeta(meta: EmployeeDocumentMeta): EmployeeDocumentMeta {
@@ -95,6 +96,7 @@ export function listEmployeeDocuments(db: Db, actor: DocumentActor, facilityId: 
     size: row.size, uploadedBy: row.uploadedBy === null ? null : usernames.get(row.uploadedBy) ?? null, uploadedAt: row.uploadedAt,
     // Judged when the file was stored (null = a file of before, not judged yet).
     fillable: row.fillable === true,
+    requiredTypeId: row.requiredTypeId,
   })
   return Object.fromEntries(folders.map(folder => [folder, rows.filter(row => row.folder === folder).map(toDto)]))
 }

@@ -2,7 +2,7 @@
 import { todayIso } from '#shared/domain/dates'
 import type { EmployeeDocumentFolder } from '#shared/domain/personnel'
 import { SIGN_REQUEST_NOTE_MAX, SIGN_REQUEST_TITLE_MAX, writtenFormHint } from '#shared/domain/signRequests'
-import type { EmployeeListItemDto } from '#shared/types/api'
+import type { EmployeeListItemDto, RequiredDocumentTypeDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { searchTargets, usableFolders } from '~/utils/pdfFill'
@@ -18,6 +18,8 @@ const props = defineProps<{
   source: { kind: 'template' | 'document'; id: number; title: string; url: string }
   /** A personnel document: only to this person. */
   recipient?: { id: number; name: string }
+  /** Sent for a Pflichtdokument (the box under Nachweise): its folder and type preset. */
+  requiredType?: { id: number; folder: EmployeeDocumentFolder }
 }>()
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ sent: [] }>()
@@ -25,7 +27,16 @@ const t = de.signRequests
 const toast = useToast()
 const { can } = useCan()
 
-const form = reactive({ title: '', recipientIds: [] as number[], folder: 'correspondence' as EmployeeDocumentFolder, dueDate: '', note: '' })
+const form = reactive({ title: '', recipientIds: [] as number[], folder: 'correspondence' as EmployeeDocumentFolder, dueDate: '', note: '', requiredTypeId: 0 })
+// „Als Pflichtdokument ablegen“: the active Pflichtdokumente of the chosen folder (loaded when the dialog opens).
+const requiredTypes = ref<RequiredDocumentTypeDto[]>([])
+const requiredItems = computed(() => [
+  { label: t.requiredTypeNone, value: 0 },
+  ...requiredTypes.value.filter(type => type.active && type.folder === form.folder).map(type => ({ label: type.name, value: type.id })),
+])
+watch(() => form.folder, () => {
+  if (!requiredItems.value.some(item => item.value === form.requiredTypeId)) form.requiredTypeId = 0
+})
 const staff = ref<EmployeeListItemDto[] | null>(null)
 const loadError = ref<string | null>(null)
 const query = ref('')
@@ -55,9 +66,13 @@ watch(open, (isOpen) => {
   if (!isOpen) return
   Object.assign(form, {
     title: props.source.title.slice(0, SIGN_REQUEST_TITLE_MAX), recipientIds: props.recipient ? [props.recipient.id] : [],
-    folder: folders.value.includes('correspondence') ? 'correspondence' : folders.value[0] ?? 'correspondence', dueDate: '', note: '',
+    folder: props.requiredType && folders.value.includes(props.requiredType.folder)
+      ? props.requiredType.folder
+      : folders.value.includes('correspondence') ? 'correspondence' : folders.value[0] ?? 'correspondence',
+    dueDate: '', note: '', requiredTypeId: props.requiredType?.id ?? 0,
   })
   query.value = ''
+  void $fetch<RequiredDocumentTypeDto[]>('/api/required-document-types').then((types) => { requiredTypes.value = types }).catch(() => { requiredTypes.value = [] })
   if (!props.recipient) void loadStaff()
 }, { immediate: true })
 
@@ -80,6 +95,7 @@ async function send(pdf: Blob | null) {
   body.append('folder', form.folder)
   body.append('dueDate', form.dueDate)
   body.append('note', form.note)
+  body.append('requiredTypeId', form.requiredTypeId ? String(form.requiredTypeId) : '')
   if (pdf) body.append('file', pdf, 'Dokument.pdf')
   await $fetch<{ id: number }>('/api/sign-requests', { method: 'POST', body })
   toast.add({ title: t.sent(recipients.length), color: 'success' })
@@ -144,6 +160,9 @@ const submit = computed(() => ({ label: t.prefillSend, icon: 'i-lucide-send', ha
         <p v-if="!folders.length" class="text-sm text-red-700" role="alert">{{ t.noFolders }}</p>
         <UFormField v-else :label="t.folder" :description="t.folderHint" required>
           <USelect v-model="form.folder" :items="folderItems" class="w-full" />
+        </UFormField>
+        <UFormField v-if="requiredItems.length > 1" :label="t.requiredType" :description="t.requiredTypeHint">
+          <USelect v-model="form.requiredTypeId" :items="requiredItems" class="w-full" />
         </UFormField>
         <UFormField :label="t.due">
           <DateTextInput v-model="form.dueDate" :label="t.due" :min="todayIso()" class="w-full" />
