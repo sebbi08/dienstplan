@@ -36,9 +36,39 @@ export interface SettingsSection {
   permission?: PermissionKey
   /** The parts of the former single page shown here. */
   replaces: readonly FormerSection[]
+  /** One setting for all facilities: marked „gilt für alle Einrichtungen“ (not changed by „Einstellungen für“). */
+  global?: boolean
+  /**
+   * Changed only with this key (the Träger's): whoever sees it without the key (the Leitung) gets it folded into one
+   * line „Diese Einstellungen pflegt der Träger“ at the end of the area.
+   */
+  editPermission?: PermissionKey
+  /** A section that lives on another page: its card links there, and the search opens that page directly. */
+  to?: string
 }
 
 const s = de.settingsAreas
+
+/**
+ * „Datenschutz & Löschen“ (the Träger, Mehr → Datenschutz & Löschen): what may be deleted now, the retention periods of
+ * children, staff, applicants and cash boxes, and the Datensicherung – one page instead of four places.
+ */
+export const PRIVACY_PATH = '/admin/retention'
+export const PRIVACY_TABS = ['due', 'periods', 'backup'] as const
+export type PrivacyTab = typeof PRIVACY_TABS[number]
+export const privacyPath = (tab: PrivacyTab) => (tab === 'due' ? PRIVACY_PATH : `${PRIVACY_PATH}?tab=${tab}`)
+/** The tab of „Datenschutz & Löschen“ to open (`?tab=`), the first one when unknown. */
+export function requestedPrivacyTab(query: unknown): PrivacyTab {
+  const key = typeof query === 'string' ? query : Array.isArray(query) && typeof query[0] === 'string' ? query[0] : null
+  return PRIVACY_TABS.find(tab => tab === key) ?? 'due'
+}
+
+/** Former anchors of sections that moved to another page (old links and bookmarks lead there). */
+export const MOVED_SECTIONS: Readonly<Record<string, string>> = {
+  'section-retention': privacyPath('periods'),
+  'section-employee-retention': privacyPath('periods'),
+  'section-backup': privacyPath('backup'),
+}
 
 /** The sections of each area, in their order on the page. */
 export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
@@ -61,12 +91,14 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['PIN', 'Sperrzeit', 'sperren', 'Vormerkungen', 'Warteliste', 'künftige Kinder', 'Terminal'],
     },
     {
-      key: 'retention', title: de.childSettings.retention, permission: 'settings.retention', replaces: ['retention'],
-      keywords: ['Löschfrist', 'löschen', 'Datenschutz', 'Aufbewahrung', 'abgemeldete Kinder', 'Archiv'],
-    },
-    {
-      key: 'backup', title: de.settings.backup, permission: 'backup.download', replaces: ['backup'],
-      keywords: ['Backup', 'Datenbank', 'herunterladen', 'Sicherung', 'Kopie'],
+      // The Löschfristen (children, staff, applicants, cash) and the Datensicherung: on their own page.
+      key: 'privacy', title: de.privacy.title, permission: 'retention.delete', replaces: ['retention', 'backup'], global: true,
+      to: privacyPath('periods'),
+      keywords: [
+        'Löschfrist', 'Löschfristen', 'löschen', 'Datenschutz', 'Aufbewahrung', 'abgemeldete Kinder', 'Archiv', 'Backup', 'Datenbank',
+        'herunterladen', 'Sicherung', 'Datensicherung', 'Kopie', 'ausgeschieden', 'Mitarbeiter löschen', 'endgültig löschen', 'Lohnbüro',
+        'Steuerbüro', 'Lohnunterlagen', 'Bewerbungen', 'Kasse',
+      ],
     },
   ],
   groups: [
@@ -85,33 +117,13 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['Vorlage', 'Woche', 'Wochenplan', 'Planwoche'],
     },
     {
-      key: 'codes', title: de.settings.codes, replaces: ['codes'],
+      // One list for all facilities; the Träger changes it (settings.absenceCodes), the Leitung reads it.
+      key: 'codes', title: de.settings.codes, replaces: ['codes'], global: true, editPermission: 'settings.absenceCodes',
       keywords: ['Abwesenheit', 'Urlaub', 'Krank', 'Anrechnung', 'Tagessoll', 'Code'],
     },
     {
       key: 'coverage-rules', title: de.settings.rules, replaces: ['coverage-rules'],
       keywords: ['Mindestanzahl', 'Mindestbesetzung', 'Besetzung', 'Warnung', 'Pflichtdienst'],
-    },
-    {
-      key: 'requirement-types', title: de.requirements.kinds, replaces: ['requirement-types'],
-      keywords: ['Fortbildung', 'Erste Hilfe', 'Belehrung', 'Termin', 'Pflichttermin'],
-    },
-    {
-      key: 'leave-module', title: de.leavePlanning.module, permission: 'leave.configure', replaces: ['leave-module'],
-      keywords: ['Urlaub', 'Urlaubsantrag', 'Urlaubsplanung', 'Antrag', 'Urlaub beantragen'],
-    },
-    {
-      // The Leitung sees it read-only; only the Träger changes it.
-      key: 'leave-counting', title: de.leaveCounting.title, replaces: [],
-      keywords: [
-        'Urlaub', 'Heiligabend', 'Silvester', '24.12.', '31.12.', 'halber Tag', 'Urlaubstag', 'Weihnachten', 'TVöD', 'Tarif',
-        'Tarifvertrag', 'bezahlt frei', 'SuE',
-      ],
-    },
-    {
-      // Leitung and Träger change it.
-      key: 'leave-forfeit', title: de.leaveForfeit.title, replaces: [],
-      keywords: ['Resturlaub', 'Verfall', 'verfällt', 'Urlaub verfällt', 'Übertrag', 'Hinweispflicht', 'Gelesen', '31.03.'],
     },
   ],
   time: [
@@ -174,13 +186,30 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       keywords: ['Pflichtdokument', 'Führungszeugnis', 'Masernnachweis', 'Arbeitsvertrag', 'Erste Hilfe', 'Datenschutz', 'Schweigepflicht', 'Belehrung', 'Personalakte', 'Nachweis'],
     },
     {
+      key: 'requirement-types', title: de.requirements.kinds, replaces: ['requirement-types'],
+      keywords: ['Fortbildung', 'Erste Hilfe', 'Belehrung', 'Termin', 'Pflichttermin'],
+    },
+    {
+      // „Urlaubsanträge“ on or off: one switch for all facilities (the Träger).
+      key: 'leave-module', title: de.leavePlanning.module, permission: 'leave.configure', replaces: ['leave-module'], global: true,
+      keywords: ['Urlaub', 'Urlaubsantrag', 'Urlaubsplanung', 'Antrag', 'Urlaub beantragen'],
+    },
+    {
       // The Leitung sees it read-only; only the Träger changes it.
-      key: 'employee-retention', title: de.retention.title, replaces: [],
-      keywords: ['Löschfrist', 'Aufbewahrung', 'Datenschutz', 'ausgeschieden', 'Mitarbeiter löschen', 'endgültig löschen', 'ausgezahlt', 'Überstunden', 'Beurteilung', 'Zeugnis', 'Altersvorsorge', 'Kasse', 'Lohnbüro', 'Steuerbüro', 'Lohnunterlagen', 'Lohnkonto'],
+      key: 'leave-counting', title: de.leaveCounting.title, replaces: [], editPermission: 'leave.configure',
+      keywords: [
+        'Urlaub', 'Heiligabend', 'Silvester', '24.12.', '31.12.', 'halber Tag', 'Urlaubstag', 'Weihnachten', 'TVöD', 'Tarif',
+        'Tarifvertrag', 'bezahlt frei', 'SuE',
+      ],
+    },
+    {
+      // Leitung and Träger change it.
+      key: 'leave-forfeit', title: de.leaveForfeit.title, replaces: [],
+      keywords: ['Resturlaub', 'Verfall', 'verfällt', 'Urlaub verfällt', 'Übertrag', 'Hinweispflicht', 'Gelesen', '31.03.'],
     },
     {
       // One value for all facilities: the Leitung sees it read-only; only the Träger changes it.
-      key: 'child-sick-days', title: de.staffChildren.settings.title, replaces: [],
+      key: 'child-sick-days', title: de.staffChildren.settings.title, replaces: [], global: true, editPermission: 'settings.absenceCodes',
       keywords: ['Kind krank', 'Kinderkrankengeld', '§ 45 SGB V', 'alleinerziehend', 'krankes Kind', 'Krankenkasse'],
     },
     {
@@ -192,6 +221,11 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       // Whoever sees the contract data (the Träger by default) sees it; whoever edits it changes it.
       key: 'parental-leave', title: de.parentalLeave.settings.title, permission: 'employees.contractView', replaces: [],
       keywords: ['Elternzeit', 'BEEG', 'abwesend', 'Dienstplan', 'sichtbar', 'Tablet'],
+    },
+    {
+      // The staff's Löschfristen: on „Datenschutz & Löschen“ (a link card stays where they were).
+      key: 'staff-retention', title: de.retention.title, permission: 'retention.delete', replaces: [], global: true, to: privacyPath('periods'),
+      keywords: ['Löschfrist Mitarbeiter', 'ausgezahlt', 'Überstunden', 'Beurteilung', 'Zeugnis', 'Altersvorsorge', 'Lohnkonto'],
     },
   ],
 }
@@ -243,6 +277,13 @@ export const areaPath = (area: SettingsArea) => `/admin/settings/${AREA_SLUGS[ar
 export const groupPath = (groupId: number) => `/admin/settings/groups/${groupId}`
 /** The element id of a section on its page (the search scrolls there). */
 export const sectionAnchor = (key: string) => `section-${key}`
+
+/** Sections the viewer sees but only the Träger changes (folded into one line at the end of the area). */
+export const readOnlyForViewer = (section: SettingsSection, viewer: SettingsViewer) =>
+  section.editPermission !== undefined && !viewer.can(section.editPermission)
+
+/** Long areas get a row of jump links to their sections at the top. */
+export const JUMP_LINKS_FROM = 4
 
 /** The areas with the sections this viewer may see; an area without one is left out. */
 export function visibleSettingsAreas(viewer: SettingsViewer): VisibleArea[] {
@@ -304,7 +345,7 @@ export function searchSettings(query: string, viewer: SettingsViewer, context: S
   }
   for (const entry of visibleSettingsAreas(viewer)) {
     for (const section of entry.sections) {
-      add({ key: section.key, title: section.title, where: entry.title, to: `${entry.path}#${sectionAnchor(section.key)}` }, rank(section))
+      add({ key: section.key, title: section.title, where: entry.title, to: section.to ?? `${entry.path}#${sectionAnchor(section.key)}` }, rank(section))
     }
   }
   const groupsTitle = s.areas.groups

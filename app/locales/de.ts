@@ -65,7 +65,7 @@ export const de = {
   nav: {
     plan: 'Dienstplan', myPlan: 'Mein Dienstplan', myLeave: 'Mein Urlaub', myRequirements: 'Meine Termine', myTalks: 'Meine Gespräche', myAccidents: 'Meine Unfälle', mySign: 'Zu unterschreiben', employees: 'Mitarbeiter',
     closures: 'Schließzeiten', users: 'Benutzer', rights: 'Rechte und Rollen',
-    settings: 'Einstellungen', retention: 'Löschfristen', password: 'Passwort ändern', logout: 'Abmelden',
+    settings: 'Einstellungen', retention: 'Datenschutz & Löschen', password: 'Passwort ändern', logout: 'Abmelden',
     time: 'Zeiterfassung', stamp: 'Stempeln',
     sickDays: 'Krankheitstage', calendar: 'Jahreskalender', leavePlanning: 'Urlaubsplanung', children: 'Kinder',
     documents: 'Dokumente', cash: 'Kasse', teamMeetings: 'Teamsitzungen', notes: 'Notizen', accidents: 'Unfälle',
@@ -256,6 +256,7 @@ export const de = {
     title: 'Krankheitstage', printTitle: (year: number) => `Krankheitstage ${year}`, name: 'Mitarbeiter:in', periods: 'Zeiträume',
     total: 'Arbeitstage gesamt', none: 'keine', days: (count: number) => (count === 1 ? '1 Tag' : `${count} Tage`),
     hint: 'Grundlage sind die Einträge „Krank“ im Dienstplan. Gezählt werden Arbeitstage (ohne Wochenenden und Feiertage).',
+    allStaff: 'Alle Mitarbeitenden',
   },
   /** "Im Dienst erkrankt": someone fell ill during the duty and left early (Leitung and Träger only). */
   sickLeave: {
@@ -646,7 +647,7 @@ export const de = {
     myTitle: (year: number) => `Zusatztage ${year}`,
     card: 'Zusatztage',
   },
-  /** „Schließzeiten als Urlaub“ as a hint: creating an employee and the employee page („Urlaub & Zeiten“). */
+  /** „Schließzeiten als Urlaub“ as a hint: creating an employee and the employee page („Zeiten & Urlaub“). */
   closurePreview: {
     title: 'Schließzeiten als Urlaub',
     facility: (year: number, count: number) => `Schließzeiten als Urlaub ${year} in der Einrichtung: ${days(count)} (bei einer 5-Tage-Woche)`,
@@ -684,7 +685,7 @@ export const de = {
     },
     /** Re-entering a period that already holds Sonderurlaub with a reason: the reason of its days is replaced. */
     reasonUpdated: (count: number) => `Begründung für ${count === 1 ? '1 Tag' : `${count} Tage`} Sonderurlaub aktualisiert.`,
-    /** „Urlaub & Zeiten“: „Sonderurlaub 2026: 3 Tage“ with each period and its reason. */
+    /** „Zeiten & Urlaub“: „Sonderurlaub 2026: 3 Tage“ with each period and its reason. */
     yearTitle: (year: number, days: string) => `Sonderurlaub ${year}: ${days}`,
   },
   /** „Urlaub eintragen“ for an employee (employee page, „Urlaubsplanung“) and „Entfernen“ of a listed period. */
@@ -759,7 +760,7 @@ export const de = {
     bookClosuresConfirm: (from: string, name: string) => `Alle Schließzeiten ab ${from} werden für ${name} in leere Tage eingetragen. Bereits eingetragene Tage bleiben unverändert.`,
     bookClosuresDone: (count: number) => `${count} ${count === 1 ? 'Tag' : 'Tage'} eingetragen.`,
     paidOut: 'ausgezahlt',
-    paidOutHint: 'Häkchen „ausgezahlt“ bei ausgezahlten Überstunden: Diese Buchungen werden nach dem Ausscheiden länger aufbewahrt als die übrigen (Einstellungen → Personal → Löschfristen).',
+    paidOutHint: 'Häkchen „ausgezahlt“ bei ausgezahlten Überstunden: Diese Buchungen werden nach dem Ausscheiden länger aufbewahrt als die übrigen (Mehr → Datenschutz & Löschen → Fristen).',
     date: 'Datum', amount: 'Stunden (h:mm)', sign: 'Art', plus: 'Plus', minus: 'Minus', reason: 'Grund',
     addAdjustment: 'Buchung hinzufügen', entitlements: 'Urlaubsanspruch', year: 'Jahr', days: 'Tage',
     carriedOver: 'Übertrag', saveEntitlement: 'Anspruch speichern',
@@ -827,7 +828,7 @@ export const de = {
     /** The tabs of the employee page. */
     tabsLabel: 'Bereiche',
     tabs: {
-      master: 'Stammdaten', contract: 'Vertrag & Lohn', times: 'Urlaub & Zeiten', records: 'Nachweise',
+      master: 'Stammdaten', contract: 'Vertrag & Lohn', times: 'Zeiten & Urlaub', records: 'Nachweise', health: 'Gesundheit',
       talks: 'Gespräche', access: 'Zugang',
     },
     /** The tab „Zugang“: the account linked to the person. */
@@ -948,7 +949,7 @@ export const de = {
     add: 'Kind hinzufügen',
     remove: 'Entfernen',
     childLabel: (name: string | null, born: string) => (name ? `${name} (geb. ${born})` : `Kind (geb. ${born})`),
-    // „Urlaub & Zeiten“: only when the person has eligible children or took such days.
+    // „Zeiten & Urlaub“: only when the person has eligible children or took such days.
     sickYear: (year: number, taken: number, entitlement: number) => `Kinderkrankentage ${year}: ${taken} von ${entitlement} genommen`,
     sickYearHint: 'Nach § 45 SGB V; der Anspruch richtet sich nach den Kindern unter 12 (oder mit Behinderung) und „alleinerziehend“.',
     // The plan's dialog for „Kind krank“.
@@ -963,7 +964,7 @@ export const de = {
     no: 'nein',
     under25: 'Kinder unter 25 Jahren',
     parentHint: 'für die Pflegeversicherung (Kinderlosenzuschlag, Beitragsabschlag ab dem 2. Kind)',
-    // Einstellungen → Personal: the Träger's values (one setting for all facilities).
+    // Einstellungen → Mitarbeitende: the Träger's values (one setting for all facilities).
     settings: {
       title: 'Kinderkrankentage',
       intro: 'Tage pro Jahr, an denen Mitarbeiter wegen eines kranken Kindes zu Hause bleiben (§ 45 SGB V). Die Werte gelten für alle Einrichtungen; im Dienstplan erscheint ein Hinweis, wenn eine Person mehr Tage hat. Eintragen wird nie verhindert.',
@@ -1165,7 +1166,7 @@ export const de = {
     title: 'Schließzeiten', from: 'Von', to: 'Bis', label: 'Bezeichnung', mode: 'Eintragen als',
     modes: { vacation: 'Urlaub', closure_day: 'Schließtag' },
     leaveDays: 'Urlaubstage', noLeave: 'kein Urlaub',
-    leaveDaysHint: 'Urlaubstage: was die Schließzeit eine Vollzeitkraft mit 5-Tage-Woche kostet (ohne Wochenenden und Feiertage). Die Tage jeder einzelnen Person, auch bei Teilzeit, stehen beim Mitarbeiter im Reiter „Urlaub & Zeiten“.',
+    leaveDaysHint: 'Urlaubstage: was die Schließzeit eine Vollzeitkraft mit 5-Tage-Woche kostet (ohne Wochenenden und Feiertage). Die Tage jeder einzelnen Person, auch bei Teilzeit, stehen beim Mitarbeiter im Reiter „Zeiten & Urlaub“.',
     create: 'Schließzeit anlegen', edit: 'Schließzeit ändern',
     confirmReplan: 'Der Dienstplan wird für die geänderten Tage angepasst. Von Hand geänderte Tage bleiben. Bereits eingetragene Dienste bleiben.',
     hint: 'Beim Anlegen erhält jeder Mitarbeiter an jedem seiner Arbeitstage im Zeitraum einen Eintrag (wer später aus einer anderen Einrichtung gewechselt ist, erst ab seinem Wechseltag). Bereits vorhandene Einträge an diesen Tagen werden ersetzt und beim Löschen der Schließzeit nicht wiederhergestellt. Einzelne Tage kannst du danach im Dienstplan ändern. Für einen einzelnen freien Tag (z. B. Brückentag) gib bei „Von“ und „Bis“ dasselbe Datum an.',
@@ -1710,7 +1711,7 @@ export const de = {
     title: 'Abmeldung', leavesOn: (date: string) => `Austritt am ${date}`, moveTarget: 'Einrichtung', moveAction: 'Verschieben', moved: 'Akte verschoben',
     confirmLeave: (name: string, date: string) => `${name} zum ${date} abmelden? Einen Tag nach dem Austritt wird die Akte archiviert und kann nicht mehr geändert werden.`,
     confirmMove: (name: string) => `Die Akte nach „${name}“ verschieben? Gruppe und Betreuungsform werden zurückgesetzt, die Dokumentarten der Dokumente werden nach Namen zugeordnet (sonst „Sonstiges“). In der bisherigen Einrichtung ist die Akte danach nicht mehr zu sehen.`,
-    archiveEmpty: 'Das Archiv ist leer.', archiveHint: 'Abgemeldete Kinder. Die Akte kann nur noch gelesen werden. Gelöscht wird sie vom Träger – nach der Löschfrist unter Mehr → Löschfristen.',
+    archiveEmpty: 'Das Archiv ist leer.', archiveHint: 'Abgemeldete Kinder. Die Akte kann nur noch gelesen werden. Gelöscht wird sie vom Träger – nach der Löschfrist unter Mehr → Datenschutz & Löschen.',
   },
   groupChange: {
     plan: 'Gruppenwechsel planen', pending: (date: string, group: string) => `wechselt am ${date} in ${group}`, group: 'Neue Gruppe', date: 'Wechseltag',
@@ -1725,7 +1726,7 @@ export const de = {
   childSettings: {
     careTypes: 'Betreuungsformen', documentTypes: 'Dokumentarten', important: 'wichtig', required: 'für jedes Kind nötig', confidentialDefault: 'vertraulich',
     retention: 'Löschfrist für abgemeldete Kinder', retentionYears: 'Jahre nach dem Austritt',
-    retentionHint: 'Nach Ablauf dieser Frist darf die Akte eines abgemeldeten Kindes mit allen Daten und Dokumenten gelöscht werden. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen. Bitte die Frist mit dem Datenschutzbeauftragten abstimmen. Unfallanzeigen bleiben 5 Jahre ab dem Unfall (DGUV Vorschrift 1 § 24 Abs. 6): Gibt es eine jüngere, darf die Akte erst danach gelöscht werden.',
+    retentionHint: 'Nach Ablauf dieser Frist darf die Akte eines abgemeldeten Kindes mit allen Daten und Dokumenten gelöscht werden. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Datenschutz & Löschen. Bitte die Frist mit dem Datenschutzbeauftragten abstimmen. Unfallanzeigen bleiben 5 Jahre ab dem Unfall (DGUV Vorschrift 1 § 24 Abs. 6): Gibt es eine jüngere, darf die Akte erst danach gelöscht werden.',
     // Small helper texts of the pages (beyond the agreed wording list above).
     careTypesHint: 'Die Zeiten geben das gebuchte Zeitfenster an. Betreuungsformen, die noch bei Kindern eingetragen sind, lassen sich nicht löschen.',
     documentTypesHint: 'Wichtige Dokumentarten erscheinen in der Dokumentenübersicht. „Für jedes Kind nötig“ markiert fehlende Dokumente dort rot. „Vertraulich“ ist die Voreinstellung beim Hochladen.',
@@ -1758,10 +1759,10 @@ export const de = {
     confirmDelete: (name: string) => `Den Reiter „${name}“ löschen? Die Angaben in den Kinderakten bleiben.`,
     empty: 'Noch keine Reiter. Ohne Reiter zeigt die Übersicht nur einen Hinweis.',
   },
-  /** Einstellungen → Personal → Löschfristen, and the due dates in the archive of the staff page. */
+  /** Mehr → Datenschutz & Löschen → Fristen, and the due dates in the archive of the staff page. */
   retention: {
     title: 'Löschfristen',
-    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, Anschrift und Kontakt, Staatsangehörigkeit und Schwerbehinderung, PIN, Zugang, Vertragsdaten, Notfallkontakte, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, Lohn und Steuer auch, wenn ein Lohnbüro die Lohnunterlagen aufbewahrt (siehe unten), der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Löschfristen.',
+    intro: 'Was von ausgeschiedenen Mitarbeitern ab wann gelöscht werden darf. Jede Frist beginnt am Ende des Jahres, in dem die Person ausgeschieden ist. Geburtstag, Anschrift und Kontakt, Staatsangehörigkeit und Schwerbehinderung, PIN, Zugang, Vertragsdaten, Notfallkontakte, Urlaubsanträge und Ähnliches dürfen schon ab dem Tag nach dem Ausscheiden gelöscht werden, Lohn und Steuer auch, wenn ein Lohnbüro die Lohnunterlagen aufbewahrt (siehe unten), der Mitarbeiter-Eintrag selbst zuletzt. Die App löscht nichts automatisch: Der Träger löscht von Hand unter Mehr → Datenschutz & Löschen.',
     hint: 'Die Fristen sind vorbelegt nach euren Vorgaben. Bitte im Zweifel mit Steuerberatung bzw. Datenschutz klären.',
     providerOnly: 'Die Löschfristen kann nur der Träger ändern.',
     years: 'Jahre',
@@ -1785,10 +1786,10 @@ export const de = {
     employeeDeleteHelp: '„Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sofort alles und beachtet die Fristen nicht. Bei „aus“ werden die Daten erst nach Ablauf der Fristen gelöscht – von Hand durch den Träger.',
     employeeDeleteModes: { off: 'aus', provider: 'nur Träger', managers: 'Leitung und Träger' },
     payrollOffice: 'Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf',
-    payrollOfficeHelp: 'Angehakt (voreingestellt): Ein Lohn- oder Steuerbüro rechnet die Löhne ab und bewahrt die Lohnunterlagen auf. Dann darf „Lohn und Steuer“ (Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession) schon ab dem Tag nach dem Ausscheiden gelöscht werden. Nicht angehakt: Ihr bewahrt die Lohnunterlagen selbst auf. Dann bleiben diese Angaben 6 Jahre nach dem Ende des Jahres, in dem die Person ausgeschieden ist (Lohnkonto nach § 41 EStG, § 147 AO), und stehen danach unter Mehr → Löschfristen zum Löschen bereit.',
+    payrollOfficeHelp: 'Angehakt (voreingestellt): Ein Lohn- oder Steuerbüro rechnet die Löhne ab und bewahrt die Lohnunterlagen auf. Dann darf „Lohn und Steuer“ (Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession) schon ab dem Tag nach dem Ausscheiden gelöscht werden. Nicht angehakt: Ihr bewahrt die Lohnunterlagen selbst auf. Dann bleiben diese Angaben 6 Jahre nach dem Ende des Jahres, in dem die Person ausgeschieden ist (Lohnkonto nach § 41 EStG, § 147 AO), und stehen danach unter Mehr → Datenschutz & Löschen zum Löschen bereit.',
     paidOvertimeBelowMinimum: (years: number) => `Gespeichert sind ${years} Jahre. Buchungsbelege sind seit 2025 mindestens 8 Jahre aufzubewahren (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB); die App rechnet deshalb mit 8 Jahren. Bitte 8 oder mehr eintragen.`,
     cashYears: 'Aufbewahrungsfrist Kasse',
-    cashYearsHelp: 'Eine archivierte Kasse darf erst danach endgültig gelöscht werden (vom Träger unter Mehr → Löschfristen). Die Frist beginnt am Ende des Jahres der letzten Buchung.',
+    cashYearsHelp: 'Eine archivierte Kasse darf erst danach endgültig gelöscht werden (vom Träger unter Mehr → Datenschutz & Löschen). Die Frist beginnt am Ende des Jahres der letzten Buchung.',
     months: 'Monate',
     infoVisitMonths: 'Infogespräche ohne Vormerkung',
     infoVisitMonthsHelp: 'Ein Infogespräch, das nicht als Vormerkung übernommen wurde, darf so viele Monate nach dem Gesprächstag gelöscht werden – mit seinen Dokumenten und Bögen (1 bis 60 Monate, voreingestellt 12). Ein übernommenes gehört zur Kinderakte und wird mit ihr gelöscht.',
@@ -1805,13 +1806,26 @@ export const de = {
       first: (label: string, date: string) => `${label} dürfen ab ${date} gelöscht werden`,
       next: (label: string, date: string) => `${label} ab ${date}`,
       last: '; danach der Eintrag.',
-      done: (labels: string) => `${labels} dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen).`,
-      allDone: 'Alle Fristen sind abgelaufen. Der Träger löscht die Daten unter Mehr → Löschfristen; sobald alles andere gelöscht ist, auch den Eintrag.',
+      done: (labels: string) => `${labels} dürfen schon gelöscht werden (vom Träger unter Mehr → Datenschutz & Löschen).`,
+      allDone: 'Alle Fristen sind abgelaufen. Der Träger löscht die Daten unter Mehr → Datenschutz & Löschen; sobald alles andere gelöscht ist, auch den Eintrag.',
     },
   },
-  /** The Träger's page Mehr → Löschfristen (all facilities). */
+  /** The Träger's page Mehr → Datenschutz & Löschen (all facilities). */
+  /** „Datenschutz & Löschen“ (the Träger): what may be deleted now, the periods, the Datensicherung – one page. */
+  privacy: {
+    title: 'Datenschutz & Löschen',
+    tabs: { due: 'Jetzt löschbar', periods: 'Fristen', backup: 'Datensicherung' },
+    tabsLabel: 'Bereich',
+    periodsIntro: 'Wie lange die Daten aufbewahrt werden. Die App löscht nichts von selbst: Was nach der Frist gelöscht werden darf, steht unter „Jetzt löschbar“.',
+    linkCard: 'Löschfristen (Kinder, Mitarbeitende, Bewerbungen, Kasse), die Übersicht „Jetzt löschbar“ und die Datensicherung stehen auf einer eigenen Seite.',
+    staffLinkCard: 'Die Löschfristen der Mitarbeitenden stehen unter „Datenschutz & Löschen“.',
+    open: 'Datenschutz & Löschen öffnen',
+    related: 'Weitere Einstellungen zum Datenschutz',
+    relatedConsents: 'Einwilligungen der Eltern (Fragen)', relatedTablet: 'Tablet: PIN und Sperrzeit', relatedRights: 'Rechte und Rollen',
+    relatedDocumentTypes: 'Dokumentarten (vertraulich)',
+  },
   retentionPage: {
-    title: 'Löschfristen',
+    title: 'Datenschutz & Löschen',
     intro: 'Hier stehen alle Daten aller Einrichtungen, die nach Ablauf einer Frist gelöscht werden dürfen. Die App löscht nichts von selbst – du löschst hier von Hand. Lade vorher eine Datensicherung herunter.',
     backupLink: 'Zur Datensicherung',
     facility: 'Einrichtung', allFacilities: 'Alle Einrichtungen',
@@ -2191,7 +2205,7 @@ export const de = {
     readOnly: 'Nur lesen', readOnlyHint: 'Die Wochenübersicht dieser Gruppe kannst du nur lesen.',
     themePlaceholder: 'Was ist für diese Woche geplant?', donePlaceholder: 'Was haben wir gemacht?', nothing: 'Noch nichts eingetragen.',
     lastChanged: (name: string, at: string) => `zuletzt geändert von ${name}, ${at}`,
-    noGroups: 'Es gibt noch keine Gruppen. Der Träger legt sie unter Einstellungen → Einrichtung → Einrichtungen an.',
+    noGroups: 'Es gibt noch keine Gruppen. Der Träger legt sie unter Einstellungen → Gruppen an.',
     history: {
       title: (field: string) => `Verlauf: ${field}`, empty: 'Noch keine Änderungen.', emptyValue: '(leer)',
       by: (name: string, at: string) => `${name}, ${at}`,
@@ -2616,8 +2630,14 @@ export const de = {
   /** The settings split into areas, the search above them and the page of one group. */
   settingsAreas: {
     areas: {
-      facility: 'Einrichtung', groups: 'Gruppen', roster: 'Dienstplan', time: 'Zeiterfassung', children: 'Kinder', staff: 'Personal',
+      facility: 'Einrichtung', groups: 'Gruppen', roster: 'Dienstplan', time: 'Zeiterfassung', children: 'Kinder', staff: 'Mitarbeitende',
     },
+    // A setting that is the same for every facility (not changed by „Einstellungen für“).
+    global: 'gilt für alle Einrichtungen',
+    globalHint: 'Diese Einstellung gilt für alle Einrichtungen, egal welche oben gewählt ist.',
+    // The Leitung: the sections only the Träger changes, folded at the end of an area.
+    traegerSections: (titles: string[]) => `Diese Einstellungen pflegt der Träger: ${titles.join(', ')}`,
+    jumpLinks: 'Springe zu',
     groupsSummary: 'Alles zu einer Gruppe: Name, Farbe, Höchstzahl, Gruppenart, Öffnungszeiten, Entwicklungsdoku, Lesen',
     // Above the sections of the area Einrichtung that apply to the facility chosen in „Einstellungen für“.
     settingsForChosen: (name: string) => `Einstellungen für ${name}`,
@@ -2634,7 +2654,9 @@ export const de = {
     groupList: 'Gruppen',
     groupListHint: 'Tippe auf eine Gruppe, um alles zu dieser Gruppe an einer Stelle einzustellen.',
     groupListNone: 'Noch keine Gruppen.',
-    groupListNoneProvider: 'Gruppen legst du unter „Einrichtung → Einrichtungen“ an.',
+    groupListNoneProvider: 'Lege unten die erste Gruppe an.',
+    groupsEditOnPage: 'Name, Gruppenart, Plätze, Schulkinder, Lesen und Löschen: auf der Seite der Gruppe (antippen).',
+    groupDelete: 'Gruppe löschen',
     groupListNoneLeitung: 'Gruppen legt der Träger an.',
     groupOwnHours: 'eigene Öffnungszeiten',
     groupNotFound: 'Diese Gruppe gibt es in der gewählten Einrichtung nicht (mehr).',
@@ -2672,7 +2694,7 @@ export const de = {
     deleteConfirm: (name: string) => `Kasse „${name}“ löschen?`,
     deleteHint: 'Löschen geht nur, solange die Kasse keine Einträge hat. Sonst kannst du sie archivieren.',
     deletableFrom: (date: string) => `löschbar ab ${date}`,
-    archivePurgeHint: 'Nach Ablauf der Frist löscht der Träger archivierte Kassen unter Mehr → Löschfristen.',
+    archivePurgeHint: 'Nach Ablauf der Frist löscht der Träger archivierte Kassen unter Mehr → Datenschutz & Löschen.',
     purge: 'Endgültig löschen', purgeTitle: (name: string) => `Kasse „${name}“ endgültig löschen`,
     purgeIntro: 'Das wird gelöscht und lässt sich nicht wiederherstellen:',
     purgeItems: ['die Kasse mit allen Buchungen', 'alle Belege', 'die abgeschlossenen Monate', 'das Protokoll'],
@@ -2830,7 +2852,7 @@ export const de = {
       tooMuchFormatting: 'Zu viele Formatierungen und Listenpunkte für ein Feld. Bitte kürze den Text oder nimm Formatierungen heraus, sonst lässt er sich nicht speichern.',
     },
   },
-  /** BEM – Betriebliches Eingliederungsmanagement (§ 167 Abs. 2 SGB IX): employee page („Nachweise“), print, settings. */
+  /** BEM – Betriebliches Eingliederungsmanagement (§ 167 Abs. 2 SGB IX): employee page („Gesundheit“), print, settings. */
   bem: {
     title: 'BEM (Betriebliches Eingliederungsmanagement)',
     intro: 'Wer innerhalb eines Jahres länger als 6 Wochen ununterbrochen oder wiederholt arbeitsunfähig oder teilweise arbeitsunfähig war, bekommt ein BEM angeboten (§ 167 Abs. 2 SGB IX, Fassung seit 30.07.2026). Teilweise Arbeitsunfähigkeit gibt es erst ab 01.01.2028 – bis dahin zählt die App nur „Krank“. Die Teilnahme ist freiwillig. Diesen Bereich sehen nur Leitung und Träger, nie die Person selbst.',
@@ -2889,7 +2911,7 @@ export const de = {
     },
     settings: {
       title: 'BEM-Einladung (Text)',
-      hint: 'Der Text der Einladung zum BEM, die Leitung und Träger auf der Mitarbeiter-Seite (Nachweise) drucken. Darunter stehen immer der Rückantwort-Abschnitt („Ich nehme teil / Ich nehme nicht teil“) und die Unterschriftszeile.',
+      hint: 'Der Text der Einladung zum BEM, die Leitung und Träger auf der Mitarbeiter-Seite (Gesundheit) drucken. Darunter stehen immer der Rückantwort-Abschnitt („Ich nehme teil / Ich nehme nicht teil“) und die Unterschriftszeile.',
       textLabel: 'Text der Einladung',
       textHint: 'Platzhalter: ‹Name› (Mitarbeiter), ‹Antwort bis› (Datum der Einladung plus 14 Tage) und ‹Jahre› (Löschfrist der BEM-Unterlagen mit Einheit, z. B. „3 Jahre“). Leere Zeilen trennen Absätze. Leer lassen setzt den Standardtext ein. Der Text muss nach § 167 Abs. 2 SGB IX auf Ziele, Art und Umfang der Daten hinweisen – der Standardtext tut das.',
       defaultText: 'Standardtext einsetzen',
@@ -3377,7 +3399,7 @@ export const de = {
     employee_not_left: 'Löschen geht erst, wenn die Person ausgeschieden ist, also der Tag „ausgeschieden am“ vorbei ist.',
     employee_delete_confirm_mismatch: 'Der eingetippte Name stimmt nicht. Bitte tippe den Namen genau so ein, wie er dasteht.',
     employee_delete_blocked: 'Löschen hat nicht geklappt: Es gibt noch Daten, die auf diese Person verweisen. Es wurde nichts gelöscht. Bitte wende dich an den Träger.',
-    employee_delete_disabled: 'Endgültig löschen ist für dich nicht freigegeben (Einstellungen → Personal → Löschfristen). Nach Ablauf der Löschfristen löscht der Träger die Daten (Mehr → Löschfristen).',
+    employee_delete_disabled: 'Endgültig löschen ist für dich nicht freigegeben (Mehr → Datenschutz & Löschen → Fristen). Nach Ablauf der Löschfristen löscht der Träger die Daten (Mehr → Datenschutz & Löschen).',
     retention_settings_invalid: 'Bitte ganze Jahre angeben: 1 bis 40, bei der Kasse 1 bis 30.',
     retention_paid_overtime_too_short: 'Ausgezahlte Überstunden, Verträge und Gehalt: mindestens 8 Jahre (Buchungsbelege, § 147 Abs. 3 AO, § 257 Abs. 4 HGB).',
     retention_item_not_found: 'Diese Zeile gibt es nicht mehr, sie wurde vielleicht schon gelöscht. Lade die Seite neu.',
@@ -3586,8 +3608,8 @@ export const de = {
     left_on_too_early: 'Das Austrittsdatum darf höchstens ein Jahr zurückliegen.',
     child_not_found: 'Dieses Kind existiert nicht mehr.',
     child_archived: 'Die Akte dieses Kindes ist archiviert und kann nicht mehr geändert werden.',
-    archived_child_provider_only: 'Archivierte Akten löscht der Träger unter Mehr → Löschfristen.',
-    child_delete_use_archive: 'Die Akte eines Kindes, das schon betreut wird, lässt sich hier nicht löschen. Melde das Kind ab; danach löscht der Träger die Akte im Archiv bzw. nach der Löschfrist unter Mehr → Löschfristen.',
+    archived_child_provider_only: 'Archivierte Akten löscht der Träger unter Mehr → Datenschutz & Löschen.',
+    child_delete_use_archive: 'Die Akte eines Kindes, das schon betreut wird, lässt sich hier nicht löschen. Melde das Kind ab; danach löscht der Träger die Akte im Archiv bzw. nach der Löschfrist unter Mehr → Datenschutz & Löschen.',
     child_has_accident_reports: 'Zu diesem Kind gibt es Unfallanzeigen. Sie sind 5 Jahre ab dem Unfall aufzubewahren (DGUV Vorschrift 1 § 24 Abs. 6), deshalb lässt sich die Akte hier nicht löschen. Gelöscht wird sie über das Archiv: nach der Abmeldung durch den Träger.',
     waitlist_has_entry: 'Eine Vormerkung hat noch keinen Eintritt. Trage den gewünschten Termin unter „geplanter Eintritt“ ein oder stelle den Stand auf „Vertrag“.',
     waitlist_cannot_leave: 'Eine Vormerkung kann nicht abgemeldet, nur gelöscht werden.',
@@ -4043,7 +4065,7 @@ export const de = {
   },
   /** „Infogespräche“ (Kinder → Planung) and „Bewerbungen & Hospitationen“ (Mitarbeiter), server/services/visits.ts. */
   visits: {
-    intro: 'Infogespräche mit Familien vor einer Vormerkung – mit Dokumenten und Bögen. Mit „Als Vormerkung übernehmen“ kommt das Kind auf die Vormerkungen, Dokumente und Bögen in die Kinderakte. Die App löscht nichts von selbst: Was nicht übernommen wurde, löscht der Träger nach Ablauf der Frist unter Mehr → Löschfristen.',
+    intro: 'Infogespräche mit Familien vor einer Vormerkung – mit Dokumenten und Bögen. Mit „Als Vormerkung übernehmen“ kommt das Kind auf die Vormerkungen, Dokumente und Bögen in die Kinderakte. Die App löscht nichts von selbst: Was nicht übernommen wurde, löscht der Träger nach Ablauf der Frist unter Mehr → Datenschutz & Löschen.',
     tabs: { info: 'Infogespräche', applicants: 'Bewerbungen & Hospitationen' },
     tabsLabel: 'Bereich',
     search: 'Suchen', searchPlaceholder: 'Name suchen', statusFilter: 'Stand', allStatuses: 'alle',

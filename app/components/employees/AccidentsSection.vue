@@ -2,7 +2,7 @@
 import { de } from '~/locales/de'
 
 /**
- * „Unfälle“ of the personnel file (tab „Nachweise“, Leitung/Träger with accidents.manage): the employee's accident reports
+ * „Unfälle“ of the personnel file (tab „Gesundheit“, Leitung/Träger with accidents.manage): the employee's accident reports
  * (Unfallanzeigen) to fill in, change, print and delete, prefilled with what the viewer may read. Loaded once the tab is
  * opened.
  */

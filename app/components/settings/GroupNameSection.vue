@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { de } from '~/locales/de'
+import { areaPath } from '~/utils/settingsAreas'
 
 /**
- * On the group's page: its name and the flag „für Schulkinder“. As under Einrichtung → Einrichtungen only the Träger
- * changes them; the Leitung sees them. The order of the groups is changed in the group list.
+ * On the group's page: its name, the flag „für Schulkinder“ and „Gruppe löschen“ – the only place where a group is
+ * renamed or deleted (Träger, settings.groups; the Leitung sees name and flag). The order of the groups is changed in
+ * the group list; new groups are added there or in the facility's card.
  */
 const props = defineProps<{ groupId: number }>()
 const { can } = useCan()
@@ -41,6 +43,20 @@ async function setForSchoolChildren(value: boolean) {
   }, de.common.saved)
   if (ok && answer.autoLeaveSwitchedOff) notifySwitchedOff()
 }
+
+const confirm = useConfirm()
+/** Deletes the group (asking first, naming what goes with it) and goes back to the group list. */
+async function remove() {
+  const current = group.value
+  if (!current || !await confirm(de.groups.deleteConfirm(current.name))) return
+  const answer = { autoLeaveSwitchedOff: false }
+  const ok = await run(async () => {
+    answer.autoLeaveSwitchedOff = (await $fetch<{ ok: boolean; autoLeaveSwitchedOff: boolean }>(`/api/groups/${current.id}`, { method: 'DELETE' })).autoLeaveSwitchedOff
+  }, de.common.deleted)
+  if (!ok) return
+  if (answer.autoLeaveSwitchedOff) notifySwitchedOff()
+  await navigateTo(areaPath('groups'))
+}
 </script>
 
 <template>
@@ -60,6 +76,9 @@ async function setForSchoolChildren(value: boolean) {
       </template>
       <p v-else-if="group.forSchoolChildren" class="text-sm">{{ de.schoolChildren.forSchoolChildren }}</p>
       <p class="text-xs text-gray-500">{{ de.settingsAreas.groupOrderHint }}</p>
+      <div class="border-t border-gray-100 pt-2">
+        <UButton size="sm" color="error" variant="outline" icon="i-lucide-trash-2" :label="de.settingsAreas.groupDelete" :disabled="busy" @click="remove" />
+      </div>
     </template>
     <template v-else>
       <p class="text-sm">{{ group.name }}</p>

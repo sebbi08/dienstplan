@@ -6,8 +6,9 @@ import { groupPath } from '~/utils/settingsAreas'
 
 /**
  * Einstellungen → Gruppen: the groups of the active facility in their order; a tap opens the group's page with
- * everything about it. The Träger changes the order with the arrows (the plan, the Belegung, the attendance and the
- * calendars follow it); the Leitung sees the order.
+ * everything about it (the one place to rename, delete and configure a group). The Träger changes the order with the
+ * arrows (the plan, the Belegung, the attendance and the calendars follow it) and adds groups here („Gruppe anlegen“);
+ * the Leitung sees the order.
  */
 const { data: groups, refresh } = useGroups()
 const { data: estimate, refresh: refreshEstimate } = useStaffingEstimate()
@@ -24,6 +25,7 @@ const { busy, run } = useBusyAction(() => Promise.all([
   refresh(), refreshNuxtData(['child-groups', 'children-occupancy', 'opening-hours', 'reminder-settings']),
 ]))
 const s = de.settingsAreas
+const settingsFacilityId = useSettingsFacilityId()
 
 function move(id: number, direction: 'up' | 'down') {
   run(() => $fetch<unknown>(`/api/groups/${id}/move`, { method: 'POST', body: { direction } }))
@@ -68,5 +70,8 @@ function move(id: number, direction: 'up' | 'down') {
       <p class="text-sm text-gray-600">{{ s.groupListNone }}</p>
       <p class="text-xs text-gray-500">{{ canManageGroups ? s.groupListNoneProvider : s.groupListNoneLeitung }}</p>
     </template>
+    <div v-if="canManageGroups && settingsFacilityId !== null" class="border-t border-gray-100 pt-3">
+      <SettingsGroupCreateForm :facility-id="settingsFacilityId" />
+    </div>
   </section>
 </template>

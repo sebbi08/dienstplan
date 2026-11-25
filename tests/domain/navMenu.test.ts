@@ -37,12 +37,12 @@ describe('navMenu', () => {
     expect(labels(menu.main)).not.toContain('Mein Dienstplan (2)')
   })
 
-  it('adds "Löschfristen" under "Mehr" for the Träger only; „Benutzer & Rechte“ holds the rights as a tab', () => {
+  it('adds „Datenschutz & Löschen“ under "Mehr" for the Träger only; „Benutzer & Rechte“ holds the rights as a tab', () => {
     const provider = navMenu({ ...base, ...as('provider') })
-    expect(labels(provider.more)).toEqual(['Kontakte', 'Kasse', 'Unfälle', 'Benutzer & Rechte', 'Einstellungen', 'Löschfristen'])
+    expect(labels(provider.more)).toEqual(['Kontakte', 'Kasse', 'Unfälle', 'Benutzer & Rechte', 'Einstellungen', 'Datenschutz & Löschen'])
     expect(provider.more[3]!.to).toBe('/admin/users')
     expect(provider.more[5]!.to).toBe('/admin/retention')
-    expect(labels(navMenu(base).more)).not.toContain('Löschfristen')
+    expect(labels(navMenu(base).more)).not.toContain('Datenschutz & Löschen')
     // Only the rights (no account management): the entry opens their tab.
     const rightsOnly = navMenu({ ...base, can: key => key === 'rights.manage' || key === 'settings.facility' })
     expect(rightsOnly.more.find(entry => entry.label === 'Benutzer & Rechte')).toEqual({ label: 'Benutzer & Rechte', to: '/admin/users/rights', match: '/admin/users' })
@@ -250,7 +250,7 @@ describe('navMenu per role (unchanged by the permissions)', () => {
     ['Kontakte', '/contacts'], ['Kasse', '/cash'],
     ['Unfälle', '/admin/accidents'], ['Benutzer & Rechte', '/admin/users'], ['Einstellungen', '/admin/settings'],
   ]
-  const providerMore: Pair[] = [...leitungMore, ['Löschfristen', '/admin/retention']]
+  const providerMore: Pair[] = [...leitungMore, ['Datenschutz & Löschen', '/admin/retention']]
   const officeMine: Pair[] = [
     ['Mein Dienstplan (2)', '/my/plan/2026/10'], ['Zu unterschreiben', '/my/sign'], ['Mein Urlaub', '/my/leave'], ['Meine Termine', '/my/requirements'],
     ['Meine Gespräche', '/my/talks'], ['Meine Unfälle', '/my/accidents'],

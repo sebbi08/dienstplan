@@ -137,6 +137,8 @@ const cellClass = (role: RightsRole) => (role === phoneRole.value ? 'table-cell'
   <div class="max-w-5xl space-y-4">
     <AreaTabs :tabs="userTabs(can)" />
     <h1 class="text-2xl font-semibold">{{ t.title }}</h1>
+    <!-- The roles' rights are the same in every facility. -->
+    <SettingsGlobalBadge />
     <p class="text-sm text-gray-600">{{ t.intro }}</p>
     <p class="text-sm text-gray-500">{{ t.exceptionsWhere }}</p>
     <p v-if="error" class="text-sm text-red-700">{{ t.loadFailed }}</p>

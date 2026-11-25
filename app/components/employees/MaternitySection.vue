@@ -9,7 +9,7 @@ import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 /**
- * „Mutterschutz“ in the tab „Nachweise“ (only with employees.sickness, never on the own page): the cases with their
+ * „Mutterschutz“ in the tab „Gesundheit“ (only with employees.sickness, never on the own page): the cases with their
  * protection periods (§ 3 MuSchG, computed as the server does), the notice to the authority, the risk assessment, the
  * employment ban and the breastfeeding time; „Schutzfristen eintragen“ and „Beschäftigungsverbot eintragen“ book the
  * plan (with plan.edit; duties are replaced only after asking). Health data: loaded once the tab is opened; the server

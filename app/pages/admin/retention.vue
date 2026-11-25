@@ -3,16 +3,26 @@ import type { RetentionDeleteResult, RetentionItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
-import { sectionAnchor } from '~/utils/settingsAreas'
+import { areaPath, PRIVACY_TABS, privacyPath, requestedPrivacyTab, sectionAnchor, type PrivacyTab } from '~/utils/settingsAreas'
 
 /**
- * Mehr → Löschfristen, only for the Träger (spec Löschübersicht §2): every item of every facility that may be deleted
- * after its retention period. „Jetzt löschbar“ with a button per row and „Alle fälligen löschen“ (exactly the rows
- * shown, so the facility filter counts), „Später löschbar“ by date without buttons. The server sorts and checks
- * due-ness again before deleting. A cash box asks for its name, like the cash page did before.
+ * Mehr → „Datenschutz & Löschen“, only for the Träger, for all facilities – one page with three tabs:
+ * - „Jetzt löschbar“ (spec Löschübersicht §2): every item of every facility that may be deleted after its retention
+ *   period, with a button per row and „Alle fälligen löschen“ (exactly the rows shown, so the facility filter counts),
+ *   „Später löschbar“ by date without buttons. The server sorts and checks due-ness again before deleting. A cash box
+ *   asks for its name, like the cash page did before.
+ * - „Fristen“: the Löschfrist of children and the Löschfristen of staff, applicants and cash boxes (formerly in the
+ *   settings), with links to the other privacy-relevant settings.
+ * - „Datensicherung“ (formerly Einstellungen → Einrichtung).
+ * `?tab=periods` / `?tab=backup` open a tab; the old settings anchors lead here (MOVED_SECTIONS).
  */
 const t = de.retentionPage
-useHead({ title: t.title })
+const p = de.privacy
+useHead({ title: p.title })
+const route = useRoute()
+const router = useRouter()
+const tab = computed<PrivacyTab>(() => requestedPrivacyTab(route.query.tab))
+const selectTab = (next: PrivacyTab) => router.replace({ query: next === 'due' ? {} : { tab: next } })
 
 const { can } = useCan()
 const canDeleteDue = computed(() => can('retention.delete'))
@@ -140,12 +150,44 @@ async function deleteAll() {
 <template>
   <div v-if="canDeleteDue" class="max-w-4xl space-y-6">
     <div class="space-y-2">
-      <h1 class="text-2xl font-semibold">{{ t.title }}</h1>
-      <p class="text-sm text-gray-600">
-        {{ t.intro }}
-        <NuxtLink :to="`/admin/settings/facility#${sectionAnchor('backup')}`" class="font-medium text-sky-700 hover:underline">{{ t.backupLink }}</NuxtLink>
-      </p>
+      <h1 class="text-2xl font-semibold">{{ p.title }}</h1>
+      <SettingsGlobalBadge />
+      <div role="tablist" :aria-label="p.tabsLabel" class="flex flex-wrap gap-1.5">
+        <button
+          v-for="key in PRIVACY_TABS" :key="key" type="button" role="tab" :aria-selected="tab === key"
+          class="min-h-10 rounded-full px-3.5 text-sm ring-1"
+          :class="tab === key ? 'bg-sky-50 font-semibold text-sky-800 ring-sky-400' : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50'"
+          @click="selectTab(key)"
+        >
+          {{ p.tabs[key] }}
+        </button>
+      </div>
     </div>
+
+    <div v-if="tab === 'periods'" class="space-y-4">
+      <p class="text-sm text-gray-600">{{ p.periodsIntro }}</p>
+      <SettingsChildRetentionSection />
+      <SettingsEmployeeRetentionSection />
+      <section class="space-y-2 rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">
+        <h2 class="font-semibold">{{ p.related }}</h2>
+        <ul class="list-inside list-disc space-y-1 text-sky-700">
+          <li><NuxtLink :to="`${areaPath('children')}#${sectionAnchor('consent-questions')}`" class="hover:underline">{{ p.relatedConsents }}</NuxtLink></li>
+          <li><NuxtLink :to="`${areaPath('children')}#${sectionAnchor('document-types')}`" class="hover:underline">{{ p.relatedDocumentTypes }}</NuxtLink></li>
+          <li><NuxtLink :to="`${areaPath('facility')}#${sectionAnchor('tablet')}`" class="hover:underline">{{ p.relatedTablet }}</NuxtLink></li>
+          <li v-if="can('rights.manage')"><NuxtLink to="/admin/users/rights" class="hover:underline">{{ p.relatedRights }}</NuxtLink></li>
+        </ul>
+      </section>
+    </div>
+
+    <div v-else-if="tab === 'backup'" class="space-y-4">
+      <SettingsBackupSection />
+    </div>
+
+    <template v-else>
+    <p class="text-sm text-gray-600">
+      {{ t.intro }}
+      <NuxtLink :to="privacyPath('backup')" class="font-medium text-sky-700 hover:underline">{{ t.backupLink }}</NuxtLink>
+    </p>
 
     <p v-if="error" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorMessage(error) }}</p>
     <p v-else-if="!data.length" class="text-sm text-gray-500">{{ t.empty }}</p>
@@ -182,6 +224,8 @@ async function deleteAll() {
           </li>
         </ul>
       </section>
+    </template>
+
     </template>
 
     <CashPurgeDialog :name="purging?.name ?? null" :pending="busy" @close="purging = null" @confirm="confirmPurge" />

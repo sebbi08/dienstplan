@@ -43,34 +43,44 @@ export function suggestUsername(name: string, taken: readonly string[] = []): st
 }
 
 /** The tabs of the employee page, in their order. */
-export const EMPLOYEE_TABS = ['master', 'contract', 'times', 'records', 'talks', 'access'] as const
+export const EMPLOYEE_TABS = ['master', 'contract', 'times', 'records', 'health', 'talks', 'access'] as const
 export type EmployeeTab = typeof EMPLOYEE_TABS[number]
 
 /**
- * The sections of the employee page whose showing depends on the viewer, in their order, each with its tab. Their keys
- * are the former tab keys: a link with an old `?tab=` (e.g. `?tab=stamping`) still opens the right tab.
+ * The sections of the employee page whose showing depends on the viewer, in their order, each with its tab:
+ * „Stammdaten“ | „Vertrag & Lohn“ (Vertragsangaben with Probezeit, Elternzeit, Lohn und Steuer) | „Zeiten & Urlaub“
+ * (Wochenstunden, Stundenkonto, Urlaub with Zusatztagen, PIN and Stempeln) | „Nachweise“ (Pflichtdokumente,
+ * Pflichttermine und Fortbildungen, Personalakte) | „Gesundheit“ (Unfälle, BEM, Mutterschutz, Krankheitstage) |
+ * „Gespräche“ | „Zugang“. The keys include every former tab and section key: a link with an old `?tab=` (e.g.
+ * `?tab=stamping`, `?tab=bem`, `?tab=hours`) still opens the tab that holds it now.
  */
 export const EMPLOYEE_SECTIONS = {
   master: 'master', qualification: 'master',
-  hours: 'contract', payroll: 'contract',
-  leave: 'times', stamping: 'times',
-  requirements: 'records', documents: 'records', accidents: 'records', bem: 'records', maternity: 'records',
+  contract: 'contract', parentalLeave: 'contract', payroll: 'contract',
+  hours: 'times', balance: 'times', leave: 'times', stamping: 'times',
+  requiredDocuments: 'records', requirements: 'records', documents: 'records',
+  accidents: 'health', bem: 'health', maternity: 'health', sickDays: 'health',
   talks: 'talks', access: 'access',
 } as const satisfies Record<string, EmployeeTab>
 export type EmployeeSection = keyof typeof EMPLOYEE_SECTIONS
 
 /**
  * The sections the viewer sees on the employee page (reached with employees.view; „Zugang“ uses the users' routes and
- * needs users.manage, „Gespräche“ the staff talk routes and talks.manage, „Lohn und Steuer“ employees.payroll,
- * „Dokumente“ the key of at least one folder, „Unfälle“ accidents.manage, „BEM“ and „Mutterschutz“ employees.sickness). The contract inside „Vertrag & Lohn“ follows its own switch. On their
- * own page (`own`) nobody gets „Gespräche“, „BEM“ or „Mutterschutz“: a Leitung's talks, BEM and Mutterschutz case are held by the Träger (or another Leitung); they see the talks
- * under „Meine Gespräche“.
+ * needs users.manage, „Gespräche“ the staff talk routes and talks.manage, „Vertragsangaben“ and „Elternzeit“
+ * employees.contractView, „Lohn und Steuer“ employees.payroll, „Pflichtdokumente“ and „Dokumente“ the key of at least
+ * one folder, „Unfälle“ accidents.manage, „BEM“, „Mutterschutz“ and „Krankheitstage“ employees.sickness). On their own
+ * page (`own`) nobody gets „Gespräche“, „BEM“, „Mutterschutz“ or „Krankheitstage“: a Leitung's talks and health matters
+ * are held by the Träger (or another Leitung); they see the talks under „Meine Gespräche“.
  */
 export function employeeSections(can: (key: PermissionKey) => boolean, own = false): EmployeeSection[] {
+  const documents = visibleFolders(can).length > 0
+  const health = can('employees.sickness') && !own
   const shown: Record<EmployeeSection, boolean> = {
-    master: true, qualification: true, hours: true, payroll: can('employees.payroll'), leave: true, stamping: true,
-    requirements: true, documents: visibleFolders(can).length > 0, accidents: can('accidents.manage'),
-    bem: can('employees.sickness') && !own, maternity: can('employees.sickness') && !own,
+    master: true, qualification: true,
+    contract: can('employees.contractView'), parentalLeave: can('employees.contractView'), payroll: can('employees.payroll'),
+    hours: true, balance: true, leave: true, stamping: true,
+    requiredDocuments: documents, requirements: true, documents,
+    accidents: can('accidents.manage'), bem: health, maternity: health, sickDays: health,
     talks: can('talks.manage') && !own, access: can('users.manage'),
   }
   return (Object.keys(EMPLOYEE_SECTIONS) as EmployeeSection[]).filter(section => shown[section])

@@ -621,7 +621,47 @@ async function onTabKey(event: KeyboardEvent) {
     </div>
 
     <div v-show="tab === 'contract'" v-bind="panel('contract')">
-    <section class="space-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
+    <!-- Vertragsangaben with Probezeit and Elternzeit: only with the contract data (employees.contractView). -->
+    <div v-if="employee.contract" id="employee-section-contract" class="scroll-mt-32">
+      <EmployeesContractSection
+        :employee-id="id" :contract="employee.contract" :qualification="employee.qualification"
+        :editable="canEditContract" @saved="refresh"
+      />
+    </div>
+    <div v-if="employee.contract" id="employee-section-parentalLeave" class="scroll-mt-32">
+      <EmployeesParentalLeaveSection :employee-id="id" />
+    </div>
+
+    <!-- Personalakte: mounted only with the right, loaded in the browser only once the tab is opened. -->
+    <div v-if="shows('payroll')" id="employee-section-payroll" class="scroll-mt-32">
+      <EmployeesPayrollSection :employee-id="id" :active="tab === 'contract'" />
+    </div>
+    </div>
+
+    <div v-show="tab === 'times'" v-bind="panel('times')">
+    <section id="employee-section-hours" class="scroll-mt-32 space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+      <h2 class="font-semibold">{{ de.employees.hoursHistory }}</h2>
+      <table class="w-full text-sm">
+        <thead class="text-left text-xs text-gray-500"><tr><th>{{ de.employees.validFrom }}</th><th>{{ de.employees.weeklyHours }}</th><th>{{ de.employees.workdays }}</th><th /></tr></thead>
+        <tbody>
+          <tr v-for="period in employee.hours" :key="period.id" class="border-t border-gray-100">
+            <td class="py-1">{{ formatDate(period.validFrom) }}</td>
+            <td class="py-1">{{ formatHours(period.weeklyMinutes) }}</td>
+            <td class="py-1">{{ workdaysText(period.workdays) }}</td>
+            <td class="py-1 text-right"><UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteHours(period.id)" /></td>
+          </tr>
+        </tbody>
+      </table>
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="addHours">
+        <UFormField :label="de.employees.weeklyHours"><UInput v-model.number="hoursForm.weeklyHours" type="number" step="0.25" min="0" /></UFormField>
+        <UFormField :label="de.employees.validFrom"><DateTextInput v-model="hoursForm.validFrom" :label="de.employees.validFrom" class="w-44" required /></UFormField>
+        <UFormField :label="de.employees.workdays"><WorkdayPicker v-model="hoursForm.workdays" /></UFormField>
+        <UButton type="submit" icon="i-lucide-plus" :label="de.employees.addHours" />
+      </form>
+      <p class="text-xs text-gray-500">{{ de.employees.validFromHint }}</p>
+    </section>
+
+    <section id="employee-section-balance" class="scroll-mt-32 space-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.balances.account }}</h2>
       <p>
         {{ de.balances.today }}:
@@ -647,28 +687,6 @@ async function onTabKey(event: KeyboardEvent) {
       <p v-else-if="employee.balanceFrom">{{ de.employees.balanceFrom }}: {{ formatDate(employee.balanceFrom) }}</p>
       <p class="text-xs text-gray-500">{{ de.employees.balanceFromHint }}</p>
     </section>
-    <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-      <h2 class="font-semibold">{{ de.employees.hoursHistory }}</h2>
-      <table class="w-full text-sm">
-        <thead class="text-left text-xs text-gray-500"><tr><th>{{ de.employees.validFrom }}</th><th>{{ de.employees.weeklyHours }}</th><th>{{ de.employees.workdays }}</th><th /></tr></thead>
-        <tbody>
-          <tr v-for="period in employee.hours" :key="period.id" class="border-t border-gray-100">
-            <td class="py-1">{{ formatDate(period.validFrom) }}</td>
-            <td class="py-1">{{ formatHours(period.weeklyMinutes) }}</td>
-            <td class="py-1">{{ workdaysText(period.workdays) }}</td>
-            <td class="py-1 text-right"><UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteHours(period.id)" /></td>
-          </tr>
-        </tbody>
-      </table>
-      <form class="flex flex-wrap items-end gap-3" @submit.prevent="addHours">
-        <UFormField :label="de.employees.weeklyHours"><UInput v-model.number="hoursForm.weeklyHours" type="number" step="0.25" min="0" /></UFormField>
-        <UFormField :label="de.employees.validFrom"><DateTextInput v-model="hoursForm.validFrom" :label="de.employees.validFrom" class="w-44" required /></UFormField>
-        <UFormField :label="de.employees.workdays"><WorkdayPicker v-model="hoursForm.workdays" /></UFormField>
-        <UButton type="submit" icon="i-lucide-plus" :label="de.employees.addHours" />
-      </form>
-      <p class="text-xs text-gray-500">{{ de.employees.validFromHint }}</p>
-    </section>
-
     <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <h2 class="font-semibold">{{ de.employees.adjustments }}</h2>
       <p class="text-xs text-gray-500">{{ de.employees.adjustmentsHint }}</p>
@@ -705,21 +723,7 @@ async function onTabKey(event: KeyboardEvent) {
       <p class="text-xs text-gray-500">{{ de.employees.paidOutHint }}</p>
     </section>
 
-    <EmployeesContractSection
-      v-if="employee.contract" :employee-id="id" :contract="employee.contract" :qualification="employee.qualification"
-      :editable="canEditContract" @saved="refresh"
-    />
-    <!-- Elternzeit: contract data, so only with the contract data (employees.contractView). -->
-    <EmployeesParentalLeaveSection v-if="employee.contract" :employee-id="id" />
-
-    <!-- Personalakte: mounted only with the right, loaded in the browser only once the tab is opened. -->
-    <div v-if="shows('payroll')" id="employee-section-payroll" class="scroll-mt-32">
-      <EmployeesPayrollSection :employee-id="id" :active="tab === 'contract'" />
-    </div>
-    </div>
-
-    <div v-show="tab === 'times'" v-bind="panel('times')">
-    <section class="space-y-1 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
+    <section id="employee-section-leave" class="scroll-mt-32 space-y-1 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
       <div class="flex flex-wrap items-center gap-x-2">
         <h2 class="font-semibold">{{ de.leave.title }}</h2>
         <YearNav v-model="leaveYear" />
@@ -894,24 +898,33 @@ async function onTabKey(event: KeyboardEvent) {
     </div>
 
     <div v-show="tab === 'records'" v-bind="panel('records')">
-      <EmployeesRequirementsSection :employee-id="id" />
       <!-- Pflichtdokumente: only with a folder of the personnel file (the rows follow the folder keys), loaded once the tab is opened. -->
-      <EmployeesRequiredDocumentsSection v-if="shows('documents')" :employee-id="id" :employee-name="employee.name" :active="tab === 'records'" />
+      <div v-if="shows('requiredDocuments')" id="employee-section-requiredDocuments" class="scroll-mt-32">
+        <EmployeesRequiredDocumentsSection :employee-id="id" :employee-name="employee.name" :active="tab === 'records'" />
+      </div>
+      <div id="employee-section-requirements" class="scroll-mt-32">
+        <EmployeesRequirementsSection :employee-id="id" />
+      </div>
       <!-- Personalakte: mounted only with the rights, loaded in the browser only once the tab is opened. -->
       <div v-if="shows('documents')" id="employee-section-documents" class="scroll-mt-32 space-y-4">
         <EmployeesDocumentsSection :employee-id="id" :employee-name="employee.name" :active="tab === 'records'" />
       </div>
-      <!-- Unfallanzeigen: mounted only with accidents.manage, loaded once the tab is opened. -->
+    </div>
+
+    <!-- „Gesundheit“: each part mounted only with its right (never BEM, Mutterschutz and Krankheitstage on the own page),
+         loaded once the tab is opened. -->
+    <div v-if="visibleTabs.includes('health')" v-show="tab === 'health'" v-bind="panel('health')">
       <div v-if="shows('accidents')" id="employee-section-accidents" class="scroll-mt-32 space-y-4">
-        <EmployeesAccidentsSection :employee-id="id" :active="tab === 'records'" />
+        <EmployeesAccidentsSection :employee-id="id" :active="tab === 'health'" />
       </div>
-      <!-- BEM (health data): mounted only with employees.sickness and never on the own page, loaded once the tab is opened. -->
+      <div v-if="shows('sickDays')" id="employee-section-sickDays" class="scroll-mt-32">
+        <EmployeesSickDaysSection :employee-id="id" :active="tab === 'health'" />
+      </div>
       <div v-if="shows('bem')" id="employee-section-bem" class="scroll-mt-32 space-y-4">
-        <EmployeesBemSection :employee-id="id" :active="tab === 'records'" />
+        <EmployeesBemSection :employee-id="id" :active="tab === 'health'" />
       </div>
-      <!-- Mutterschutz (health data): mounted only with employees.sickness and never on the own page, loaded once the tab is opened. -->
       <div v-if="shows('maternity')" id="employee-section-maternity" class="scroll-mt-32 space-y-4">
-        <EmployeesMaternitySection :employee-id="id" :active="tab === 'records'" />
+        <EmployeesMaternitySection :employee-id="id" :active="tab === 'health'" />
       </div>
     </div>
 

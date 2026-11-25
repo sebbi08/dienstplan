@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  AREA_SECTIONS, FORMER_SECTIONS, GROUP_SECTIONS, SETTINGS_AREAS, areaOfSlug, areaPath, normalizeSearch, searchSettings,
-  visibleSettingsAreas, type SettingsViewer,
+  AREA_SECTIONS, FORMER_SECTIONS, GROUP_SECTIONS, JUMP_LINKS_FROM, MOVED_SECTIONS, SETTINGS_AREAS, areaOfSlug, areaPath, normalizeSearch,
+  privacyPath, readOnlyForViewer, requestedPrivacyTab, searchSettings, visibleSettingsAreas, type SettingsViewer,
 } from '../../app/utils/settingsAreas'
 import { effectivePermissions } from '../../shared/domain/permissionBundles'
 
@@ -18,12 +18,15 @@ const keysOf = (viewer: SettingsViewer) => visibleSettingsAreas(viewer).map(entr
 describe('visibleSettingsAreas', () => {
   it('shows the Träger every area and section', () => {
     expect(keysOf(provider)).toEqual([
-      ['facility', ['facilities', 'facility-hours', 'tablet', 'retention', 'backup']],
+      ['facility', ['facilities', 'facility-hours', 'tablet', 'privacy']],
       ['groups', ['group-list']],
-      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit']],
+      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'consent-questions', 'overview-sheets', 'school-children', 'school-districts', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
-      ['staff', ['staffing', 'required-documents', 'employee-retention', 'child-sick-days', 'bem-invitation', 'parental-leave']],
+      ['staff', [
+        'staffing', 'required-documents', 'requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit', 'child-sick-days',
+        'bem-invitation', 'parental-leave', 'staff-retention',
+      ]],
     ])
   })
 
@@ -31,10 +34,10 @@ describe('visibleSettingsAreas', () => {
     expect(keysOf(leitung)).toEqual([
       ['facility', ['facilities', 'facility-hours', 'tablet']],
       ['groups', ['group-list']],
-      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules', 'requirement-types', 'leave-counting', 'leave-forfeit']],
+      ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'consent-questions', 'overview-sheets', 'school-children', 'school-districts', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
-      ['staff', ['staffing', 'required-documents', 'employee-retention', 'child-sick-days', 'bem-invitation']],
+      ['staff', ['staffing', 'required-documents', 'requirement-types', 'leave-counting', 'leave-forfeit', 'child-sick-days', 'bem-invitation']],
     ])
   })
 
@@ -89,7 +92,7 @@ describe('searchSettings', () => {
   })
 
   it('finds the notice on remaining leave by „Resturlaub“ and „verfällt“, for the Leitung too', () => {
-    expect(firstHit('Resturlaub')).toMatchObject({ key: 'leave-forfeit', to: '/admin/settings/roster#section-leave-forfeit' })
+    expect(firstHit('Resturlaub')).toMatchObject({ key: 'leave-forfeit', to: '/admin/settings/staff#section-leave-forfeit' })
     expect(firstHit('verfällt', leitung)?.key).toBe('leave-forfeit')
   })
 
@@ -126,27 +129,59 @@ describe('searchSettings', () => {
     expect(normalizeSearch('Schließung ÄÖÜ')).toBe('schliessung aou')
     expect(firstHit('oeffnung')).toBeUndefined()
     expect(firstHit('offnungszeiten')?.key).toBe('facility-hours')
-    expect(firstHit('LÖSCHFRIST')?.key).toBe('retention')
+    expect(firstHit('LÖSCHFRIST')?.to).toBe('/admin/retention?tab=periods')
   })
 
-  it('finds the Löschfristen of the staff for the Träger and the Leitung (who only reads them)', () => {
-    for (const viewer of [provider, leitung]) {
-      expect(searchSettings('ausgezahlt', viewer)[0]).toMatchObject({ key: 'employee-retention', where: 'Personal', to: '/admin/settings/staff#section-employee-retention' })
-      expect(searchSettings('Löschfristen', viewer).map(hit => hit.key)).toContain('employee-retention')
+  it('leads the Löschfristen and the Datensicherung to „Datenschutz & Löschen“ (the Träger; the Leitung no longer sees them)', () => {
+    expect(searchSettings('ausgezahlt', provider)[0]).toMatchObject({ key: 'staff-retention', where: 'Mitarbeitende', to: '/admin/retention?tab=periods' })
+    expect(searchSettings('Löschfristen', provider).map(hit => [hit.key, hit.to])).toEqual([['staff-retention', '/admin/retention?tab=periods'], ['privacy', '/admin/retention?tab=periods']])
+    expect(searchSettings('Datensicherung', provider)[0]).toMatchObject({ key: 'privacy' })
+    expect(searchSettings('ausgezahlt', leitung)).toEqual([])
+    expect(searchSettings('Löschfristen', leitung)).toEqual([])
+  })
+
+  it('opens the tabs of „Datenschutz & Löschen“ and sends the former settings anchors there', () => {
+    expect([privacyPath('due'), privacyPath('periods'), privacyPath('backup')]).toEqual(['/admin/retention', '/admin/retention?tab=periods', '/admin/retention?tab=backup'])
+    expect([requestedPrivacyTab('backup'), requestedPrivacyTab(['periods']), requestedPrivacyTab('x'), requestedPrivacyTab(undefined)]).toEqual(['backup', 'periods', 'due', 'due'])
+    expect(MOVED_SECTIONS).toEqual({
+      'section-retention': '/admin/retention?tab=periods', 'section-employee-retention': '/admin/retention?tab=periods', 'section-backup': '/admin/retention?tab=backup',
+    })
+    // No section of an area uses a moved anchor any more.
+    for (const sections of Object.values(AREA_SECTIONS)) {
+      for (const section of sections) expect(MOVED_SECTIONS[`section-${section.key}`], section.key).toBeUndefined()
     }
+  })
+
+  it('marks the settings for all facilities and folds the Träger\'s sections for whoever only reads them', () => {
+    const all = Object.values(AREA_SECTIONS).flat()
+    expect(all.filter(section => section.global).map(section => section.key).sort())
+      .toEqual(['child-sick-days', 'codes', 'leave-module', 'privacy', 'staff-retention'])
+    expect(all.filter(section => readOnlyForViewer(section, leitung)).map(section => section.key)).toEqual(['codes', 'leave-counting', 'child-sick-days'])
+    expect(all.filter(section => readOnlyForViewer(section, provider))).toEqual([])
+  })
+
+  it('gives the long areas jump links (Kinder, Mitarbeitende, Einrichtung, Dienstplan)', () => {
+    const long = visibleSettingsAreas(provider).filter(entry => entry.sections.length >= JUMP_LINKS_FROM).map(entry => entry.area)
+    expect(long).toEqual(['facility', 'roster', 'children', 'staff'])
+  })
+
+  it('calls the staff area „Mitarbeitende“ and holds the Pflichttermine and the leave settings there', () => {
+    const staff = visibleSettingsAreas(provider).find(entry => entry.area === 'staff')!
+    expect(staff.title).toBe('Mitarbeitende')
+    expect(staff.sections.map(section => section.key)).toEqual(expect.arrayContaining(['requirement-types', 'leave-module', 'leave-counting', 'leave-forfeit']))
   })
 
   it('finds the Kinderkrankentage of the staff for the Träger and the Leitung (who only reads them)', () => {
     for (const viewer of [provider, leitung]) {
-      expect(searchSettings('Kind krank', viewer)[0]).toMatchObject({ key: 'child-sick-days', where: 'Personal', to: '/admin/settings/staff#section-child-sick-days' })
+      expect(searchSettings('Kind krank', viewer)[0]).toMatchObject({ key: 'child-sick-days', where: 'Mitarbeitende', to: '/admin/settings/staff#section-child-sick-days' })
       expect(searchSettings('Kinderkrankentage', viewer).map(hit => hit.key)).toContain('child-sick-days')
-expect(searchSettings('BEM', viewer)[0]).toMatchObject({ key: 'bem-invitation', where: 'Personal', to: '/admin/settings/staff#section-bem-invitation' })
+expect(searchSettings('BEM', viewer)[0]).toMatchObject({ key: 'bem-invitation', where: 'Mitarbeitende', to: '/admin/settings/staff#section-bem-invitation' })
     }
   })
 
   it('does not offer Träger-only sections to the Leitung', () => {
-    expect(searchSettings('Datensicherung', provider).map(hit => hit.key)).toContain('backup')
-    expect(searchSettings('Datensicherung', leitung).map(hit => hit.key)).not.toContain('backup')
+    expect(searchSettings('Datensicherung', provider).map(hit => hit.key)).toContain('privacy')
+    expect(searchSettings('Datensicherung', leitung).map(hit => hit.key)).not.toContain('privacy')
     expect(searchSettings('Urlaubsanträge', leitung).map(hit => hit.key)).not.toContain('leave-module')
   })
 

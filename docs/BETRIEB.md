@@ -52,7 +52,7 @@ werden (siehe Abschnitt 15, „Stempel-PIN“).
 
 Löschfristen: Die App löscht nach einem Update **nichts von selbst** – auch nicht die Daten von Personen, die vor
 Jahren ausgeschieden sind, oder alte Kinderakten. Was nach Ablauf einer Frist gelöscht werden darf, steht für den
-Träger unter **Mehr → Löschfristen**; dort löscht er von Hand (siehe „Löschfristen“ in Abschnitt 15). Setz vorher bei
+Träger unter **Mehr → Datenschutz & Löschen**; dort löscht er von Hand (siehe „Löschfristen“ in Abschnitt 15). Setz vorher bei
 Stundenkonto-Buchungen über ausgezahlte Überstunden das Häkchen **„ausgezahlt“** (Seite der Person → Stunden &
 Vertrag → Stundenkonto-Buchungen): Nur dann gilt für sie die längere Frist (voreingestellt 8 Jahre).
 
@@ -60,7 +60,7 @@ Vertrag → Stundenkonto-Buchungen): Nur dann gilt für sie die längere Frist (
 
 - **Automatisch:** Die App legt jede Nacht eine Kopie der Datenbank im Datenbereich im Ordner `backups`
   ab (Dateiname `app-JJJJ-MM-TT.db`) und behält die letzten 14 Tage.
-- **Von Hand:** In der App unter *Einstellungen → Einrichtung → Datensicherung → Datenbank herunterladen*
+- **Von Hand:** In der App unter *Mehr → Datenschutz & Löschen → Datensicherung → Datenbank herunterladen*
   (Dateiname `dienstplan-JJJJ-MM-TT.db`).
 - **Sicherungen vom Server holen** (z. B. auf einen anderen Rechner kopieren). Erst den Zielordner
   anlegen, dann den Inhalt des Server-Ordners hineinkopieren (der Punkt am Ende ist wichtig):
@@ -319,17 +319,17 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 - Wird ein Kind abgemeldet, kommt die Akte ins Archiv. Dort steht bei jedem Kind, ab wann seine Akte gelöscht
   werden darf („löschbar ab …“).
 - Die App löscht **nichts von selbst**. Ist die Frist abgelaufen, löscht der **Träger** die Akte samt Dokumenten
-  unter **Mehr → Löschfristen** (siehe Abschnitt 15, „Löschfristen“). Er bekommt dazu eine Erinnerung.
+  unter **Mehr → Datenschutz & Löschen** (siehe Abschnitt 15, „Löschfristen“). Er bekommt dazu eine Erinnerung.
 - Im Archiv hat nur der **Träger** den Knopf **„Sofort löschen“**. Er beachtet die Frist **nicht** – nur für
   Fehleinträge. Die Leitung löscht keine archivierte Akte; sie kann die Abmeldung aber zurücknehmen.
-- Die Frist stellt der Träger unter *Einstellungen → Einrichtung* ein: „Löschfrist für abgemeldete Kinder“,
+- Die Frist stellt der Träger unter *Mehr → Datenschutz & Löschen → Fristen* ein: „Löschfrist für abgemeldete Kinder“,
   1 bis 10 Jahre, voreingestellt sind **3 Jahre**.
 - Besprich die Frist mit dem/der Datenschutzbeauftragten, bevor du sie festlegst.
 - **Unfallanzeigen bleiben 5 Jahre ab dem Unfall.** Erste-Hilfe-Leistungen sind 5 Jahre lang aufzubewahren (DGUV
   Vorschrift 1 § 24 Abs. 6; die DGUV Information 202-089 „Erste Hilfe in Kindertageseinrichtungen“ rät: „fünf Jahre
   (besser 10 Jahre)“). Die Unfallanzeigen eines Kindes hängen an seiner Akte. Ist die jüngste Unfallanzeige zum Ende
   der Löschfrist noch keine 5 Jahre alt, darf die Akte erst 5 Jahre nach diesem Unfall gelöscht werden. Archiv,
-  Kinderakte und „Schulkinder“ nennen dann diesen späteren Tag; unter Mehr → Löschfristen steht an der Zeile
+  Kinderakte und „Schulkinder“ nennen dann diesen späteren Tag; unter Mehr → Datenschutz & Löschen steht an der Zeile
   „(Unfallanzeigen bleiben 5 Jahre ab dem Unfall)“. Als Unfalltag zählt das „Datum“ der Unfallanzeige, sonst der Tag,
   an dem sie angelegt wurde. „Sofort löschen“ im Archiv (nur Träger, für Fehleinträge) beachtet auch diese Frist nicht;
   gehören zur Akte noch Unfallanzeigen innerhalb der 5 Jahre, fragt die App ein zweites Mal („Achtung: Zur Akte von …
@@ -347,7 +347,7 @@ sonst bleiben Kinderdaten über die Löschfrist hinaus erhalten.
 
 ### Sicherungen sicher aufbewahren
 
-Die Datei, die du unter *Einstellungen → Einrichtung → Datensicherung → Datenbank herunterladen* bekommst, enthält
+Die Datei, die du unter *Mehr → Datenschutz & Löschen → Datensicherung → Datenbank herunterladen* bekommst, enthält
 **alle Kinderdaten inklusive aller Dokumente**. Das Gleiche gilt für die Nachtsicherungen.
 
 - Speichere sie nur an geschützten Orten (verschlüsseltes Laufwerk, zugriffsgeschützter Ordner).
@@ -838,8 +838,8 @@ Druck-Knöpfe.
   Datum „ausgeschieden am“ **vor heute** liegt (wer heute ausscheidet, ist noch aktiv). Leitung und Träger dürfen das
   für die Mitarbeiter der Einrichtung, in der sie gerade arbeiten – nur nicht den **eigenen** Eintrag, und eine Person
   mit **Träger-Konto** löscht nur der Träger.
-- Ob der Knopf da ist, legt der Träger unter *Einstellungen → Personal → Löschfristen* fest („Mitarbeiter endgültig
-  löschen“): **aus** (niemand; gelöscht wird nur nach Ablauf der Fristen, vom Träger unter Mehr → Löschfristen),
+- Ob der Knopf da ist, legt der Träger unter *Mehr → Datenschutz & Löschen → Fristen* fest („Mitarbeiter endgültig
+  löschen“): **aus** (niemand; gelöscht wird nur nach Ablauf der Fristen, vom Träger unter Mehr → Datenschutz & Löschen),
   **nur Träger** oder **Leitung und
   Träger** (voreingestellt). Endgültig löschen beachtet die Aufbewahrungsfristen **nicht** – nur für Probe- und
   Fehleinträge; der Dialog weist darauf hin.
@@ -861,7 +861,7 @@ Druck-Knöpfe.
 ### Löschfristen
 
 Die App löscht **nichts von selbst**. Die Fristen sagen, **ab wann** etwas gelöscht werden darf; gelöscht wird von
-Hand durch den **Träger** auf der Seite **Mehr → Löschfristen** (siehe unten). Bei ausgeschiedenen Mitarbeitern gilt
+Hand durch den **Träger** auf der Seite **Mehr → Datenschutz & Löschen** (siehe unten). Bei ausgeschiedenen Mitarbeitern gilt
 je nach Art ein anderer Tag. Jede Frist beginnt am **Ende des Jahres**, in dem die Person ausgeschieden ist; löschbar
 ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahre → löschbar ab 01.01.2029.
 
@@ -882,12 +882,12 @@ die Person nach dem Ausscheiden weiter im Dienstplan und Stundenkonto ihrer letz
 **Zugang nach dem Ausscheiden:** Ab dem Tag nach „ausgeschieden am“ kann sich eine Leitung oder ein Mitarbeiter
 **nicht mehr anmelden** – die App sagt „Dieser Zugang ist gesperrt, weil die Person ausgeschieden ist.“, und wer gerade
 angemeldet ist, wird abgemeldet. Das gilt sofort, auch wenn noch nichts gelöscht ist. Gelöscht wird das Konto erst,
-wenn der Träger die Zeile „‹Name› – Persönliche Daten“ unter **Mehr → Löschfristen** löscht. Wird das Ausscheiden
+wenn der Träger die Zeile „‹Name› – Persönliche Daten“ unter **Mehr → Datenschutz & Löschen** löscht. Wird das Ausscheiden
 zurückgenommen (Datum entfernt oder in die Zukunft verschoben), geht die Anmeldung wieder. Ein **Träger-Konto** wird
 nie gesperrt.
 
-- Die Fristen stellt der **Träger** je Einrichtung unter *Einstellungen → Personal → Löschfristen* ein (1 bis 40 Jahre;
-  „Einstellungen für“ geht auch hier). Die Leitung sieht sie dort nur. Dort stehen auch „Mitarbeiter endgültig
+- Die Fristen stellt der **Träger** je Einrichtung unter *Mehr → Datenschutz & Löschen → Fristen* ein (1 bis 40 Jahre;
+  welche Einrichtung, wählst du dort). Die Leitung sieht die Fristen nicht. Dort stehen auch „Mitarbeiter endgültig
   löschen“ (siehe oben) und die „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
 - **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** (je Einrichtung, nur der Träger; voreingestellt an): Rechnet
   ein Lohn- oder Steuerbüro ab und bewahrt es die Lohnunterlagen auf, darf „Lohn und Steuer“ schon am Tag nach dem
@@ -897,18 +897,27 @@ nie gesperrt.
   mit den „Persönlichen Daten“.
 - Eine geänderte Frist gilt sofort für die Seite „Löschfristen“. Schon Gelöschtes kommt nicht zurück.
 - Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, ab wann was gelöscht werden darf („Persönliche
-  Daten dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Zeitdaten dürfen ab … gelöscht werden,
+  Daten dürfen schon gelöscht werden (vom Träger unter Mehr → Datenschutz & Löschen). Zeitdaten dürfen ab … gelöscht werden,
   Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“). Hat die Person keine Buchung mit
   „ausgezahlt“, fehlt dieses Datum. Sind alle Fristen abgelaufen, steht dort, dass der Träger die Daten unter
-  Mehr → Löschfristen löscht und zuletzt den Eintrag.
+  Mehr → Datenschutz & Löschen löscht und zuletzt den Eintrag.
 - Wird das Ausscheiden zurückgenommen (Datum entfernt oder in die Zukunft verschoben), verschwindet die Person von der
   Seite „Löschfristen“.
 - Die Fristen sind vorbelegt nach den Vorgaben des Trägers – bitte im Zweifel mit Steuerberatung bzw. Datenschutz
   klären. Gelöschtes steckt noch in älteren Sicherungen (siehe Abschnitt 8, „Gelöschte Daten und Sicherungen“).
 
-### Die Seite „Löschfristen“ (nur Träger)
+### Die Seite „Datenschutz & Löschen“ (nur Träger)
 
-- Unter **Mehr → Löschfristen** sieht der Träger alles, was nach Ablauf einer Frist gelöscht werden darf – aus
+- **Eine Seite für alles zum Löschen:** *Mehr → Datenschutz & Löschen* hat drei Reiter: **Jetzt löschbar** (die
+  Übersicht unten, früher „Mehr → Löschfristen“), **Fristen** (Löschfrist für abgemeldete Kinder; Löschfristen der
+  Mitarbeitenden, der Bewerbungen und der Kasse, „Mitarbeiter endgültig löschen“, „Lohnunterlagen bewahrt ein
+  Lohnbüro auf“ – früher unter *Einstellungen → Einrichtung* bzw. *Einstellungen → Personal*; dazu Links zu den
+  Einwilligungsfragen, den Dokumentarten, dem Tablet und den Rechten) und **Datensicherung** (früher *Einstellungen →
+  Einrichtung*). Die Seite ist mit **„gilt für alle Einrichtungen“** markiert. In den Einstellungen steht an der alten
+  Stelle eine Karte mit Link hierher; alte Links auf die früheren Abschnitte führen hierher, und die Suche der
+  Einstellungen findet „Löschfrist“, „Datensicherung“ usw. weiterhin.
+
+- Unter **Mehr → Datenschutz & Löschen** sieht der Träger alles, was nach Ablauf einer Frist gelöscht werden darf – aus
   **allen Einrichtungen** auf einer Seite: die Daten ausgeschiedener Mitarbeiter (je Art eine Zeile: Persönliche
   Daten, Zeitdaten, Beurteilungen, ausgezahlte Überstunden, zuletzt der Mitarbeiter-Eintrag), die Akten abgemeldeter
   Kinder, archivierte Kassen und erledigte Anfragen zum Unterschreiben (das gesendete PDF, ein Jahr nach der letzten
@@ -930,19 +939,27 @@ nie gesperrt.
 
 ### Die Seite einer Person
 
-Ein Tipp auf den Namen öffnet die Seite der Person. Sie ist in sechs Reiter aufgeteilt, jeder mit einem oder mehreren
-Abschnitten (auf dem Handy untereinander):
+Ein Tipp auf den Namen öffnet die Seite der Person. Sie ist in bis zu sieben Reiter aufgeteilt, jeder mit einem oder
+mehreren Abschnitten (auf dem Handy untereinander):
 
 - **Stammdaten:** die Stammdaten (Name, Kürzel, ausgeschieden am, Gruppe, Geburtstag; mit Recht auch die persönlichen
-  Daten der Personalakte), Notfallkontakte, Qualifikation (Personalschlüssel) und beim Träger „in andere Einrichtung
-  verschieben“.
-- **Vertrag & Lohn:** Stundenkonto heute und am Ende eines wählbaren Monats, Wochenstunden, Stundenkonto-Buchungen,
-  Vertragsangaben und **Lohn und Steuer** (Personalakte, nur mit dem Recht dafür, siehe unten).
-- **Urlaub & Zeiten:** Urlaubskonto eines wählbaren Jahres (Anspruch, Übertrag, genommen, verplant, frei verfügbar),
-  Urlaubsanspruch, PIN und Zeiterfassung.
-- **Nachweise:** Pflichttermine, Fortbildungen und **Dokumente** (Personalakte, nur die Fächer, für die du das Recht
-  hast, siehe unten).
+  Daten der Personalakte), Kinder, Notfallkontakte, Qualifikation (Personalschlüssel) und beim Träger „in andere
+  Einrichtung verschieben“.
+- **Vertrag & Lohn:** Vertragsangaben (mit „befristet bis“ und **Probezeit**), **Elternzeit** und **Lohn und Steuer**
+  (Personalakte) – jeweils nur mit dem Recht dafür; ohne eines davon (die Leitung in der Grundeinstellung) gibt es den
+  Reiter nicht.
+- **Zeiten & Urlaub:** Wochenstunden, Stundenkonto heute und am Ende eines wählbaren Monats, Stundenkonto-Buchungen,
+  Urlaubskonto eines wählbaren Jahres (Anspruch, Übertrag, genommen, verplant, frei verfügbar), Urlaubsanspruch mit
+  „Zusatztag nur für dieses Jahr“, Stempel-PIN und „Stempeln und Pausen“.
+- **Nachweise:** **Pflichtdokumente**, Pflichttermine und Fortbildungen, **Dokumente** (Personalakte, nur die Fächer,
+  für die du das Recht hast, siehe unten).
+- **Gesundheit:** **Unfälle** (Recht „Unfallanzeigen“), **Krankheitstage** eines wählbaren Jahres (mit Link zur Liste
+  aller), **BEM** und **Mutterschutz** (Recht „Krankheitstage …“) – nur mit dem jeweiligen Recht; Krankheitstage, BEM
+  und Mutterschutz nie auf der eigenen Seite.
 - **Gespräche** und **Zugang**.
+
+Ältere Links mit einem früheren Reiter oder Abschnitt (z. B. `?tab=bem`, `?tab=hours`, `?tab=stamping`) öffnen den
+Reiter, in dem der Abschnitt jetzt steht.
 
 Einen Reiter, von dem du keinen Abschnitt sehen darfst, gibt es für dich nicht. Die App merkt sich keinen Reiter; sie
 öffnet immer mit „Stammdaten“, außer ein Link führt direkt zu einem Reiter oder Abschnitt (z. B. aus dem Hinweis auf
@@ -953,7 +970,7 @@ Abschnitt oder Reiter werden dabei nicht mitgespeichert und auch nicht gelöscht
 
 ### Pflichttermine: Betriebsarzt und Belehrung Infektionsschutz
 
-Die vorgegebenen Pflichttermine (*Einstellungen → Einrichtung → Pflichttermine*) sind Betriebsarzt, Erste-Hilfe-Kurs,
+Die vorgegebenen Pflichttermine (*Einstellungen → Mitarbeitende → Pflichttermine*) sind Betriebsarzt, Erste-Hilfe-Kurs,
 Erweitertes Führungszeugnis, Masernimpfung (Nachweis), Erst- und Nachuntersuchung nach dem JArbSchG (siehe
 „Jugendarbeitsschutz“) und **„Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)“**.
 
@@ -1066,7 +1083,7 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   Ausscheiden; ohne Lohnbüro bleibt „Lohn und Steuer“ 6 Jahre, siehe *Löschfristen*). Die Dokumente in den Fächern Bewerbung, Qualifikationen, Korrespondenz und Maßnahmen gehen
   mit den **„Beurteilungen“** (3 Jahre), die in den Fächern Vertrag und Gehalt mit den **„ausgezahlten Überstunden“**
   (voreingestellt 8 Jahre; auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
-  wie immer von Hand durch den Träger unter **Mehr → Löschfristen** (siehe oben).
+  wie immer von Hand durch den Träger unter **Mehr → Datenschutz & Löschen** (siehe oben).
 
 ### Pflichtdokumente
 
@@ -1074,7 +1091,7 @@ Welche Dokumente jede Person in der Personalakte haben muss (z. B. Arbeitsvertra
 Masernnachweis), legt die Einrichtung als **Pflichtdokumente** fest. Die App zeigt dann je Person, was da ist, was fehlt
 und was bald abläuft.
 
-- **Einstellen:** *Einstellungen → Personal → Pflichtdokumente* (Leitung und Träger, Recht „Einstellungen der
+- **Einstellen:** *Einstellungen → Mitarbeitende → Pflichtdokumente* (Leitung und Träger, Recht „Einstellungen der
   Einrichtung“). Je Pflichtdokument: **Name**, das **Fach** der Personalakte, in das es gehört, **gilt für** (alle oder nur
   bestimmte Qualifikationen; wer keine Qualifikation eingetragen hat, braucht nur die für alle), freiwillig **gültig für**
   (Monate, z. B. 60 beim Führungszeugnis; leer = unbegrenzt), freiwillig eine **Vorlage** zum Ausfüllen oder Unterschreiben
@@ -1182,7 +1199,7 @@ und was bald abläuft.
   um – bitte den Urlaubsanspruch von Hand anpassen. Auch die Mutterschutz-Hinweise zur vereinbarten Arbeitszeit rechnen in
   dieser Zeit mit den Teilzeit-Stunden. Neue Schließzeiten werden in der Elternzeit ohne Teilzeit nicht gebucht.
 - **Wer „Elternzeit“ sieht:** Personen mit dem Recht „Mitarbeiter ansehen“. Alle anderen (Mitarbeiter, Tablet) sehen
-  **„abwesend“** – im Dienstplan wie im Jahreskalender. Unter **Einstellungen → Personal → „Elternzeit im
+  **„abwesend“** – im Dienstplan wie im Jahreskalender. Unter **Einstellungen → Mitarbeitende → „Elternzeit im
   Dienstplan“** kann der Träger **„Elternzeit für alle sichtbar anzeigen“** einschalten (Standard: aus); dann sehen alle
   „Elternzeit“.
 - **Urlaub:** Nur wenn der Arbeitgeber die Kürzung erklärt („Urlaub kürzen“, Standard: aus), wird der Jahresanspruch um
@@ -1222,7 +1239,7 @@ und was bald abläuft.
 
 ### Gesetzlicher Mindesturlaub (nur ein Hinweis)
 
-Beim **Anlegen eines Mitarbeiters** und unter **„Urlaub & Zeiten“ → Urlaubsanspruch** (je Jahr, auch beim Eintragen)
+Beim **Anlegen eines Mitarbeiters** und unter **„Zeiten & Urlaub“ → Urlaubsanspruch** (je Jahr, auch beim Eintragen)
 zeigt die App den **gesetzlichen Mindesturlaub** nach dem Bundesurlaubsgesetz an; liegt der eingetragene Anspruch (ohne
 Übertrag) darunter, erscheint ein gelber Hinweis. Eingetragen wird nichts. Rechnung: 24 Werktage bei einer 6-Tage-Woche,
 also **24 × Arbeitstage pro Woche ÷ 6** (5 Tage → 20, 4 → 16, 3 → 12); bei **Schwerbehinderung** (nur wer die
@@ -1254,7 +1271,7 @@ selbst: Für 2027 trägst du die 31 Tage selbst ein.
 
 ### TVöD SuE, Heiligabend und Silvester
 
-Unter **Einstellungen → Dienstplan → „TVöD, Heiligabend und Silvester“** legt der **Träger je Einrichtung** fest
+Unter **Einstellungen → Mitarbeitende → „TVöD, Heiligabend und Silvester“** legt der **Träger je Einrichtung** fest
 („Einstellungen für“ wählt die Einrichtung; die Leitung sieht die Einstellung nur):
 
 - **„Wir arbeiten nach TVöD SuE“** (voreingestellt an, auch für schon bestehende Einrichtungen): Der 24.12. und der
@@ -1270,7 +1287,7 @@ Unter **Einstellungen → Dienstplan → „TVöD, Heiligabend und Silvester“*
 - **Ohne den Schalter** wählt die Einrichtung selbst: **ganzer Urlaubstag** (wie früher voreingestellt), **halber
   Urlaubstag** oder **bezahlt frei** (wirkt wie der Schalter). Mit „halber Urlaubstag“ zählt so ein Tag überall 0,5: im
   Urlaubskonto (genommen, verplant, frei verfügbar, Übertrag ins nächste Jahr), beim Resturlaub in der
-  Mitarbeiterliste, im Reiter „Urlaub & Zeiten“, in „Mein Urlaub“, bei Urlaubsanträgen (Tage, „danach noch …“) und beim
+  Mitarbeiterliste, im Reiter „Zeiten & Urlaub“, in „Mein Urlaub“, bei Urlaubsanträgen (Tage, „danach noch …“) und beim
   Buchen von Schließzeiten für neu Eingestellte; Stundenkonto und Sollstunden ändern sich dabei nicht, in der
   Urlaubsplanung zählt die Person an dem Tag weiter als eine Person im Urlaub. Die Wahl bleibt gespeichert, während der
   Schalter an ist.
@@ -1299,7 +1316,7 @@ rechnen sie weiter als normale Tage.
 
 ### Zusatztag nur für dieses Jahr
 
-Unter **„Urlaub & Zeiten“ → Urlaubsanspruch** gibt es den Knopf **„Zusatztag nur für dieses Jahr“**: Jahr (voreingestellt
+Unter **„Zeiten & Urlaub“ → Urlaubsanspruch** gibt es den Knopf **„Zusatztag nur für dieses Jahr“**: Jahr (voreingestellt
 das laufende), Tage (voreingestellt 1; halbe Tage möglich, 0,5 bis 30) und eine **Begründung** (Pflicht, höchstens
 200 Zeichen, z. B. „Dank für Sommerfest“). Darunter stehen alle Zusatztage, z. B. „2026: + 1 Tag – Dank für Sommerfest
 (von ‹Name›, 20.11.2026)“, jeweils mit **Löschen** (mit Rückfrage). Hinzufügen und löschen darf genau, wer den
@@ -1327,7 +1344,7 @@ Gelöscht werden sie mit den Urlaubsansprüchen (Löschfrist „Sonstige Überst
 ### Hinweis auf Resturlaub (Verfall)
 
 Der Arbeitgeber muss jeden Mitarbeiter rechtzeitig auf seinen Resturlaub hinweisen und darauf, dass er sonst verfällt
-(Bundesurlaubsgesetz, Rechtsprechung des Bundesarbeitsgerichts). Dafür gibt es unter **Einstellungen → Dienstplan →
+(Bundesurlaubsgesetz, Rechtsprechung des Bundesarbeitsgerichts). Dafür gibt es unter **Einstellungen → Mitarbeitende →
 „Hinweis auf Resturlaub“** je Einrichtung (Leitung und Träger):
 
 - **„Resturlaub verfällt am“**: Tag und Monat im Folgejahr, voreingestellt 31.03. (erlaubt zwischen 1. Januar und
@@ -1425,7 +1442,7 @@ sie auf. Auf dem Handy lässt sich die Tabelle der Konten seitlich wischen.
 ### Stempel-PIN
 
 - Mit der PIN stempelt jeder Mitarbeiter am Kita-Tablet und schließt dort die Kinder auf. Die PIN hat **genau
-  6 Ziffern**. Leitung und Träger setzen sie unter *Mitarbeiter → Name → Urlaub & Zeiten* (nur für die Mitarbeiter der
+  6 Ziffern**. Leitung und Träger setzen sie unter *Mitarbeiter → Name → Zeiten & Urlaub* (nur für die Mitarbeiter der
   Einrichtung, in der sie gerade arbeiten).
 - **Nach dem Update auf die 6-stellige PIN sind alle bisherigen 4-stelligen PINs gelöscht.** Bitte für jeden
   Mitarbeiter eine neue PIN setzen. In der Mitarbeiterliste steht bei allen ohne PIN **„PIN fehlt“**; wer keine PIN
@@ -1474,7 +1491,7 @@ Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum
   automatische Abmeldung der Schulkinder eingeschaltet ist, für die Kinder, die sie abmelden wird. Ein Wechsel in
   eine andere Einrichtung geschieht in der App sofort und gibt keine Erinnerung.
 - **Löschfristen** (nur der Träger, nicht am Tablet): „3 Einträge dürfen gelöscht werden“, solange auf der Seite
-  **Mehr → Löschfristen** etwas aus irgendeiner Einrichtung löschbar ist; der Text führt dorthin (Abschnitt 15).
+  **Mehr → Datenschutz & Löschen** etwas aus irgendeiner Einrichtung löschbar ist; der Text führt dorthin (Abschnitt 15).
 - **BEM anbieten** (wer das Recht für die Krankheitstage hat, also Leitung und Träger; nicht am Tablet, nie über sich
   selbst): „BEM anbieten: ‹Name› war in den letzten 12 Monaten ‹n› Arbeitstage krank (mehr als 6 Wochen, § 167 SGB IX)“
   mit „zum BEM“, solange kein BEM läuft; dazu „BEM-Einladung für ‹Name› noch nicht verschickt“ und „BEM ‹Name›:
@@ -2073,7 +2090,7 @@ In Ländern mit Mindestbesetzung nach Uhrzeit (z. B. Baden-Württemberg: eine Fa
 beim Tag eine Warnung, zusammengefasst je Zeitraum, z. B. „Bären 7:00–8:00: 1 Fachkraft, nötig 2“. Geprüft werden nur
 Betreuungstage mit eingetragenen Öffnungszeiten. Büro- und Vorbereitungszeit zählen nicht als Anwesenheit.
 
-### Einstellungen → Personal → Personalschlüssel
+### Einstellungen → Mitarbeitende → Personalschlüssel
 
 - Leitung und Träger sehen die Zahlen der Vorgabe des Landes, geordnet nach Bedarf (je Altersgruppe oder Gruppenart),
   Mindestbesetzung nach Uhrzeit, Anrechnung je Qualifikation, Zuschlägen, Quoten und Vollzeit-Wochenstunden.
@@ -2147,7 +2164,7 @@ Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes än
   nur für alle, die die Kinder sehen dürfen). Angeboten werden die Kinder, die am ersten gewählten Tag unter 12 sind oder eine
   Behinderung haben. Im Jahreskalender erscheint „Kind krank“ wie Krank; Kollegen sehen es dort nicht. Im Kalender und
   in der Zeiterfassung lässt es sich wie Krank eintragen und entfernen (dort ohne Kind).
-- **Kinderkrankentage (§ 45 SGB V):** Die Werte stehen unter *Einstellungen → Personal → Kinderkrankentage* und gelten
+- **Kinderkrankentage (§ 45 SGB V):** Die Werte stehen unter *Einstellungen → Mitarbeitende → Kinderkrankentage* und gelten
   für alle Einrichtungen; nur der Träger ändert sie, die Leitung sieht sie nur.
   - **Ohne eigene Werte gilt für jedes Jahr sein gesetzlicher Wert:** bis 2026 15 pro Kind, höchstens 35, alleinerziehend
     30 pro Kind, höchstens 70 (§ 45 Abs. 2a SGB V, nur für 2026 – vorher 2024 und 2025 ebenso); **ab 2027** wieder 10 pro
@@ -2170,7 +2187,7 @@ Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes än
   - Es zählen die Kinder, die an mindestens einem Tag des Jahres unter 12 sind, und Kinder mit Behinderung, die auf
     Hilfe angewiesen sind. Anspruch = Tage pro Kind × Zahl der Kinder, aber höchstens der Höchstwert.
   - Genommen sind die **Arbeitstage** der Person mit „Kind krank“ im Jahr, geplante und vergangene.
-  - Unter „Urlaub & Zeiten“ steht „Kinderkrankentage ‹Jahr›: ‹genommen› von ‹Anspruch› genommen“, nur wenn die Person
+  - Unter „Zeiten & Urlaub“ steht „Kinderkrankentage ‹Jahr›: ‹genommen› von ‹Anspruch› genommen“, nur wenn die Person
     solche Kinder hat oder Tage genommen hat, und nur mit dem Recht für die Krankheitstage („Mitarbeiter pflegen“).
   - Sind es mehr Tage als der Anspruch, zeigt der Dienstplan am letzten „Kind krank“-Tag des Monats die Warnung
     „‹Name›: ‹n› Kinderkrankentage – Anspruch ‹m› (§ 45 SGB V)“. Wer den Dienstplan bearbeitet, aber die Kinder nicht sehen
@@ -2184,7 +2201,7 @@ eine Auswahl der üblichen Gründe nach TVöD § 29 mit den üblichen Tagen (z. 
 oder „Sonstiges“ mit Freitext (höchstens 200 Zeichen). Ein Freitext geht bei jedem Grund.
 
 - **Wer die Begründung sieht:** die Leitung und der Träger (genauer: wer das Recht für die Krankheitstage hat, Baustein
-  „Mitarbeiter pflegen“) unter „Urlaub & Zeiten“ bei **„Sonderurlaub ‹Jahr›: ‹n› Tage“**, und die Person selbst unter
+  „Mitarbeiter pflegen“) unter „Zeiten & Urlaub“ bei **„Sonderurlaub ‹Jahr›: ‹n› Tage“**, und die Person selbst unter
   „Mein Urlaub“. Der Dienstplan, das Tablet und die Kollegen sehen nur „Sonderurlaub“.
 - **Ändern:** Denselben Zeitraum mit einer Begründung noch einmal eintragen – dann bekommen die Tage die neue Begründung.
   Entfernen geht wie bisher mit „Entfernen“.
@@ -2244,7 +2261,7 @@ Leitung führt der Träger. Der Server prüft das bei jeder Anfrage.
   - Ein versehentlich eingeleitetes BEM lässt sich löschen, solange die Einladung nicht verschickt ist. Danach ist das
     Angebot der Nachweis: dann bitte die Antwort eintragen (z. B. „keine Antwort“ nach Ablauf der Frist).
   - **Frühere BEM** stehen darunter, nur zum Lesen.
-- **Text der Einladung:** *Einstellungen → Personal → BEM-Einladung (Text)* (Leitung und Träger, je Einrichtung).
+- **Text der Einladung:** *Einstellungen → Mitarbeitende → BEM-Einladung (Text)* (Leitung und Träger, je Einrichtung).
   Vorbelegt mit allem, worauf § 167 Abs. 2 SGB IX vorher hinzuweisen verlangt: Anlass, Ziel, Freiwilligkeit (jederzeit
   widerrufbar), Vertrauensperson eigener Wahl (Satz 2), mögliche Beteiligte (Betriebsärztin oder Betriebsarzt,
   Personalvertretung, Schwerbehindertenvertretung, Rehabilitationsträger bzw. Integrationsamt – nur mit Zustimmung),
@@ -2256,10 +2273,10 @@ Leitung führt der Träger. Der Server prüft das bei jeder Anfrage.
   „1 Jahr“). Leer = Standardtext. Bitte den Text vor dem ersten Einsatz mit Personalvertretung bzw. Datenschutz
   abstimmen – auch den Satz „Ablehnung hat keine Nachteile“: Eine Ablehnung kann bei einer späteren krankheitsbedingten
   Kündigung trotzdem eine Rolle spielen.
-- **Löschen:** Kategorie **„BEM-Unterlagen“** (voreingestellt 3 Jahre, *Einstellungen → Personal → Löschfristen*), ab
+- **Löschen:** Kategorie **„BEM-Unterlagen“** (voreingestellt 3 Jahre, *Mehr → Datenschutz & Löschen → Fristen*), ab
   dem Ende jedes BEM, auch bei Mitarbeitern, die noch da sind; ein laufendes BEM einer ausgeschiedenen Person zählt ab
   dem Austritt. Die Zeile „‹Name› – BEM-Unterlagen (BEM beendet am ‹Datum› – Person noch beschäftigt)“ steht unter
-  **Mehr → Löschfristen**; gelöscht werden dabei nur die BEM, deren Frist abgelaufen ist (ein laufendes bleibt). Nichts
+  **Mehr → Datenschutz & Löschen**; gelöscht werden dabei nur die BEM, deren Frist abgelaufen ist (ein laufendes bleibt). Nichts
   wird automatisch gelöscht. Der Mitarbeiter-Eintrag einer ausgeschiedenen Person wird erst löschbar, wenn auch ihre
   BEM-Unterlagen gelöscht sind. „Endgültig löschen“ löscht alle BEM der Person mit. Eine Löschfristen-Seite, die vor dem
   Update geöffnet war, speichert ohne die BEM-Jahre – dann bleiben die gespeicherten.
@@ -2493,7 +2510,7 @@ Mitarbeiter kommen nicht heran.
   vgl. § 27 Abs. 5 MuSchG): Ein Eintrag darf so viele Jahre nach seinem Ende gelöscht werden (Ende der Schutzfrist nach
   der Entbindung bzw. der Stillzeit oder „Beendet am“; bei einer Fehlgeburt das Ende ihrer Frist), **auch bei
   Mitarbeiterinnen, die noch da sind**; ein laufender Mutterschutz einer Ausgeschiedenen zählt ab dem Austritt. Die
-  Einträge stehen unter Mehr → Löschfristen („Mutterschutz beendet am …“); gelöscht werden nur die fälligen. Die Codes im
+  Einträge stehen unter Mehr → Datenschutz & Löschen („Mutterschutz beendet am …“); gelöscht werden nur die fälligen. Die Codes im
   Dienstplan gehen mit den Zeitdaten; „Endgültig löschen“ löscht alles sofort.
 
 ### Jugendarbeitsschutz (JArbSchG)
@@ -2554,7 +2571,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   etwa im Schülerpraktikum (§§ 5, 7: höchstens 7 Std. am Tag und 35 Std. in der Woche) – die App rechnet für alle unter 18
   mit 8/40 Std. Die Bescheinigungen der Untersuchungen prüft sie nicht auf ihr Datum (§ 32: höchstens 14 Monate vor
   Beginn; § 33: höchstens drei Monate alt).
-- **Mindesturlaub (§ 19):** Unter „Urlaub & Zeiten“ → Urlaubsanspruch steht neben dem gesetzlichen Mindesturlaub „für
+- **Mindesturlaub (§ 19):** Unter „Zeiten & Urlaub“ → Urlaubsanspruch steht neben dem gesetzlichen Mindesturlaub „für
   Jugendliche mindestens ‹n› Tage“ (nur wer das Geburtsjahr sehen darf). Maßgeblich ist das Alter **am 1. Januar** des
   Jahres: unter 16 → 30, unter 17 → 27, unter 18 → 25 Werktage bei einer 6-Tage-Woche, umgerechnet mit **Werktage ×
   Arbeitstage pro Woche ÷ 6**, aufgerundet auf halbe Tage (5-Tage-Woche: 25, 22,5, 21). Mit dem Geburtsjahr allein gilt
@@ -2600,7 +2617,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Liste dieses Bereichs (die gibt es in der anderen Einrichtung nicht).
 - **Einstellungen einer anderen Einrichtung (Träger):** Oben in den *Einstellungen* wählst du bei **„Einstellungen für“**
   eine andere Einrichtung, ohne oben in der App zu wechseln. Alle Bereiche der Einstellungen (Öffnungszeiten, Gruppen,
-  Dienste, Tablet, Kinder, Erinnerungen, Personal …) zeigen und ändern dann diese Einrichtung; ein gelber Hinweis sagt,
+  Dienste, Tablet, Kinder, Erinnerungen, Mitarbeitende …) zeigen und ändern dann diese Einrichtung; ein gelber Hinweis sagt,
   welche, und dass oben die bisherige Einrichtung eingestellt bleibt. Die Auswahl gilt, solange du in den Einstellungen
   bleibst; verlässt du sie (oder lädst die Seite neu), gilt wieder die oben eingestellte Einrichtung. Bleibst du nach der
   Frage zu ungespeicherten Änderungen auf der Seite, bleibt auch die Auswahl. Was für alle Einrichtungen gilt (Liste der
@@ -2630,7 +2647,9 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
     - Nimmt der Träger einen Haken weg und sind ab heute noch Aushilfen geplant, nennt die App sie (Datum, Person,
       Einrichtung) und fragt nach; sie bleiben dann wie oben beschrieben.
     - Die Leitung sieht in ihrer Karte, mit welchen Einrichtungen ihre Einrichtung freigegeben ist, ändern kann sie das nicht.
-  - **In jeder Karte:** **Stammdaten** (Name, Bundesland, Höchstzahl Kinder, Speichern), **Gruppen** (wie bisher) und
+  - **In jeder Karte:** **Stammdaten** (Name, Bundesland, Höchstzahl Kinder, Speichern), **Gruppen** (eine kurze Liste:
+    ein Tipp auf eine Gruppe öffnet ihre Seite – bei einer anderen Einrichtung wird „Einstellungen für“ vorher auf diese
+    umgestellt –, darunter **„Gruppe anlegen“**) und
     **Kontakt** (Anschrift, Website, Träger, Leitung, Telefonnummern und E-Mail-Adressen) mit je eigenem Speichern. So
     pflegt der Träger den Kontakt jeder Einrichtung, ohne bei „Einstellungen für“ zu wechseln. Den früheren eigenen
     Abschnitt „Kontakt“ gibt es nicht mehr.
@@ -2639,8 +2658,22 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   - **Die Leitung** sieht nur die Karte ihrer Einrichtung, darin den Kontakt zum Lesen („Diese Angaben pflegt der
     Träger.“); andere Einrichtungen sind für sie nicht abrufbar.
   - **Darunter** steht die Überschrift **„Einstellungen für ‹Einrichtung›“**: Die folgenden Abschnitte (Öffnungszeiten,
-    Tablet, Löschfrist, Datensicherung) gelten wie bisher für die bei „Einstellungen für“ gewählte Einrichtung bzw. für
-    alle.
+    Tablet) gelten für die bei „Einstellungen für“ gewählte Einrichtung; Löschfristen und Datensicherung stehen auf
+    *Mehr → Datenschutz & Löschen* (siehe Abschnitt 15).
+- **Gruppen an einer Stelle:** Alles zu einer Gruppe – Name, „für Schulkinder“, Farbe, Plätze, Altersgrenzen,
+  Gruppenart, eigene Öffnungszeiten, Entwicklungsdoku, „Darf zusätzlich lesen“ und **„Gruppe löschen“** – steht nur auf
+  der Seite der Gruppe (*Einstellungen → Gruppen → Gruppe antippen*). Neue Gruppen legt der Träger unter
+  *Einstellungen → Gruppen* (unter der Liste) oder in der Karte der Einrichtung an. Umbenennen und Löschen nur der Träger;
+  die Leitung sieht den Namen.
+- **Bereiche der Einstellungen:** Einrichtung, Gruppen, Dienstplan (Dienste, Wochenvorlagen, Codes,
+  Besetzungsregeln), Zeiterfassung, Kinder und **Mitarbeitende** (früher „Personal“: Personalschlüssel,
+  Pflichtdokumente, **Pflichttermine**, **Urlaubsanträge**, **Urlaub zählen**, **Resturlaub-Verfall** – die vier
+  kamen aus „Dienstplan“ –, Kinderkrankentage, BEM-Einladung, Elternzeit). Lange Bereiche beginnen mit einer Reihe
+  **Sprungmarken** zu ihren Abschnitten. Einstellungen, die für **alle Einrichtungen** gelten (Codes, Urlaubsanträge
+  an/aus, Kinderkrankentage, Datenschutz & Löschen, Rechte und Rollen), tragen das graue Zeichen **„gilt für alle
+  Einrichtungen“**. Die Abschnitte, die nur der Träger ändert (Codes, Urlaub zählen, Kinderkrankentage), sieht die
+  Leitung am Ende des Bereichs in einer Zeile **„Diese Einstellungen pflegt der Träger: …“**, die sie zum Lesen
+  aufklappen kann.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kalender** (Jahreskalender), **Teamsitzungen**,
   **Notizen** und **Dokumente** (Bögen, Vorlagen und Wissen, mit der Zahl dessen, was dort wartet: Einträge zum Bestätigen,
@@ -2717,12 +2750,12 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Pfeile, mit denen du die Kassen innerhalb der Einrichtung bzw. einer Gruppe nach oben oder unten schiebst.
 - **Archiv:** archivierte Kassen stehen eingeklappt unten im Bereich **Archiv**. Sie bleiben lesbar und druckbar, neue
   Buchungen gehen nicht mehr; **Wieder aktivieren** (über den Stift) holt sie zurück. Je archivierter Kasse steht
-  **löschbar ab …**: der 1. Januar nach Ablauf der **Aufbewahrungsfrist Kasse** (*Einstellungen → Personal →
-  Löschfristen*, voreingestellt 10 Jahre), gerechnet ab dem Ende des Jahres der letzten Buchung (letzte Buchung am
+  **löschbar ab …**: der 1. Januar nach Ablauf der **Aufbewahrungsfrist Kasse** (*Mehr → Datenschutz & Löschen →
+  Fristen*, voreingestellt 10 Jahre), gerechnet ab dem Ende des Jahres der letzten Buchung (letzte Buchung am
   10.03.2026 → löschbar ab 01.01.2037). Steht im Protokoll eine spätere Korrektur (z. B. 2027 eine Buchung von 2026
   geändert), zählt deren Tag. Hat die Kasse keine Buchungen mehr, aber ein Protokoll (z. B. gelöschte
   Einträge) oder abgeschlossene Monate, zählt der letzte Protokolleintrag bzw. das Ende des letzten abgeschlossenen
-  Monats. Ab diesem Tag darf die Kasse gelöscht werden – das macht nur der **Träger** unter **Mehr → Löschfristen**
+  Monats. Ab diesem Tag darf die Kasse gelöscht werden – das macht nur der **Träger** unter **Mehr → Datenschutz & Löschen**
   (siehe Abschnitt 15, „Löschfristen“): Er tippt zur Bestätigung den Namen der Kasse ein; gelöscht werden die Kasse,
   alle Buchungen, Belege, abgeschlossenen Monate und das Protokoll. Umbuchungen mit
   anderen Kassen bleiben dort stehen, mit ihrem Text, auch in abgeschlossenen Monaten; in deren Protokoll steht „Andere
@@ -3277,7 +3310,7 @@ Das Recht „Wissen: pflegen“ steht auf der Seite **Rechte und Rollen** (Berei
 - Die **Lesebestätigungen** sind personenbezogen (wer hat was wann gelesen) und zugleich der Nachweis einer Unterweisung
   (z. B. Kinderschutzkonzept, Hygieneplan, Aufsichtspflicht). Sie gehören deshalb wie die Fortbildungsnachweise zu
   **„Beurteilungen und Zeugnisse“** (voreingestellt 3 Jahre nach dem Ende des Jahres, in dem die Person ausgeschieden ist;
-  Mehr → Löschfristen, siehe Abschnitt „Löschfristen“); „Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sie
+  Mehr → Datenschutz & Löschen, siehe Abschnitt „Löschfristen“); „Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sie
   sofort mit.
 
 ## 29. Schulbezirke (Straßenliste der Stadt)
@@ -3412,9 +3445,9 @@ entfällt) und behält nur Art, Termine, Stand und den Verweis: Name, Notizen un
 Personalakte. Er gehört dann zu den „Beurteilungen und Zeugnissen“ der Person (gelöscht mit dieser Frist, zusammen mit
 den übernommenen Bögen).
 
-**Löschfristen:** Die App löscht nichts von selbst. Unter Mehr → Löschfristen (Träger) erscheinen
+**Löschfristen:** Die App löscht nichts von selbst. Unter Mehr → Datenschutz & Löschen (Träger) erscheinen
 - Infogespräche, die **nicht** übernommen wurden (offen oder abgesagt): löschbar **12 Monate nach dem Gesprächstag**
-  (einstellbar 1–60 Monate unter Einstellungen → Personal → Löschfristen);
+  (einstellbar 1–60 Monate unter Mehr → Datenschutz & Löschen → Fristen);
 - abgesagte Bewerbungen, Hospitationen und Praktika: löschbar **6 Monate nach der Absage** (einstellbar 1–24 Monate).
   Hintergrund: Ansprüche nach § 15 Abs. 4 AGG sind binnen 2 Monaten schriftlich geltend zu machen, die Klage binnen
   3 weiterer Monate (§ 61b ArbGG); 6 Monate lassen Zeit für den Postweg. Bitte im Zweifel mit dem Datenschutz klären;

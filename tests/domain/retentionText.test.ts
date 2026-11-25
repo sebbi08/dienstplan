@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { RETENTION_DEFAULTS } from '../../shared/domain/retention'
 import { archiveRetentionText } from '../../app/utils/retentionText'
 
-const PERSONAL = 'Persönliche Daten dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen).'
-const ALL_DONE = 'Alle Fristen sind abgelaufen. Der Träger löscht die Daten unter Mehr → Löschfristen; sobald alles andere gelöscht ist, auch den Eintrag.'
+const PERSONAL = 'Persönliche Daten dürfen schon gelöscht werden (vom Träger unter Mehr → Datenschutz & Löschen).'
+const ALL_DONE = 'Alle Fristen sind abgelaufen. Der Träger löscht die Daten unter Mehr → Datenschutz & Löschen; sobald alles andere gelöscht ist, auch den Eintrag.'
 
 describe('archiveRetentionText', () => {
   it('names the personal data, the three dates and the entry last, as the spec words it', () => {
@@ -33,10 +33,10 @@ describe('archiveRetentionText', () => {
 
   it('says what may be deleted already and goes on with what is left', () => {
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2029-01-01')).toBe(
-      'Persönliche Daten und Zeitdaten dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Beurteilungen dürfen ab 01.01.2030 gelöscht werden, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2035; danach der Eintrag.',
+      'Persönliche Daten und Zeitdaten dürfen schon gelöscht werden (vom Träger unter Mehr → Datenschutz & Löschen). Beurteilungen dürfen ab 01.01.2030 gelöscht werden, ausgezahlte Überstunden, Verträge, Gehalt ab 01.01.2035; danach der Eintrag.',
     )
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2031-06-01')).toBe(
-      'Persönliche Daten, Zeitdaten und Beurteilungen dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Ausgezahlte Überstunden, Verträge, Gehalt dürfen ab 01.01.2035 gelöscht werden; danach der Eintrag.',
+      'Persönliche Daten, Zeitdaten und Beurteilungen dürfen schon gelöscht werden (vom Träger unter Mehr → Datenschutz & Löschen). Ausgezahlte Überstunden, Verträge, Gehalt dürfen ab 01.01.2035 gelöscht werden; danach der Eintrag.',
     )
   })
 
@@ -45,7 +45,7 @@ describe('archiveRetentionText', () => {
       `${PERSONAL} Zeitdaten dürfen ab 01.01.2029 gelöscht werden, Beurteilungen ab 01.01.2030; danach der Eintrag.`,
     )
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2029-06-01', false)).toBe(
-      'Persönliche Daten und Zeitdaten dürfen schon gelöscht werden (vom Träger unter Mehr → Löschfristen). Beurteilungen dürfen ab 01.01.2030 gelöscht werden; danach der Eintrag.',
+      'Persönliche Daten und Zeitdaten dürfen schon gelöscht werden (vom Träger unter Mehr → Datenschutz & Löschen). Beurteilungen dürfen ab 01.01.2030 gelöscht werden; danach der Eintrag.',
     )
     expect(archiveRetentionText('2026-03-15', RETENTION_DEFAULTS, '2030-01-01', false)).toBe(ALL_DONE)
   })

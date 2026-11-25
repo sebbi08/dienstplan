@@ -10,7 +10,7 @@ import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 
 /**
- * „BEM“ in the tab „Nachweise“ (only with employees.sickness, never on the own page): the line „Krankheitstage letzte
+ * „BEM“ in the tab „Gesundheit“ (only with employees.sickness, never on the own page): the line „Krankheitstage letzte
  * 12 Monate: ‹n› von ‹Grenze›“ (amber from 80 %, red above), the running BEM (invitation to print, „Verschickt am“,
  * the answer, talks, measures and notes, „Abschließen“) or „BEM einleiten“, and the earlier ones read-only. Health
  * data: loaded in the browser once the tab is opened; the server checks every request.
