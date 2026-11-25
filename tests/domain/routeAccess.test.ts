@@ -55,7 +55,7 @@ const OFFICE = [
 const TABLET_ONLY = '/terminal'
 /** The print templates: everyone who may read them (Leitung, Träger, Mitarbeiter read only) and the tablet. */
 const TEMPLATES = '/templates'
-/** „Dokumente“: the tab „Bögen“ (formTemplates.manage) or the tab „Vorlagen“ (printTemplates.view), either key opens it; the tablet too. */
+/** „Dokumente“: the tab „Bögen“ (formTemplates.manage) or the tab „Zum Ausdrucken“ (printTemplates.view), either key opens it; the tablet too. */
 const DOCUMENTS = '/documents'
 /** The Träger's page for deleting after the retention periods. */
 const RETENTION = '/admin/retention'
@@ -116,7 +116,7 @@ describe('route access per role (unchanged by the permissions)', () => {
     expect(accountRedirect(NOTES, { mustChangePassword: false, can: () => false })).toBe('/')
   })
 
-  it('opens „Dokumente“ with any of its keys (tab „Vorlagen“, „Bögen“ or „Wissen“), and to no account without one', () => {
+  it('opens „Dokumente“ with any of its keys (tab „Zum Ausdrucken“, „Bögen“ or „Wissen“), and to no account without one', () => {
     expect(accountRedirect(DOCUMENTS, viewerOf('observer'))).toBeUndefined()
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'printTemplates.view' })).toBeUndefined()
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'formTemplates.manage' })).toBeUndefined()

@@ -27,6 +27,8 @@ const { busy, run } = useBusyAction(() => Promise.all([
 const s = de.settingsAreas
 const settingsFacilityId = useSettingsFacilityId()
 
+/** The ▲/▼ show only after „Reihenfolge ändern“. */
+const reordering = ref(false)
 function move(id: number, direction: 'up' | 'down') {
   run(() => $fetch<unknown>(`/api/groups/${id}/move`, { method: 'POST', body: { direction } }))
 }
@@ -34,7 +36,10 @@ function move(id: number, direction: 'up' | 'down') {
 
 <template>
   <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-    <h2 class="font-semibold">{{ s.groupList }}</h2>
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="font-semibold">{{ s.groupList }}</h2>
+      <ReorderToggle v-if="canManageGroups && (groups?.length ?? 0) > 1" v-model="reordering" size="xs" class="ml-auto" />
+    </div>
     <template v-if="groups?.length">
       <SettingsStaffingFacilityEstimate v-if="estimate" :data="estimate" />
       <p class="text-xs text-gray-500">{{ s.groupListHint }}</p>
@@ -52,13 +57,13 @@ function move(id: number, direction: 'up' | 'down') {
             </span>
             <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
           </NuxtLink>
-          <span v-if="canManageGroups" class="flex shrink-0 gap-0.5 pr-2">
+          <span v-if="canManageGroups && reordering" class="flex shrink-0 gap-0.5 pr-2">
             <UButton
-              size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="s.moveUp(group.name)"
+              color="neutral" variant="ghost" icon="i-lucide-arrow-up" class="min-h-10 min-w-10 justify-center" :aria-label="s.moveUp(group.name)"
               :disabled="busy || index === 0" @click="move(group.id, 'up')"
             />
             <UButton
-              size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="s.moveDown(group.name)"
+              color="neutral" variant="ghost" icon="i-lucide-arrow-down" class="min-h-10 min-w-10 justify-center" :aria-label="s.moveDown(group.name)"
               :disabled="busy || index === groups.length - 1" @click="move(group.id, 'down')"
             />
           </span>

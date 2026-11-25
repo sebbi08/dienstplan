@@ -15,6 +15,8 @@ const t = de.requiredDocuments
 const { can } = useCan()
 const { data: types, refresh } = await useFetch<RequiredDocumentTypeDto[]>('/api/required-document-types', { key: 'required-document-types', default: () => [] })
 const { busy, run } = useBusyAction(refresh)
+/** The ▲/▼ show only after „Reihenfolge ändern“. */
+const reordering = ref(false)
 const confirm = useConfirm()
 
 const folders = computed(() => EMPLOYEE_DOCUMENT_FOLDERS.filter(folder => can(FOLDER_PERMISSION[folder])))
@@ -82,7 +84,10 @@ function details(type: RequiredDocumentTypeDto): string {
   <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <div class="flex flex-wrap items-center gap-2">
       <h2 class="font-semibold">{{ t.title }}</h2>
-      <UButton v-if="folders.length" icon="i-lucide-plus" size="sm" :label="t.add" class="sm:ml-auto" @click="openDialog(null)" />
+      <div class="flex flex-wrap gap-2 sm:ml-auto">
+        <ReorderToggle v-if="(types?.length ?? 0) > 1" v-model="reordering" />
+        <UButton v-if="folders.length" icon="i-lucide-plus" size="sm" :label="t.add" @click="openDialog(null)" />
+      </div>
     </div>
     <p class="text-xs text-gray-500">{{ t.settingsHint }}</p>
     <p v-if="!folders.length" class="text-sm text-gray-500">{{ t.noFolders }}</p>
@@ -94,10 +99,17 @@ function details(type: RequiredDocumentTypeDto): string {
           <div class="text-xs text-gray-500">{{ details(type) }}</div>
         </div>
         <div class="flex items-center gap-1">
-          <UButton icon="i-lucide-arrow-up" size="sm" color="neutral" variant="ghost" :aria-label="`${t.moveUp}: ${type.name}`" :disabled="busy || index === 0" @click="move(type, 'up')" />
-          <UButton icon="i-lucide-arrow-down" size="sm" color="neutral" variant="ghost" :aria-label="`${t.moveDown}: ${type.name}`" :disabled="busy || index === types.length - 1" @click="move(type, 'down')" />
-          <UButton icon="i-lucide-pencil" size="sm" color="neutral" variant="ghost" :aria-label="`${t.edit}: ${type.name}`" :disabled="busy" @click="openDialog(type)" />
-          <UButton icon="i-lucide-trash-2" size="sm" color="error" variant="ghost" :aria-label="`${de.common.delete}: ${type.name}`" :disabled="busy" @click="remove(type)" />
+          <!-- ▲/▼ only after „Reihenfolge ändern“; on phones „Löschen“ sits in „⋯“. -->
+          <template v-if="reordering">
+            <UButton icon="i-lucide-arrow-up" color="neutral" variant="ghost" class="min-h-10 min-w-10 justify-center" :aria-label="`${t.moveUp}: ${type.name}`" :disabled="busy || index === 0" @click="move(type, 'up')" />
+            <UButton icon="i-lucide-arrow-down" color="neutral" variant="ghost" class="min-h-10 min-w-10 justify-center" :aria-label="`${t.moveDown}: ${type.name}`" :disabled="busy || index === types.length - 1" @click="move(type, 'down')" />
+          </template>
+          <RowActions
+            v-else :name="type.name" :actions="[
+              { key: 'edit', label: t.edit, icon: 'i-lucide-pencil', variant: 'ghost', iconOnly: true, disabled: busy, onClick: () => openDialog(type) },
+              { key: 'delete', label: de.common.delete, icon: 'i-lucide-trash-2', color: 'error', variant: 'ghost', iconOnly: true, disabled: busy, onClick: () => remove(type) },
+            ]"
+          />
         </div>
       </li>
     </ul>

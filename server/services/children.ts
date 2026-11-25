@@ -24,7 +24,7 @@ import { accidentHoldOf, childAccidentDays, childRecordPurgeDate } from './child
 import { answersOf, consentQuestionsOf, moveAnswers, recordQuestions, saveAnswers } from './childConsents'
 import { listContacts } from './childContacts'
 import { listOverviewSheets } from './childOverviewSheets'
-import { checkedFutureSchool, contactForFacility, schoolNameOf, schoolNames, schoolStaysOnMove } from './contacts'
+import { checkedFutureSchool, contactForFacility, schoolNameOf, schoolNames, schoolStaysOnMove, withProviderSchools } from './contacts'
 import { listDocuments } from './childDocuments'
 import {
   changeGroupDirectly, dropPlannedChanges, endGroupHistory, pendingGroupChange, recordStartGroup, registerLeaving, settleDue,
@@ -297,7 +297,7 @@ export function createChild(
   assertSchoolStartRight(actor, input.schoolStartDate, null)
   const master = {
     ...checkedMaster(db, facilityId, input, today),
-    futureSchoolContactId: checkedFutureSchool(db, facilityId, input.futureSchoolContactId ?? null, null),
+    futureSchoolContactId: checkedFutureSchool(db, facilityId, input.futureSchoolContactId ?? null, null, withProviderSchools(actor)),
   }
   return db.transaction((tx) => {
     const assertStays = guardAgainstLeaving(tx, facilityId, today)
@@ -342,7 +342,7 @@ export function updateChildMaster(
   assertSchoolStartRight(actor, schoolStartDate, row.schoolStartDate)
   const fields = {
     ...rest, schoolStartDate,
-    futureSchoolContactId: checkedFutureSchool(db, facilityId, futureSchoolContactId, row.futureSchoolContactId),
+    futureSchoolContactId: checkedFutureSchool(db, facilityId, futureSchoolContactId, row.futureSchoolContactId, withProviderSchools(actor)),
   }
   const groupChosen = fields.groupId !== baseGroupId
   // A person with group rights moves a child only into a group they may write in (or out of every group).
@@ -381,7 +381,7 @@ export function adoptDistrictSchool(
   if (row.futureSchoolContactId !== null) throw new ServiceError(409, 'future_school_already_set')
   const match = schoolDistrictMatcher(db, facilityId)(row)
   if (match?.status !== 'match' || match.contactId !== contactId || !match.canAdopt) throw new ServiceError(409, 'school_district_changed')
-  db.update(children).set({ futureSchoolContactId: checkedFutureSchool(db, facilityId, contactId, null), ...sectionStamp('master', actor.id, now) })
+  db.update(children).set({ futureSchoolContactId: checkedFutureSchool(db, facilityId, contactId, null, withProviderSchools(actor)), ...sectionStamp('master', actor.id, now) })
     .where(eq(children.id, id)).run()
 }
 

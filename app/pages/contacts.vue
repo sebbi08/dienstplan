@@ -89,7 +89,7 @@ const currentCategory = computed(() => tabs.value.find(entry => entry.key === ta
 /** The note at a contact not everyone sees: its own setting and its category's, the stricter wins ('' for all). */
 const badgeOf = (contact: ContactDto) => {
   const category = categories.value.find(entry => entry.id === contact.categoryId)
-  return t.visibilityBadge[contactVisibility(category?.visibility ?? null, contact.visibleToStaff)]
+  return t.visibilityBadge[contactVisibility(category?.visibility ?? null, contact.visibility)]
 }
 </script>
 

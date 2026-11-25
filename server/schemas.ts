@@ -627,7 +627,7 @@ export const employeeDocumentSchema = z.object({
 export const employeeDocumentUploadSchema = employeeDocumentSchema.extend({
   requiredTypeId: z.union([z.literal(''), z.coerce.number().int().positive()]).default('').transform(value => (value === '' ? null : value)),
 })
-// „Gilt für“ of Vorlagen and „Wissen“ (shared/domain/documentTargets.ts): the facilities chosen and the groups per
+// „Gilt für“ of „Zum Ausdrucken“ and „Wissen“ (shared/domain/documentTargets.ts): the facilities chosen and the groups per
 // facility; the service checks that they exist and fit together.
 const targetFacilityIds = z.array(z.number().int().positive()).max(500)
 /** A multipart flag: 'true' or 'false' (left out: false). */
@@ -681,7 +681,7 @@ export const printTemplateFields = z.object({
   createCategories: formFlag,
 })
 /**
- * The new order of one list of „Vorlagen“: a subcategory of the facility, the templates directly in a category
+ * The new order of one list of „Zum Ausdrucken“: a subcategory of the facility, the templates directly in a category
  * („Allgemein“: the category's id), or null for „Vom Träger“.
  */
 export const printTemplateOrderSchema = z.object({
@@ -1017,7 +1017,7 @@ export const contactSchema = z.object({
   city: contactText(CONTACT_LIMITS.city),
   website: contactText(CONTACT_LIMITS.website),
   note: contactText(CONTACT_LIMITS.note),
-  visibleToStaff: z.boolean(),
+  visibility: z.enum(TEMPLATE_VISIBILITIES),
 })
 export const contactCategorySchema = z.object({
   name: z.string().max(CONTACT_LIMITS.categoryName), visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),

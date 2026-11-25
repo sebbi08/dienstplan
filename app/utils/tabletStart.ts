@@ -9,7 +9,7 @@ export type TabletTileAction =
 export interface TabletTile {
   key: string
   label: string
-  /** A second line (e.g. „Vorlagen und Wissen“). */
+  /** A second line (e.g. „Zum Ausdrucken und Wissen“). */
   hint?: string
   icon: string
   /** The two main tiles (stamping, children) are larger. */
@@ -19,7 +19,7 @@ export interface TabletTile {
 
 /**
  * The tiles of the tablet's start page, its one hub (the header only leads back here), by how often they are used:
- * Stempeln and Kinder (large), then Dokumente (Vorlagen and Wissen), Zu unterschreiben, Notizen, the plan of this month,
+ * Stempeln and Kinder (large), then Dokumente (Zum Ausdrucken and Wissen), Zu unterschreiben, Notizen, the plan of this month,
  * Teamsitzungen, Kontakte (only while the tablet sees contacts) and the plan printout.
  */
 export function tabletStartTiles(options: { showContacts: boolean; planPath: string }): TabletTile[] {

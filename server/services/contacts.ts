@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm'
 import {
   CONTACT_LIMITS, DEFAULT_CONTACT_CATEGORIES, comparableContactName, contactLevels, contactViewLevel, contactVisibility, isEmailAddress,
-  isSchoolCategory, normalizedWebsite, seesAtLevel,
+  isSchoolCategory, normalizedWebsite, seesAtLevel, seesProviderContacts,
 } from '../../shared/domain/contacts'
 import { groupsAllow, inFacilityScope, isOrphan, type Audience, type DocumentScope, type ItemTargets } from '../../shared/domain/documentTargets'
 import { can } from '../../shared/domain/permissions'
@@ -202,8 +202,8 @@ const audienceOf = (viewer: { role: Role; homeGroupId?: number | null }): Audien
  * Gruppenleitung, the tablet) only those for all whose groups allow them (all groups, or their home group chosen there;
  * at the tablet the unlocking person's).
  */
-function seesContact(viewer: ContactViewer, row: Pick<ContactRow, 'visibleToStaff'>, placement: Placement): boolean {
-  if (!seesAtLevel(levelOf(viewer), contactVisibility(placement.category?.visibility ?? null, row.visibleToStaff))) return false
+function seesContact(viewer: ContactViewer, row: Pick<ContactRow, 'visibility'>, placement: Placement): boolean {
+  if (!seesAtLevel(levelOf(viewer), contactVisibility(placement.category?.visibility ?? null, row.visibility))) return false
   if (manages(viewer)) return true
   return !placement.targets || groupsAllow(placement.targets, viewer.facilityId, audienceOf(viewer))
 }
@@ -276,7 +276,7 @@ export function listContacts(db: Db, viewer: ContactViewer): ContactsDto {
         city: row.city,
         website: row.website,
         note: row.note,
-        visibleToStaff: row.visibleToStaff,
+        visibility: row.visibility,
         updatedAt: managing ? row.updatedAt : '',
         updatedBy: row.updatedBy === null ? null : usernames.get(row.updatedBy) ?? null,
         canEdit,
@@ -304,9 +304,9 @@ const field = (value: string, limit: number) => value.trim().slice(0, limit)
 /**
  * The checked fields: an organisation (400 contact_organisation_required), a valid e-mail address when one is given
  * (400 contact_email_invalid) and a website with http or https (400 contact_website_invalid; without a scheme https://
- * is put in front).
+ * is put in front); „Wer sieht ihn?“ only as the actor may give it (403: „Nur Träger“ is the Träger's).
  */
-function checkedFields(input: ContactInput) {
+function checkedFields(actor: ContactActor, input: ContactInput) {
   const organisation = field(input.organisation, CONTACT_LIMITS.organisation)
   if (organisation === '') throw new ServiceError(400, 'contact_organisation_required')
   const email = field(input.email, CONTACT_LIMITS.email)
@@ -325,7 +325,7 @@ function checkedFields(input: ContactInput) {
     city: field(input.city, CONTACT_LIMITS.city),
     website,
     note: field(input.note, CONTACT_LIMITS.note),
-    visibleToStaff: input.visibleToStaff,
+    visibility: checkedVisibility(actor, input.visibility),
   }
 }
 
@@ -366,7 +366,7 @@ export function createContact(db: Db, actor: ContactActor, input: ContactInput, 
   assertScopeAllowed(actor, scope)
   if (input.createCategories) assertMayCreateCategories('contact', actor)
   const own = scope === 'facility'
-  const values = { ...checkedFields(input), ...filing(db, actor, own, input) }
+  const values = { ...checkedFields(actor, input), ...filing(db, actor, own, input) }
   const targets = checkedTargets(db, scope, own ? actor.facilityId : null, input)
   return db.transaction((tx) => {
     const id = tx.insert(contacts).values({
@@ -408,7 +408,7 @@ export function updateContact(db: Db, actor: ContactActor, id: number, input: Co
   // An own contact stays with its facility; the Träger's becomes the active facility's.
   const facilityId = own ? row.facilityId ?? actor.facilityId : null
   if (own && facilityId !== actor.facilityId) throw new ServiceError(403, 'forbidden')
-  const values = { ...checkedFields(input), ...filing(db, actor, own, input) }
+  const values = { ...checkedFields(actor, input), ...filing(db, actor, own, input) }
   const targets = checkedTargets(db, scope, facilityId, input.scope === undefined ? { ...current, scope } : input)
   db.transaction((tx) => {
     tx.update(contacts).set({ ...values, facilityId, allFacilities: targets.allFacilities, updatedAt: now.toISOString(), updatedBy: actor.id })
@@ -432,6 +432,9 @@ export function contactTargetOptions(db: Db, actor: ContactActor) {
 
 // ---- the future school of a child ------------------------------------------
 
+/** Whether the viewer is offered the schools for the Träger alone too (the Träger who maintains the address book). */
+export const withProviderSchools = (viewer: Pick<SessionUser, 'role' | 'permissions'>): boolean => seesProviderContacts(viewer.role, manages(viewer))
+
 /** The shown name of a school: the organisation with the city („Grundschule Süd, Heidelberg“). */
 const schoolName = (row: Pick<ContactRow, 'organisation' | 'city'>) => (row.city ? `${row.organisation}, ${row.city}` : row.organisation)
 
@@ -439,15 +442,19 @@ const schoolName = (row: Pick<ContactRow, 'organisation' | 'city'>) => (row.city
  * The schools to choose as a child's „künftige Schule“ in the facility: its contacts and those of the Träger whose
  * „Gilt für“ includes the facility (the groups do not matter for this link), that show in a category whose name
  * contains „Schule“ (a contact of the Träger without such a category: when its own category name does), alphabetical.
- * Only their names, also for whoever does not see every contact: the child's record is the place this is chosen.
+ * Only their names, also for whoever does not see every contact (one for Leitung and Träger too): the child's record is
+ * the place this is chosen. A contact for the Träger alone (its own „Wer sieht ihn?“ or its category's) is offered only
+ * to the Träger (`withProviderOnly`, see `seesProviderContacts`); a school linked before stays readable (`schoolNameOf`).
  */
-export function schoolOptions(db: Db, facilityId: number): SchoolOptionDto[] {
+export function schoolOptions(db: Db, facilityId: number, withProviderOnly = false): SchoolOptionDto[] {
   const all = db.select().from(contacts).where(ofFacility(facilityId)).all()
   const place = placer(facilityContactCategories(db, facilityId), facilityId, loadTargets(db, 'contact', all))
   return all
     .filter((row) => {
       const placement = place(row)
-      return placement !== null && isSchoolCategory(placement.category?.name ?? (row.facilityId === null ? row.categoryName ?? '' : ''))
+      if (placement === null) return false
+      if (!withProviderOnly && contactVisibility(placement.category?.visibility ?? null, row.visibility) === 'provider') return false
+      return isSchoolCategory(placement.category?.name ?? (row.facilityId === null ? row.categoryName ?? '' : ''))
     })
     .map(row => ({ id: row.id, name: schoolName(row) }))
     .sort((a, b) => a.name.localeCompare(b.name, 'de') || a.id - b.id)
@@ -478,11 +485,14 @@ export function contactForScope(db: Db, scope: number | null, contactId: number)
 
 /**
  * The checked „künftige Schule“ of a child of the facility: none, one of `schoolOptions`, or the stored one even when it
- * no longer is (its category was renamed, or its „Gilt für“ changed); else 400 future_school_invalid.
+ * no longer is (its category was renamed, or its „Gilt für“ or visibility changed); else 400 future_school_invalid.
+ * `withProviderOnly`: the Träger may also choose a school for the Träger alone.
  */
-export function checkedFutureSchool(db: Db, facilityId: number, id: number | null, stored: number | null): number | null {
+export function checkedFutureSchool(
+  db: Db, facilityId: number, id: number | null, stored: number | null, withProviderOnly = false,
+): number | null {
   if (id === null || id === stored) return id
-  if (!schoolOptions(db, facilityId).some(option => option.id === id)) throw new ServiceError(400, 'future_school_invalid')
+  if (!schoolOptions(db, facilityId, withProviderOnly).some(option => option.id === id)) throw new ServiceError(400, 'future_school_invalid')
   return id
 }
 

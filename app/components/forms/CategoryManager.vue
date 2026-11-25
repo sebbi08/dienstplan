@@ -87,12 +87,12 @@ const deleteTitle = (category: FormTemplateCategoryDto, subcategories: number) =
                 </span>
               </div>
               <div class="flex flex-wrap items-center gap-1">
-                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="`${t.moveUp}: ${category.name}`" :title="t.moveUp" :disabled="busy || index === 0" @click="move(category, 'up')" />
-                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="`${t.moveDown}: ${category.name}`" :title="t.moveDown" :disabled="busy || index === tree.length - 1" @click="move(category, 'down')" />
-                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-folder-plus" :aria-label="t.addSubIn(category.name)" :title="t.addSub" :disabled="busy" @click="startSub(category)" />
-                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="`${t.rename}: ${category.name}`" :title="t.rename" :disabled="busy" @click="startEdit(category)" />
+                <UButton color="neutral" variant="ghost" class="min-h-10 min-w-10 justify-center" icon="i-lucide-arrow-up" :aria-label="`${t.moveUp}: ${category.name}`" :title="t.moveUp" :disabled="busy || index === 0" @click="move(category, 'up')" />
+                <UButton color="neutral" variant="ghost" class="min-h-10 min-w-10 justify-center" icon="i-lucide-arrow-down" :aria-label="`${t.moveDown}: ${category.name}`" :title="t.moveDown" :disabled="busy || index === tree.length - 1" @click="move(category, 'down')" />
+                <UButton color="neutral" variant="ghost" class="min-h-10 min-w-10 justify-center" icon="i-lucide-folder-plus" :aria-label="t.addSubIn(category.name)" :title="t.addSub" :disabled="busy" @click="startSub(category)" />
+                <UButton color="neutral" variant="ghost" class="min-h-10 min-w-10 justify-center" icon="i-lucide-pencil" :aria-label="`${t.rename}: ${category.name}`" :title="t.rename" :disabled="busy" @click="startEdit(category)" />
                 <UButton
-                  size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${category.name}`"
+                  color="error" variant="ghost" class="min-h-10 min-w-10 justify-center" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${category.name}`"
                   :title="deleteTitle(category, subcategories.length)" :disabled="busy || category.templateCount > 0 || subcategories.length > 0"
                   @click="remove(category)"
                 />
@@ -106,11 +106,11 @@ const deleteTitle = (category: FormTemplateCategoryDto, subcategories: number) =
                   <span class="block text-xs text-gray-500">{{ t.templateCount(sub.templateCount) }}</span>
                 </div>
                 <div class="flex flex-wrap items-center gap-1">
-                  <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="`${t.moveUp}: ${sub.name}`" :title="t.moveUp" :disabled="busy || subIndex === 0" @click="move(sub, 'up')" />
-                  <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="`${t.moveDown}: ${sub.name}`" :title="t.moveDown" :disabled="busy || subIndex === subcategories.length - 1" @click="move(sub, 'down')" />
-                  <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="`${t.rename}: ${sub.name}`" :title="t.rename" :disabled="busy" @click="startEdit(sub)" />
+                  <UButton color="neutral" variant="ghost" class="min-h-10 min-w-10 justify-center" icon="i-lucide-arrow-up" :aria-label="`${t.moveUp}: ${sub.name}`" :title="t.moveUp" :disabled="busy || subIndex === 0" @click="move(sub, 'up')" />
+                  <UButton color="neutral" variant="ghost" class="min-h-10 min-w-10 justify-center" icon="i-lucide-arrow-down" :aria-label="`${t.moveDown}: ${sub.name}`" :title="t.moveDown" :disabled="busy || subIndex === subcategories.length - 1" @click="move(sub, 'down')" />
+                  <UButton color="neutral" variant="ghost" class="min-h-10 min-w-10 justify-center" icon="i-lucide-pencil" :aria-label="`${t.rename}: ${sub.name}`" :title="t.rename" :disabled="busy" @click="startEdit(sub)" />
                   <UButton
-                    size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${sub.name}`"
+                    color="error" variant="ghost" class="min-h-10 min-w-10 justify-center" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${sub.name}`"
                     :title="deleteTitle(sub, 0)" :disabled="busy || sub.templateCount > 0" @click="remove(sub)"
                   />
                 </div>

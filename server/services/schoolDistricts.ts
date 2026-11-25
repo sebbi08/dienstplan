@@ -7,14 +7,14 @@ import {
 import { isSchoolCategory } from '../../shared/domain/contacts'
 import type {
   SchoolDistrictDto, SchoolDistrictListDto, SchoolDistrictListInput, SchoolDistrictMatchDto, SchoolDistrictParseDto,
-  SchoolDistrictSettingsDto, SchoolOptionDto,
+  SchoolDistrictSettingsDto, SchoolOptionDto, SessionUser,
 } from '../../shared/types/api'
 import { isOrphan } from '../../shared/domain/documentTargets'
 import type { Db } from '../db/client'
 import { contacts, schoolDistrictLists, schoolDistrictRows, schoolDistricts, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { pdfTextItems } from '../lib/pdfText'
-import { contactForFacility, contactForScope, schoolNames, schoolOptions } from './contacts'
+import { contactForFacility, contactForScope, schoolNames, schoolOptions, withProviderSchools } from './contacts'
 import { loadTargets } from './documentTargets'
 
 /**
@@ -73,10 +73,12 @@ export async function parseSchoolDistrictFile(file: { data: Buffer; filename: st
 
 /**
  * The schools the Träger's list may name: the Träger's school contacts for at least one facility (all or chosen ones);
- * whether one applies to a child is checked by the child's facility when it is taken over.
+ * whether one applies to a child is checked by the child's facility when it is taken over. A contact for the Träger
+ * alone („Wer sieht ihn?“) only with `withProviderOnly` (the Träger).
  */
-export function globalSchoolOptions(db: Db): SchoolOptionDto[] {
-  const rows = db.select().from(contacts).where(isNull(contacts.facilityId)).all().filter(row => isSchoolCategory(row.categoryName ?? ''))
+export function globalSchoolOptions(db: Db, withProviderOnly = false): SchoolOptionDto[] {
+  const rows = db.select().from(contacts).where(isNull(contacts.facilityId)).all()
+    .filter(row => isSchoolCategory(row.categoryName ?? '') && (withProviderOnly || row.visibility !== 'provider'))
   const targets = loadTargets(db, 'contact', rows)
   return rows
     .filter(row => !isOrphan(targets.get(row.id)!))
@@ -116,13 +118,16 @@ function listDto(db: Db, list: ListRow | null): SchoolDistrictListDto | null {
   }
 }
 
-/** The facility's own list, the Träger's list, and the schools to map districts to (settings.facility). */
-export function schoolDistrictSettings(db: Db, facilityId: number): SchoolDistrictSettingsDto {
+/**
+ * The facility's own list, the Träger's list, and the schools to map districts to (settings.facility); schools for the
+ * Träger alone only for the Träger (`withProviderOnly`).
+ */
+export function schoolDistrictSettings(db: Db, facilityId: number, withProviderOnly = false): SchoolDistrictSettingsDto {
   return {
     own: listDto(db, loadList(db, facilityId)),
     global: listDto(db, loadList(db, null)),
-    schoolOptions: schoolOptions(db, facilityId),
-    globalSchoolOptions: globalSchoolOptions(db),
+    schoolOptions: schoolOptions(db, facilityId, withProviderOnly),
+    globalSchoolOptions: globalSchoolOptions(db, withProviderOnly),
   }
 }
 
@@ -151,8 +156,8 @@ function checkedRow(row: DistrictRow, index: number): DistrictRow & { streetKey:
 }
 
 /** The schools a district of the scope may name: the facility's choices, or the Träger's global school contacts. */
-function allowedContacts(db: Db, scope: DistrictScope): Set<number> {
-  return new Set((scope === null ? globalSchoolOptions(db) : schoolOptions(db, scope)).map(option => option.id))
+function allowedContacts(db: Db, scope: DistrictScope, withProviderOnly: boolean): Set<number> {
+  return new Set((scope === null ? globalSchoolOptions(db, withProviderOnly) : schoolOptions(db, scope, withProviderOnly)).map(option => option.id))
 }
 
 /** Rows per INSERT: well below SQLite's limit of bound values. */
@@ -165,7 +170,7 @@ const CHUNK = 400
  * that is no school of the scope; a contact already stored stays allowed).
  */
 export function saveSchoolDistrictList(
-  db: Db, actor: { id: number }, scope: DistrictScope, input: SchoolDistrictListInput, now: Date = new Date(),
+  db: Db, actor: Pick<SessionUser, 'id' | 'role' | 'permissions'>, scope: DistrictScope, input: SchoolDistrictListInput, now: Date = new Date(),
 ): void {
   if (input.rows.length === 0) throw new ServiceError(400, 'school_district_no_rows')
   if (input.rows.length > L.maxRows) throw new ServiceError(400, 'school_district_too_many_rows')
@@ -181,7 +186,7 @@ export function saveSchoolDistrictList(
     ? db.select({ contactId: schoolDistricts.contactId }).from(schoolDistricts).where(eq(schoolDistricts.listId, existing.id)).all()
         .map(row => row.contactId).filter((id): id is number => id !== null)
     : [])
-  const allowed = allowedContacts(db, scope)
+  const allowed = allowedContacts(db, scope, withProviderSchools(actor))
   for (const district of given.values()) {
     if (district.contactId !== null && !allowed.has(district.contactId) && !stored.has(district.contactId)) {
       throw new ServiceError(400, 'school_district_contact_invalid')

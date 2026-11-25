@@ -4,14 +4,15 @@ import {
   tabCategoryName, websiteLabel,
 } from '../../app/utils/contacts'
 import {
-  contactLevels, contactMatches, contactViewLevel, contactVisibility, isEmailAddress, isSchoolCategory, normalizedWebsite, seesAtLevel, telHref,
+  contactLevels, contactMatches, contactViewLevel, contactVisibility, isEmailAddress, isSchoolCategory, normalizedWebsite, seesAtLevel,
+  seesProviderContacts, telHref,
 } from '../../shared/domain/contacts'
 import type { ContactCategoryDto, ContactDto } from '../../shared/types/api'
 
 const category = (id: number, name: string, contactCount = 0): ContactCategoryDto => ({ id, name, visibility: 'all', contactCount, ownCount: contactCount })
 const contact = (id: number, categoryId: number | null, overrides: Partial<ContactDto> = {}): ContactDto => ({
   id, categoryId, global: categoryId === null, globalCategoryName: null, organisation: `Kontakt ${id}`, person: '', role: '',
-  phone: '', mobile: '', email: '', street: '', postalCode: '', city: '', website: '', note: '', visibleToStaff: true,
+  phone: '', mobile: '', email: '', street: '', postalCode: '', city: '', website: '', note: '', visibility: 'all',
   updatedAt: '2026-11-20T09:00:00.000Z', updatedBy: null, canEdit: false, ...overrides,
 })
 
@@ -145,15 +146,24 @@ describe('who sees a contact (category and contact, the stricter wins)', () => {
   })
 
   it('combines the category\'s „Wer sieht sie?“ with the contact\'s own setting', () => {
-    expect(contactVisibility(null, true)).toBe('all')
-    expect(contactVisibility('all', false)).toBe('managers')
-    expect(contactVisibility('managers', true)).toBe('managers')
-    expect(contactVisibility('provider', true)).toBe('provider')
-    expect(contactVisibility('provider', false)).toBe('provider')
-    expect(seesAtLevel('all', contactVisibility('all', true))).toBe(true)
-    expect(seesAtLevel('all', contactVisibility('managers', true))).toBe(false)
-    expect(seesAtLevel('managers', contactVisibility('all', false))).toBe(true)
-    expect(seesAtLevel('managers', contactVisibility('provider', true))).toBe(false)
+    expect(contactVisibility(null, 'all')).toBe('all')
+    // Under „Vom Träger“ (no category) the contact's own setting alone counts, „Nur Träger“ included.
+    expect(contactVisibility(null, 'provider')).toBe('provider')
+    expect(contactVisibility('all', 'managers')).toBe('managers')
+    expect(contactVisibility('managers', 'all')).toBe('managers')
+    expect(contactVisibility('provider', 'all')).toBe('provider')
+    expect(contactVisibility('all', 'provider')).toBe('provider')
+    expect(seesAtLevel('all', contactVisibility('all', 'all'))).toBe(true)
+    expect(seesAtLevel('all', contactVisibility('managers', 'all'))).toBe(false)
+    expect(seesAtLevel('managers', contactVisibility('all', 'managers'))).toBe(true)
+    expect(seesAtLevel('managers', contactVisibility('provider', 'all'))).toBe(false)
     expect(seesAtLevel('provider', 'provider')).toBe(true)
+  })
+
+  it('offers the schools for the Träger alone only to the Träger who maintains the address book', () => {
+    expect(seesProviderContacts('provider', true)).toBe(true)
+    expect(seesProviderContacts('provider', false)).toBe(false)
+    expect(seesProviderContacts('admin', true)).toBe(false)
+    expect(seesProviderContacts('terminal', false)).toBe(false)
   })
 })

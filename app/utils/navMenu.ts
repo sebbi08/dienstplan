@@ -111,7 +111,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // The cash books of the facility and its groups: monthly work, so under "Mehr" (the row holds „Dokumente“ now).
   const cash = shown([[can('cash.view'), entry(de.nav.cash, '/cash')]])
   // "Dokumente": the form templates (tab „Bögen“: staff talks, child observations, team meetings, accident reports;
-  // formTemplates.manage), the blank forms to print (tab „Vorlagen“; printTemplates.view) and „Wissen“ (knowledge.view, every
+  // formTemplates.manage), the blank forms to print (tab „Zum Ausdrucken“; printTemplates.view) and „Wissen“ (knowledge.view, every
   // account). In the row for the managers (with its count), under "Meins" for Mitarbeiter (read only); the tablet reaches
   // them from its start page.
   const formsManager = can('formTemplates.manage')

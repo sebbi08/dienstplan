@@ -183,7 +183,7 @@ describe('creating the category in the other facilities', () => {
       .orderBy(asc(contactCategories.sortOrder), asc(contactCategories.id)).all()
     const contact = (extra: Partial<ContactInput> = {}): ContactInput => ({
       organisation: 'Kreisjugendamt', person: '', role: '', phone: '', mobile: '', email: '', street: '', postalCode: '', city: '',
-      website: '', note: '', visibleToStaff: false, scope: 'all', categoryName: 'Ämter', ...extra,
+      website: '', note: '', visibility: 'managers', scope: 'all', categoryName: 'Ämter', ...extra,
     })
     const placed = (facilityId: number, id: number) => listContacts(db, provider(facilityId)).contacts.find(entry => entry.id === id)!
 

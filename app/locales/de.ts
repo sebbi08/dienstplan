@@ -24,6 +24,10 @@ const providerMoves = (count: number) => (count === 1
 const generalMoves = (count: number) => (count === 1
   ? 'Die 1 Vorlage des Trägers darin steht danach direkt in der Kategorie („Allgemein“).'
   : `Die ${count} Vorlagen des Trägers darin stehen danach direkt in der Kategorie („Allgemein“).`)
+/** The Träger's contacts for several facilities that leave a category (deleted or renamed) for „Vom Träger“. */
+const providerContactMoves = (count: number) => (count === 1
+  ? 'Der 1 Kontakt des Trägers darin steht danach unter „Vom Träger“ – sichtbar für alle, für die der Träger ihn freigegeben hat.'
+  : `Die ${count} Kontakte des Trägers darin stehen danach unter „Vom Träger“ – sichtbar für alle, für die der Träger sie freigegeben hat.`)
 /** „Wer sieht sie?“ of a category, the same words for „Zum Ausdrucken“, „Wissen“ and „Kontakte“. */
 const CATEGORY_VISIBILITIES = { all: 'Alle (auch Mitarbeitende und Tablet)', managers: 'Nur Leitung und Träger', provider: 'Nur Träger' } as const
 /** The note at a category (or an item) not everyone sees, in all three places. */
@@ -2692,7 +2696,7 @@ export const de = {
     groupName: 'Name',
     groupNameReadOnly: 'Den Namen ändert der Träger.',
     groupOrderHint: 'Reihenfolge änderst du in der Gruppenliste.',
-    groupOrderHintList: 'Mit den Pfeilen änderst du die Reihenfolge der Gruppen. Dienstplan, Belegung, Anwesenheit und Kalender zeigen die Gruppen in dieser Reihenfolge.',
+    groupOrderHintList: 'Mit „Reihenfolge ändern“ und den Pfeilen änderst du die Reihenfolge der Gruppen. Dienstplan, Belegung, Anwesenheit und Kalender zeigen die Gruppen in dieser Reihenfolge.',
     moveUp: (name: string) => `${name} nach oben`, moveDown: (name: string) => `${name} nach unten`,
     groupDocumentation: 'Entwicklungsdokumentation',
     groupReadAccess: 'Darf zusätzlich lesen',
@@ -3977,11 +3981,14 @@ export const de = {
     organisationPlaceholder: 'z. B. Grundschule Süd', rolePlaceholder: 'z. B. Kooperationslehrkraft',
     categoryPlaceholder: 'Kategorie wählen',
     categoryNameHint: 'Erscheint in jeder Einrichtung in der Kategorie mit diesem Namen, sonst unter „Vom Träger“.',
-    // „Wer sieht ihn?“ at the contact (stored as „auch für Mitarbeitende“ yes/no): on top of the category's „Wer sieht sie?“.
+    // „Wer sieht ihn?“ at the contact: on top of the category's „Wer sieht sie?“ (the stricter wins); „Nur Träger“ is the Träger's.
     visibility: 'Wer sieht ihn?',
-    visibilities: { all: CATEGORY_VISIBILITIES.all, managers: CATEGORY_VISIBILITIES.managers },
+    visibilities: CATEGORY_VISIBILITIES,
     visibilityHint: `${ITEM_VISIBILITY_HINT} Mitarbeitende und das Tablet sehen ihn außerdem nur, wenn er unter „Gilt für“ `
       + 'für alle Gruppen oder für ihre Stammgruppe gilt.',
+    globalVisibilityHint: 'Gilt überall, wo eine Einrichtung keine Kategorie mit diesem Namen hat (dort unter „Vom Träger“). '
+      + 'Ist die Kategorie einer Einrichtung enger eingestellt, gilt dort die engere Einstellung.',
+    confirmProviderOnly: 'Diesen Kontakt sehen Leitung, Mitarbeitende und Tablet dann nicht mehr. Trotzdem speichern?',
     // A contact or category that not everyone sees.
     visibilityBadge: VISIBILITY_BADGES,
     // A contact of the Träger: „alle Einrichtungen“ when it is for all, else „vom Träger“ (for the facilities chosen).
@@ -3997,7 +4004,10 @@ export const de = {
       none: 'Noch keine Kategorien.', name: 'Name der Kategorie', visibility: 'Wer sieht sie?', add: 'Kategorie hinzufügen',
       edit: 'Kategorie ändern', visibilities: CATEGORY_VISIBILITIES,
       contactCount: (count: number) => (count === 1 ? '1 Kontakt' : `${count} Kontakte`),
-      confirmDelete: (name: string) => `Kategorie „${name}“ löschen?`, moveUp: 'Nach oben', moveDown: 'Nach unten',
+      /** `moved`: the Träger's contacts filed by its name that then show under „Vom Träger“ (with their own „Wer sieht ihn?“). */
+      confirmDelete: (name: string, moved = 0) => `Kategorie „${name}“ löschen?${moved > 0 ? ` ${providerContactMoves(moved)}` : ''}`,
+      confirmRename: (name: string, moved: number) => `Die Kategorie „${name}“ umbenennen? ${providerContactMoves(moved)}`,
+      moveUp: 'Nach oben', moveDown: 'Nach unten',
       /** Setting a category with contacts to „Nur Träger“. */
       confirmProviderOnly: (name: string, count: number) => `${count === 1 ? 'Den 1 Kontakt' : `Die ${count} Kontakte`} in „${name}“ `
         + 'sehen Leitung, Mitarbeitende und Tablet dann nicht mehr. Trotzdem auf „Nur Träger“ stellen?',

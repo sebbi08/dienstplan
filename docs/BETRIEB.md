@@ -222,7 +222,8 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
 
 ### Kinder am Tablet
 
-- Auf der Startseite des Tablets gibt es drei Knöpfe: **Stempeln**, **Kinder** und **Vorlagen** (siehe Abschnitt 19).
+- Auf der Startseite des Tablets gibt es unter anderem die Kacheln **Stempeln**, **Kinder** und **Dokumente** (mit
+  „Zum Ausdrucken“, siehe Abschnitt 19).
   Unter „Kinder“ tippt die Person ihren Namen an und gibt ihre PIN ein; danach ist das Tablet für sie **aufgeschlossen**. Oben steht
   „Aufgeschlossen: ‹Name›“ mit dem Knopf **Sperren**.
 - Für den Zugang braucht jeder Mitarbeiter eine **PIN**. Die vergibt die Leitung wie fürs Stempeln (unter
@@ -715,7 +716,7 @@ dem Update hellbraun.
 ### Reihenfolge der Gruppen
 
 Die Gruppen stehen zuerst in der Reihenfolge, in der sie angelegt wurden. **Nur der Träger** ändert sie unter
-*Einstellungen → Gruppen* mit den Pfeilen **nach oben / nach unten** neben jeder Gruppe (für die gerade gewählte
+*Einstellungen → Gruppen* nach **Reihenfolge ändern** mit den Pfeilen **nach oben / nach unten** neben jeder Gruppe (für die gerade gewählte
 Einrichtung). Dienstplan, Belegung, Anwesenheit, Jahreskalender und Urlaubsplanung zeigen die Gruppen danach in
 dieser Reihenfolge. Die Leitung sieht die Reihenfolge, aber keine Pfeile.
 
@@ -1119,7 +1120,7 @@ und was bald abläuft.
   Einrichtung“). Je Pflichtdokument: **Name**, das **Fach** der Personalakte, in das es gehört, **gilt für** (alle oder nur
   bestimmte Qualifikationen; wer keine Qualifikation eingetragen hat, braucht nur die für alle), freiwillig **gültig für**
   (Monate, z. B. 60 beim Führungszeugnis; leer = unbegrenzt), freiwillig eine **Vorlage** zum Ausfüllen oder Unterschreiben
-  und **aktiv** (ein inaktives wird nirgends verlangt). ▲/▼ ändert die Reihenfolge (unter den Pflichtdokumenten, die du
+  und **aktiv** (ein inaktives wird nirgends verlangt). Nach **Reihenfolge ändern** ändert ▲/▼ die Reihenfolge (unter den Pflichtdokumenten, die du
   siehst). Löschen fragt nach; die schon abgelegten Dokumente bleiben in der Akte, nur nicht mehr als Pflichtdokument
   zugeordnet. Namen sind eindeutig (unter den Pflichtdokumenten, die du siehst). Bekommt ein Pflichtdokument ein anderes
   Fach, verlieren die schon zugeordneten Dokumente im alten Fach die Zuordnung (sie bleiben in der Akte).
@@ -1853,7 +1854,8 @@ Elternbriefe, Einverständniserklärungen, ein Formular für Medikamente oder ei
   bzw. „Wieder aktivieren“), **Wissen** („Bearbeiten“) und **Kontakte** („Bearbeiten“).
 - **Reihenfolge**: Wer Vorlagen bearbeiten darf, tippt auf **Reihenfolge ändern** (oben neben „Kategorien verwalten“);
   erst dann erscheinen in jeder Zeile die Pfeile **Nach oben / Nach unten**, und **Fertig** blendet sie wieder aus (wie in
-  der Liste der Mitarbeiter; ebenso bei **Bögen** und **Wissen**). Die Pfeile schieben eine Vorlage innerhalb ihres
+  der Liste der Mitarbeiter; ebenso bei **Bögen**, **Wissen**, den Bezugspersonen und in den Einstellungen bei Gruppen,
+  Einwilligungen, den Reitern der Übersicht und den Pflichtdokumenten). Die Pfeile schieben eine Vorlage innerhalb ihres
   Unterreiters. Die Reihenfolge gilt für die **oben gewählte Einrichtung** und für alle,
   die dort die Vorlagen ansehen (Mitarbeiter und Tablet sehen dieselbe Reihenfolge, aber keine Pfeile). Auch die
   Vorlagen für alle Einrichtungen lassen sich so schieben – das ändert nur die Reihenfolge in dieser Einrichtung; jede
@@ -1936,7 +1938,7 @@ du außerdem überall **Text**, ein **Häkchen**, ein **Kreuz** und eine **Unter
   Person sind schon gewählt.
 - **Am Tablet** geht das nur bei Kindern und nur, wenn das Tablet mit einer PIN entsperrt ist, deren Person Dokumente in
   Kinderakten hochladen darf (in der Kinderakte: **Aus Vorlage ausfüllen** und **Bearbeiten**). Personalakten gibt es
-  am Tablet nicht. Unter **Vorlagen** auf der Startseite (ohne PIN) gibt es deshalb kein **Ausfüllen**.
+  am Tablet nicht. Unter **Dokumente → Zum Ausdrucken** von der Startseite aus (ohne PIN) gibt es deshalb kein **Ausfüllen**.
 - Es gelten dieselben Regeln wie beim Hochladen: nur PDF, höchstens **30 MB**, nur in der eigenen Einrichtung.
 - **Unterschrift**: Eine so gezeichnete Unterschrift ist eine **einfache elektronische Signatur** – keine
   qualifizierte elektronische Signatur. Wo das Gesetz die Schriftform verlangt (z. B. Kündigung eines
@@ -3147,6 +3149,11 @@ Gesundheitsamt, Fachberatung, Ärztinnen und Ärzte, Handwerk und Notdienst usw.
   Kategorien, die nicht alle sehen, sind im Reiter markiert („nur Leitung und Träger“ bzw. „nur Träger“). Legt der Träger
   für einen Kontakt für mehrere Einrichtungen die fehlende Kategorie dort an, bekommt sie das „Wer sieht sie?“ der
   gleichnamigen Kategorie der oben gewählten Einrichtung.
+- **Achtung bei Kontakten des Trägers für mehrere Einrichtungen**: Eine Kategorie schützt sie nur in den Einrichtungen,
+  die eine Kategorie mit diesem Namen haben. Wo es keine gibt (auch in später angelegten Einrichtungen), stehen sie unter
+  „Vom Träger“, und dort zählt nur ihr eigenes **„Wer sieht ihn?“**. Soll ein solcher Kontakt überall nur für den Träger
+  sein, stellt der Träger ihn selbst auf **Nur Träger**. Benennt man eine Kategorie um oder löscht sie, während Kontakte des
+  Trägers darin stehen, fragt die App vorher nach und nennt, wie viele danach unter „Vom Träger“ stehen.
 - Die Kategorien erscheinen auf der Seite als Reiter („Alle“, dann die Kategorien, ggf. „Vom Träger“). Das Suchfeld sucht
   in Einrichtung/Firma, Ansprechperson, Funktion, Notiz und Ort.
 
@@ -3157,13 +3164,15 @@ Gesundheitsamt, Fachberatung, Ärztinnen und Ärzte, Handwerk und Notdienst usw.
   „https://“ bekommt es vorangestellt, andere Adressarten als http/https sind nicht erlaubt.
 - Telefon, Mobil, E-Mail und Website sind anklickbar (Anruf, E-Mail-Programm, neue Seite).
 - **„Wer sieht ihn?“** (früher der Haken „auch für Mitarbeitende und am Tablet sichtbar“): **Alle (auch Mitarbeitende
-  und Tablet)** oder **Nur Leitung und Träger**. Es gilt **zusätzlich** zu „Wer sieht sie?“ der Kategorie – **die engere
-  Einstellung zählt** (wie bei „Zum Ausdrucken“). Einen Kontakt mit „Alle“ sehen also Mitarbeiter-Konten (unter **Meins →
+  und Tablet)**, **Nur Leitung und Träger** oder – nur der Träger kann das wählen – **Nur Träger**. Es gilt **zusätzlich**
+  zu „Wer sieht sie?“ der Kategorie – **die engere Einstellung zählt** (wie bei „Zum Ausdrucken“); unter „Vom Träger“
+  zählt es allein. Macht eine Änderung einen Kontakt zu einem „Nur Träger“-Kontakt (eigene Einstellung oder Kategorie),
+  fragt die App vorher nach. Einen Kontakt mit „Alle“ sehen also Mitarbeiter-Konten (unter **Meins →
   Kontakte**, der Eintrag erscheint erst, wenn es mindestens einen solchen Kontakt gibt) und das Tablet (Kachel
   **Kontakte** auf der Startseite, ohne PIN) nur, wenn auch seine Kategorie für **Alle** ist. Kontakte, die nicht alle
-  sehen, sind für Leitung und Träger markiert („nur Leitung und Träger“ bzw. „nur Träger“). Beim Update wurde aus dem
-  Haken „Alle“ und aus keinem Haken „Nur Leitung und Träger“ – es ändert sich nichts. „Nur Träger“ gibt es für einen
-  einzelnen Kontakt nicht; dafür legt der Träger ihn in eine Kategorie „Nur Träger“. Zur Ausnahme bei Schulen siehe
+  sehen, sind für Leitung und Träger markiert („nur Leitung und Träger“ bzw. „nur Träger“). Beim Update (Migration 0130)
+  wurde aus dem Haken „Alle“ und aus keinem Haken „Nur Leitung und Träger“ – es ändert sich nichts; die alte Ja/Nein-Spalte
+  gibt es danach nicht mehr. Zur Ausnahme bei Schulen siehe
   „Künftige Schule eines Kindes“. Zusätzlich zählt **„Gilt für“** (siehe unten): Mitarbeitende sehen einen Kontakt nur,
   wenn er für alle Gruppen gilt oder ihre Stammgruppe gewählt ist.
 - **Drucken**: alle Kontakte oder die geöffnete Kategorie, jeweils so, wie die Person sie sieht (nicht am Tablet).
@@ -3226,8 +3235,10 @@ Beim Anlegen und später mit **Bearbeiten** gibt es **„Gilt für“** – gena
   wenn die Schule nicht mehr für sie gilt, in der Liste des Trägers, wenn sie für keine Einrichtung mehr gilt (eine
   umbenannte Kategorie allein zählt nicht).
 - Name und Ort einer Schule sieht in der Kinderakte (und in der Liste der Schulkinder) jede Person, die die Akte sehen
-  bzw. ändern darf – auch wenn der Kontakt nicht für „Alle“ ist; Ansprechperson, Telefon,
-  E-Mail und Notiz nicht.
+  bzw. ändern darf – auch wenn der Kontakt nur für Leitung und Träger ist; Ansprechperson, Telefon,
+  E-Mail und Notiz nicht. **Ausnahme „Nur Träger“**: Eine Schule, die nur der Träger sieht (eigene Einstellung oder
+  Kategorie), steht nur beim Träger zur Auswahl – als „künftige Schule“ in der Kinderakte und in den Schulbezirken. Ist sie
+  bei einem Kind schon eingetragen, bleibt sie dort mit Namen stehen, auch wenn die Leitung die Akte speichert.
 - Das frühere Freitextfeld heißt jetzt **„Grundschule (Notiz)“**. Es erscheint nur noch, wenn darin schon etwas steht oder
   unter Kontakte noch keine Schule eingetragen ist; für die Liste der Schulkinder zählt nur „künftige Schule“.
 - Die Liste **Kinder → Belegung → „Schulkinder zum 1.9.“** zeigt die künftige Schule, lässt sich **nach Schule

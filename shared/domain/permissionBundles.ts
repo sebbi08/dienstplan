@@ -33,7 +33,7 @@ export const BUNDLE_AREA_LABELS: Record<BundleArea, string> = {
   knowledge: 'Wissen',
   cash: 'Kasse',
   calendar: 'Kalender',
-  templates: 'Vorlagen',
+  templates: 'Zum Ausdrucken',
   administration: 'Verwaltung',
 }
 

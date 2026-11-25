@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { CONTACT_LIMITS } from '#shared/domain/contacts'
+import { CONTACT_LIMITS, contactLevels, contactViewLevel, contactVisibility } from '#shared/domain/contacts'
+import type { TemplateVisibility } from '#shared/domain/templateCategories'
 import type { ContactCategoryDto, ContactDto, ContactInput, DocumentTargetOptionsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import {
@@ -11,7 +12,8 @@ import {
  * the Träger (contacts.global), one for all or the chosen facilities filed under a category name (with the names the
  * facilities use as suggestions). „Gilt für“ (shared/domain/documentTargets.ts: facilities for the Träger, groups also
  * for the Leitung) at creation and afterwards; it is sent only when changed, and saving waits for its choices.
- * „Wer sieht ihn?“: all, or only Leitung and Träger – on top of the category's „Wer sieht sie?“ (the stricter wins).
+ * „Wer sieht ihn?“: all, only Leitung and Träger, or (the Träger's choice) only the Träger – on top of the category's „Wer
+ * sieht sie?“ (the stricter wins). Saving a contact that thereby becomes the Träger's alone asks first.
  */
 const props = defineProps<{
   /** null = a new contact. */
@@ -37,14 +39,17 @@ type Form = Omit<ContactInput, 'categoryId' | 'scope' | 'facilityIds' | 'groupTa
 }
 const empty = (): Form => ({
   targets: emptyTargets(), categoryId: undefined, categoryName: '', organisation: '', person: '', role: '', phone: '', mobile: '',
-  email: '', street: '', postalCode: '', city: '', website: '', note: '', visibleToStaff: false,
+  email: '', street: '', postalCode: '', city: '', website: '', note: '', visibility: 'managers',
 })
 const form = reactive<Form>(empty())
 
 /** For all or the chosen facilities (the Träger's): filed by category name. */
 const forAll = computed(() => form.targets.scope !== 'facility')
 const categoryItems = computed(() => props.categories.map(category => ({ label: category.name, value: category.id })))
-const visibilityItems = (['all', 'managers'] as const).map(level => ({ label: t.visibilities[level], value: level }))
+const { user } = useUserSession()
+// Only the levels the editor sees: „Nur Träger“ is the Träger's (the server refuses it as well).
+const visibilityItems = computed(() => (user.value ? contactLevels(contactViewLevel(user.value.role, true)) : ['all', 'managers'] as TemplateVisibility[])
+  .map(level => ({ label: t.visibilities[level], value: level })))
 
 // What „Gilt für“ offers, loaded with the form; saving waits for it, a failed load offers to try again. Sent only when
 // the editor changed it (or must: no facility left), otherwise the server keeps it as it is.
@@ -97,6 +102,11 @@ async function save() {
   if (problem) return void toast.add({ title: problem.kind === 'facility' ? de.documentTargets.pickFacility : de.documentTargets.pickGroup(problem.facility), color: 'error' })
   const lost = props.contact && targetsTouched.value ? facilitiesLost(props.contact.targets, form.targets, targetOptions.value, ownFacilityId) : 0
   if (lost > 0 && !(await confirm(de.documentTargets.confirmLosing(lost, 'der Kontakt')))) return
+  // Made the Träger's alone (its own setting or its category's): Leitung, staff and tablet no longer see it – ask first.
+  const categoryOf = (id: number | null | undefined) => props.categories.find(category => category.id === id)?.visibility ?? null
+  const before = props.contact ? contactVisibility(categoryOf(props.contact.categoryId), props.contact.visibility) : null
+  const after = contactVisibility(forAll.value ? null : categoryOf(form.categoryId), form.visibility)
+  if (after === 'provider' && before !== 'provider' && !(await confirm(t.confirmProviderOnly))) return
   // For several or all facilities: create the category where it is missing („Nein“: „Vom Träger“ there)?
   // A change asks only when „Gilt für“ or the category name changed (a „Nein“ is not asked again on every save).
   const asks = forAll.value && asksForCategories(props.contact ? { categoryName: props.contact.globalCategoryName } : null, form, targetsTouched.value)
@@ -153,12 +163,9 @@ async function save() {
         <UFormField :label="f.note" class="sm:col-span-2">
           <UTextarea v-model="form.note" :rows="3" :maxlength="CONTACT_LIMITS.note" class="w-full" />
         </UFormField>
-        <!-- „Wer sieht ihn?“ (stored as „auch für Mitarbeitende“): on top of the category's „Wer sieht sie?“. -->
-        <UFormField :label="t.visibility" :description="t.visibilityHint" class="sm:col-span-2">
-          <USelect
-            :model-value="form.visibleToStaff ? 'all' : 'managers'" :items="visibilityItems" class="w-full"
-            @update:model-value="form.visibleToStaff = $event === 'all'"
-          />
+        <!-- „Wer sieht ihn?“: on top of the category's „Wer sieht sie?“ (under „Vom Träger“ it alone counts). -->
+        <UFormField :label="t.visibility" :description="forAll ? t.globalVisibilityHint : t.visibilityHint" class="sm:col-span-2">
+          <USelect v-model="form.visibility" :items="visibilityItems" class="w-full" />
         </UFormField>
         <div class="flex gap-2 sm:col-span-2">
           <UButton type="submit" :label="contact ? de.common.save : t.add" :loading="busy" :disabled="busy || !targetOptions" />

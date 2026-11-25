@@ -27,7 +27,8 @@ const sectionElement = (key: RecordSection) => document.getElementById(recordSec
 const headerHides = () => window.matchMedia('(max-width: 767.98px)').matches && user.value?.role !== 'terminal'
 
 function scan() {
-  shown.value = RECORD_SECTIONS.filter(key => sectionElement(key)?.firstElementChild)
+  const found = RECORD_SECTIONS.filter(key => sectionElement(key)?.firstElementChild)
+  if (found.join() !== shown.value.join()) shown.value = found
 }
 
 function measure() {
@@ -38,14 +39,23 @@ function measure() {
   current.value = currentRecordSection(tops, line, { atBottom, preferred, viewportHeight: window.innerHeight })
 }
 
+/**
+ * Measures on the next frames: once for a change, and frame by frame for a moment after scrolling, so the bar follows
+ * the header while it slides (200 ms) instead of jumping after it.
+ */
 let frame = 0
+let followUntil = 0
 function update() {
+  followUntil = performance.now() + 260
   if (frame) return
-  frame = requestAnimationFrame(() => {
-    frame = 0
-    scan()
+  let first = true
+  const step = () => {
+    if (first) scan()
+    first = false
     measure()
-  })
+    frame = performance.now() < followUntil ? requestAnimationFrame(step) : 0
+  }
+  frame = requestAnimationFrame(step)
 }
 const releasePreferred = () => { preferred = null }
 

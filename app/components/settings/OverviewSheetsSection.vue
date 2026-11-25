@@ -84,6 +84,8 @@ async function remove(sheet: OverviewSheetDto) {
   const ok = await run(() => $fetch<unknown>(`/api/child-overview-sheets/${sheet.id}`, { method: 'DELETE' }), de.common.deleted)
   if (ok && editing.value?.id === sheet.id) editing.value = null
 }
+/** The ▲/▼ of the tabs show only after „Reihenfolge ändern“ (the columns of a tab being edited keep theirs). */
+const reordering = ref(false)
 function moveSheet(index: number, direction: -1 | 1) {
   const next = moveInList(sheets.value.map(sheet => sheet.id), index, direction)
   if (next) run(() => $fetch<unknown>('/api/child-overview-sheets/order', { method: 'POST', body: { ids: next } }), de.common.saved)
@@ -92,7 +94,10 @@ function moveSheet(index: number, direction: -1 | 1) {
 
 <template>
   <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-    <h2 class="font-semibold">{{ s.title }}</h2>
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="font-semibold">{{ s.title }}</h2>
+      <ReorderToggle v-if="sheets.length > 1" v-model="reordering" size="xs" class="ml-auto" />
+    </div>
     <p class="text-xs text-gray-500">{{ s.intro }}</p>
     <p v-if="!sheets.length" class="text-sm text-gray-500">{{ s.empty }}</p>
 
@@ -101,19 +106,23 @@ function moveSheet(index: number, direction: -1 | 1) {
         <div class="flex flex-wrap items-center gap-2">
           <span class="min-w-40 flex-1 font-medium">{{ sheet.name }}</span>
           <span class="text-xs text-gray-500">{{ s.columns }}: {{ sheet.columns.length }}</span>
-          <UButton
-            size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="`${s.moveUp}: ${sheet.name}`"
-            :disabled="busy || index === 0" @click="moveSheet(index, -1)"
+          <!-- ▲/▼ only after „Reihenfolge ändern“; on phones „Bearbeiten“ and „⋯“ with „Löschen“. -->
+          <template v-if="reordering">
+            <UButton
+              color="neutral" variant="ghost" icon="i-lucide-arrow-up" class="min-h-10 min-w-10 justify-center" :aria-label="`${s.moveUp}: ${sheet.name}`"
+              :disabled="busy || index === 0" @click="moveSheet(index, -1)"
+            />
+            <UButton
+              color="neutral" variant="ghost" icon="i-lucide-arrow-down" class="min-h-10 min-w-10 justify-center" :aria-label="`${s.moveDown}: ${sheet.name}`"
+              :disabled="busy || index === sheets.length - 1" @click="moveSheet(index, 1)"
+            />
+          </template>
+          <RowActions
+            v-else :name="sheet.name" size="xs" :actions="[
+              { key: 'edit', label: de.common.edit, icon: 'i-lucide-pencil', show: editing?.id !== sheet.id, disabled: busy || editing !== null, onClick: () => startEdit(sheet) },
+              { key: 'delete', label: de.common.delete, icon: 'i-lucide-trash-2', color: 'error', variant: 'ghost', iconOnly: true, disabled: busy, onClick: () => remove(sheet) },
+            ]"
           />
-          <UButton
-            size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="`${s.moveDown}: ${sheet.name}`"
-            :disabled="busy || index === sheets.length - 1" @click="moveSheet(index, 1)"
-          />
-          <UButton
-            v-if="editing?.id !== sheet.id" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.common.edit"
-            :disabled="busy || editing !== null" @click="startEdit(sheet)"
-          />
-          <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${sheet.name}`" :disabled="busy" @click="remove(sheet)" />
         </div>
 
         <form v-if="editing?.id === sheet.id" class="space-y-3 rounded-lg bg-gray-50 p-3" @submit.prevent="save">

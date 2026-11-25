@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { de } from '~/locales/de'
-import { rowActionSplit, type RowAction } from '~/utils/rowActions'
+import { rowActionSplit, rowMenuItem, type RowAction } from '~/utils/rowActions'
 
 /**
  * The buttons of one list row („Zum Ausdrucken“, „Bögen“, „Wissen“, „Kontakte“): on phones (below 640 px) only the
@@ -10,11 +10,8 @@ import { rowActionSplit, type RowAction } from '~/utils/rowActions'
  */
 const props = withDefaults(defineProps<{ actions: readonly RowAction[]; name: string; size?: 'xs' | 'sm' }>(), { size: 'sm' })
 const split = computed(() => rowActionSplit(props.actions))
-const menuItems = computed<DropdownMenuItem[]>(() => split.value.rest.map(action => ({
-  label: action.label, icon: action.icon, color: action.color === 'error' ? 'error' : undefined, disabled: action.disabled,
-  ...(action.to ? { to: action.to, target: action.target, external: action.external } : {}),
-  ...(action.onClick ? { onSelect: () => { action.onClick!() } } : {}),
-})))
+// A disabled action says why below its label in the menu (on desktop that is the tooltip, phones have none).
+const menuItems = computed<DropdownMenuItem[]>(() => split.value.rest.map(rowMenuItem))
 /** The props of an action's button (icon only from 640 px when asked; the label then names it). */
 const buttonOf = (action: RowAction) => ({
   size: props.size, color: action.color ?? 'neutral', variant: action.variant ?? 'outline', icon: action.icon,

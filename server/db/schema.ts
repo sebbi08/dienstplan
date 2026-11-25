@@ -1501,7 +1501,7 @@ export const printTemplateTargetGroups = sqliteTable('print_template_target_grou
 }, table => [primaryKey({ columns: [table.templateId, table.groupId] }), index('print_template_target_groups_group').on(table.groupId)])
 
 /**
- * The order of the templates within a facility's sub-tab of „Dokumente“ → „Vorlagen“ (▲/▼), one row per facility and
+ * The order of the templates within a facility's sub-tab of „Dokumente“ → „Zum Ausdrucken“ (▲/▼), one row per facility and
  * template: a template for all facilities shows in every facility and each orders it on its own. Within a sub-tab the
  * templates with a row come first by `sortOrder`, those without one after them by title (so a template of before stays
  * where it was). Gone with the facility or the template.
@@ -2085,7 +2085,7 @@ export const facilityEveRules = sqliteTable('facility_eve_rules', {
  * its own; it starts with DEFAULT_CONTACT_CATEGORIES). The name is unique per facility regardless of case; a category is
  * deleted only while no contact of the facility is filed in it. `visibility` („Wer sieht sie?“, 0130_contact_category_visibility)
  * says who sees the category and its contacts, like the print template categories; on top of each contact's own
- * `visibleToStaff`, the stricter one wins (shared/domain/contacts.ts). Existing categories got 'all', so nothing changed.
+ * `visibility`, the stricter one wins (shared/domain/contacts.ts). Existing categories got 'all', so nothing changed.
  */
 export const contactCategories = sqliteTable('contact_categories', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -2099,9 +2099,10 @@ export const contactCategories = sqliteTable('contact_categories', {
  * An external business contact of the facility (school, Jugendamt, Fachberatung …), or for all facilities (`facilityId`
  * null, only the Träger maintains those). A facility's contact is filed in one of the facility's categories
  * (`categoryId`); a contact for all facilities has no category row but a `categoryName`: each facility shows it in its
- * own category of that name (regardless of case), otherwise under „Vom Träger“. `visibleToStaff`: also Mitarbeiter
- * accounts and the facility's tablet see it (else only whoever holds contacts.manage) – as far as its category's
- * `visibility` allows. `sortOrder` orders before the
+ * own category of that name (regardless of case), otherwise under „Vom Träger“. `visibility` („Wer sieht ihn?“,
+ * 0130_contact_category_visibility, before that the yes/no `visible_to_staff`): all (also Mitarbeiter accounts and the
+ * facility's tablet), Leitung and Träger (whoever holds contacts.manage) or the Träger alone – on top of its category's
+ * `visibility`, the stricter one wins; under „Vom Träger“ it alone counts. `sortOrder` orders before the
  * organisation (0 for all today). Business contacts, no retention period: they go with their facility.
  */
 export const contacts = sqliteTable('contacts', {
@@ -2120,7 +2121,7 @@ export const contacts = sqliteTable('contacts', {
   city: text('city').notNull().default(''),
   website: text('website').notNull().default(''),
   note: text('note').notNull().default(''),
-  visibleToStaff: integer('visible_to_staff', { mode: 'boolean' }).notNull().default(false),
+  visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
   sortOrder: integer('sort_order').notNull().default(0),
   updatedAt: text('updated_at').notNull(),
   updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "20efa0c8-39f9-4f64-b5c3-d56f76052bc4",
+  "id": "6260c2ff-0304-49d1-ab74-a1a5ea3a7978",
   "prevId": "0abf2fbc-e136-4648-9957-e694c627ab54",
   "tables": {
     "absence_codes": {
@@ -4255,13 +4255,13 @@
           "autoincrement": false,
           "default": "''"
         },
-        "visible_to_staff": {
-          "name": "visible_to_staff",
-          "type": "integer",
+        "visibility": {
+          "name": "visibility",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": false
+          "default": "'all'"
         },
         "sort_order": {
           "name": "sort_order",

@@ -14,7 +14,7 @@ export const templateFileUrl = (id: number): string => `/api/print-templates/${i
 export const FROM_PROVIDER_TAB = 'provider'
 
 /**
- * A sub-tab of „Dokumente“ → „Vorlagen“: a category of the facility (with its subcategories), or „Vom Träger“
+ * A sub-tab of „Dokumente“ → „Zum Ausdrucken“: a category of the facility (with its subcategories), or „Vom Träger“
  * (`category` null).
  */
 export interface TemplateTab {

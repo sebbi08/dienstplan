@@ -2983,11 +2983,11 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     sqlite.exec(`
       INSERT INTO contacts (id, facility_id, category_id, organisation, updated_at) VALUES
         (1, 2, (SELECT id FROM contact_categories WHERE facility_id = 2 AND name = 'Schulen'), 'Grundschule', 'x');
-      INSERT INTO contacts (id, facility_id, category_name, organisation, visible_to_staff, updated_at) VALUES (2, NULL, 'Schulen', 'Waldschule', 1, 'x');
+      INSERT INTO contacts (id, facility_id, category_name, organisation, visibility, updated_at) VALUES (2, NULL, 'Schulen', 'Waldschule', 'all', 'x');
       UPDATE children SET future_school_contact_id = 1;
     `)
-    expect(sqlite.prepare('SELECT person, email, website, note, visible_to_staff, sort_order, updated_by FROM contacts WHERE id = 1').get())
-      .toEqual({ person: '', email: '', website: '', note: '', visible_to_staff: 0, sort_order: 0, updated_by: null })
+    expect(sqlite.prepare('SELECT person, email, website, note, visibility, sort_order, updated_by FROM contacts WHERE id = 1').get())
+      .toEqual({ person: '', email: '', website: '', note: '', visibility: 'all', sort_order: 0, updated_by: null })
     const fks = (table: string) => sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all()
       .map(fk => { const { table: to, from, on_delete } = fk as Record<string, string>; return { to, from, on_delete } })
     expect(fks('contact_categories')).toEqual([{ to: 'facilities', from: 'facility_id', on_delete: 'CASCADE' }])

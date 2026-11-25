@@ -6,9 +6,9 @@ import { TEMPLATE_VISIBILITIES, stricterVisibility, type TemplateVisibility } fr
  * Fachberatung, filed in categories of the facility's own (like the print template categories).
  *
  * Who sees a contact follows the same model as „Zum Ausdrucken“ and „Wissen“: each category says „Wer sieht sie?“ (all /
- * Leitung and Träger / Träger only), and each contact can be stricter on top („Wer sieht ihn?“: all, or only Leitung and
- * Träger – the stored `visibleToStaff`); the stricter of both counts. „Leitung und Träger“ means whoever maintains the
- * address book (contacts.manage); „nur Träger“ only such a person with the role Träger.
+ * Leitung and Träger / Träger only), and each contact has the same three levels on top („Wer sieht ihn?“); the stricter
+ * of both counts, and under „Vom Träger“ (no category of that name) the contact's own alone. „Leitung und Träger“ means
+ * whoever maintains the address book (contacts.manage); „nur Träger“ only such a person with the role Träger.
  */
 
 /**
@@ -107,12 +107,15 @@ export const contactLevels = (level: TemplateVisibility): TemplateVisibility[] =
 export const seesAtLevel = (level: TemplateVisibility, visibility: TemplateVisibility): boolean =>
   TEMPLATE_VISIBILITIES.indexOf(visibility) <= TEMPLATE_VISIBILITIES.indexOf(level)
 
-/** The contact's own setting as a visibility: for all (`visibleToStaff`), else only Leitung and Träger. */
-export const ownContactVisibility = (visibleToStaff: boolean): TemplateVisibility => (visibleToStaff ? 'all' : 'managers')
+/**
+ * Who sees a contact where it shows: its category's visibility (none under „Vom Träger“) and its own „Wer sieht ihn?“,
+ * the stricter one wins.
+ */
+export const contactVisibility = (category: TemplateVisibility | null, own: TemplateVisibility): TemplateVisibility =>
+  stricterVisibility(category ?? 'all', own)
 
 /**
- * Who sees a contact where it shows: its category's visibility (none under „Vom Träger“) and its own setting, the
- * stricter one wins.
+ * Whether the Träger-only contacts count for the viewer (also as names among the „künftige Schule“ choices): only for
+ * the Träger who maintains the address book.
  */
-export const contactVisibility = (category: TemplateVisibility | null, visibleToStaff: boolean): TemplateVisibility =>
-  stricterVisibility(category ?? 'all', ownContactVisibility(visibleToStaff))
+export const seesProviderContacts = (role: Role, manages: boolean): boolean => contactViewLevel(role, manages) === 'provider'

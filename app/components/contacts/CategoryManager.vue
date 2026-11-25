@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CONTACT_LIMITS, contactLevels, contactViewLevel } from '#shared/domain/contacts'
+import { CONTACT_LIMITS, comparableContactName, contactLevels, contactViewLevel } from '#shared/domain/contacts'
 import { TEMPLATE_VISIBILITIES, type TemplateVisibility } from '#shared/domain/templateCategories'
 import type { ContactCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -7,7 +7,8 @@ import { de } from '~/locales/de'
 /**
  * „Kategorien verwalten“ on „Kontakte“ (contacts.manage), for the active facility, laid out like the ones of „Zum
  * Ausdrucken“ and „Wissen“: create, rename, reorder, change who sees a category („Wer sieht sie?“), delete an empty one
- * (contacts for all facilities filed by its name do not count, they move to „Vom Träger“). The list holds only the
+ * (contacts for all facilities filed by its name do not count, they move to „Vom Träger“ – renaming or deleting asks
+ * first while there are any, as there they count with their own „Wer sieht ihn?“). The list holds only the
  * categories the editor sees, and only the visibilities the editor sees are offered (the Leitung not „Nur Träger“; the
  * server refuses it as well).
  */
@@ -44,12 +45,19 @@ watch(open, (isOpen) => {
   if (isOpen) startNew()
 })
 
+/** The Träger's contacts for several facilities shown in the category by its name (the ones not of this facility). */
+const globalCount = (category: ContactCategoryDto) => Math.max(0, category.contactCount - category.ownCount)
+
 async function save() {
   const id = editingId.value
   const current = props.categories.find(category => category.id === id)
   // Its contacts then vanish for Leitung, staff and tablet: ask first.
   if (current && current.visibility !== 'provider' && form.visibility === 'provider' && current.contactCount > 0
     && !(await confirm(t.confirmProviderOnly(current.name, current.contactCount)))) return
+  // The Träger's contacts filed by the old name then show under „Vom Träger“, with their own „Wer sieht ihn?“: ask first.
+  const moved = current ? globalCount(current) : 0
+  if (current && moved > 0 && comparableContactName(form.name) !== comparableContactName(current.name)
+    && !(await confirm(t.confirmRename(current.name, moved)))) return
   const body = { name: form.name, visibility: form.visibility }
   const saved = await run(() => (id === null
     ? $fetch<{ id: number }>('/api/contact-categories', { method: 'POST', body })
@@ -62,7 +70,7 @@ function move(category: ContactCategoryDto, direction: 'up' | 'down') {
 }
 
 async function remove(category: ContactCategoryDto) {
-  if (await confirm(t.confirmDelete(category.name), { danger: true })) {
+  if (await confirm(t.confirmDelete(category.name, globalCount(category)), { danger: true })) {
     const deleted = await run(() => $fetch<{ ok: boolean }>(`/api/contact-categories/${category.id}`, { method: 'DELETE' }), de.common.deleted)
     if (deleted && editingId.value === category.id) startNew()
   }

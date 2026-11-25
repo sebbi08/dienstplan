@@ -31,7 +31,7 @@ const list = (rows: DistrictRow[], districts: SchoolDistrictListInput['districts
 
 const contact = (overrides: Partial<ContactInput> = {}): ContactInput => ({
   organisation: 'Südstadtschule', person: '', role: '', phone: '', mobile: '', email: '', street: '', postalCode: '', city: '',
-  website: '', note: '', visibleToStaff: false, ...overrides,
+  website: '', note: '', visibility: 'managers', ...overrides,
 })
 
 /** The quirky lines of the real list (see tests/domain/schoolDistricts.test.ts), as PDF columns. */

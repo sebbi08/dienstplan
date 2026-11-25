@@ -21,7 +21,7 @@ import { removeSignRequest } from './signRequestRecords'
 
 /**
  * „Zum Unterschreiben senden“ (docs/BETRIEB.md): whoever holds signRequests.manage (Leitung and Träger by default) sends
- * a PDF – a template of „Vorlagen“ or a document of a personnel file, possibly filled in before – to employees of the
+ * a PDF – a template of „Zum Ausdrucken“ or a document of a personnel file, possibly filled in before – to employees of the
  * facility. The PDF is kept as it was sent (every recipient signs exactly that version; its SHA-256 stays as the record).
  * An employee signs it in the app, with the own account or at the facility's tablet with their PIN (server/services/
  * signUnlock.ts), with a drawn signature (a simple electronic signature): the signed copy – the sent PDF with pdf.js's

@@ -1,7 +1,7 @@
 import type { Role } from '../types/api'
 
 /**
- * „Gilt für“ of a Vorlage (Dokumente → Vorlagen) or an entry of „Wissen“: the facilities it shows in and, per facility,
+ * „Gilt für“ of a Vorlage (Dokumente → Zum Ausdrucken) or an entry of „Wissen“: the facilities it shows in and, per facility,
  * the groups it is for.
  *
  * - A facility's own item (`facilityId` set) is for that facility only.

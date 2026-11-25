@@ -4152,8 +4152,8 @@ export interface ContactInput extends DocumentTargetsInput, CategoryAdoptInput {
   city: string
   website: string
   note: string
-  /** „auch für Mitarbeitende und am Tablet sichtbar“. */
-  visibleToStaff: boolean
+  /** „Wer sieht ihn?“ on top of the category's „Wer sieht sie?“ (the stricter wins); 'provider' only for the Träger. */
+  visibility: TemplateVisibility
 }
 
 /** A contact as the viewer sees it, placed in the facility's categories. */

@@ -3,6 +3,7 @@ import { CONSENT_AREA_MAX, CONSENT_SHORT_MAX, CONSENT_TEXT_MAX, consentAreas, gr
 import type { ConsentQuestionInput, ConsentQuestionSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { moveArea, moveQuestion } from '~/utils/consentSettings'
+import type { RowAction } from '~/utils/rowActions'
 
 /**
  * The facility's consent questions (Einwilligungen & Erlaubnisse) by area: add, change text, short name and area,
@@ -62,6 +63,21 @@ async function remove(question: ConsentQuestionSettingsDto) {
   if (await confirm(s.confirmDelete)) run(() => $fetch<unknown>(`/api/child-consent-questions/${question.id}`, { method: 'DELETE' }), de.common.deleted)
 }
 
+/** The ▲/▼ show only after „Reihenfolge ändern“. */
+const reordering = ref(false)
+/** „Bearbeiten“, „Ausblenden“/„Einblenden“, „Löschen“ (only without answers; with answers disabled, saying why). */
+const actionsOf = (question: ConsentQuestionSettingsDto): RowAction[] => [
+  { key: 'edit', label: de.common.edit, icon: 'i-lucide-pencil', disabled: busy.value, onClick: () => startEdit(question) },
+  {
+    key: 'hide', label: question.hidden ? s.show : s.hide, icon: question.hidden ? 'i-lucide-eye' : 'i-lucide-eye-off', disabled: busy.value,
+    onClick: () => setHidden(question, !question.hidden),
+  },
+  {
+    key: 'delete', label: de.common.delete, icon: 'i-lucide-trash-2', color: question.answerCount ? 'neutral' : 'error', variant: 'ghost',
+    iconOnly: true, disabled: busy.value || question.answerCount > 0, title: question.answerCount ? s.hideInsteadHint : undefined,
+    onClick: () => remove(question),
+  },
+]
 function reorder(ids: number[] | null) {
   if (ids) run(() => $fetch<unknown>('/api/child-consent-questions/order', { method: 'POST', body: { ids } }), de.common.saved)
 }
@@ -69,21 +85,26 @@ function reorder(ids: number[] | null) {
 
 <template>
   <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
-    <h2 class="font-semibold">{{ s.title }}</h2>
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="font-semibold">{{ s.title }}</h2>
+      <ReorderToggle v-if="questions.length > 1" v-model="reordering" size="xs" class="ml-auto" />
+    </div>
     <p class="text-xs text-gray-500">{{ s.intro }} {{ s.hiddenHint }}</p>
     <p v-if="!questions.length" class="text-sm text-gray-500">{{ s.empty }}</p>
 
     <div v-for="(block, blockIndex) in blocks" :key="block.area" class="space-y-1">
       <div class="flex items-center gap-1">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ block.area }}</h3>
-        <UButton
-          size="xs" color="neutral" variant="ghost" icon="i-lucide-chevron-up" :aria-label="`${s.areaUp}: ${block.area}`"
-          :disabled="busy || blockIndex === 0" @click="reorder(moveArea(questions, block.area, -1))"
-        />
-        <UButton
-          size="xs" color="neutral" variant="ghost" icon="i-lucide-chevron-down" :aria-label="`${s.areaDown}: ${block.area}`"
-          :disabled="busy || blockIndex === blocks.length - 1" @click="reorder(moveArea(questions, block.area, 1))"
-        />
+        <template v-if="reordering">
+          <UButton
+            color="neutral" variant="ghost" icon="i-lucide-chevron-up" class="min-h-10 min-w-10 justify-center" :aria-label="`${s.areaUp}: ${block.area}`"
+            :disabled="busy || blockIndex === 0" @click="reorder(moveArea(questions, block.area, -1))"
+          />
+          <UButton
+            color="neutral" variant="ghost" icon="i-lucide-chevron-down" class="min-h-10 min-w-10 justify-center" :aria-label="`${s.areaDown}: ${block.area}`"
+            :disabled="busy || blockIndex === blocks.length - 1" @click="reorder(moveArea(questions, block.area, 1))"
+          />
+        </template>
       </div>
       <ul class="divide-y divide-gray-100 text-sm">
         <li v-for="(question, index) in block.questions" :key="question.id" class="flex flex-wrap items-center gap-2 py-1.5">
@@ -94,26 +115,18 @@ function reorder(ids: number[] | null) {
             <span v-if="question.answerCount" class="ml-2 text-xs text-gray-500">{{ s.answers(question.answerCount) }}</span>
           </div>
           <div class="flex flex-wrap items-center gap-1">
-            <UButton
-              size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="`${s.moveUp}: ${question.text}`"
-              :disabled="busy || index === 0" @click="reorder(moveQuestion(questions, question.id, -1))"
-            />
-            <UButton
-              size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="`${s.moveDown}: ${question.text}`"
-              :disabled="busy || index === block.questions.length - 1" @click="reorder(moveQuestion(questions, question.id, 1))"
-            />
-            <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="startEdit(question)" />
-            <UButton
-              size="xs" color="neutral" variant="outline" :icon="question.hidden ? 'i-lucide-eye' : 'i-lucide-eye-off'"
-              :label="question.hidden ? s.show : s.hide" :disabled="busy" @click="setHidden(question, !question.hidden)"
-            />
-            <UButton
-              v-if="!question.answerCount" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2"
-              :aria-label="`${de.common.delete}: ${question.text}`" :disabled="busy" @click="remove(question)"
-            />
-            <UTooltip v-else :text="s.hideInsteadHint">
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-trash-2" :aria-label="s.hideInsteadHint" disabled />
-            </UTooltip>
+            <!-- ▲/▼ only after „Reihenfolge ändern“; on phones „Bearbeiten“ and „⋯“ with the rest. -->
+            <template v-if="reordering">
+              <UButton
+                color="neutral" variant="ghost" icon="i-lucide-arrow-up" class="min-h-10 min-w-10 justify-center" :aria-label="`${s.moveUp}: ${question.text}`"
+                :disabled="busy || index === 0" @click="reorder(moveQuestion(questions, question.id, -1))"
+              />
+              <UButton
+                color="neutral" variant="ghost" icon="i-lucide-arrow-down" class="min-h-10 min-w-10 justify-center" :aria-label="`${s.moveDown}: ${question.text}`"
+                :disabled="busy || index === block.questions.length - 1" @click="reorder(moveQuestion(questions, question.id, 1))"
+              />
+            </template>
+            <RowActions v-else :actions="actionsOf(question)" :name="question.text" size="xs" />
           </div>
         </li>
       </ul>

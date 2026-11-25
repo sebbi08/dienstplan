@@ -3,7 +3,7 @@ import type { PermissionKey } from '#shared/domain/permissions'
 import type { Role } from '#shared/types/api'
 
 /**
- * „Dokumente“ (/documents): the form templates („Bögen“, formTemplates.manage) and the blank forms to print („Vorlagen“,
+ * „Dokumente“ (/documents): the form templates („Bögen“, formTemplates.manage) and the blank forms to print („Zum Ausdrucken“,
  * printTemplates.view; the tablet without a permission of its own) and „Wissen“ (knowledge.view: every account and the
  * tablet) and „Unterschriften“ (the requests to sign sent from the facility, signRequests.manage), each a tab.
  * `?tab=forms|templates|knowledge|signatures` opens one.
@@ -32,7 +32,7 @@ export function chosenDocumentTab(requested: unknown, tabs: readonly DocumentTab
 }
 
 /**
- * Where an old address leads (/templates → „Vorlagen“, /admin/forms → „Bögen“): /documents with that tab, keeping the
+ * Where an old address leads (/templates → „Zum Ausdrucken“, /admin/forms → „Bögen“): /documents with that tab, keeping the
  * other query values and the anchor.
  */
 export function documentsLocation(tab: DocumentTab, from: { query: LocationQuery; hash: string }): RouteLocationRaw {

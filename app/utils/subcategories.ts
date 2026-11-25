@@ -2,7 +2,7 @@ import { foldCategoryName } from '#shared/domain/templateCategories'
 import type { CategoryNameDto } from '#shared/types/api'
 
 /**
- * The second row of small tabs on a category's sub-tab of „Dokumente“ → „Vorlagen“ and „Wissen“ (one level of
+ * The second row of small tabs on a category's sub-tab of „Dokumente“ → „Zum Ausdrucken“ and „Wissen“ (one level of
  * subcategories): „Alle“, „Allgemein“ (the items directly in the category, only when there are any) and the
  * subcategories in their order. „Alle“ shows the items in groups, one per subcategory; the arrows (▲/▼) order within
  * each group, which is the same list a subcategory's own small tab shows. In „Alle“ each list is a section of its own
