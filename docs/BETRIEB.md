@@ -1373,8 +1373,12 @@ Wer Wochen oder Monate fehlt, steht in dieser Zeit nicht im Dienstplan – statt
     den Dienstplan zu bearbeiten; jede Entfernung ist eine Änderung im Plan bis zur nächsten Freigabe). Dienste an Tagen
     mit **Stempelzeiten** bleiben immer stehen („gestempelt – bleibt stehen“); dann bitte prüfen, ob „Von“ stimmt. Ein
     behaltener Dienst (auch ein ganzer Büro-/VZ-Tag) lässt die Person im Plan stehen, zählt aber nicht mit; der Tag
-    zeigt die Warnung **„‹Name›: Dienst eingetragen, obwohl längere Abwesenheit – zählt nicht mit, bitte entfernen“**.
-    Dienste als Aushilfe in einer anderen Einrichtung entfernt diese selbst.
+    zeigt die Warnung **„‹Name›: Dienst eingetragen, obwohl längere Abwesenheit – zählt nicht mit, bitte entfernen“**,
+    und die Tagesübersicht nennt ihn als „zählt nicht“ – beides nur für Planbearbeiter mit dem Recht für die
+    Krankheitstage. Alle anderen (Leitung ohne das Recht, Mitarbeiter, Tablet) sehen den Dienst einfach so: Ein Dienst
+    während eines gebuchten Mutterschutzes oder einer vollen Elternzeit zählt nämlich mit, die Markierung würde also
+    verraten, welche Art Abwesenheit es ist. Die Besetzungswarnungen rechnen trotzdem richtig. Dienste als Aushilfe in
+    einer anderen Einrichtung entfernt diese selbst.
   - **Urlaub** (auch Sonderurlaub, Überstundenfrei, auch der Urlaub einer Schließzeit, die vorher gebucht wurde) und
     **offene Urlaubsanträge**: siehe „Urlaub“ unten. Bei Langzeitkrank und Kur/Reha lässt Urlaub im Zeitraum die Person
     für Leitung und Träger mit dem Recht für die Krankheitstage im Plan stehen, und an diesen Tagen steht neben dem

@@ -353,9 +353,12 @@ export function getMonthPlan(
   const planned = longAbsencePlan(db, viewer, facilityId, staff, shown.entries, year, month, spans)
   const hidden = new Set(isAdmin ? [] : planned.hidden)
   const isShown = (employeeId: number) => !hidden.has(employeeId)
+  // „Zählt nicht“ for a duty in an entered long absence only for a plan editor who sees the reason: coverage leaves such a
+  // duty out but counts one in a booked Mutterschutz or a full Elternzeit, so for anybody else the marker (and the
+  // warning, below) would tell the entered kinds from Mutterschutz/Elternzeit. They see the duty as it is.
   const longAbsence = isAdmin
-    ? planned
-    : { ...planned, cells: cellsOfShown(planned.cells, isShown), dutyCells: planned.dutyCells.filter(key => isShown(Number(key.split('|')[0]))) }
+    ? { ...planned, dutyCells: showsProtected ? planned.dutyCells : [] }
+    : { ...planned, cells: cellsOfShown(planned.cells, isShown), dutyCells: [] }
   const awayCells = storedAbsenceCells(db, staff, monthStart, monthEnd, spans)
   const shownEntries = shown.entries.filter(entry => isShown(entry.employeeId))
   let admin: MonthPlanAdminDto | null = null
@@ -402,10 +405,13 @@ export function getMonthPlan(
     longAbsence,
     admin: admin && !showsProtected
       // The acknowledgements of the Mutterschutz hints name the rule, the „Im Dienst erkrankt“ markers tell a sickness:
-      // neither for whoever sees only „abwesend“ and „Arbeitszeitgrenze überschritten“.
+      // neither for whoever sees only „abwesend“ and „Arbeitszeitgrenze überschritten“. Nor „Dienst während längerer
+      // Abwesenheit“: it exists only for the entered kinds (see longAbsence.dutyCells above).
       ? {
           ...admin, sickLeaves: {},
-          warningAcks: admin.warningAcks.filter(ack => !ack.key.startsWith('maternity|') && !ack.key.startsWith('child_sick_days|')),
+          warnings: admin.warnings.filter(warning => warning.type !== 'long_absence_duty'),
+          warningAcks: admin.warningAcks.filter(ack => !ack.key.startsWith('maternity|') && !ack.key.startsWith('child_sick_days|')
+            && !ack.key.startsWith('long_absence_duty|')),
         }
       : admin,
   }

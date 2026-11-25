@@ -285,6 +285,17 @@ describe('the roster', () => {
     expect(plan.employees.map(employee => employee.id)).toContain(anna)
     expect(plan.admin!.warnings).toContainEqual({ type: 'long_absence_duty', date: '2026-12-03', employeeId: anna })
     expect(plan.longAbsence.dutyCells).toEqual([`${anna}|2026-12-03`])
+    // A plan editor without the health data, and staff in the released plan: the duty as it is – no „zählt nicht“, no
+    // warning (they would tell an entered absence from a booked Mutterschutz, whose duties count).
+    const noHealth = { ...leitung, permissions: new Set([...leitung.permissions].filter(key => key !== 'employees.sickness')) }
+    const editorPlan = getMonthPlan(db, noHealth, 1, 2026, 12, TODAY)
+    expect(editorPlan.longAbsence.dutyCells).toEqual([])
+    expect(editorPlan.admin!.warnings.filter(warning => warning.type === 'long_absence_duty')).toEqual([])
+    expect(editorPlan.entries.filter(entry => entry.employeeId === anna && entry.date === '2026-12-03')).toHaveLength(1)
+    releaseMonth(db, leitung, 1, 2026, 12)
+    const staffPlan = getMonthPlan(db, mitarbeiter, 1, 2026, 12, TODAY)
+    expect(staffPlan.longAbsence.dutyCells).toEqual([])
+    expect(staffPlan.entries.filter(entry => entry.employeeId === anna && entry.date === '2026-12-03')).toHaveLength(1)
     expect(plan.admin!.warnings.filter(warning => warning.type === 'missing_entry' && warning.employeeId === anna)).toEqual([])
     // The Personalschlüssel does not count it either (without the long absence it does).
     expect(staffingMonth(db, 1, 2026, 12).total.planned.fte).toBe(0)

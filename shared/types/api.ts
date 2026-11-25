@@ -1408,7 +1408,10 @@ export interface LongAbsencePlanDto {
    * everybody else they are not sent.
    */
   hidden: number[]
-  /** Cells (cellKey) of an entered long absence holding a duty: it does not count (day overview, coverage). */
+  /**
+   * Cells (cellKey) of an entered long absence holding a duty: it does not count (day overview, coverage). Only for a
+   * plan editor who may see the reason (employees.sickness); empty for everybody else, who see the duty as it is.
+   */
   dutyCells: string[]
   /**
    * Shown persons' working days in a long absence without any entry, keyed by cellKey: the reason to show (null =
