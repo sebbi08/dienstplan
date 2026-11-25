@@ -127,7 +127,7 @@ describe('accident reports about a child', () => {
     const list = listChildAccidents(db, annaTablet, kid, NOW)
     expect(list.forms.map(form => [form.id === newer, form.date, form.right])).toEqual([[true, '2026-11-17', 'read'], [false, '2026-11-01', 'edit']])
     expect(list.canCreate).toBe(true)
-    expect(list.templates).toEqual([{ id: childTemplate, name: 'Unfallbericht Kind' }])
+    expect(list.templates).toEqual([{ id: childTemplate, name: 'Unfallbericht Kind', category: 'Unfälle' }])
   })
 
   it('checks the header: date required and not in the future, „arbeitsunfähig“ only for employees, a valid „gemeldet am“', () => {
