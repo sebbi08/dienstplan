@@ -12,6 +12,7 @@ import {
 import { moveInList } from '~/utils/consentSettings'
 import { focusOrderArrow, orderArrowId } from '~/utils/orderArrows'
 import { berlinDay } from '~/utils/printTemplates'
+import type { RowAction } from '~/utils/rowActions'
 import { itemGroups, searchGroups, subcategoryChip, type ItemGroup } from '~/utils/subcategories'
 
 /**
@@ -20,7 +21,8 @@ import { itemGroups, searchGroups, subcategoryChip, type ItemGroup } from '~/uti
  * category name the facility has no category of. A search looks into every category (title, description, text). An entry
  * with „Gelesen und verstanden erforderlich“ asks the reader to confirm: with an own account for its linked employee, at
  * the tablet with name and PIN. Whoever holds knowledge.manage adds and maintains entries and categories, orders the
- * facility's own entries with ▲/▼ and sees who confirmed. A category with subcategories shows a panel of small tabs
+ * facility's own entries with ▲/▼ (after „Reihenfolge ändern“) and sees who confirmed; on phones an entry shows
+ * „Bearbeiten“ and a „⋯“ menu with the other buttons. A category with subcategories shows a panel of small tabs
  * below it („Alle“, „Allgemein“, the subcategories, each with its count; the device remembers the last one per
  * category): „Alle“ lists the entries in sections, „Allgemein“ first, then one per subcategory (empty ones left out),
  * each folding up (remembered per category on the device), and ▲/▼ order within each section – the same list as the
@@ -167,6 +169,23 @@ async function move(section: EntrySection, index: number, direction: -1 | 1) {
   const body = { categoryId: section.group.groupId, ids }
   if (await run(() => $fetch<{ ok: boolean }>('/api/knowledge/order', { method: 'POST', body }))) focusOrderArrow(`knowledge-${id}`, direction)
 }
+/** The ▲/▼ show only while „Reihenfolge ändern“ is on (as in the list of Mitarbeiter). */
+const reordering = ref(false)
+/**
+ * The maintaining buttons of an entry: „Bearbeiten“ first (on phones the only button, the rest in „⋯“), else „Wer hat
+ * bestätigt?“ for an entry of the Träger.
+ */
+const manageActionsOf = (entry: KnowledgeEntryDto): RowAction[] => [
+  { key: 'edit', label: de.common.edit, icon: 'i-lucide-pencil', variant: 'ghost', disabled: busy.value, onClick: () => openDialog(entry), show: entry.canEdit },
+  {
+    key: 'confirmed', label: t.whoConfirmed, icon: 'i-lucide-list-checks', variant: 'ghost', onClick: () => openOverview(entry),
+    show: entry.needsConfirmation,
+  },
+  {
+    key: 'delete', label: de.common.delete, icon: 'i-lucide-trash-2', color: 'error', variant: 'ghost', disabled: busy.value,
+    onClick: () => remove(entry), show: entry.canEdit,
+  },
+]
 const presetCategoryId = computed(() => current.value?.category?.id ?? null)
 const presetSubcategoryId = computed(() => current.value?.subcategories.find(sub => subcategoryChip(sub.id) === chip.value)?.id ?? null)
 </script>
@@ -177,6 +196,10 @@ const presetSubcategoryId = computed(() => current.value?.subcategories.find(sub
       <p class="min-w-60 flex-1 text-sm text-gray-600">{{ confirmVia === 'tablet' ? t.introTablet : canManage ? t.introManage : t.intro }}</p>
       <div v-if="canManage" class="flex flex-wrap gap-2">
         <UButton color="neutral" variant="outline" icon="i-lucide-folder-cog" :label="t.manageCategories" @click="managing = true" />
+        <UButton
+          v-if="entries.length" color="neutral" :variant="reordering ? 'solid' : 'outline'" :icon="reordering ? 'i-lucide-check' : 'i-lucide-arrow-up-down'"
+          :label="reordering ? de.common.reorderDone : de.common.reorder" :aria-pressed="reordering" @click="reordering = !reordering"
+        />
         <UButton icon="i-lucide-plus" :label="t.add" @click="openDialog(null)" />
       </div>
     </div>
@@ -280,16 +303,9 @@ const presetSubcategoryId = computed(() => current.value?.subcategories.find(sub
 
                   <div v-if="canManage" class="flex flex-wrap items-center gap-1 border-t border-gray-100 pt-2">
                     <span class="min-w-0 flex-1 text-xs text-gray-500">{{ t.kinds[entry.kind] }}<template v-if="entry.fileSize"> · {{ formatSize(entry.fileSize) }}</template></span>
-                    <UButton
-                      v-if="entry.needsConfirmation" size="xs" color="neutral" variant="ghost" icon="i-lucide-list-checks" :label="t.whoConfirmed"
-                      @click="openOverview(entry)"
-                    />
-                    <template v-if="entry.canEdit">
-                      <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openDialog(entry)" />
-                      <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" :disabled="busy" @click="remove(entry)" />
-                    </template>
-                    <!-- ▲/▼ last, so they stay in the same place in every row; 40 px for a finger. Every entry of the list. -->
-                    <span v-if="section.group" role="group" :aria-label="`${t.order}: ${entry.title}`" class="flex items-center gap-1">
+                    <RowActions :actions="manageActionsOf(entry)" :name="entry.title" size="xs" />
+                    <!-- ▲/▼ last (only after „Reihenfolge ändern“), so they stay in the same place in every row; 40 px for a finger. -->
+                    <span v-if="section.group && reordering" role="group" :aria-label="`${t.order}: ${entry.title}`" class="flex items-center gap-1">
                       <UButton
                         :id="orderArrowId(`knowledge-${entry.id}`, -1)" color="neutral" variant="ghost" icon="i-lucide-arrow-up"
                         class="min-h-10 min-w-10 justify-center" :aria-label="`${t.moveUp}: ${entry.title}`" :title="t.moveUp"

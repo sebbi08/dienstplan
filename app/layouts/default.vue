@@ -125,8 +125,9 @@ async function logout() {
 
 <template>
   <div class="min-h-screen bg-gray-50 text-gray-900">
+    <!-- data-app-header: the child record's jump bar sticks right below it. -->
     <header
-      v-if="loggedIn" class="sticky top-0 z-40 border-b border-gray-200 bg-white transition-transform duration-200 print:hidden"
+      v-if="loggedIn" data-app-header class="sticky top-0 z-40 border-b border-gray-200 bg-white transition-transform duration-200 print:hidden"
       :class="headerHidden && !tabletChildren ? 'max-md:-translate-y-full' : ''"
     >
       <TerminalTabletUnlockBar v-if="tabletChildren" />

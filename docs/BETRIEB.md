@@ -275,10 +275,22 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 - Daten in der Kinderakte tippst du als **TT.MM.JJJJ** (z. B. „03052021“ – die Punkte kommen von selbst); der
   Kalender-Knopf im Feld öffnet weiterhin den Kalender. Ein ungültiges Datum wird rot markiert und nicht gespeichert.
 
+### Sprungleiste in der Kinderakte
+
+Unter dem Namen des Kindes (und dem Kasten „Wichtig“) steht eine **Leiste mit den Abschnitten der Akte**: Stammdaten,
+Bezugspersonen, Gesundheit, Notizen, Einwilligungen, Dokumente, Entwicklung, Elterngespräche, Beobachtungen, Unfälle und
+Abmeldung – jeweils nur die Abschnitte, die die Person sieht. Ein Tipp springt zum Abschnitt; der Abschnitt, in dem man
+gerade ist, ist blau hervorgehoben. Die Leiste bleibt beim Scrollen oben stehen (direkt unter der Kopfzeile; auf dem Handy
+rückt sie nach oben, wenn die Kopfzeile beim Herunterscrollen verschwindet). Passen nicht alle Abschnitte in eine Zeile
+(Tablet, Handy), wischt man die Leiste zur Seite. Die Adresse der Seite ändert sich dabei nicht, ein angefangener
+Beobachtungsbogen bleibt also offen.
+
 ### Bezugspersonen und Anruf-Reihenfolge
 
 - In der Akte stehen die Bezugspersonen in der Reihenfolge, die du mit den Pfeilen **nach oben / nach unten**
-  festlegst.
+  festlegst. Die Pfeile erscheinen erst nach **Reihenfolge ändern** (oben im Abschnitt, ab zwei Bezugspersonen);
+  **Fertig** blendet sie wieder aus. Auf dem Handy steht bei jeder Bezugsperson nur „Bearbeiten“ und ein Knopf „⋯“ mit
+  „Löschen“.
 - **„Anrufen als Nr.“** (1 = zuerst anrufen) sagt, wen ihr im Notfall in welcher Reihenfolge anruft. Das gilt für
   jede Bezugsperson: bei den Eltern (alle mit „sorgeberechtigt“), wer von ihnen zuerst angerufen wird, bei den anderen
   ihre Reihenfolge als Notfallkontakt. Wer ein Kontaktverbot hat, bekommt keine Nummer.
@@ -1718,15 +1730,19 @@ Fällt das Internet oder der Server aus, kann am **Kita-Tablet** (Konto „Table
   überspringen; der Betrieb (vor diesem Update auf Stand 0082) ist davon nicht betroffen. Nach dem Update sollte die
   Zeiterfassung wie gewohnt öffnen – wenn nicht, bitte melden.
 
-## 19. Dokumente: Vorlagen (leere Formulare zum Ausdrucken) und Bögen
+## 19. Dokumente: Zum Ausdrucken (leere PDF-Formulare) und Bögen
 
-Im Menü gibt es **Dokumente** (Leitung und Träger in der oberen Zeile, Mitarbeiter unter **Meins**). Die Seite hat drei
-Reiter: **Bögen** (die Vorlagen für Mitarbeitergespräche, Beobachtungsbögen, Teamsitzungen und Unfallberichte, siehe
-Abschnitt 25; nur wer Bögen pflegen darf), **Vorlagen** und **Wissen** (siehe Abschnitt 28). Jeder sieht nur die Reiter,
-die er nutzen darf – Mitarbeiter und das Tablet **Vorlagen** und **Wissen**. Alte Lesezeichen auf „Vorlagen“ oder „Bögen“ führen automatisch zum passenden Reiter.
+Im Menü gibt es **Dokumente** (Leitung und Träger in der oberen Zeile, Mitarbeiter unter **Meins**). Die Seite hat bis zu
+vier Reiter: **Bögen** – „Vorlagen für Bögen, die im Programm ausgefüllt werden“ (Mitarbeitergespräche,
+Beobachtungsbögen, Teamsitzungen, Unfallberichte, siehe Abschnitt 25; nur wer Bögen pflegen darf) –, **Zum Ausdrucken** –
+„PDF-Formulare zum Ausdrucken oder Ausfüllen“ –, **Wissen** (siehe Abschnitt 28) und **Unterschriften**. Die kurze
+Zeile steht auf Computer und Tablet im Reiter selbst, auf dem Handy unter den Reitern. Jeder sieht nur die Reiter, die er
+nutzen darf – Mitarbeiter und das Tablet **Zum Ausdrucken** und **Wissen**. Alte Lesezeichen (auch auf die frühere Seite
+„Vorlagen“ oder auf „Bögen“) führen automatisch zum passenden Reiter. Der Reiter **Zum Ausdrucken** hieß früher
+„Vorlagen“; die einzelnen PDFs darin heißen weiterhin „Vorlage“ (z. B. „Vorlage hochladen“).
 
-Unter **Vorlagen** liegen leere PDF-Formulare, die man immer wieder ausdruckt – z. B. Elternbriefe,
-Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsantrag.
+Unter **Zum Ausdrucken** liegen leere PDF-Formulare, die man immer wieder ausdruckt oder in der App ausfüllt – z. B.
+Elternbriefe, Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsantrag.
 
 - **Kategorien**: Jede Kategorie ist ein eigener Unterreiter, in der Reihenfolge der Kategorien. Das Gerät merkt sich den
   zuletzt geöffneten Unterreiter. Die Kategorien gehören **jeder Einrichtung selbst**: Leitung und Träger pflegen die
@@ -1759,7 +1775,7 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
 - **Neue Einrichtungen** beginnen mit den Kategorien „Eingewöhnungsmappe“, „Mitarbeitermappe“, „Eltern“, „Gesundheit“
   und „Personal“ (für **Alle**), als eigene Kopien zum Ändern oder Löschen.
 - **Wer sieht sie?** Jede Kategorie hat eine von drei Stufen:
-  - **Alle (auch Mitarbeiter und Tablet)**: Leitung, Träger, das Tablet und die Mitarbeiter mit ihrem eigenen Konto.
+  - **Alle (auch Mitarbeitende und Tablet)**: Leitung, Träger, das Tablet und die Mitarbeiter mit ihrem eigenen Konto.
   - **Nur Leitung und Träger**: z. B. für Formulare der Verwaltung.
   - **Nur Träger**: diese Kategorien sieht nur der Träger; nur er kann sie anlegen, ändern oder löschen. Die Leitung
     sieht sie gar nicht und kann auch keine Kategorie auf „Nur Träger“ stellen. Stellt der Träger eine Kategorie mit
@@ -1768,7 +1784,7 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
 
   Die Vorlagen in einer Kategorie sieht nur, wer die Kategorie sieht; Unterreiter für Kategorien, die man nicht sieht,
   erscheinen gar nicht. Kategorien, die nicht alle sehen, sind markiert („nur Leitung und Träger“ bzw. „nur Träger“).
-- **Hochladen**: Leitung und Träger öffnen **Dokumente** → **Vorlagen** und tippen auf **Vorlage hochladen**. Erlaubt
+- **Hochladen**: Leitung und Träger öffnen **Dokumente** → **Zum Ausdrucken** und tippen auf **Vorlage hochladen**. Erlaubt
   sind nur **PDF-Dateien bis 30 MB** (wie bei den Dokumenten der Kinder; die App prüft, ob es wirklich ein PDF ist). Der
   **Titel** wird aus dem Dateinamen vorgeschlagen und lässt sich ändern. Die **Kategorie** ist die des geöffneten
   Unterreiters und lässt sich in der Liste ändern; gibt es noch keine, leg zuerst unter **Kategorien verwalten** eine an.
@@ -1831,8 +1847,14 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
     App nicht. Gleiches gilt für „Wissen“ und für Kontakte (dort ohne Unterkategorie).
 - **Ändern**: Mit **Bearbeiten** lassen sich Titel und Kategorie ändern und die Datei durch eine neue ersetzen;
   **Löschen** fragt vorher nach. Die Vorlagen für alle Einrichtungen kann **nur der Träger** ändern oder löschen.
-- **Reihenfolge**: Wer Vorlagen bearbeiten darf, schiebt jede Vorlage mit den Pfeilen **Nach oben / Nach unten** (rechts
-  in der Zeile) innerhalb ihres Unterreiters. Die Reihenfolge gilt für die **oben gewählte Einrichtung** und für alle,
+- **Knöpfe auf dem Handy**: Auf einem schmalen Bildschirm (unter 640 Pixel) zeigt jede Zeile nur **Öffnen** und daneben
+  einen Knopf **„⋯“**; darin stehen die übrigen Knöpfe (Ausfüllen, Zum Unterschreiben senden, Bearbeiten, Löschen). Auf
+  Tablet und Computer stehen alle Knöpfe wie bisher nebeneinander. Genauso bei **Bögen** (erster Knopf „Bearbeiten“
+  bzw. „Wieder aktivieren“), **Wissen** („Bearbeiten“) und **Kontakte** („Bearbeiten“).
+- **Reihenfolge**: Wer Vorlagen bearbeiten darf, tippt auf **Reihenfolge ändern** (oben neben „Kategorien verwalten“);
+  erst dann erscheinen in jeder Zeile die Pfeile **Nach oben / Nach unten**, und **Fertig** blendet sie wieder aus (wie in
+  der Liste der Mitarbeiter; ebenso bei **Bögen** und **Wissen**). Die Pfeile schieben eine Vorlage innerhalb ihres
+  Unterreiters. Die Reihenfolge gilt für die **oben gewählte Einrichtung** und für alle,
   die dort die Vorlagen ansehen (Mitarbeiter und Tablet sehen dieselbe Reihenfolge, aber keine Pfeile). Auch die
   Vorlagen für alle Einrichtungen lassen sich so schieben – das ändert nur die Reihenfolge in dieser Einrichtung; jede
   Einrichtung hat ihre eigene. Eine **neu hochgeladene** Vorlage kommt ans **Ende** ihrer Kategorie (eine für alle
@@ -1846,7 +1868,7 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
   verschiebt oder eine neue hochlädt; von da an zählt in diesem Unterreiter die gespeicherte Reihenfolge.
 - **Drucken**: **Öffnen** zeigt das PDF in einem neuen Tab; dort druckst du es mit der Druckfunktion des Browsers.
 - **Am Tablet**: Auf der Startseite des Tablets gibt es die Kachel **Dokumente**; sie öffnet **Dokumente** mit den Reitern
-  **Vorlagen** und **Wissen**.
+  **Zum Ausdrucken** und **Wissen**.
   Dort lassen sich die Vorlagen der Kategorien für **Alle** öffnen und drucken – **ohne PIN**, weil darin keine Daten
   von Kindern stehen. Hochladen und ändern geht am Tablet nicht.
 - **Mitarbeiter** finden die Vorlagen mit ihrem eigenen Konto (Handy, privater PC) unter **Meins** → **Dokumente**: nur
@@ -1945,7 +1967,7 @@ Die Leitung (und der Träger) kann Mitarbeitenden ein PDF **zum Unterschreiben i
 Belehrung, eine Datenschutz- oder Schweigepflichterklärung. Die Mitarbeitenden unterschreiben am eigenen Gerät oder am
 Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
 
-- **Senden**: unter **Dokumente → Vorlagen** bei einer Vorlage, oder in der Personalakte (Nachweise → Dokumente) bei
+- **Senden**: unter **Dokumente → Zum Ausdrucken** bei einer Vorlage, oder in der Personalakte (Nachweise → Dokumente) bei
   einem PDF, jeweils mit **Zum Unterschreiben senden**. Ein PDF aus der Personalakte geht nur an diese Person. Im Fenster
   wählst du die **Bezeichnung**, **an wen** (Mitarbeitende der Einrichtung, die nicht ausgeschieden sind), die
   **Ablage** der unterschriebenen Kopie (ein Fach der Personalakte, das du nutzen darfst; wer das Fach sehen darf, sieht
@@ -2688,7 +2710,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   des Bereichs in einer Zeile **„Diese Einstellungen pflegt der Träger: …“**, die man zum Lesen aufklappen kann.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kalender** (Jahreskalender), **Teamsitzungen**,
-  **Notizen** und **Dokumente** (Bögen, Vorlagen und Wissen, mit der Zahl dessen, was dort wartet: Einträge zum Bestätigen,
+  **Notizen** und **Dokumente** (Bögen, Zum Ausdrucken, Wissen und Unterschriften, mit der Zahl dessen, was dort wartet: Einträge zum Bestätigen,
   überfällige Unterschriften). Seltener Gebrauchtes liegt unter **Mehr**: Kontakte, Kasse, Unfälle, **Benutzer & Rechte**,
   Einstellungen, Passwort ändern (der Träger dazu Löschfristen).
   - **Schließzeiten** sind ein Reiter von **Kalender**, **Krankheitstage** ein Reiter von **Mitarbeiter**, und **Benutzer**
@@ -2709,13 +2731,13 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   rechts; auf kleineren Laptops ist **Abmelden** nur ein Symbol, der Name erscheint beim Zeigen darauf.
 - **Mitarbeiter** sehen oben **Mein Dienstplan** (mit der Zahl ungelesener Änderungen), **Dienstplan**, **Kalender** und
   **Teamsitzungen**; unter **Meins** liegen „Zu unterschreiben“, „Mein Urlaub“, „Meine Termine“, „Meine Gespräche“ und
-  „Dokumente“ (Vorlagen und Wissen, siehe Abschnitt 19). Die Zahlen von „Zu unterschreiben“ und „Dokumente“ (Einträge
+  „Dokumente“ (Zum Ausdrucken und Wissen, siehe Abschnitt 19). Die Zahlen von „Zu unterschreiben“ und „Dokumente“ (Einträge
   „Gelesen und verstanden“) stehen auch an **Meins** und am Knopf **Menü** auf dem Handy.
 - **Auf dem Handy** ist die Kopfzeile nur eine Zeile: Name der App, Einrichtung und der Knopf **Menü** (mit der Zahl
   ungelesener Änderungen bzw. offener Anträge). Er öffnet eine Leiste mit allen Einträgen, gruppiert wie oben, dazu
   Benutzername, **Passwort ändern** und **Abmelden**. Ein Tipp auf einen Eintrag öffnet die Seite und schließt die Leiste.
 - **Am Tablet** ist die Startseite der einzige Weg zu allem; oben steht nur **Start**. Die Kacheln, nach Häufigkeit:
-  **Stempeln** und **Kinder** (groß), dann **Dokumente** (Vorlagen und Wissen), **Zu unterschreiben**, **Notizen**,
+  **Stempeln** und **Kinder** (groß), dann **Dokumente** (Zum Ausdrucken und Wissen), **Zu unterschreiben**, **Notizen**,
   **Dienstplan**, **Teamsitzungen**, **Kontakte** (nur wenn es Kontakte für Mitarbeitende gibt) und **Dienstplan drucken**.
   Alles passt auf ein 10-Zoll-Tablet ohne Blättern.
 
@@ -2797,7 +2819,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 ## 25. Bögen, Mitarbeitergespräche, Beobachtungsbögen und Teamsitzungen
 
 - **Vorlagen:** im Menü unter **Mehr → Dokumente**, Reiter **Bögen** (Leitung und Träger). Die Seite sieht aus wie
-  „Vorlagen“: Die **eigenen Kategorien** der Einrichtung stehen als Reiter oben, darunter die **Unterkategorien** der
+  „Zum Ausdrucken“: Die **eigenen Kategorien** der Einrichtung stehen als Reiter oben, darunter die **Unterkategorien** der
   offenen Kategorie als kleine Reiter („Alle“, „Allgemein“ und je Unterkategorie, mit Anzahl; in „Alle“ ist jede Liste ein
   Abschnitt, den du einklappen kannst – das Gerät merkt sich das). Die **Suche** findet Vorlagen über alle Kategorien,
   geordnet nach „Kategorie › Unterkategorie“. Vorlagen ohne Kategorie stehen im Reiter **Ohne Kategorie** (nur solange es
@@ -2816,7 +2838,8 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   sie **leer** (A4 hochkant) – zum Ausfüllen von Hand, mit leeren Kopffeldern, Kästchen, Schreiblinien und Unterschriftszeilen. Die Einrichtungen von vor dem Update haben die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
   Fachkräfte**. Du kannst Vorlagen anlegen, **kopieren**, **stilllegen** (steht dann eingeklappt unten, schon angelegte
   Bögen bleiben lesbar) und löschen – Löschen geht nur, solange noch kein Bogen damit angelegt wurde.
-- **Reihenfolge:** Mit den Pfeilen **Nach oben / Nach unten** rechts bei jeder aktiven Vorlage schiebst du sie innerhalb
+- **Reihenfolge:** Nach **Reihenfolge ändern** (oben neben „Kategorien verwalten“; **Fertig** blendet sie wieder aus)
+  schiebst du mit den Pfeilen **Nach oben / Nach unten** rechts bei jeder aktiven Vorlage diese innerhalb
   ihrer Liste (die Vorlagen direkt in einer Kategorie, oder die einer Unterkategorie). Überall, wo eine Vorlage gewählt
   wird (Bogen in der Kinderakte, Mitarbeitergespräch, Teamsitzung, Unfallbericht bzw. Unfallanzeige, Infogespräch,
   Hospitation), stehen nur die Vorlagen der passenden Art – gruppiert nach „Kategorie › Unterkategorie“ in der Reihenfolge
@@ -3109,8 +3132,21 @@ Gesundheitsamt, Fachberatung, Ärztinnen und Ärzte, Handwerk und Notdienst usw.
 - Jede Einrichtung hat **eigene Kategorien**. Zum Start (bestehende Einrichtungen beim Update, neue beim Anlegen) gibt es:
   Schulen, Jugendamt, Gesundheitsamt, Fachberatung, Ärztinnen/Ärzte & Therapie, Träger & Verwaltung, Handwerk & Notdienst,
   Sonstiges.
-- **Kategorien verwalten**: hinzufügen, umbenennen, Reihenfolge ändern. Löschen geht nur, solange keine Kontakte der
+- **Kategorien verwalten** (sieht aus wie bei „Zum Ausdrucken“ und „Wissen“): hinzufügen, umbenennen, mit den Pfeilen
+  **nach oben / nach unten** schieben, **„Wer sieht sie?“** ändern. Löschen geht nur, solange keine Kontakte der
   Einrichtung darin liegen. Ein Name kommt in einer Einrichtung nur einmal vor (Groß-/Kleinschreibung zählt nicht).
+- **Wer sieht sie?** – dieselben drei Stufen wie bei „Zum Ausdrucken“ und „Wissen“:
+  - **Alle (auch Mitarbeitende und Tablet)** – so stehen alle Kategorien nach dem Update (es ändert sich also nichts,
+    was jemand sieht);
+  - **Nur Leitung und Träger** – z. B. „Intern“ oder „Verwaltung“: die Kontakte darin sehen Mitarbeitende und das Tablet
+    nicht, auch wenn beim Kontakt „Alle“ steht;
+  - **Nur Träger** – nur der Träger sieht, ändert und löscht diese Kategorie und ihre Kontakte; die Leitung sieht sie gar
+    nicht und kann keine Kategorie auf „Nur Träger“ stellen. Stellt der Träger eine Kategorie mit Kontakten darauf, fragt
+    die App vorher nach.
+
+  Kategorien, die nicht alle sehen, sind im Reiter markiert („nur Leitung und Träger“ bzw. „nur Träger“). Legt der Träger
+  für einen Kontakt für mehrere Einrichtungen die fehlende Kategorie dort an, bekommt sie das „Wer sieht sie?“ der
+  gleichnamigen Kategorie der oben gewählten Einrichtung.
 - Die Kategorien erscheinen auf der Seite als Reiter („Alle“, dann die Kategorien, ggf. „Vom Träger“). Das Suchfeld sucht
   in Einrichtung/Firma, Ansprechperson, Funktion, Notiz und Ort.
 
@@ -3120,11 +3156,16 @@ Gesundheitsamt, Fachberatung, Ärztinnen und Ärzte, Handwerk und Notdienst usw.
   E-Mail, Website, Anschrift und eine Notiz (bis 1000 Zeichen). E-Mail und Website werden geprüft; eine Website ohne
   „https://“ bekommt es vorangestellt, andere Adressarten als http/https sind nicht erlaubt.
 - Telefon, Mobil, E-Mail und Website sind anklickbar (Anruf, E-Mail-Programm, neue Seite).
-- **„auch für Mitarbeitende und am Tablet sichtbar“**: Nur Kontakte mit diesem Haken sehen Mitarbeiter-Konten (unter
-  **Meins → Kontakte**, der Eintrag erscheint erst, wenn es mindestens einen solchen Kontakt gibt) und das Tablet (Kachel
-  **Kontakte** auf der Startseite, ohne PIN). Ohne Haken sehen ihn auf dieser Seite nur Leitung und Träger (Hinweis
-  „nur Leitung“); zur Ausnahme bei Schulen siehe „Künftige Schule eines Kindes“. Zusätzlich zählt **„Gilt für“** (siehe
-  unten): Mitarbeitende sehen einen Kontakt nur, wenn er für alle Gruppen gilt oder ihre Stammgruppe gewählt ist.
+- **„Wer sieht ihn?“** (früher der Haken „auch für Mitarbeitende und am Tablet sichtbar“): **Alle (auch Mitarbeitende
+  und Tablet)** oder **Nur Leitung und Träger**. Es gilt **zusätzlich** zu „Wer sieht sie?“ der Kategorie – **die engere
+  Einstellung zählt** (wie bei „Zum Ausdrucken“). Einen Kontakt mit „Alle“ sehen also Mitarbeiter-Konten (unter **Meins →
+  Kontakte**, der Eintrag erscheint erst, wenn es mindestens einen solchen Kontakt gibt) und das Tablet (Kachel
+  **Kontakte** auf der Startseite, ohne PIN) nur, wenn auch seine Kategorie für **Alle** ist. Kontakte, die nicht alle
+  sehen, sind für Leitung und Träger markiert („nur Leitung und Träger“ bzw. „nur Träger“). Beim Update wurde aus dem
+  Haken „Alle“ und aus keinem Haken „Nur Leitung und Träger“ – es ändert sich nichts. „Nur Träger“ gibt es für einen
+  einzelnen Kontakt nicht; dafür legt der Träger ihn in eine Kategorie „Nur Träger“. Zur Ausnahme bei Schulen siehe
+  „Künftige Schule eines Kindes“. Zusätzlich zählt **„Gilt für“** (siehe unten): Mitarbeitende sehen einen Kontakt nur,
+  wenn er für alle Gruppen gilt oder ihre Stammgruppe gewählt ist.
 - **Drucken**: alle Kontakte oder die geöffnete Kategorie, jeweils so, wie die Person sie sieht (nicht am Tablet).
 
 ### Wer was darf
@@ -3185,7 +3226,7 @@ Beim Anlegen und später mit **Bearbeiten** gibt es **„Gilt für“** – gena
   wenn die Schule nicht mehr für sie gilt, in der Liste des Trägers, wenn sie für keine Einrichtung mehr gilt (eine
   umbenannte Kategorie allein zählt nicht).
 - Name und Ort einer Schule sieht in der Kinderakte (und in der Liste der Schulkinder) jede Person, die die Akte sehen
-  bzw. ändern darf – auch ohne den Haken „auch für Mitarbeitende und am Tablet sichtbar“; Ansprechperson, Telefon,
+  bzw. ändern darf – auch wenn der Kontakt nicht für „Alle“ ist; Ansprechperson, Telefon,
   E-Mail und Notiz nicht.
 - Das frühere Freitextfeld heißt jetzt **„Grundschule (Notiz)“**. Es erscheint nur noch, wenn darin schon etwas steht oder
   unter Kontakte noch keine Schule eingetragen ist; für die Liste der Schulkinder zählt nur „künftige Schule“.
@@ -3257,7 +3298,7 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
   als Hinweis am Eintrag).
 - Das **Suchfeld** sucht in Titel, Beschreibung und Text aller Kategorien.
 - **Reihenfolge**: Wer Wissen pflegen darf, schiebt jeden Eintrag in seiner Kategorie (bzw. Unterkategorie, unter
-  „Allgemein“ oder unter „Vom Träger“) mit den Pfeilen **Nach oben / Nach unten** – auch die Einträge des Trägers für
+  „Allgemein“ oder unter „Vom Träger“) nach **Reihenfolge ändern** mit den Pfeilen **Nach oben / Nach unten** – auch die Einträge des Trägers für
   mehrere oder alle Einrichtungen. Die Reihenfolge gilt für die **oben gewählte Einrichtung** (jede Einrichtung hat ihre
   eigene) und für alle, die dort lesen (Mitarbeiter und Tablet sehen dieselbe Reihenfolge, aber keine Pfeile). Unter
   **Alle** schieben die Pfeile innerhalb der jeweiligen Gruppe. Ein **neuer** Eintrag kommt ans **Ende** seiner Liste (einer

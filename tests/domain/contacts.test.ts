@@ -3,10 +3,12 @@ import {
   contactAddress, contactPrintPath, contactsOfTab, contactTabFromQuery, contactTabs, futureSchoolLabel, groupBySchool, printedTab, printSections,
   tabCategoryName, websiteLabel,
 } from '../../app/utils/contacts'
-import { contactMatches, isEmailAddress, isSchoolCategory, normalizedWebsite, telHref } from '../../shared/domain/contacts'
+import {
+  contactLevels, contactMatches, contactViewLevel, contactVisibility, isEmailAddress, isSchoolCategory, normalizedWebsite, seesAtLevel, telHref,
+} from '../../shared/domain/contacts'
 import type { ContactCategoryDto, ContactDto } from '../../shared/types/api'
 
-const category = (id: number, name: string, contactCount = 0): ContactCategoryDto => ({ id, name, contactCount, ownCount: contactCount })
+const category = (id: number, name: string, contactCount = 0): ContactCategoryDto => ({ id, name, visibility: 'all', contactCount, ownCount: contactCount })
 const contact = (id: number, categoryId: number | null, overrides: Partial<ContactDto> = {}): ContactDto => ({
   id, categoryId, global: categoryId === null, globalCategoryName: null, organisation: `Kontakt ${id}`, person: '', role: '',
   phone: '', mobile: '', email: '', street: '', postalCode: '', city: '', website: '', note: '', visibleToStaff: true,
@@ -126,5 +128,32 @@ describe('the page „Kontakte“', () => {
     expect(futureSchoolLabel({ futureSchool: null, futureSchoolOutOfScope: true })).toBeNull()
     expect(groupBySchool([{ id: 1, futureSchool: 'Waldschule' }, moved]).map(group => group.school))
       .toEqual(['Waldschule', 'Waldschule (gilt nicht mehr für diese Einrichtung)'])
+  })
+})
+
+describe('who sees a contact (category and contact, the stricter wins)', () => {
+  it('gives the staff and the tablet „all“, other maintainers „managers“, the Träger „provider“', () => {
+    expect(contactViewLevel('observer', false)).toBe('all')
+    expect(contactViewLevel('terminal', false)).toBe('all')
+    expect(contactViewLevel('admin', true)).toBe('managers')
+    // A Mitarbeiter account with contacts.manage counts as a maintainer; a Träger without it as staff.
+    expect(contactViewLevel('observer', true)).toBe('managers')
+    expect(contactViewLevel('provider', true)).toBe('provider')
+    expect(contactViewLevel('provider', false)).toBe('all')
+    expect(contactLevels('managers')).toEqual(['all', 'managers'])
+    expect(contactLevels('provider')).toEqual(['all', 'managers', 'provider'])
+  })
+
+  it('combines the category\'s „Wer sieht sie?“ with the contact\'s own setting', () => {
+    expect(contactVisibility(null, true)).toBe('all')
+    expect(contactVisibility('all', false)).toBe('managers')
+    expect(contactVisibility('managers', true)).toBe('managers')
+    expect(contactVisibility('provider', true)).toBe('provider')
+    expect(contactVisibility('provider', false)).toBe('provider')
+    expect(seesAtLevel('all', contactVisibility('all', true))).toBe(true)
+    expect(seesAtLevel('all', contactVisibility('managers', true))).toBe(false)
+    expect(seesAtLevel('managers', contactVisibility('all', false))).toBe(true)
+    expect(seesAtLevel('managers', contactVisibility('provider', true))).toBe(false)
+    expect(seesAtLevel('provider', 'provider')).toBe(true)
   })
 })

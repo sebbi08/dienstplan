@@ -1019,7 +1019,9 @@ export const contactSchema = z.object({
   note: contactText(CONTACT_LIMITS.note),
   visibleToStaff: z.boolean(),
 })
-export const contactCategorySchema = z.object({ name: z.string().max(CONTACT_LIMITS.categoryName) })
+export const contactCategorySchema = z.object({
+  name: z.string().max(CONTACT_LIMITS.categoryName), visibility: z.enum(TEMPLATE_VISIBILITIES).optional(),
+})
 
 // „Wissen“: an entry as multipart form fields (all strings; the PDF of a file entry as `file`). The service checks the
 // lengths (title, description, text), the link, „Stand vom“ and the category with its own German messages, so the

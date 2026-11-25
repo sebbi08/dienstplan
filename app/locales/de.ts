@@ -24,6 +24,12 @@ const providerMoves = (count: number) => (count === 1
 const generalMoves = (count: number) => (count === 1
   ? 'Die 1 Vorlage des Trägers darin steht danach direkt in der Kategorie („Allgemein“).'
   : `Die ${count} Vorlagen des Trägers darin stehen danach direkt in der Kategorie („Allgemein“).`)
+/** „Wer sieht sie?“ of a category, the same words for „Zum Ausdrucken“, „Wissen“ and „Kontakte“. */
+const CATEGORY_VISIBILITIES = { all: 'Alle (auch Mitarbeitende und Tablet)', managers: 'Nur Leitung und Träger', provider: 'Nur Träger' } as const
+/** The note at a category (or an item) not everyone sees, in all three places. */
+const VISIBILITY_BADGES = { all: '', managers: 'nur Leitung und Träger', provider: 'nur Träger' } as const
+/** The hint at an item's own „Wer sieht …?“ in all three places. */
+const ITEM_VISIBILITY_HINT = 'Gilt zusätzlich zur Kategorie: Es zählt die engere Einstellung.'
 /** Jugendarbeitsschutz without a birth year: in the plan's hints (with the name) and on the employee page. */
 const YOUTH_BIRTH_YEAR_MISSING = 'Geburtsjahr fehlt – Jugendarbeitsschutz kann nicht geprüft werden'
 /** A birth year without a birthday in the year of the 18th birthday (the same places). */
@@ -49,6 +55,10 @@ export const de = {
     pdf: 'PDF herunterladen', pdfFailed: 'Das PDF konnte nicht erstellt werden. Bitte noch einmal versuchen.',
     save: 'Speichern', delete: 'Löschen', cancel: 'Abbrechen', add: 'Hinzufügen', close: 'Schließen', edit: 'Bearbeiten', explanation: 'Erklärung',
     saved: 'Gespeichert', deleted: 'Gelöscht', confirmDelete: 'Wirklich löschen?', confirmTitle: 'Bitte bestätigen',
+    // Phones: the buttons of a list row beyond the first sit in this menu („⋯“); `name` is the row's title.
+    moreActions: (name: string) => `Weitere Aktionen: ${name}`,
+    // „Reihenfolge ändern“ above a list: only then the ▲/▼ show at its rows.
+    reorder: 'Reihenfolge ändern', reorderDone: 'Fertig',
     previousMonth: 'Vorheriger Monat', nextMonth: 'Nächster Monat', previousYear: 'Vorheriges Jahr', nextYear: 'Nächstes Jahr',
     invalidTime: 'Ungültige Uhrzeit – z. B. 8:45 oder 845 eingeben (5-Minuten-Schritte).',
     invalidTimeAnyMinute: 'Ungültige Uhrzeit – z. B. 7:42 oder 742 eingeben.',
@@ -307,9 +317,9 @@ export const de = {
   terminal: {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
     pinLockedUntil: (time: string) => `PIN gesperrt bis ${time}.`,
-    startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', templatesTitle: 'Vorlagen', notesTitle: 'Notizen',
-    // The start page's tile for „Dokumente“ (the tabs Vorlagen and Wissen there).
-    documentsTitle: 'Dokumente', documentsHint: 'Vorlagen und Wissen',
+    startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', templatesTitle: 'Zum Ausdrucken', notesTitle: 'Notizen',
+    // The start page's tile for „Dokumente“ (the tabs „Zum Ausdrucken“ and „Wissen“ there).
+    documentsTitle: 'Dokumente', documentsHint: 'Zum Ausdrucken und Wissen',
     toStart: 'Startseite',
     backToStart: 'Zurück zum Start', printPlan: 'Dienstplan drucken', printPlanThisMonth: 'Dieser Monat', printPlanNextMonth: 'Nächster Monat',
     chooseChildren: 'Bitte deinen Namen antippen und deine PIN eingeben, um die Kinder aufzuschließen.',
@@ -1273,7 +1283,7 @@ export const de = {
     // The overview on the users page.
     overviewHint: 'So sind die Rollen gerade eingestellt.',
     overviewProvider: 'Träger: alle Rechte.',
-    overviewTablet: 'Stempel-Tablet: stempeln, Dienstplan, Teamsitzungen und Vorlagen; nach dem Aufschließen mit Name und PIN die Rechte der Person, die aufgeschlossen hat.',
+    overviewTablet: 'Stempel-Tablet: stempeln, Dienstplan, Teamsitzungen und Formulare zum Ausdrucken; nach dem Aufschließen mit Name und PIN die Rechte der Person, die aufgeschlossen hat.',
     // The rights of one person.
     personTitle: 'Rechte dieser Person',
     personHint: 'Grundlage sind die Rechte der Rolle. Hier kannst du für diese Person einzelne Schalter zusätzlich erlauben oder wegnehmen. Jede Änderung wird sofort gespeichert und gilt ab der nächsten Aktion der Person.',
@@ -1360,6 +1370,15 @@ export const de = {
     age: (years: number, months: number) => `${years} J. ${months} M.`, important: 'Wichtig', contactBan: 'Kontaktverbot',
     allergies: 'Allergien', emergencyContacts: 'Anruf-Reihenfolge',
     sections: { master: 'Stammdaten', contacts: 'Bezugspersonen', health: 'Gesundheit', consents: 'Einwilligungen', documents: 'Dokumente' },
+    // The sticky bar on the record that jumps to its sections (only those shown); the current one is highlighted.
+    jump: {
+      label: 'Abschnitte der Akte',
+      sections: {
+        master: 'Stammdaten', contacts: 'Bezugspersonen', health: 'Gesundheit', notes: 'Notizen', consents: 'Einwilligungen',
+        documents: 'Dokumente', development: 'Entwicklung', meetings: 'Elterngespräche', forms: 'Beobachtungen', accidents: 'Unfälle',
+        lifecycle: 'Abmeldung',
+      },
+    },
     lastChanged: (by: string, at: string) => `zuletzt geändert von ${by} am ${at}`,
     triState: { yes: 'ja', no: 'nein', open: 'offen' },
     fields: {
@@ -1467,7 +1486,7 @@ export const de = {
       applicant: 'Es gibt keine offene Hospitation oder Bewerbung. Sie stehen unter Mitarbeiter → Bewerbungen & Hospitationen.',
     },
     noMatch: 'Nichts gefunden.', planned: 'noch nicht in der Kita', left: 'ausgeschieden', loading: 'Wird geladen …',
-    noTemplates: 'Es gibt keine Vorlagen zum Ausfüllen. PDF-Vorlagen legt die Leitung unter „Dokumente → Vorlagen“ ab.',
+    noTemplates: 'Es gibt keine Vorlagen zum Ausfüllen. PDF-Vorlagen legt die Leitung unter „Dokumente → Zum Ausdrucken“ ab.',
     // The fill view.
     forTarget: (name: string) => `für ${name}`,
     opening: 'Das Formular wird geladen …', failed: 'Das Formular konnte nicht geöffnet werden.',
@@ -1513,9 +1532,16 @@ export const de = {
     },
     folder: 'Fach',
   },
-  /** „Dokumente“: the form templates („Bögen“) and the print templates („Vorlagen“) as tabs. */
+  /**
+   * „Dokumente“: the form templates („Bögen“), the blank PDFs („Zum Ausdrucken“, key `templates`), „Wissen“ and
+   * „Unterschriften“ as tabs; the first two with a short line saying what is in them.
+   */
   documents: {
-    title: 'Dokumente', tabsLabel: 'Bereich', tabs: { forms: 'Bögen', templates: 'Vorlagen', knowledge: 'Wissen', signatures: 'Unterschriften' },
+    title: 'Dokumente', tabsLabel: 'Bereich', tabs: { forms: 'Bögen', templates: 'Zum Ausdrucken', knowledge: 'Wissen', signatures: 'Unterschriften' },
+    tabHints: {
+      forms: 'Vorlagen für Bögen, die im Programm ausgefüllt werden', templates: 'PDF-Formulare zum Ausdrucken oder Ausfüllen',
+      knowledge: '', signatures: '',
+    },
   },
   /**
    * „Zum Unterschreiben senden“: the Leitung sends a PDF to employees, who sign it in the app (Meins → Zu unterschreiben,
@@ -1542,7 +1568,7 @@ export const de = {
     noRecipients: 'Bitte mindestens eine Person auswählen.',
     // Dokumente → Unterschriften.
     intro: 'Was du zum Unterschreiben gesendet hast, mit dem Stand je Person. Die unterschriebenen Kopien liegen in der Personalakte.',
-    howToSend: 'Senden kannst du unter „Vorlagen“ oder bei einem PDF in der Personalakte, jeweils mit „Zum Unterschreiben senden“.',
+    howToSend: 'Senden kannst du unter „Zum Ausdrucken“ oder bei einem PDF in der Personalakte, jeweils mit „Zum Unterschreiben senden“.',
     none: 'Es wurde noch nichts zum Unterschreiben gesendet.',
     sentOn: (date: string, by: string | null) => (by ? `gesendet am ${date} von ${by}` : `gesendet am ${date}`),
     dueOn: (date: string) => `bis ${date}`, overdue: 'überfällig',
@@ -1579,8 +1605,8 @@ export const de = {
     tabletUnlock: 'Meine Dokumente zeigen', tabletDone: 'Fertig',
   },
   printTemplates: {
-    intro: 'Leere Formulare zum Ausdrucken. „Öffnen“ zeigt das PDF in einem neuen Tab, dort kannst du es drucken.',
-    none: 'Es gibt noch keine Vorlagen.',
+    intro: 'Leere PDF-Formulare zum Ausdrucken. „Öffnen“ zeigt das PDF in einem neuen Tab, dort kannst du es drucken.',
+    none: 'Es gibt noch keine Formulare zum Ausdrucken.',
     upload: 'Vorlage hochladen', edit: 'Vorlage bearbeiten', open: 'Öffnen',
     file: 'Datei (nur PDF, höchstens 30 MB)', replaceFile: 'Datei ersetzen (freiwillig, nur PDF)',
     name: 'Titel', category: 'Kategorie', categoryPlaceholder: 'Kategorie auswählen',
@@ -1589,7 +1615,7 @@ export const de = {
     // ▲/▼ at each template (whoever may edit templates): the order of this facility, also for the Träger's templates.
     order: 'Reihenfolge', moveUp: 'Nach oben', moveDown: 'Nach unten',
     // Shown at a category that not everyone sees.
-    visibilityBadge: { managers: 'nur Leitung und Träger', provider: 'nur Träger' },
+    visibilityBadge: VISIBILITY_BADGES,
     // The sub-tabs: one per category, „Vom Träger“ for templates for all facilities without a category of their name here.
     tabsLabel: 'Kategorien', emptyCategory: 'In dieser Kategorie gibt es noch keine Vorlagen.',
     fromProvider: 'Vom Träger',
@@ -1621,7 +1647,7 @@ export const de = {
       hiddenSubcategories: 'Diese Kategorie hat Unterkategorien, die du nicht siehst. Löschen kann sie nur, wer alle Unterkategorien sieht.',
       confirmDeleteSub: (name: string, moved = 0) => `Die Unterkategorie „${name}“ löschen?${moved > 0 ? ` ${generalMoves(moved)}` : ''}`,
       confirmRenameSub: (name: string, moved: number) => `Die Unterkategorie „${name}“ umbenennen? ${generalMoves(moved)}`,
-      visibilities: { all: 'Alle (auch Mitarbeiter und Tablet)', managers: 'Nur Leitung und Träger', provider: 'Nur Träger' },
+      visibilities: CATEGORY_VISIBILITIES,
       moveUp: 'Nach oben', moveDown: 'Nach unten',
       templateCount: (n: number) => (n === 1 ? '1 Vorlage' : `${n} Vorlagen`),
       // The Träger's templates for all facilities shown in the category by its name.
@@ -1644,7 +1670,7 @@ export const de = {
     searchResults: (count: number) => (count === 1 ? '1 Treffer in allen Kategorien' : `${count} Treffer in allen Kategorien`),
     noMatch: 'Keine Vorlage passt zur Suche.',
     visibility: 'Wer sieht sie?',
-    visibilityHint: 'Gilt zusätzlich zur Kategorie: Es zählt die engere Einstellung.',
+    visibilityHint: ITEM_VISIBILITY_HINT,
   },
   // „Gilt für“ of Vorlagen and „Wissen“: facilities and groups (shared/domain/documentTargets.ts).
   documentTargets: {
@@ -3951,21 +3977,30 @@ export const de = {
     organisationPlaceholder: 'z. B. Grundschule Süd', rolePlaceholder: 'z. B. Kooperationslehrkraft',
     categoryPlaceholder: 'Kategorie wählen',
     categoryNameHint: 'Erscheint in jeder Einrichtung in der Kategorie mit diesem Namen, sonst unter „Vom Träger“.',
-    visibleToStaff: 'auch für Mitarbeitende und am Tablet sichtbar',
-    visibleToStaffHint: 'Ohne Haken sehen nur Leitung und Träger diesen Kontakt. Mit Haken sehen ihn Mitarbeitende und das Tablet, '
-      + 'wenn er unter „Gilt für“ für alle Gruppen oder für ihre Stammgruppe gilt.',
+    // „Wer sieht ihn?“ at the contact (stored as „auch für Mitarbeitende“ yes/no): on top of the category's „Wer sieht sie?“.
+    visibility: 'Wer sieht ihn?',
+    visibilities: { all: CATEGORY_VISIBILITIES.all, managers: CATEGORY_VISIBILITIES.managers },
+    visibilityHint: `${ITEM_VISIBILITY_HINT} Mitarbeitende und das Tablet sehen ihn außerdem nur, wenn er unter „Gilt für“ `
+      + 'für alle Gruppen oder für ihre Stammgruppe gilt.',
+    // A contact or category that not everyone sees.
+    visibilityBadge: VISIBILITY_BADGES,
     // A contact of the Träger: „alle Einrichtungen“ when it is for all, else „vom Träger“ (for the facilities chosen).
-    internalBadge: 'nur Leitung', global: 'alle Einrichtungen', ownerBadge: 'vom Träger', globalHint: 'Vom Träger – nur der Träger kann ihn ändern.',
+    global: 'alle Einrichtungen', ownerBadge: 'vom Träger', globalHint: 'Vom Träger – nur der Träger kann ihn ändern.',
     // A linked school (künftige Schule, Schulbezirk) whose „Gilt für“ no longer includes the facility: it stays, with this.
     schoolOutOfScope: 'gilt nicht mehr für diese Einrichtung',
     confirmDelete: (name: string) => `Kontakt „${name}“ löschen?`,
     updated: (date: string, by: string | null) => (by ? `zuletzt geändert am ${date} von ${by}` : `zuletzt geändert am ${date}`),
     call: (number: string) => `${number} anrufen`, mail: (address: string) => `E-Mail an ${address}`, openWebsite: 'Website öffnen',
     categories: {
-      intro: 'Die Kategorien gelten nur für diese Einrichtung. Löschen geht nur, solange keine eigenen Kontakte darin liegen.',
-      none: 'Noch keine Kategorien.', name: 'Name der Kategorie', add: 'Kategorie hinzufügen',
+      intro: 'Die Kategorien gelten nur für diese Einrichtung. „Wer sieht sie?“ gilt für alle Kontakte darin; ein Kontakt '
+        + 'kann zusätzlich enger eingestellt sein. Löschen geht nur, solange keine eigenen Kontakte darin liegen.',
+      none: 'Noch keine Kategorien.', name: 'Name der Kategorie', visibility: 'Wer sieht sie?', add: 'Kategorie hinzufügen',
+      edit: 'Kategorie ändern', visibilities: CATEGORY_VISIBILITIES,
       contactCount: (count: number) => (count === 1 ? '1 Kontakt' : `${count} Kontakte`),
-      confirmDelete: (name: string) => `Kategorie „${name}“ löschen?`, up: 'nach oben', down: 'nach unten', rename: 'Umbenennen',
+      confirmDelete: (name: string) => `Kategorie „${name}“ löschen?`, moveUp: 'Nach oben', moveDown: 'Nach unten',
+      /** Setting a category with contacts to „Nur Träger“. */
+      confirmProviderOnly: (name: string, count: number) => `${count === 1 ? 'Den 1 Kontakt' : `Die ${count} Kontakte`} in „${name}“ `
+        + 'sehen Leitung, Mitarbeitende und Tablet dann nicht mehr. Trotzdem auf „Nur Träger“ stellen?',
     },
     printTitleCategory: (name: string) => `Kontakte – ${name}`,
     futureSchool: 'künftige Schule', noFutureSchool: 'keine Auswahl',
@@ -3994,7 +4029,7 @@ export const de = {
     noSubcategory: 'Allgemein (keine Unterkategorie)',
     subcategoryNameHint: 'Hat die Kategorie einer Einrichtung eine Unterkategorie mit diesem Namen, steht der Eintrag dort, sonst direkt in der Kategorie („Allgemein“).',
     none: 'Es gibt noch keine Einträge.', emptyCategory: 'In dieser Kategorie gibt es noch keine Einträge.',
-    visibilityBadge: { all: '', managers: 'nur Leitung und Träger', provider: 'nur Träger' },
+    visibilityBadge: VISIBILITY_BADGES,
     kinds: { file: 'PDF', link: 'Link', text: 'Text' },
     open: 'Öffnen', openLink: (host: string) => `Öffnen (${host})`, read: 'Lesen', collapse: 'Zuklappen',
     asOf: (date: string) => `Stand vom ${date}`,
@@ -4022,7 +4057,7 @@ export const de = {
     kindLabels: { file: 'PDF hochladen', link: 'Link zu einer Website', text: 'Kurzer Text' },
     urlPlaceholder: 'https://www.beispiel.de', categoryPlaceholder: 'Kategorie wählen',
     categoryNameHint: 'Erscheint in jeder Einrichtung in der Kategorie mit diesem Namen, sonst unter „Vom Träger“.',
-    visibilityHint: 'Gilt zusätzlich zur Kategorie der Einrichtung: Es zählt die strengere Einstellung.',
+    visibilityHint: ITEM_VISIBILITY_HINT,
     needsConfirmationHint: 'Alle, die den Eintrag sehen, bestätigen ihn mit ihrem Zugang oder am Tablet mit ihrer PIN. Wird die Datei, der Link oder der Text geändert, müssen alle neu bestätigen.',
     contentChangeHint: 'Datei, Link oder Text geändert: Alle, die schon bestätigt haben, werden noch einmal gefragt.',
     currentFile: (size: string) => `Gespeicherte Datei: ${size}`,
@@ -4040,7 +4075,7 @@ export const de = {
       hiddenSubcategoryNote: 'weitere Unterkategorien, die du nicht siehst',
       hiddenSubcategories: 'Diese Kategorie hat Unterkategorien, die du nicht siehst. Löschen kann sie nur, wer alle Unterkategorien sieht.',
       confirmDeleteSub: (name: string) => `Unterkategorie „${name}“ löschen?`,
-      visibilities: { all: 'alle (auch Mitarbeitende und Tablet)', managers: 'nur Leitung und Träger', provider: 'nur Träger' },
+      visibilities: CATEGORY_VISIBILITIES,
       entryCount: (count: number) => (count === 1 ? '1 Eintrag' : `${count} Einträge`),
       confirmDelete: (name: string) => `Kategorie „${name}“ löschen?`, moveUp: 'Nach oben', moveDown: 'Nach unten',
     },

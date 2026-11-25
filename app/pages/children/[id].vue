@@ -4,6 +4,7 @@ import { todayIso } from '#shared/domain/dates'
 import type { ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
+import { recordSectionId } from '~/utils/recordJump'
 
 const route = useRoute()
 const id = Number(route.params.id)
@@ -16,6 +17,8 @@ const lookups = useChildLookups()
 await lookups.ready
 
 const age = computed(() => (child.value ? ageOn(child.value.master.birthDate, todayIso()) : null))
+/** A section's element: hidden while its section shows nothing (no gap), and not under the sticky bars after a jump. */
+const sectionClass = 'empty:hidden scroll-mt-32'
 </script>
 
 <template>
@@ -33,17 +36,19 @@ const age = computed(() => (child.value ? ageOn(child.value.master.birthDate, to
 
       <p v-if="child.status === 'archived'" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">{{ de.childLifecycle.archived }}</p>
       <ChildrenChildImportantBox :child="child" />
-      <ChildrenChildMasterForm :child="child" :lookups="lookups" :reload="reload" />
-      <ChildrenChildContactsSection :child="child" :reload="reload" />
-      <ChildrenChildHealthForm :child="child" :reload="reload" />
-      <ChildrenChildNotesSection :child="child" :lookups="lookups" :reload="reload" />
-      <ChildrenChildConsentsForm :child="child" :reload="reload" />
-      <ChildrenChildDocumentsSection :child="child" :reload="reload" />
-      <ChildrenChildDevelopmentDocSection :child="child" :reload="reload" />
-      <ChildrenChildMeetingsSection :child="child" :reload="reload" />
-      <ChildrenChildFormsSection :child="child" />
-      <ChildrenChildAccidentsSection :child="child" />
-      <ChildrenChildLifecycleSection :child="child" :reload="reload" />
+      <!-- The jump bar to the sections below; each sits in an element `recordSectionId(key)` (empty ones are hidden). -->
+      <ChildrenChildRecordJumpBar />
+      <div :id="recordSectionId('master')" :class="sectionClass"><ChildrenChildMasterForm :child="child" :lookups="lookups" :reload="reload" /></div>
+      <div :id="recordSectionId('contacts')" :class="sectionClass"><ChildrenChildContactsSection :child="child" :reload="reload" /></div>
+      <div :id="recordSectionId('health')" :class="sectionClass"><ChildrenChildHealthForm :child="child" :reload="reload" /></div>
+      <div :id="recordSectionId('notes')" :class="sectionClass"><ChildrenChildNotesSection :child="child" :lookups="lookups" :reload="reload" /></div>
+      <div :id="recordSectionId('consents')" :class="sectionClass"><ChildrenChildConsentsForm :child="child" :reload="reload" /></div>
+      <div :id="recordSectionId('documents')" :class="sectionClass"><ChildrenChildDocumentsSection :child="child" :reload="reload" /></div>
+      <div :id="recordSectionId('development')" :class="sectionClass"><ChildrenChildDevelopmentDocSection :child="child" :reload="reload" /></div>
+      <div :id="recordSectionId('meetings')" :class="sectionClass"><ChildrenChildMeetingsSection :child="child" :reload="reload" /></div>
+      <div :id="recordSectionId('forms')" :class="sectionClass"><ChildrenChildFormsSection :child="child" /></div>
+      <div :id="recordSectionId('accidents')" :class="sectionClass"><ChildrenChildAccidentsSection :child="child" /></div>
+      <div :id="recordSectionId('lifecycle')" :class="sectionClass"><ChildrenChildLifecycleSection :child="child" :reload="reload" /></div>
     </template>
   </div>
 </template>

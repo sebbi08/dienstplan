@@ -6,7 +6,7 @@ import { hiddenByVisibility, movedToProvider } from '~/utils/printTemplates'
 import { subcategoriesOf, topCategories } from '~/utils/subcategories'
 
 /**
- * „Kategorien verwalten“ on „Dokumente“ → „Vorlagen“ (whoever may edit templates), for the active facility: create,
+ * „Kategorien verwalten“ on „Dokumente“ → „Zum Ausdrucken“ (whoever may edit templates), for the active facility: create,
  * rename, reorder, change who sees a category, delete an empty one (templates for all facilities filed by its name do
  * not count, but deleting or renaming names them: they move to „Vom Träger“). Each category can have subcategories (one
  * level), shown indented below it: „Unterkategorie anlegen“ at the category, then rename, reorder within the category,

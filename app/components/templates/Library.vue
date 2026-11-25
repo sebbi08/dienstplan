@@ -4,6 +4,7 @@ import { matchesSearch } from '#shared/domain/search'
 import type { CategoryNameDto, DocumentTargetOptionsDto, PrintTemplateDto, TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
+import type { RowAction } from '~/utils/rowActions'
 import { pickedFile, uploadSizeError } from '~/utils/uploads'
 import {
   asksForCategories, emptyTargets, facilitiesLost, targetHints, targetsFormOf, targetsNeedChoice, targetsPayload, targetsProblem, type TargetsForm,
@@ -22,12 +23,13 @@ import {
 } from '~/utils/subcategories'
 
 /**
- * „Dokumente“ → „Vorlagen“: blank PDF forms to open and print, one sub-tab per category of the facility (in its order,
+ * „Dokumente“ → „Zum Ausdrucken“ (the tab key stays `templates`): blank PDF forms to open and print, one sub-tab per category of the facility (in its order,
  * only those the viewer sees; the server filters) and „Vom Träger“ for templates for all facilities whose category name
  * the facility has no category of. Whoever may edit templates (printTemplates.edit: Träger and Leitung by default, a
  * Mitarbeiter with „Vorlagen bearbeiten“) uploads and maintains them and the facility's categories, everyone else and
  * the tablet (no unlock, they are no child data) only open them. The device remembers the last sub-tab. Editors order
- * the templates of a sub-tab with ▲/▼ (this facility's order, also for the Träger's templates); everyone sees that order.
+ * the templates of a sub-tab with ▲/▼ after „Reihenfolge ändern“ (this facility's order, also for the Träger's
+ * templates); everyone sees that order. On phones a row shows „Öffnen“ and a „⋯“ menu with the other buttons.
  * A category with subcategories shows a panel of small tabs below it („Alle“, „Allgemein“, the subcategories, each with
  * its count; the device remembers the last one per category): „Alle“ lists the templates in sections, „Allgemein“ first,
  * then one per subcategory (empty ones left out), each folding up (remembered per category on the device), and ▲/▼ order
@@ -347,6 +349,23 @@ async function remove(template: PrintTemplateDto) {
     run(() => $fetch<unknown>(`/api/print-templates/${template.id}`, { method: 'DELETE' }), de.common.deleted)
   }
 }
+
+/** The ▲/▼ show only while „Reihenfolge ändern“ is on (as in the list of Mitarbeiter). */
+const reordering = ref(false)
+/** A row's buttons: „Öffnen“ first (on phones the only button, the rest in „⋯“); in the search without „Löschen“. */
+function actionsOf(template: PrintTemplateDto, withDelete = true): RowAction[] {
+  const editable = canEdit.value && template.canEdit
+  return [
+    { key: 'open', label: de.printTemplates.open, icon: 'i-lucide-printer', to: templateFileUrl(template.id), target: '_blank', external: true },
+    { key: 'fill', label: de.pdfFill.fill, icon: 'i-lucide-pencil-line', onClick: () => startFill(template), show: fillTargets.value.length > 0 },
+    { key: 'send', label: de.signRequests.send, icon: 'i-lucide-signature', onClick: () => startSend(template), show: canSend.value },
+    { key: 'edit', label: de.common.edit, icon: 'i-lucide-pencil', variant: 'ghost', disabled: busy.value, onClick: () => openEdit(template), show: editable },
+    {
+      key: 'delete', label: de.common.delete, icon: 'i-lucide-trash-2', color: 'error', variant: 'ghost', disabled: busy.value,
+      onClick: () => remove(template), show: editable && withDelete,
+    },
+  ]
+}
 </script>
 
 <template>
@@ -358,6 +377,10 @@ async function remove(template: PrintTemplateDto) {
       </p>
       <div v-if="canEdit" class="flex flex-wrap gap-2">
         <UButton color="neutral" variant="outline" icon="i-lucide-folder-cog" :label="de.printTemplates.manageCategories" @click="managing = true" />
+        <UButton
+          v-if="templates.length" color="neutral" :variant="reordering ? 'solid' : 'outline'" :icon="reordering ? 'i-lucide-check' : 'i-lucide-arrow-up-down'"
+          :label="reordering ? de.common.reorderDone : de.common.reorder" :aria-pressed="reordering" @click="reordering = !reordering"
+        />
         <UButton icon="i-lucide-upload" :label="de.printTemplates.upload" @click="openNew" />
       </div>
     </div>
@@ -382,21 +405,7 @@ async function remove(template: PrintTemplateDto) {
                 <span v-if="template.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="de.printTemplates.globalHint">{{ template.allFacilities ? de.printTemplates.global : de.printTemplates.ownerBadge }}</span>
                 <span v-for="hint in hintsOf(template)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
               </div>
-              <div class="flex flex-wrap items-center gap-1">
-                <UButton
-                  :to="templateFileUrl(template.id)" target="_blank" external size="sm" color="neutral" variant="outline"
-                  icon="i-lucide-printer" :label="de.printTemplates.open"
-                />
-                <UButton
-                  v-if="fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
-                  :label="de.pdfFill.fill" @click="startFill(template)"
-                />
-                <UButton
-                  v-if="canSend" size="sm" color="neutral" variant="outline" icon="i-lucide-signature" :label="de.signRequests.send"
-                  @click="startSend(template)"
-                />
-                <UButton v-if="canEdit && template.canEdit" size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
-              </div>
+              <RowActions :actions="actionsOf(template, false)" :name="template.title" />
             </li>
           </ul>
         </SubcategorySection>
@@ -456,24 +465,9 @@ async function remove(template: PrintTemplateDto) {
                   </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-1">
-                  <UButton
-                    :to="templateFileUrl(template.id)" target="_blank" external size="sm" color="neutral" variant="outline"
-                    icon="i-lucide-printer" :label="de.printTemplates.open"
-                  />
-                  <UButton
-                    v-if="fillTargets.length" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil-line"
-                    :label="de.pdfFill.fill" @click="startFill(template)"
-                  />
-                  <UButton
-                    v-if="canSend" size="sm" color="neutral" variant="outline" icon="i-lucide-signature" :label="de.signRequests.send"
-                    @click="startSend(template)"
-                  />
-                  <template v-if="canEdit && template.canEdit">
-                    <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openEdit(template)" />
-                    <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" :disabled="busy" @click="remove(template)" />
-                  </template>
-                  <!-- ▲/▼ last, so they stay in the same place in every row; 40 px for a finger. -->
-                  <span v-if="canEdit" role="group" :aria-label="`${de.printTemplates.order}: ${template.title}`" class="flex items-center gap-1">
+                  <RowActions :actions="actionsOf(template)" :name="template.title" />
+                  <!-- ▲/▼ last (only after „Reihenfolge ändern“), so they stay in the same place in every row; 40 px for a finger. -->
+                  <span v-if="canEdit && reordering" role="group" :aria-label="`${de.printTemplates.order}: ${template.title}`" class="flex items-center gap-1">
                     <UButton
                       :id="orderArrowId(`template-${template.id}`, -1)" color="neutral" variant="ghost" icon="i-lucide-arrow-up"
                       class="min-h-10 min-w-10 justify-center" :aria-label="`${de.printTemplates.moveUp}: ${template.title}`"

@@ -1,6 +1,14 @@
+import type { Role } from '../types/api'
+import { TEMPLATE_VISIBILITIES, stricterVisibility, type TemplateVisibility } from './templateCategories'
+
 /**
  * The facility's address book („Kontakte“): external business contacts such as schools, the Jugendamt or the
  * Fachberatung, filed in categories of the facility's own (like the print template categories).
+ *
+ * Who sees a contact follows the same model as „Zum Ausdrucken“ and „Wissen“: each category says „Wer sieht sie?“ (all /
+ * Leitung and Träger / Träger only), and each contact can be stricter on top („Wer sieht ihn?“: all, or only Leitung and
+ * Träger – the stored `visibleToStaff`); the stricter of both counts. „Leitung und Träger“ means whoever maintains the
+ * address book (contacts.manage); „nur Träger“ only such a person with the role Träger.
  */
 
 /**
@@ -82,3 +90,29 @@ export function telHref(phone: string): string {
   const digits = (international ? trimmed.replace(/\(0\)/g, '') : trimmed).replace(/\D/g, '')
   return digits === '' ? '' : `tel:${international ? '+' : ''}${digits}`
 }
+
+// ---- who sees a contact ------------------------------------------------------
+
+/** The widest visibility a viewer of the address book sees: the Träger everything, other maintainers all but the Träger's. */
+export function contactViewLevel(role: Role, manages: boolean): TemplateVisibility {
+  if (!manages) return 'all'
+  return role === 'provider' ? 'provider' : 'managers'
+}
+
+/** The visibilities a viewer at that level sees (and may give a category), in catalog order. */
+export const contactLevels = (level: TemplateVisibility): TemplateVisibility[] =>
+  TEMPLATE_VISIBILITIES.slice(0, TEMPLATE_VISIBILITIES.indexOf(level) + 1)
+
+/** Whether a viewer at that level sees something of that visibility. */
+export const seesAtLevel = (level: TemplateVisibility, visibility: TemplateVisibility): boolean =>
+  TEMPLATE_VISIBILITIES.indexOf(visibility) <= TEMPLATE_VISIBILITIES.indexOf(level)
+
+/** The contact's own setting as a visibility: for all (`visibleToStaff`), else only Leitung and Träger. */
+export const ownContactVisibility = (visibleToStaff: boolean): TemplateVisibility => (visibleToStaff ? 'all' : 'managers')
+
+/**
+ * Who sees a contact where it shows: its category's visibility (none under „Vom Träger“) and its own setting, the
+ * stricter one wins.
+ */
+export const contactVisibility = (category: TemplateVisibility | null, visibleToStaff: boolean): TemplateVisibility =>
+  stricterVisibility(category ?? 'all', ownContactVisibility(visibleToStaff))

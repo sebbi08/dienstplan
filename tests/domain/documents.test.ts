@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { de } from '../../app/locales/de'
 import { chosenDocumentTab, documentsLocation, documentTabs } from '../../app/utils/documents'
 import { tabletStartTiles } from '../../app/utils/tabletStart'
 import { effectivePermissions } from '../../shared/domain/permissionBundles'
@@ -14,7 +15,14 @@ function as(role: Role) {
 }
 
 describe('„Dokumente“', () => {
-  it('shows each viewer the tabs they may use: managers all four, Mitarbeiter and the tablet „Vorlagen“ and „Wissen“', () => {
+  it('names the tabs by what is in them: „Bögen“ (filled in the app) and „Zum Ausdrucken“ (PDFs), each with a short line', () => {
+    expect(de.documents.tabs).toEqual({ forms: 'Bögen', templates: 'Zum Ausdrucken', knowledge: 'Wissen', signatures: 'Unterschriften' })
+    expect(de.documents.tabHints.forms).toBe('Vorlagen für Bögen, die im Programm ausgefüllt werden')
+    expect(de.documents.tabHints.templates).toBe('PDF-Formulare zum Ausdrucken oder Ausfüllen')
+    expect([de.documents.tabHints.knowledge, de.documents.tabHints.signatures]).toEqual(['', ''])
+  })
+
+  it('shows each viewer the tabs they may use: managers all four, Mitarbeiter and the tablet „Zum Ausdrucken“ and „Wissen“', () => {
     expect(documentTabs(as('provider'))).toEqual(['forms', 'templates', 'knowledge', 'signatures'])
     expect(documentTabs(as('admin'))).toEqual(['forms', 'templates', 'knowledge', 'signatures'])
     expect(documentTabs({ role: 'admin', can: key => key === 'signRequests.manage' })).toEqual(['signatures'])
@@ -39,11 +47,11 @@ describe('„Dokumente“', () => {
       .toEqual({ path: '/documents', query: { x: '1', tab: 'forms' }, hash: '#unfaelle' })
   })
 
-  it('redirects /templates to „Vorlagen“ and /admin/forms to „Bögen“; the tablet\'s start page links to „Dokumente“', () => {
+  it('redirects /templates to „Zum Ausdrucken“ and /admin/forms to „Bögen“; the tablet\'s start page links to „Dokumente“', () => {
     const page = (path: string) => readFileSync(join(process.cwd(), 'app', 'pages', path), 'utf8')
     expect(page('templates.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('templates', to) })")
     expect(page('admin/forms.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('forms', to) })")
-    // One tile „Dokumente“ (Vorlagen and Wissen) on the tablet's start page.
+    // One tile „Dokumente“ („Zum Ausdrucken“ and „Wissen“) on the tablet's start page.
     expect(tabletStartTiles({ showContacts: false, planPath: '/plan/2026/11' }).find(tile => tile.key === 'documents')!.action).toEqual({ kind: 'link', to: '/documents' })
   })
 })

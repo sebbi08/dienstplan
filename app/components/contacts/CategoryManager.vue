@@ -1,31 +1,43 @@
 <script setup lang="ts">
-import { CONTACT_LIMITS } from '#shared/domain/contacts'
+import { CONTACT_LIMITS, contactLevels, contactViewLevel } from '#shared/domain/contacts'
+import { TEMPLATE_VISIBILITIES, type TemplateVisibility } from '#shared/domain/templateCategories'
 import type { ContactCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
- * „Kategorien verwalten“ on „Kontakte“ (contacts.manage), for the active facility: add, rename, reorder, delete an empty
- * category (contacts for all facilities filed by its name do not count, they move to „Vom Träger“).
+ * „Kategorien verwalten“ on „Kontakte“ (contacts.manage), for the active facility, laid out like the ones of „Zum
+ * Ausdrucken“ and „Wissen“: create, rename, reorder, change who sees a category („Wer sieht sie?“), delete an empty one
+ * (contacts for all facilities filed by its name do not count, they move to „Vom Träger“). The list holds only the
+ * categories the editor sees, and only the visibilities the editor sees are offered (the Leitung not „Nur Träger“; the
+ * server refuses it as well).
  */
 const props = defineProps<{ categories: ContactCategoryDto[]; refresh: () => Promise<unknown> }>()
 const open = defineModel<boolean>('open', { required: true })
 
+const { user } = useUserSession()
 const { busy, run } = useBusyAction(props.refresh)
 const confirm = useConfirm()
 const t = de.contacts.categories
 
-/** null = a new category, otherwise the one being renamed. */
+// Whoever opens this maintains the address book (contacts.manage).
+const levels = computed(() => (user.value ? contactLevels(contactViewLevel(user.value.role, true)) : []))
+const visibilityItems = computed(() => TEMPLATE_VISIBILITIES.filter(level => levels.value.includes(level))
+  .map(level => ({ label: t.visibilities[level], value: level })))
+
+/** null = a new category, otherwise the one being changed. */
 const editingId = ref<number | null>(null)
-const name = ref('')
+const form = reactive<{ name: string; visibility: TemplateVisibility }>({ name: '', visibility: 'all' })
+const nameInput = useTemplateRef<{ inputRef: HTMLInputElement | null }>('nameInput')
 
 function startNew() {
   editingId.value = null
-  name.value = ''
+  Object.assign(form, { name: '', visibility: 'all' })
 }
 
 function startEdit(category: ContactCategoryDto) {
   editingId.value = category.id
-  name.value = category.name
+  Object.assign(form, { name: category.name, visibility: category.visibility })
+  nextTick(() => nameInput.value?.inputRef?.focus())
 }
 
 watch(open, (isOpen) => {
@@ -34,7 +46,11 @@ watch(open, (isOpen) => {
 
 async function save() {
   const id = editingId.value
-  const body = { name: name.value }
+  const current = props.categories.find(category => category.id === id)
+  // Its contacts then vanish for Leitung, staff and tablet: ask first.
+  if (current && current.visibility !== 'provider' && form.visibility === 'provider' && current.contactCount > 0
+    && !(await confirm(t.confirmProviderOnly(current.name, current.contactCount)))) return
+  const body = { name: form.name, visibility: form.visibility }
   const saved = await run(() => (id === null
     ? $fetch<{ id: number }>('/api/contact-categories', { method: 'POST', body })
     : $fetch<{ ok: boolean }>(`/api/contact-categories/${id}`, { method: 'PUT', body })), de.common.saved)
@@ -63,14 +79,16 @@ async function remove(category: ContactCategoryDto) {
           <li v-for="(category, index) in categories" :key="category.id" class="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
             <div class="min-w-40 flex-1">
               <span class="font-medium">{{ category.name }}</span>
-              <span v-if="category.contactCount > 0" class="block text-xs text-gray-500">{{ t.contactCount(category.contactCount) }}</span>
+              <span class="block text-xs text-gray-500">
+                {{ t.visibilities[category.visibility] }}<template v-if="category.contactCount > 0"> · {{ t.contactCount(category.contactCount) }}</template>
+              </span>
             </div>
-            <div class="flex items-center gap-1">
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="`${t.up}: ${category.name}`" :title="t.up" :disabled="busy || index === 0" @click="move(category, 'up')" />
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="`${t.down}: ${category.name}`" :title="t.down" :disabled="busy || index === categories.length - 1" @click="move(category, 'down')" />
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="`${t.rename}: ${category.name}`" :title="t.rename" :disabled="busy" @click="startEdit(category)" />
+            <div class="flex flex-wrap items-center gap-1">
+              <UButton color="neutral" variant="ghost" icon="i-lucide-arrow-up" class="min-h-10 min-w-10 justify-center" :aria-label="`${t.moveUp}: ${category.name}`" :title="t.moveUp" :disabled="busy || index === 0" @click="move(category, 'up')" />
+              <UButton color="neutral" variant="ghost" icon="i-lucide-arrow-down" class="min-h-10 min-w-10 justify-center" :aria-label="`${t.moveDown}: ${category.name}`" :title="t.moveDown" :disabled="busy || index === categories.length - 1" @click="move(category, 'down')" />
+              <UButton color="neutral" variant="ghost" icon="i-lucide-pencil" class="min-h-10 min-w-10 justify-center" :aria-label="`${de.common.edit}: ${category.name}`" :title="de.common.edit" :disabled="busy" @click="startEdit(category)" />
               <UButton
-                size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${category.name}`"
+                color="error" variant="ghost" icon="i-lucide-trash-2" class="min-h-10 min-w-10 justify-center" :aria-label="`${de.common.delete}: ${category.name}`"
                 :title="category.ownCount > 0 ? de.errors.contact_category_not_empty : de.common.delete"
                 :disabled="busy || category.ownCount > 0" @click="remove(category)"
               />
@@ -79,9 +97,12 @@ async function remove(category: ContactCategoryDto) {
         </ul>
 
         <form class="grid gap-3 rounded-md bg-gray-50 p-3" @submit.prevent="save">
-          <h3 class="text-sm font-semibold">{{ editingId === null ? t.add : t.rename }}</h3>
+          <h3 class="text-sm font-semibold">{{ editingId === null ? t.add : t.edit }}</h3>
           <UFormField :label="t.name" required>
-            <UInput v-model="name" :maxlength="CONTACT_LIMITS.categoryName" class="w-full" required />
+            <UInput ref="nameInput" v-model="form.name" :maxlength="CONTACT_LIMITS.categoryName" class="w-full" required />
+          </UFormField>
+          <UFormField :label="t.visibility">
+            <USelect v-model="form.visibility" :items="visibilityItems" class="w-full" />
           </UFormField>
           <div class="flex gap-2">
             <UButton type="submit" :label="editingId === null ? t.add : de.common.save" :loading="busy" :disabled="busy" />

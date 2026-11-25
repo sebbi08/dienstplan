@@ -6,6 +6,7 @@ import type { FormTemplateCategoryDto, FormTemplateDto } from '#shared/types/api
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { focusOrderArrow, orderArrowId } from '~/utils/orderArrows'
+import type { RowAction } from '~/utils/rowActions'
 import {
   filedCategoryId, itemGroups, searchGroups, subcategoriesOf, subcategoryChip, subcategoryItems, topCategories, type ItemGroup,
 } from '~/utils/subcategories'
@@ -13,7 +14,8 @@ import { moveInList } from '~/utils/consentSettings'
 
 /**
  * Dokumente → Bögen, the list: the facility's own categories as tabs (and „Ohne Kategorie“ while templates lie in none),
- * the subcategories of the open one as small tabs („Alle“ shows a section per list, folding up), ▲/▼ within each list,
+ * the subcategories of the open one as small tabs („Alle“ shows a section per list, folding up), ▲/▼ within each list
+ * (after „Reihenfolge ändern“; on phones a row shows its first button and a „⋯“ menu with the others),
  * the search over the names of every category, „Neue Vorlage“ (name, „Wofür“, category and subcategory; the open tab's
  * by default), „Verschieben“ into another (sub)category and „Kategorien verwalten“. Each row shows „Wofür“ as a badge
  * (fixed after creation). Archived templates of the tab are listed below, folded. `open` opens the editor.
@@ -105,6 +107,36 @@ async function remove(template: FormTemplateDto) {
     await run(() => $fetch<unknown>(`/api/form-templates/${template.id}`, { method: 'DELETE' }), de.common.deleted)
   }
 }
+// A row's buttons: the first one stays a button on phones, the others go into „⋯“ (from 640 px icons in a row).
+const copyAction = (template: FormTemplateDto): RowAction =>
+  ({ key: 'copy', label: t.copy, icon: 'i-lucide-copy', variant: 'ghost', iconOnly: true, onClick: () => copy(template) })
+const moveAction = (template: FormTemplateDto): RowAction =>
+  ({ key: 'move', label: t.moveTo, icon: 'i-lucide-folder-input', variant: 'ghost', iconOnly: true, onClick: () => startMove(template) })
+const deleteAction = (template: FormTemplateDto): RowAction => ({
+  key: 'delete', label: de.common.delete, icon: 'i-lucide-trash-2', color: 'error', variant: 'ghost', iconOnly: true,
+  disabled: template.inUse, title: template.inUse ? t.inUseHint : undefined, onClick: () => remove(template),
+})
+const editAction = (template: FormTemplateDto): RowAction =>
+  ({ key: 'edit', label: t.edit, icon: 'i-lucide-pencil', onClick: () => emit('open', template.id) })
+const unarchiveAction = (template: FormTemplateDto): RowAction =>
+  ({ key: 'unarchive', label: t.unarchive, icon: 'i-lucide-archive-restore', onClick: () => setArchived(template, false) })
+const activeActions = (template: FormTemplateDto): RowAction[] => [
+  editAction(template),
+  {
+    key: 'print', label: t.printBlank, icon: 'i-lucide-printer', variant: 'ghost', iconOnly: true,
+    to: `/admin/print/form-templates/${template.id}`, target: '_blank',
+  },
+  copyAction(template), moveAction(template),
+  { key: 'archive', label: t.archive, icon: 'i-lucide-archive', variant: 'ghost', iconOnly: true, onClick: () => setArchived(template, true) },
+  deleteAction(template),
+]
+const archivedActions = (template: FormTemplateDto): RowAction[] =>
+  [unarchiveAction(template), copyAction(template), moveAction(template), deleteAction(template)]
+const foundActions = (template: FormTemplateDto): RowAction[] =>
+  [template.archived ? unarchiveAction(template) : editAction(template), copyAction(template)]
+
+/** The ▲/▼ show only while „Reihenfolge ändern“ is on (as in the list of Mitarbeiter). */
+const reordering = ref(false)
 /** One place up or down within its list (the category's own templates or a subcategory's); archived ones keep their place. */
 const { busy: ordering, run: runOrder } = useBusyAction(props.refresh)
 async function move(group: ItemGroup<FormTemplateCategoryDto, FormTemplateDto>, index: number, direction: -1 | 1) {
@@ -193,6 +225,11 @@ async function saveDialog() {
       <div class="flex flex-wrap gap-2 sm:ml-auto">
         <UButton icon="i-lucide-plus" :label="t.newTemplate" @click="startNew" />
         <UButton color="neutral" variant="outline" icon="i-lucide-folder-cog" :label="c.manage" @click="managing = true" />
+        <UButton
+          v-if="!searching && templates.length" color="neutral" :variant="reordering ? 'solid' : 'outline'"
+          :icon="reordering ? 'i-lucide-check' : 'i-lucide-arrow-up-down'" :label="reordering ? de.common.reorderDone : de.common.reorder"
+          :aria-pressed="reordering" @click="reordering = !reordering"
+        />
       </div>
     </div>
 
@@ -211,11 +248,7 @@ async function saveDialog() {
               <UBadge color="neutral" variant="outline" size="sm" :label="t.forKinds[template.kind]" />
               <UBadge v-if="template.archived" color="neutral" variant="soft" size="sm" :label="t.archivedBadge" />
             </div>
-            <div class="flex flex-wrap gap-1">
-              <UButton v-if="!template.archived" size="sm" color="neutral" variant="outline" icon="i-lucide-pencil" :label="t.edit" @click="emit('open', template.id)" />
-              <UButton v-else size="sm" color="neutral" variant="outline" icon="i-lucide-archive-restore" :label="t.unarchive" @click="setArchived(template, false)" />
-              <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :aria-label="`${t.copy}: ${template.name}`" :title="t.copy" @click="copy(template)" />
-            </div>
+            <RowActions :actions="foundActions(template)" :name="template.name" />
           </li>
         </ul>
       </SubcategorySection>
@@ -258,20 +291,10 @@ async function saveDialog() {
                     <UBadge v-if="template.subject" color="neutral" variant="outline" size="sm" :label="t.subjectBadge(t.subjects[template.subject])" />
                   </div>
                 </div>
-                <div class="flex flex-wrap gap-1">
-                  <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-pencil" :label="t.edit" @click="emit('open', template.id)" />
-                  <UButton
-                    size="sm" color="neutral" variant="ghost" icon="i-lucide-printer" :to="`/admin/print/form-templates/${template.id}`"
-                    target="_blank" :aria-label="`${t.printBlank}: ${template.name}`" :title="t.printBlank"
-                  />
-                  <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :aria-label="`${t.copy}: ${template.name}`" :title="t.copy" @click="copy(template)" />
-                  <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-folder-input" :aria-label="`${t.moveTo}: ${template.name}`" :title="t.moveTo" @click="startMove(template)" />
-                  <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-archive" :aria-label="`${t.archive}: ${template.name}`" :title="t.archive" @click="setArchived(template, true)" />
-                  <UButton
-                    size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${template.name}`"
-                    :disabled="template.inUse" :title="template.inUse ? t.inUseHint : de.common.delete" @click="remove(template)"
-                  />
-                  <span role="group" :aria-label="`${t.order}: ${template.name}`" class="flex items-center gap-1">
+                <div class="flex flex-wrap items-center gap-1">
+                  <RowActions :actions="activeActions(template)" :name="template.name" />
+                  <!-- ▲/▼ only after „Reihenfolge ändern“. -->
+                  <span v-if="reordering" role="group" :aria-label="`${t.order}: ${template.name}`" class="flex items-center gap-1">
                     <UButton
                       :id="orderArrowId(`form-template-${template.id}`, -1)" color="neutral" variant="ghost" icon="i-lucide-arrow-up"
                       class="min-h-10 min-w-10 justify-center" :aria-label="`${t.moveUp}: ${template.name}`" :title="t.moveUp"
@@ -297,15 +320,7 @@ async function saveDialog() {
                 {{ template.name }} <span v-if="template.subcategoryId" class="text-xs">· {{ template.category }}</span>
                 <UBadge color="neutral" variant="outline" size="sm" class="ml-1" :label="t.forKinds[template.kind]" />
               </div>
-              <div class="flex flex-wrap gap-1">
-                <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-archive-restore" :label="t.unarchive" @click="setArchived(template, false)" />
-                <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :label="t.copy" @click="copy(template)" />
-                <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-folder-input" :aria-label="`${t.moveTo}: ${template.name}`" :title="t.moveTo" @click="startMove(template)" />
-                <UButton
-                  size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete"
-                  :disabled="template.inUse" :title="template.inUse ? t.inUseHint : de.common.delete" @click="remove(template)"
-                />
-              </div>
+              <RowActions :actions="archivedActions(template)" :name="template.name" />
             </li>
           </ul>
         </details>

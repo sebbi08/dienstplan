@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { telHref } from '#shared/domain/contacts'
+import { contactVisibility, telHref } from '#shared/domain/contacts'
 import { nowInBerlin } from '#shared/domain/timeRecords'
 import type { ContactDto, ContactsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -9,11 +9,13 @@ import {
 import { targetHints } from '~/utils/documentTargets'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
+import type { RowAction } from '~/utils/rowActions'
 
 /**
  * „Kontakte“: the facility's address book of external contacts (schools, Jugendamt, Fachberatung …). Whoever maintains
  * it (contacts.manage: Leitung and Träger by default) sees every contact, adds and changes them and the categories;
- * Mitarbeiter accounts and the tablet see the contacts marked for the staff, read only. A search (organisation, person,
+ * Mitarbeiter accounts and the tablet see the contacts for all (the stricter of the category's „Wer sieht sie?“ and the
+ * contact's „Wer sieht ihn?“), read only. On phones a contact shows „Bearbeiten“ and „Löschen“ in a „⋯“ menu. A search (organisation, person,
  * function, note, city) and the categories as sub-tabs (kept in the address) narrow the list; „Drucken“ prints all or
  * the open category (not at the tablet).
  */
@@ -77,6 +79,18 @@ async function remove(contact: ContactDto) {
     run(() => $fetch<{ ok: boolean }>(`/api/contacts/${contact.id}`, { method: 'DELETE' }), de.common.deleted)
   }
 }
+/** „Bearbeiten“ first (on phones the only button, „Löschen“ in „⋯“). */
+const actionsOf = (contact: ContactDto): RowAction[] => [
+  { key: 'edit', label: de.common.edit, icon: 'i-lucide-pencil', variant: 'ghost', disabled: busy.value, onClick: () => openDialog(contact) },
+  { key: 'delete', label: de.common.delete, icon: 'i-lucide-trash-2', color: 'error', variant: 'ghost', disabled: busy.value, onClick: () => remove(contact) },
+]
+/** The open sub-tab's category (none for „Alle“ and „Vom Träger“). */
+const currentCategory = computed(() => tabs.value.find(entry => entry.key === tab.value)?.category ?? null)
+/** The note at a contact not everyone sees: its own setting and its category's, the stricter wins ('' for all). */
+const badgeOf = (contact: ContactDto) => {
+  const category = categories.value.find(entry => entry.id === contact.categoryId)
+  return t.visibilityBadge[contactVisibility(category?.visibility ?? null, contact.visibleToStaff)]
+}
 </script>
 
 <template>
@@ -114,6 +128,10 @@ async function remove(contact: ContactDto) {
 
       <section id="contacts-tab-panel" role="tabpanel" :aria-labelledby="`contacts-tab-${tab}`" class="space-y-2">
         <p v-if="tab === 'provider'" class="text-sm text-gray-600">{{ t.fromProviderHint }}</p>
+        <!-- A category not everyone sees, as at „Zum Ausdrucken“ and „Wissen“. -->
+        <span v-else-if="currentCategory && currentCategory.visibility !== 'all'" class="inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
+          {{ t.visibilityBadge[currentCategory.visibility] }}
+        </span>
         <p v-if="!contacts.length" class="rounded-lg bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-200">{{ canManage ? t.none : t.noneStaff }}</p>
         <p v-else-if="!shown.length" class="rounded-lg bg-white p-4 text-sm text-gray-500 ring-1 ring-gray-200">
           {{ search.trim() ? t.noMatch : t.emptyCategory }}
@@ -132,7 +150,8 @@ async function remove(contact: ContactDto) {
                 <span v-if="contact.global" class="whitespace-nowrap rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800" :title="t.globalHint">{{ contact.allFacilities ? t.global : t.ownerBadge }}</span>
                 <!-- „Gilt für“, for Leitung and Träger: „nur Kita A“, „nur Bären, Füchse“. -->
                 <span v-for="hint in hintsOf(contact)" :key="hint" class="whitespace-nowrap rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800">{{ hint }}</span>
-                <span v-if="canManage && !contact.visibleToStaff" class="whitespace-nowrap rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800" :title="t.visibleToStaffHint">{{ t.internalBadge }}</span>
+                <!-- Who sees it, when not everyone: the stricter of its category and its own setting. -->
+                <span v-if="canManage && badgeOf(contact)" class="whitespace-nowrap rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800" :title="t.visibilityHint">{{ badgeOf(contact) }}</span>
               </div>
             </div>
             <ul class="space-y-1">
@@ -162,10 +181,7 @@ async function remove(contact: ContactDto) {
             <p v-if="contact.note" class="whitespace-pre-line rounded bg-gray-50 p-2 text-gray-700">{{ contact.note }}</p>
             <div v-if="canManage" class="mt-auto flex flex-wrap items-center gap-1 border-t border-gray-100 pt-2">
               <span class="min-w-0 flex-1 text-xs text-gray-500">{{ t.updated(formatDate(nowInBerlin(new Date(contact.updatedAt)).date), contact.updatedBy) }}</span>
-              <template v-if="contact.canEdit">
-                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openDialog(contact)" />
-                <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" :disabled="busy" @click="remove(contact)" />
-              </template>
+              <RowActions v-if="contact.canEdit" :actions="actionsOf(contact)" :name="contact.organisation" size="xs" />
             </div>
           </li>
         </ul>

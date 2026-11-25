@@ -2,7 +2,7 @@
 import { ALL_CHIP, GENERAL_CHIP, type SubChip } from '~/utils/subcategories'
 
 /**
- * The subcategories of the chosen category on „Dokumente“ → „Vorlagen“ and „Wissen“: a tinted panel right below the
+ * The subcategories of the chosen category on „Dokumente“ → „Zum Ausdrucken“ and „Wissen“: a tinted panel right below the
  * category chips (left border in the colour of the chosen chip), headed „Unterkategorien von ‹Kategorie›:“, with small
  * tabs „Alle (5)“, „Allgemein (1)“ and one per subcategory with its count. On a narrow screen (< 640 px) the tabs scroll
  * sideways inside the panel (the page does not), snapping to a tab, with a fade at the edge where more follow; wider

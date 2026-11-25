@@ -4,8 +4,9 @@ import { chosenDocumentTab, documentTabs, type DocumentTab } from '~/utils/docum
 
 /**
  * „Dokumente“ (under „Mehr“ for the managers, under „Meins“ for Mitarbeiter, from the start page at the tablet): the tab
- * „Bögen“ with the form templates of the active facility (formTemplates.manage) and the tab „Vorlagen“ with the blank
- * forms to print (printTemplates.view; the tablet without an unlock) and the tab „Wissen“ with the knowledge library
+ * „Bögen“ with the form templates of the active facility (formTemplates.manage) and the tab „Zum Ausdrucken“ (key
+ * `templates`) with the blank PDF forms to print or fill in (printTemplates.view; the tablet without an unlock) – both
+ * with a short line saying what is in them – and the tab „Wissen“ with the knowledge library
  * (knowledge.view: every account, the tablet; with „Gelesen und verstanden“, the open ones counted in the tab), and the tab
  * „Unterschriften“ with the requests to sign sent from the facility (signRequests.manage). Only the
  * tabs the viewer may use show; `?tab=` opens one (the old addresses /templates and /admin/forms send here with it).
@@ -66,15 +67,23 @@ const tabLabel = (key: DocumentTab) => (key === 'knowledge'
       <button
         v-for="key in tabs" :id="`documents-tab-${key}`" :key="key" type="button" role="tab"
         :aria-selected="tab === key" :tabindex="tab === key ? 0 : -1" aria-controls="documents-tab-panel"
-        class="flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-xl px-2 text-base font-semibold ring-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        class="flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-2 text-base font-semibold ring-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         :class="tab === key ? 'bg-sky-600 text-white ring-sky-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50'"
         @click="selectTab(key)" @keydown="onTabKey"
       >
         <UIcon :name="TAB_ICONS[key]" class="size-5 shrink-0" aria-hidden="true" />
-        <span class="truncate">{{ tabLabel(key) }}</span>
+        <span class="min-w-0 text-left">
+          <span class="block truncate">{{ tabLabel(key) }}</span>
+          <!-- The short line of „Bögen“ and „Zum Ausdrucken“ (from 640 px in the tab, on phones below the tabs). -->
+          <span
+            v-if="de.documents.tabHints[key]" class="hidden text-xs font-normal leading-snug sm:block"
+            :class="tab === key ? 'text-sky-50' : 'text-gray-500'"
+          >{{ de.documents.tabHints[key] }}</span>
+        </span>
       </button>
     </div>
     <h2 v-else-if="tab" class="sr-only">{{ de.documents.tabs[tab] }}</h2>
+    <p v-if="tab && de.documents.tabHints[tab]" class="text-sm text-gray-600" :class="tabs.length > 1 ? 'sm:hidden' : ''">{{ de.documents.tabHints[tab] }}</p>
 
     <div id="documents-tab-panel" :role="tabs.length > 1 ? 'tabpanel' : undefined" :aria-labelledby="tabs.length > 1 && tab ? `documents-tab-${tab}` : undefined">
       <FormsTemplateEditor v-if="tab === 'forms'" />

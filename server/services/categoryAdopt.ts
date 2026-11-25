@@ -27,7 +27,7 @@ const GLOBAL_RIGHT: Record<AdoptKind, PermissionKey> = {
 /** How long a category name is kept when saving (longer ones are cut), by kind: the preflight compares the same name. */
 const NAME_LIMIT: Record<AdoptKind, number> = { template: 60, knowledge: KNOWLEDGE_LIMITS.categoryName, contact: CONTACT_LIMITS.categoryName }
 
-/** A category row as far as matching and creating go (contact categories have neither subcategories nor a visibility). */
+/** A category row as far as matching and creating go (contact categories have no subcategories). */
 interface CategoryNode { id: number; parentId: number | null; name: string; sortOrder: number; visibility: TemplateVisibility }
 
 /** The facility's categories of the kind, each category followed by its subcategories, in their order (ties by id). */
@@ -35,7 +35,7 @@ function categoriesOf(db: Db, kind: AdoptKind, facilityId: number): CategoryNode
   if (kind === 'contact') {
     return db.select().from(contactCategories).where(eq(contactCategories.facilityId, facilityId))
       .orderBy(asc(contactCategories.sortOrder), asc(contactCategories.id)).all()
-      .map(row => ({ ...row, parentId: null, visibility: 'all' as const }))
+      .map(row => ({ ...row, parentId: null }))
   }
   const table = kind === 'template' ? templateCategories : knowledgeCategories
   return categoriesInTreeOrder(db.select().from(table).where(eq(table.facilityId, facilityId))
@@ -128,7 +128,7 @@ function insertCategory(
   db: Db, kind: AdoptKind, row: { facilityId: number; parentId: number | null; name: string; sortOrder: number; visibility: TemplateVisibility },
 ): number {
   if (kind === 'contact') {
-    return db.insert(contactCategories).values({ facilityId: row.facilityId, name: row.name, sortOrder: row.sortOrder })
+    return db.insert(contactCategories).values({ facilityId: row.facilityId, name: row.name, sortOrder: row.sortOrder, visibility: row.visibility })
       .returning({ id: contactCategories.id }).get().id
   }
   if (kind === 'template') return db.insert(templateCategories).values(row).returning({ id: templateCategories.id }).get().id

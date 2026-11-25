@@ -2083,21 +2083,25 @@ export const facilityEveRules = sqliteTable('facility_eve_rules', {
 /**
  * A category of the facility's address book („Kontakte“), one list per facility (each facility names, orders and adds
  * its own; it starts with DEFAULT_CONTACT_CATEGORIES). The name is unique per facility regardless of case; a category is
- * deleted only while no contact of the facility is filed in it.
+ * deleted only while no contact of the facility is filed in it. `visibility` („Wer sieht sie?“, 0130_contact_category_visibility)
+ * says who sees the category and its contacts, like the print template categories; on top of each contact's own
+ * `visibleToStaff`, the stricter one wins (shared/domain/contacts.ts). Existing categories got 'all', so nothing changed.
  */
 export const contactCategories = sqliteTable('contact_categories', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
-}, table => [uniqueIndex('contact_categories_facility_name').on(table.facilityId, sql`lower(${table.name})`)])
+  visibility: text('visibility', { enum: TEMPLATE_VISIBILITIES }).notNull().default('all'),
+},table => [uniqueIndex('contact_categories_facility_name').on(table.facilityId, sql`lower(${table.name})`)])
 
 /**
  * An external business contact of the facility (school, Jugendamt, Fachberatung …), or for all facilities (`facilityId`
  * null, only the Träger maintains those). A facility's contact is filed in one of the facility's categories
  * (`categoryId`); a contact for all facilities has no category row but a `categoryName`: each facility shows it in its
  * own category of that name (regardless of case), otherwise under „Vom Träger“. `visibleToStaff`: also Mitarbeiter
- * accounts and the facility's tablet see it (else only whoever holds contacts.manage). `sortOrder` orders before the
+ * accounts and the facility's tablet see it (else only whoever holds contacts.manage) – as far as its category's
+ * `visibility` allows. `sortOrder` orders before the
  * organisation (0 for all today). Business contacts, no retention period: they go with their facility.
  */
 export const contacts = sqliteTable('contacts', {

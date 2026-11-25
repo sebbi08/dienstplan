@@ -4116,16 +4116,20 @@ export interface MaternitySaveDto {
  * A category of the facility's address book („Kontakte“), in the facility's order. `contactCount`: the contacts the
  * viewer sees in it (the facility's own and those for all facilities filed under its name); `ownCount`: the facility's
  * own contacts in it, while there are any it cannot be deleted (only for whoever maintains the contacts, else 0).
+ * `visibility`: „Wer sieht sie?“ (only categories the viewer sees are listed).
  */
 export interface ContactCategoryDto {
   id: number
   name: string
+  visibility: TemplateVisibility
   contactCount: number
   ownCount: number
 }
 
+/** A category's name and „Wer sieht sie?“ (left out: 'all' for a new one, unchanged for an existing one). */
 export interface ContactCategoryInput {
   name: string
+  visibility?: TemplateVisibility
 }
 
 /**

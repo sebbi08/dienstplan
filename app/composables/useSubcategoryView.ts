@@ -5,7 +5,7 @@ import {
 } from '~/utils/subcategories'
 
 /**
- * The subcategories of the open sub-tab of „Dokumente“ → „Vorlagen“ or „Wissen“: the small tabs („Alle“, „Allgemein“,
+ * The subcategories of the open sub-tab of „Dokumente“ → „Zum Ausdrucken“ or „Wissen“: the small tabs („Alle“, „Allgemein“,
  * the subcategories, each with its count), the lists shown for the chosen one, and in „Alle“ which sections are folded
  * up. The device remembers the small tab and the folded sections per category (under the two storage keys); call
  * `readMemory` after mounting on a full page load (so the server's page matches), at once otherwise.

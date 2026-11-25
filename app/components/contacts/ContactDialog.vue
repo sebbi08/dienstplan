@@ -11,6 +11,7 @@ import {
  * the Träger (contacts.global), one for all or the chosen facilities filed under a category name (with the names the
  * facilities use as suggestions). „Gilt für“ (shared/domain/documentTargets.ts: facilities for the Träger, groups also
  * for the Leitung) at creation and afterwards; it is sent only when changed, and saving waits for its choices.
+ * „Wer sieht ihn?“: all, or only Leitung and Träger – on top of the category's „Wer sieht sie?“ (the stricter wins).
  */
 const props = defineProps<{
   /** null = a new contact. */
@@ -43,6 +44,7 @@ const form = reactive<Form>(empty())
 /** For all or the chosen facilities (the Träger's): filed by category name. */
 const forAll = computed(() => form.targets.scope !== 'facility')
 const categoryItems = computed(() => props.categories.map(category => ({ label: category.name, value: category.id })))
+const visibilityItems = (['all', 'managers'] as const).map(level => ({ label: t.visibilities[level], value: level }))
 
 // What „Gilt für“ offers, loaded with the form; saving waits for it, a failed load offers to try again. Sent only when
 // the editor changed it (or must: no facility left), otherwise the server keeps it as it is.
@@ -151,8 +153,12 @@ async function save() {
         <UFormField :label="f.note" class="sm:col-span-2">
           <UTextarea v-model="form.note" :rows="3" :maxlength="CONTACT_LIMITS.note" class="w-full" />
         </UFormField>
-        <UFormField :description="t.visibleToStaffHint" class="sm:col-span-2">
-          <UCheckbox v-model="form.visibleToStaff" :label="t.visibleToStaff" />
+        <!-- „Wer sieht ihn?“ (stored as „auch für Mitarbeitende“): on top of the category's „Wer sieht sie?“. -->
+        <UFormField :label="t.visibility" :description="t.visibilityHint" class="sm:col-span-2">
+          <USelect
+            :model-value="form.visibleToStaff ? 'all' : 'managers'" :items="visibilityItems" class="w-full"
+            @update:model-value="form.visibleToStaff = $event === 'all'"
+          />
         </UFormField>
         <div class="flex gap-2 sm:col-span-2">
           <UButton type="submit" :label="contact ? de.common.save : t.add" :loading="busy" :disabled="busy || !targetOptions" />

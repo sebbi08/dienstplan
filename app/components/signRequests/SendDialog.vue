@@ -9,7 +9,7 @@ import { searchTargets, usableFolders } from '~/utils/pdfFill'
 import { keptRequiredType } from '~/utils/requiredDocuments'
 
 /**
- * „Zum Unterschreiben senden“ (signRequests.manage): a template of „Vorlagen“ to employees of the facility, or a PDF of a
+ * „Zum Unterschreiben senden“ (signRequests.manage): a template of „Zum Ausdrucken“ to employees of the facility, or a PDF of a
  * personnel file to its own employee (`recipient` fixed). Title, recipients, the folder of the personnel file for the
  * signed copies (one the sender may use), due date and note; a warning when the title suggests a document that needs the
  * written form. „Senden“ sends the PDF as it is, „Vorher ausfüllen“ opens it in the fill view first and sends exactly that

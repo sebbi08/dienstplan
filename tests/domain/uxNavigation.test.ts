@@ -85,7 +85,7 @@ describe('the tablet\'s start page', () => {
     expect(without.map(tile => tile.key)).toEqual(['stamp', 'children', 'documents', 'sign', 'notes', 'plan', 'teamMeetings', 'print'])
     expect(without.filter(tile => tile.big).map(tile => tile.key)).toEqual(['stamp', 'children'])
     expect(without.find(tile => tile.key === 'plan')!.action).toEqual({ kind: 'link', to: '/plan/2026/11' })
-    expect(without.find(tile => tile.key === 'documents')).toMatchObject({ label: 'Dokumente', hint: 'Vorlagen und Wissen', action: { kind: 'link', to: '/documents' } })
+    expect(without.find(tile => tile.key === 'documents')).toMatchObject({ label: 'Dokumente', hint: 'Zum Ausdrucken und Wissen', action: { kind: 'link', to: '/documents' } })
     const withContacts = tabletStartTiles({ showContacts: true, planPath: '/plan/2026/11' })
     expect(withContacts.map(tile => tile.key)).toEqual(['stamp', 'children', 'documents', 'sign', 'notes', 'plan', 'teamMeetings', 'contacts', 'print'])
     // Every former header destination is a tile now; the header itself only leads back to the start page.

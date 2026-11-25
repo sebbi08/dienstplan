@@ -2,8 +2,12 @@
 import type { ChildContactDto, ChildContactInput, ChildRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { phonesOf, telHref } from '~/utils/children'
+import type { RowAction } from '~/utils/rowActions'
 
-/** Contact persons (Bezugspersonen): add, change, delete and re-order (the order is kept, emergency ranks are separate). */
+/**
+ * Contact persons (Bezugspersonen): add, change, delete and re-order (the order is kept, emergency ranks are separate;
+ * ▲/▼ after „Reihenfolge ändern“).
+ */
 /** `reload` re-reads the record; the busy flag stays on until it is done, so the next action works on fresh data. */
 const props = defineProps<{ child: ChildRecordDto; reload: () => Promise<unknown> }>()
 // One request at a time: no double submit, and moves cannot race each other (the next one waits for the reloaded order).
@@ -65,12 +69,28 @@ function move(index: number, delta: -1 | 1) {
   run(() => $fetch<unknown>(`/api/children/${props.child.id}/contacts/order`, { method: 'POST', body: { ids } }))
 }
 
+/** The ▲/▼ show only while „Reihenfolge ändern“ is on (as in the list of Mitarbeiter). */
+const reordering = ref(false)
+/** „Bearbeiten“ and „Löschen“ as icons from 640 px; on phones „Bearbeiten“ and „⋯“. */
+const actionsOf = (contact: ChildContactDto): RowAction[] => [
+  { key: 'edit', label: de.common.edit, icon: 'i-lucide-pencil', variant: 'ghost', iconOnly: true, disabled: busy.value, onClick: () => openEdit(contact) },
+  {
+    key: 'delete', label: de.common.delete, icon: 'i-lucide-trash-2', color: 'error', variant: 'ghost', iconOnly: true, disabled: busy.value,
+    onClick: () => remove(contact),
+  },
+]
+
 const f = de.children.fields
 </script>
 
 <template>
   <ChildrenChildSection :title="de.children.sections.contacts" :stamp="child.stamps.contacts" :can-edit="false">
     <template v-if="child.canEdit" #actions>
+      <UButton
+        v-if="child.contacts.length > 1" size="xs" color="neutral" :variant="reordering ? 'solid' : 'outline'"
+        :icon="reordering ? 'i-lucide-check' : 'i-lucide-arrow-up-down'" :label="reordering ? de.common.reorderDone : de.common.reorder"
+        :aria-pressed="reordering" @click="reordering = !reordering"
+      />
       <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-plus" :label="de.children.addContact" @click="openNew" />
     </template>
 
@@ -96,11 +116,13 @@ const f = de.children.fields
           </div>
           <p v-if="contact.note" class="whitespace-pre-line text-gray-600">{{ contact.note }}</p>
         </div>
-        <div v-if="child.canEdit" class="flex items-center">
-          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="de.children.moveUp" :disabled="busy || index === 0" @click="move(index, -1)" />
-          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="de.children.moveDown" :disabled="busy || index === child.contacts.length - 1" @click="move(index, 1)" />
-          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="busy" @click="openEdit(contact)" />
-          <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" :disabled="busy" @click="remove(contact)" />
+        <div v-if="child.canEdit" class="flex items-center gap-1">
+          <!-- ▲/▼ only after „Reihenfolge ändern“; on phones „Löschen“ sits in „⋯“. -->
+          <template v-if="reordering">
+            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" class="min-h-10 min-w-10 justify-center" :aria-label="de.children.moveUp" :disabled="busy || index === 0" @click="move(index, -1)" />
+            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" class="min-h-10 min-w-10 justify-center" :aria-label="de.children.moveDown" :disabled="busy || index === child.contacts.length - 1" @click="move(index, 1)" />
+          </template>
+          <RowActions v-else :actions="actionsOf(contact)" :name="contact.name" size="xs" />
         </div>
       </li>
     </ul>

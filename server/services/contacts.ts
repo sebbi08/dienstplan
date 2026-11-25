@@ -1,9 +1,11 @@
 import { and, asc, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm'
 import {
-  CONTACT_LIMITS, DEFAULT_CONTACT_CATEGORIES, comparableContactName, isEmailAddress, isSchoolCategory, normalizedWebsite,
+  CONTACT_LIMITS, DEFAULT_CONTACT_CATEGORIES, comparableContactName, contactLevels, contactViewLevel, contactVisibility, isEmailAddress,
+  isSchoolCategory, normalizedWebsite, seesAtLevel,
 } from '../../shared/domain/contacts'
 import { groupsAllow, inFacilityScope, isOrphan, type Audience, type DocumentScope, type ItemTargets } from '../../shared/domain/documentTargets'
 import { can } from '../../shared/domain/permissions'
+import { swappedSiblings, type TemplateVisibility } from '../../shared/domain/templateCategories'
 import type {
   ContactCategoryDto, ContactCategoryInput, ContactDto, ContactInput, ContactsDto, Role, SchoolOptionDto, SessionUser,
 } from '../../shared/types/api'
@@ -22,10 +24,13 @@ import {
  * facility's tablet see only the contacts marked „auch für Mitarbeitende und am Tablet sichtbar“ whose groups allow them
  * („Gilt für“, shared/domain/documentTargets.ts: all groups, or their home group chosen; at the tablet the unlocking
  * person's). Contacts of the Träger (`facilityId` null, contacts.global) show in all facilities or in those chosen.
- * Another facility's contact or category is 404.
+ * Another facility's contact or category is 404. On top, each category says who sees it and its contacts („Wer sieht
+ * sie?“, like the print template categories; the stricter of category and contact wins, shared/domain/contacts.ts): a
+ * category for Leitung and Träger hides its contacts from the staff and the tablet, one for the Träger alone also from
+ * the Leitung, who can neither see it (404) nor give a category that visibility (403).
  */
 export type ContactViewer = Pick<SessionUser, 'role' | 'permissions'> & { facilityId: number; homeGroupId?: number | null }
-export type ContactActor = Pick<SessionUser, 'id' | 'permissions'> & { facilityId: number }
+export type ContactActor = Pick<SessionUser, 'id' | 'role' | 'permissions'> & { facilityId: number }
 
 type CategoryRow = typeof contactCategories.$inferSelect
 type ContactRow = typeof contacts.$inferSelect
@@ -36,6 +41,13 @@ const manages = (viewer: Pick<SessionUser, 'permissions'>) => can(viewer.permiss
 function assertManager(actor: Pick<SessionUser, 'permissions'>): void {
   if (!manages(actor)) throw new ServiceError(403, 'forbidden')
 }
+
+/** The widest visibility the viewer sees: the staff and the tablet 'all', Leitung 'managers', the Träger 'provider'. */
+const levelOf = (viewer: Pick<SessionUser, 'role' | 'permissions'>): TemplateVisibility => contactViewLevel(viewer.role, manages(viewer))
+
+/** Whether the viewer sees the category (and so the contacts filed in it). */
+const seesCategory = (viewer: Pick<SessionUser, 'role' | 'permissions'>, row: Pick<CategoryRow, 'visibility'>) =>
+  seesAtLevel(levelOf(viewer), row.visibility)
 
 // ---- categories ------------------------------------------------------------
 
@@ -65,41 +77,51 @@ function uniqueCategoryName(db: Db, facilityId: number, name: string, current: C
   return checked
 }
 
-/** A category of the actor's facility (else 404 contact_category_not_found) that the actor maintains (else 403). */
+/**
+ * A category of the actor's facility that the actor sees (else 404 contact_category_not_found) and maintains (else
+ * 403).
+ */
 function loadCategory(db: Db, actor: ContactActor, id: number): CategoryRow {
   assertManager(actor)
   const row = db.select().from(contactCategories)
     .where(and(eq(contactCategories.id, id), eq(contactCategories.facilityId, actor.facilityId))).get()
-  if (!row) throw new ServiceError(404, 'contact_category_not_found')
+  if (!row || !seesCategory(actor, row)) throw new ServiceError(404, 'contact_category_not_found')
   return row
 }
 
-/** A new category at the end of the facility's list; returns its id. */
+/** „Wer sieht sie?“ as the actor may give it: one of the visibilities they see (else 403: a Leitung not „nur Träger“). */
+function checkedVisibility(actor: ContactActor, visibility: TemplateVisibility): TemplateVisibility {
+  if (!contactLevels(levelOf(actor)).includes(visibility)) throw new ServiceError(403, 'forbidden')
+  return visibility
+}
+
+/** A new category at the end of the facility's list (for all unless said otherwise); returns its id. */
 export function createContactCategory(db: Db, actor: ContactActor, input: ContactCategoryInput): number {
   assertManager(actor)
+  const visibility = checkedVisibility(actor, input.visibility ?? 'all')
   const name = uniqueCategoryName(db, actor.facilityId, input.name, null)
   const last = facilityContactCategories(db, actor.facilityId).at(-1)
-  return db.insert(contactCategories).values({ facilityId: actor.facilityId, name, sortOrder: last ? last.sortOrder + 1 : 0 })
+  return db.insert(contactCategories).values({ facilityId: actor.facilityId, name, visibility, sortOrder: last ? last.sortOrder + 1 : 0 })
     .returning({ id: contactCategories.id }).get().id
 }
 
-/** Renames the category. */
+/** Renames the category and sets who sees it (without `visibility` that stays as it is). */
 export function renameContactCategory(db: Db, actor: ContactActor, id: number, input: ContactCategoryInput): void {
   const current = loadCategory(db, actor, id)
-  db.update(contactCategories).set({ name: uniqueCategoryName(db, actor.facilityId, input.name, current) })
+  const visibility = checkedVisibility(actor, input.visibility ?? current.visibility)
+  db.update(contactCategories).set({ name: uniqueCategoryName(db, actor.facilityId, input.name, current), visibility })
     .where(eq(contactCategories.id, id)).run()
 }
 
-/** Swaps the category with its neighbour; at an end nothing changes. The facility's list is numbered afresh. */
+/**
+ * Swaps the category with its neighbour among those the actor sees (hidden ones keep their places); at an end nothing
+ * changes. The facility's list is numbered afresh.
+ */
 export function moveContactCategory(db: Db, actor: ContactActor, id: number, direction: 'up' | 'down'): void {
   loadCategory(db, actor, id)
-  const all = facilityContactCategories(db, actor.facilityId)
-  const at = all.findIndex(row => row.id === id)
-  const other = direction === 'up' ? at - 1 : at + 1
-  if (other < 0 || other >= all.length) return
-  const swapped = [...all]
-  swapped[at] = all[other]!
-  swapped[other] = all[at]!
+  const all = facilityContactCategories(db, actor.facilityId).map(row => ({ ...row, parentId: null }))
+  const swapped = swappedSiblings(all, all.filter(row => seesCategory(actor, row)), id, direction)
+  if (!swapped) return
   db.transaction((tx) => {
     swapped.forEach((row, index) => {
       if (row.sortOrder !== index) tx.update(contactCategories).set({ sortOrder: index }).where(eq(contactCategories.id, row.id)).run()
@@ -175,13 +197,15 @@ function placer(categories: readonly CategoryRow[], facilityId: number, targets:
 const audienceOf = (viewer: { role: Role; homeGroupId?: number | null }): Audience => ({ role: viewer.role, homeGroupId: viewer.homeGroupId ?? null })
 
 /**
- * Whether the viewer sees the contact placed so: whoever maintains the contacts every contact for the facility, everyone
- * else (Mitarbeiter, Gruppenleitung, the tablet) only those for the staff whose groups allow them (all groups, or their
- * home group chosen there; at the tablet the unlocking person's).
+ * Whether the viewer sees the contact placed so: as far as the category's and the contact's own visibility allow (the
+ * stricter wins); whoever maintains the contacts then every such contact for the facility, everyone else (Mitarbeiter,
+ * Gruppenleitung, the tablet) only those for all whose groups allow them (all groups, or their home group chosen there;
+ * at the tablet the unlocking person's).
  */
 function seesContact(viewer: ContactViewer, row: Pick<ContactRow, 'visibleToStaff'>, placement: Placement): boolean {
+  if (!seesAtLevel(levelOf(viewer), contactVisibility(placement.category?.visibility ?? null, row.visibleToStaff))) return false
   if (manages(viewer)) return true
-  return row.visibleToStaff && (!placement.targets || groupsAllow(placement.targets, viewer.facilityId, audienceOf(viewer)))
+  return !placement.targets || groupsAllow(placement.targets, viewer.facilityId, audienceOf(viewer))
 }
 
 /** A contact of the Träger is the Träger's (contacts.global); a facility's own needs contacts.manage. */
@@ -228,8 +252,10 @@ export function listContacts(db: Db, viewer: ContactViewer): ContactsDto {
     if (row.facilityId !== null) owns.set(category.id, (owns.get(category.id) ?? 0) + 1)
   }
   return {
-    categories: categories.map((category): ContactCategoryDto => ({
-      id: category.id, name: category.name, contactCount: counts.get(category.id) ?? 0, ownCount: managing ? owns.get(category.id) ?? 0 : 0,
+    // Only the categories the viewer sees: the names of the others never reach them.
+    categories: categories.filter(category => seesCategory(viewer, category)).map((category): ContactCategoryDto => ({
+      id: category.id, name: category.name, visibility: category.visibility, contactCount: counts.get(category.id) ?? 0,
+      ownCount: managing ? owns.get(category.id) ?? 0 : 0,
     })),
     contacts: rows.map(({ row, category, targets }): ContactDto => {
       const canEdit = mayEdit(viewer, row)
@@ -303,20 +329,20 @@ function checkedFields(input: ContactInput) {
   }
 }
 
-/** The category of a facility's contact: one of the facility's (else 400 contact_category_invalid). */
-function chosenCategory(db: Db, facilityId: number, id: number | null | undefined): number {
+/** The category of a facility's contact: one of the facility's the actor sees (else 400 contact_category_invalid). */
+function chosenCategory(db: Db, actor: ContactActor, id: number | null | undefined): number {
   const row = id == null
     ? undefined
-    : db.select({ id: contactCategories.id }).from(contactCategories)
-      .where(and(eq(contactCategories.id, id), eq(contactCategories.facilityId, facilityId))).get()
-  if (!row) throw new ServiceError(400, 'contact_category_invalid')
+    : db.select({ id: contactCategories.id, visibility: contactCategories.visibility }).from(contactCategories)
+      .where(and(eq(contactCategories.id, id), eq(contactCategories.facilityId, actor.facilityId))).get()
+  if (!row || !seesCategory(actor, row)) throw new ServiceError(400, 'contact_category_invalid')
   return row.id
 }
 
 /** Where the contact is filed: a facility's category (its own contact), or for one of the Träger a category name. */
-function filing(db: Db, facilityId: number, own: boolean, input: ContactInput) {
+function filing(db: Db, actor: ContactActor, own: boolean, input: ContactInput) {
   return own
-    ? { categoryId: chosenCategory(db, facilityId, input.categoryId), categoryName: null }
+    ? { categoryId: chosenCategory(db, actor, input.categoryId), categoryName: null }
     : { categoryId: null, categoryName: checkedCategoryName(input.categoryName ?? '') }
 }
 
@@ -340,7 +366,7 @@ export function createContact(db: Db, actor: ContactActor, input: ContactInput, 
   assertScopeAllowed(actor, scope)
   if (input.createCategories) assertMayCreateCategories('contact', actor)
   const own = scope === 'facility'
-  const values = { ...checkedFields(input), ...filing(db, actor.facilityId, own, input) }
+  const values = { ...checkedFields(input), ...filing(db, actor, own, input) }
   const targets = checkedTargets(db, scope, own ? actor.facilityId : null, input)
   return db.transaction((tx) => {
     const id = tx.insert(contacts).values({
@@ -359,8 +385,10 @@ export function createContact(db: Db, actor: ContactActor, input: ContactInput, 
 function loadEditable(db: Db, actor: ContactActor, id: number): ContactRow {
   assertManager(actor)
   const row = db.select().from(contacts).where(and(eq(contacts.id, id), ofFacility(actor.facilityId))).get()
-  const placed = row && placer([], actor.facilityId, loadTargets(db, 'contact', [row]), can(actor.permissions, 'contacts.global'))(row)
-  if (!row || !placed) throw new ServiceError(404, 'address_contact_not_found')
+  const placed = row && placer(facilityContactCategories(db, actor.facilityId), actor.facilityId, loadTargets(db, 'contact', [row]),
+    can(actor.permissions, 'contacts.global'))(row)
+  // One the actor does not see (in a category for the Träger alone) is not there for them.
+  if (!row || !placed || !seesContact(actor, row, placed)) throw new ServiceError(404, 'address_contact_not_found')
   if (!mayEdit(actor, row)) throw new ServiceError(403, 'forbidden')
   return row
 }
@@ -380,7 +408,7 @@ export function updateContact(db: Db, actor: ContactActor, id: number, input: Co
   // An own contact stays with its facility; the Träger's becomes the active facility's.
   const facilityId = own ? row.facilityId ?? actor.facilityId : null
   if (own && facilityId !== actor.facilityId) throw new ServiceError(403, 'forbidden')
-  const values = { ...checkedFields(input), ...filing(db, actor.facilityId, own, input) }
+  const values = { ...checkedFields(input), ...filing(db, actor, own, input) }
   const targets = checkedTargets(db, scope, facilityId, input.scope === undefined ? { ...current, scope } : input)
   db.transaction((tx) => {
     tx.update(contacts).set({ ...values, facilityId, allFacilities: targets.allFacilities, updatedAt: now.toISOString(), updatedBy: actor.id })

@@ -16,7 +16,7 @@ const stamped = computed(() => (props.stamp ? stampText(props.stamp) : null))
         <h2 class="font-semibold">{{ title }}</h2>
         <p v-if="stamped" class="text-xs text-gray-500">{{ stamped }}</p>
       </div>
-      <div class="ml-auto flex gap-2">
+      <div class="ml-auto flex flex-wrap justify-end gap-2">
         <slot name="actions" />
         <UButton v-if="canEdit && !editing" size="xs" color="neutral" variant="outline" icon="i-lucide-pencil" :label="de.common.edit" @click="editing = true" />
       </div>

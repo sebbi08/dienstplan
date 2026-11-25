@@ -64,7 +64,7 @@ describe('address book (Kontakte)', () => {
 
     it('adds, renames, reorders and deletes empty categories, names unique per facility regardless of case', () => {
       const kita = createContactCategory(db, leitung, { name: '  Kitas im Ort ' })
-      expect(listContacts(db, leitung).categories.at(-1)).toEqual({ id: kita, name: 'Kitas im Ort', contactCount: 0, ownCount: 0 })
+      expect(listContacts(db, leitung).categories.at(-1)).toEqual({ id: kita, name: 'Kitas im Ort', visibility: 'all', contactCount: 0, ownCount: 0 })
       expect(errorCode(() => createContactCategory(db, leitung, { name: 'JUGENDAMT' }))).toBe('contact_category_name_taken')
       expect(errorCode(() => createContactCategory(db, leitung, { name: 'sonstiges ' }))).toBe('contact_category_name_taken')
       expect(errorCode(() => createContactCategory(db, leitung, { name: '   ' }))).toBe('contact_category_name_required')
@@ -95,6 +95,65 @@ describe('address book (Kontakte)', () => {
       // The same name in another facility is fine.
       createContactCategory(db, leitung, { name: 'Vereine' })
       createContactCategory(db, as('admin', krippe), { name: 'Vereine' })
+    })
+  })
+
+  describe('„Wer sieht sie?“ at the category (as for „Zum Ausdrucken“ and „Wissen“)', () => {
+    it('hides a category for Leitung and Träger with its contacts from the staff and the tablet, whatever the contact says', () => {
+      const office = createContactCategory(db, leitung, { name: 'Intern', visibility: 'managers' })
+      createContact(db, leitung, contact({ categoryId: office, organisation: 'Steuerbüro', visibleToStaff: true }), NOW)
+      createContact(db, leitung, contact({ categoryId: categoryId('Schulen'), organisation: 'Grundschule Süd', visibleToStaff: true }), NOW)
+      expect(organisations(leitung)).toEqual(['Grundschule Süd', 'Steuerbüro'])
+      for (const viewer of [staff, tablet]) {
+        expect(organisations(viewer)).toEqual(['Grundschule Süd'])
+        // The category's name does not reach them either.
+        expect(listContacts(db, viewer).categories.map(category => category.name)).not.toContain('Intern')
+      }
+      expect(staffContactCount(db, staff)).toBe(1)
+      expect(listContacts(db, leitung).categories.find(category => category.id === office)).toMatchObject({ visibility: 'managers', contactCount: 1 })
+      // Back to all: the contact's own mark decides again.
+      renameContactCategory(db, leitung, office, { name: 'Intern', visibility: 'all' })
+      expect(organisations(staff)).toEqual(['Grundschule Süd', 'Steuerbüro'])
+      // Without `visibility` a rename keeps it.
+      renameContactCategory(db, leitung, office, { name: 'Büro', visibility: 'managers' })
+      renameContactCategory(db, leitung, office, { name: 'Büro intern' })
+      expect(listContacts(db, leitung).categories.find(category => category.id === office)).toMatchObject({ name: 'Büro intern', visibility: 'managers' })
+    })
+
+    it('keeps a category for the Träger alone from the Leitung: not listed, not usable, 404 to change; the Leitung cannot set it', () => {
+      expect(errorCode(() => createContactCategory(db, leitung, { name: 'Geheim', visibility: 'provider' }))).toBe('forbidden')
+      expect(errorCode(() => renameContactCategory(db, leitung, categoryId('Schulen'), { name: 'Schulen', visibility: 'provider' }))).toBe('forbidden')
+      const secret = createContactCategory(db, provider, { name: 'Geheim', visibility: 'provider' })
+      createContact(db, provider, contact({ categoryId: secret, organisation: 'Anwaltskanzlei', visibleToStaff: true }), NOW)
+      // A contact for all facilities filed by that name is hidden from the Leitung there, too (the stricter wins).
+      createContact(db, provider, contact({ scope: 'all', categoryName: 'geheim', organisation: 'Gutachter', visibleToStaff: true }), NOW)
+      expect(organisations(provider)).toEqual(['Anwaltskanzlei', 'Gutachter'])
+      expect(organisations(leitung)).toEqual([])
+      expect(organisations(staff)).toEqual([])
+      expect(listContacts(db, leitung).categories.map(category => category.id)).not.toContain(secret)
+      expect(errorCode(() => renameContactCategory(db, leitung, secret, { name: 'X' }))).toBe('contact_category_not_found')
+      expect(errorCode(() => deleteContactCategory(db, leitung, secret))).toBe('contact_category_not_found')
+      expect(errorCode(() => createContact(db, leitung, contact({ categoryId: secret })))).toBe('contact_category_invalid')
+      const own = listContacts(db, provider).contacts.find(entry => entry.organisation === 'Anwaltskanzlei')!.id
+      expect(errorCode(() => updateContact(db, leitung, own, contact({ categoryId: categoryId('Schulen') })))).toBe('address_contact_not_found')
+      // The name stays taken (also for the Leitung).
+      expect(errorCode(() => createContactCategory(db, leitung, { name: 'GEHEIM' }))).toBe('contact_category_name_taken')
+    })
+
+    it('moves a category past ones the Leitung does not see without changing their place', () => {
+      createContactCategory(db, provider, { name: 'Geheim', visibility: 'provider' })
+      const last = createContactCategory(db, leitung, { name: 'Vereine' })
+      moveContactCategory(db, leitung, last, 'up')
+      const names = (viewer: typeof leitung) => listContacts(db, viewer).categories.map(category => category.name)
+      expect(names(leitung).slice(-2)).toEqual(['Vereine', 'Sonstiges'])
+      expect(names(provider).slice(-3)).toEqual(['Vereine', 'Geheim', 'Sonstiges'])
+    })
+
+    it('gives a category created for a contact of the Träger the visibility of the acting facility\'s category of that name', () => {
+      const krippe = addFacility(db, 'Krippe')
+      createContactCategory(db, provider, { name: 'Verbände', visibility: 'managers' })
+      createContact(db, provider, contact({ scope: 'all', categoryName: 'Verbände', organisation: 'Paritätischer', createCategories: true }), NOW)
+      expect(listContacts(db, as('admin', krippe)).categories.find(category => category.name === 'Verbände')).toMatchObject({ visibility: 'managers' })
     })
   })
 
