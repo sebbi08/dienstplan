@@ -3,7 +3,7 @@ import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { PIN_LENGTH } from '#shared/domain/pin'
 import { SIGN_UNLOCK_IDLE_MS } from '#shared/domain/signRequests'
 import { formatTime } from '#shared/domain/time'
-import type { MySignRequestsDto, StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordDto } from '#shared/types/api'
+import type { ContactsDto, MySignRequestsDto, StampAction, TabletUnlockStatusDto, TerminalPersonDto, TimeRecordDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { shiftMonth } from '~/utils/format'
@@ -60,6 +60,15 @@ const chosen = computed(() => people.value?.find(person => person.employeeId ===
 /** Without network, or when not known, both buttons (Kommt and Geht) are offered. */
 const bothActions = computed(() => isOffline.value || chosen.value?.clockedIn === null)
 const printMenuOpen = ref(false)
+// The start page is the tablet's one hub (its header only leads back here): „Kontakte“ only while the facility has contacts
+// for the staff (the tablet sees just those), the plan of this month and the team meetings as tiles too.
+const { data: tabletContacts } = useFetch<ContactsDto>('/api/contacts', { key: 'tablet-contacts', server: false, immediate: onTablet.value })
+const showContacts = computed(() => (tabletContacts.value?.contacts.length ?? 0) > 0)
+const thisMonth = parseIsoDate(todayIso())
+const planPath = `/plan/${thisMonth.year}/${thisMonth.month}`
+/** The tiles' look: the two main ones larger, the others smaller so all fit a 10" tablet without scrolling. */
+const bigTile = 'flex flex-col items-center justify-center gap-2 rounded-xl bg-white p-6 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-primary'
+const tile = 'flex min-h-28 flex-col items-center justify-center gap-1.5 rounded-xl bg-white p-4 text-center text-lg font-semibold ring-1 ring-gray-200 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-primary'
 /** This month's and next month's plan printout (the server shows the released plan only). */
 /** The plan printout of this month (offset 0) or the next (1), by today's Berlin date at the moment of the tap. */
 async function printPlan(offset: 0 | 1) {
@@ -289,77 +298,62 @@ async function openChildren() {
 
     <template v-if="mode === 'start'">
       <h1 class="text-2xl font-semibold">{{ de.terminal.startTitle }}</h1>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <button
-          type="button" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-          @click="setMode('stamp')"
-        >
-          <UIcon name="i-lucide-clock" class="size-12 text-sky-700" />
+      <!-- By how often they are used: stamping and the children first and larger, then the rest; every destination of
+           the tablet is here (its header only has „Start“). -->
+      <div class="grid grid-cols-2 gap-3">
+        <button type="button" :class="bigTile" @click="setMode('stamp')">
+          <UIcon name="i-lucide-clock" class="size-12 text-sky-700" aria-hidden="true" />
           {{ de.terminal.title }}
         </button>
-        <button
-          type="button" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-          @click="setMode('children')"
-        >
-          <UIcon name="i-lucide-baby" class="size-12 text-sky-700" />
+        <button type="button" :class="bigTile" @click="setMode('children')">
+          <UIcon name="i-lucide-baby" class="size-12 text-sky-700" aria-hidden="true" />
           {{ de.terminal.childrenTitle }}
         </button>
+      </div>
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <!-- Vorlagen to print and „Wissen“ to read: no child data, so no PIN („Gelesen und verstanden“ asks for name and PIN there). -->
+        <NuxtLink to="/documents" :class="tile">
+          <UIcon name="i-lucide-book-open" class="size-8 text-sky-700" aria-hidden="true" />
+          {{ de.terminal.documentsTitle }}
+          <span class="text-sm font-normal text-gray-600">{{ de.terminal.documentsHint }}</span>
+        </NuxtLink>
         <!-- Documents the Leitung sent to sign: the person's own only, after their PIN. -->
-        <button
-          type="button" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-          @click="setMode('sign')"
-        >
-          <UIcon name="i-lucide-signature" class="size-12 text-sky-700" />
+        <button type="button" :class="tile" @click="setMode('sign')">
+          <UIcon name="i-lucide-signature" class="size-8 text-sky-700" aria-hidden="true" />
           {{ de.signRequests.tabletTitle }}
         </button>
-        <!-- Blank forms to print: no child data, so no PIN is needed. -->
-        <NuxtLink
-          to="/documents?tab=templates" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-        >
-          <UIcon name="i-lucide-printer" class="size-12 text-sky-700" />
-          {{ de.terminal.templatesTitle }}
-        </NuxtLink>
         <!-- The facility's notes, to read: no child data, so no PIN is needed either. -->
-        <NuxtLink
-          to="/notes" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-        >
-          <UIcon name="i-lucide-sticky-note" class="size-12 text-sky-700" />
+        <NuxtLink to="/notes" :class="tile">
+          <UIcon name="i-lucide-sticky-note" class="size-8 text-sky-700" aria-hidden="true" />
           {{ de.terminal.notesTitle }}
         </NuxtLink>
-        <!-- The contacts the Leitung marked for the staff (business contacts, no child data): no PIN. -->
-        <NuxtLink
-          to="/contacts" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-        >
-          <UIcon name="i-lucide-contact" class="size-12 text-sky-700" />
+        <!-- The released plan of this month, and the team meetings (both were in the header before). -->
+        <NuxtLink :to="planPath" :class="tile">
+          <UIcon name="i-lucide-calendar-range" class="size-8 text-sky-700" aria-hidden="true" />
+          {{ de.nav.plan }}
+        </NuxtLink>
+        <NuxtLink to="/team-meetings" :class="tile">
+          <UIcon name="i-lucide-users" class="size-8 text-sky-700" aria-hidden="true" />
+          {{ de.nav.teamMeetings }}
+        </NuxtLink>
+        <!-- The contacts the Leitung marked for the staff (business contacts, no child data): no PIN; only when there are any. -->
+        <NuxtLink v-if="showContacts" to="/contacts" :class="tile">
+          <UIcon name="i-lucide-contact" class="size-8 text-sky-700" aria-hidden="true" />
           {{ de.contacts.title }}
         </NuxtLink>
-        <!-- „Wissen“ to read (no child data, no PIN); „Gelesen und verstanden“ asks for the person's name and PIN there. -->
-        <NuxtLink
-          to="/documents?tab=knowledge" class="flex flex-col items-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-        >
-          <UIcon name="i-lucide-book-open" class="size-12 text-sky-700" />
-          {{ de.documents.tabs.knowledge }}
-        </NuxtLink>
         <!-- The released plan to print: nothing personal beyond what every employee sees, so no PIN. -->
-        <div v-if="printMenuOpen" class="flex gap-3 sm:col-span-2">
-          <button
-            type="button" class="flex-1 rounded-xl bg-white p-6 text-center text-xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-            @click="printPlan(0)"
-          >
+        <template v-if="printMenuOpen">
+          <button type="button" :class="tile" @click="printPlan(0)">
+            <UIcon name="i-lucide-printer" class="size-8 text-sky-700" aria-hidden="true" />
             {{ de.terminal.printPlanThisMonth }}
           </button>
-          <button
-            type="button" class="flex-1 rounded-xl bg-white p-6 text-center text-xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50"
-            @click="printPlan(1)"
-          >
+          <button type="button" :class="tile" @click="printPlan(1)">
+            <UIcon name="i-lucide-printer" class="size-8 text-sky-700" aria-hidden="true" />
             {{ de.terminal.printPlanNextMonth }}
           </button>
-        </div>
-        <button
-          v-else type="button" class="flex items-center justify-center gap-3 rounded-xl bg-white p-10 text-2xl font-semibold ring-1 ring-gray-200 hover:bg-sky-50 sm:col-span-2"
-          @click="printMenuOpen = true"
-        >
-          <UIcon name="i-lucide-calendar-days" class="size-12 text-sky-700" />
+        </template>
+        <button v-else type="button" :class="tile" @click="printMenuOpen = true">
+          <UIcon name="i-lucide-printer" class="size-8 text-sky-700" aria-hidden="true" />
           {{ de.terminal.printPlan }}
         </button>
       </div>

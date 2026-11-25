@@ -4571,6 +4571,26 @@ export interface MySignRequestCountDto {
   overdue: number
 }
 
+/**
+ * „Offen für dich“ (GET /api/my/open-items): what waits for the account's own linked employee, counted by the services
+ * that own each item. All zero (false) without a linked employee.
+ */
+export interface MyOpenItemsDto {
+  /** Entries of „Wissen“ to confirm (never, or only an earlier version). */
+  knowledge: number
+  /** Requests to sign still open, and how many of them are overdue. */
+  sign: number
+  signOverdue: number
+  /** Own self-assessments released to fill in. */
+  selfAssessments: number
+  /** Own leave requests decided (approved or rejected) in the last 14 days. */
+  leaveDecisions: number
+  /** The notice on remaining leave is still to be read. */
+  leaveNotice: boolean
+  /** Own mandatory appointments overdue or never recorded. */
+  requirements: number
+}
+
 export interface MySignRequestsDto {
   /** The signing person's name (for the line „Elektronisch unterschrieben von …“). */
   employeeName: string

@@ -41,7 +41,7 @@ const CHILDREN = [
 ]
 /** The office pages: Leitung and Träger only. */
 const OFFICE = [
-  '/admin/accidents', '/admin/calendar', '/admin/closures', '/admin/employees', '/admin/employees/1', '/admin/employees/applicants',
+  '/admin/accidents', '/admin/calendar', '/admin/calendar/closures', '/admin/closures', '/admin/employees', '/admin/employees/sick-days', '/admin/employees/1', '/admin/employees/applicants',
   '/admin/employees/applicants/1', '/children/info-visits/1', '/admin/forms',
   '/admin/leave-planning', '/admin/print/accidents/2026', '/admin/print/bem-invitation/1', '/admin/print/calendar/2026', '/admin/print/cash/1/2026/10', '/admin/print/early-closures/2026',
   '/admin/print/leave-forfeit/2026', '/admin/print/leave-list/2026/1',
@@ -59,8 +59,8 @@ const TEMPLATES = '/templates'
 const DOCUMENTS = '/documents'
 /** The Träger's page for deleting after the retention periods. */
 const RETENTION = '/admin/retention'
-/** Rechte und Rollen: the Träger's page for the rights of the roles. */
-const RIGHTS = '/admin/rights'
+/** Rechte und Rollen: the Träger's page for the rights of the roles (a tab of „Benutzer & Rechte“; the old address sends there). */
+const RIGHTS = ['/admin/rights', '/admin/users/rights']
 /** The facility's notes: every account (the key is in every role's defaults) and the tablet. */
 const NOTES = '/notes'
 /** „Kontakte“ and its printout: every account (the key is in every role's defaults); the tablet the page, not the printout. */
@@ -73,7 +73,7 @@ function viewerOf(role: Role, options: { canEditChildren?: boolean, mustChangePa
 
 describe('route access per role (unchanged by the permissions)', () => {
   it('lists every page', () => {
-    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, DOCUMENTS, NOTES, ...CONTACTS, RETENTION, RIGHTS, TABLET_ONLY].sort())
+    expect(pagePaths).toEqual([...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, DOCUMENTS, NOTES, ...CONTACTS, RETENTION, ...RIGHTS, TABLET_ONLY].sort())
   })
 
   it('lets the Träger open every page but the tablet\'s start page', () => {
@@ -94,20 +94,20 @@ describe('route access per role (unchanged by the permissions)', () => {
     // middleware does, with the same result.
     expect(accountRedirect(RETENTION, leitung)).toBe('/')
     // Rechte und Rollen: only the Träger sets the rights.
-    expect(accountRedirect(RIGHTS, leitung)).toBe('/')
+    for (const path of RIGHTS) expect(accountRedirect(path, leitung), path).toBe('/')
   })
 
   it('sends a Mitarbeiter from the child and office pages to the start page, with or without the child flag', () => {
     for (const viewer of [viewerOf('observer'), viewerOf('observer', { canEditChildren: true })]) {
       for (const path of [...OPEN, NOTES, ...CONTACTS]) expect(accountRedirect(path, viewer), path).toBeUndefined()
-      for (const path of [...CHILDREN, ...OFFICE, RETENTION, RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, viewer), path).toBe('/')
+      for (const path of [...CHILDREN, ...OFFICE, RETENTION, ...RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, viewer), path).toBe('/')
     }
   })
 
   it('lets a Gruppenleitung open the child pages with its own account, but no office page', () => {
     const lead = viewerOf('group_lead')
     for (const path of [...OPEN, ...CHILDREN, TEMPLATES, DOCUMENTS, NOTES, ...CONTACTS]) expect(accountRedirect(path, lead), path).toBeUndefined()
-    for (const path of [...OFFICE, RETENTION, RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, lead), path).toBe('/')
+    for (const path of [...OFFICE, RETENTION, ...RIGHTS, TABLET_ONLY]) expect(accountRedirect(path, lead), path).toBe('/')
   })
 
   it('lets a Mitarbeiter open the print templates (read only) and the notes, but no account without the key', () => {
@@ -168,7 +168,11 @@ describe('pagePermission', () => {
       expect(ROLE_DEFAULTS.observer, path).not.toContain(key)
     }
     expect(pagePermission(RETENTION)).toBe('retention.delete')
-    expect(pagePermission(RIGHTS)).toBe('rights.manage')
+    for (const path of RIGHTS) expect(pagePermission(path), path).toBe('rights.manage')
+    // The tabs that were menu entries keep the keys of their old pages.
+    expect(pagePermission('/admin/calendar/closures')).toBe('closures.manage')
+    expect(pagePermission('/admin/employees/sick-days')).toBe('employees.sickness')
+    expect(pagePermission('/admin/users')).toBe('users.manage')
     expect(pagePermission(TEMPLATES)).toBe('printTemplates.view')
     expect(ROLE_DEFAULTS.observer).toContain('printTemplates.view')
     expect(pagePermission(NOTES)).toBe('notes.view')

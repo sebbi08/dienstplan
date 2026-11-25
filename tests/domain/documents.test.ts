@@ -38,11 +38,11 @@ describe('„Dokumente“', () => {
       .toEqual({ path: '/documents', query: { x: '1', tab: 'forms' }, hash: '#unfaelle' })
   })
 
-  it('redirects /templates to „Vorlagen“ and /admin/forms to „Bögen“; the tablet\'s start page links to „Vorlagen“ and „Wissen“', () => {
+  it('redirects /templates to „Vorlagen“ and /admin/forms to „Bögen“; the tablet\'s start page links to „Dokumente“', () => {
     const page = (path: string) => readFileSync(join(process.cwd(), 'app', 'pages', path), 'utf8')
     expect(page('templates.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('templates', to) })")
     expect(page('admin/forms.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('forms', to) })")
-    expect(page('terminal.vue')).toContain('to="/documents?tab=templates"')
-    expect(page('terminal.vue')).toContain('to="/documents?tab=knowledge"')
+    // One tile „Dokumente“ (Vorlagen and Wissen) on the tablet's start page.
+    expect(page('terminal.vue')).toContain('to="/documents"')
   })
 })

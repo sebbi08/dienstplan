@@ -314,6 +314,8 @@ function navigate(nextYear: number, nextMonth: number) {
   <div class="space-y-3">
     <template v-if="plan && !error">
       <PlanSetupNotice v-if="isAdmin" />
+      <!-- The Leitung's own to-dos (with a linked employee), as on „Mein Dienstplan“; hidden while nothing is open. -->
+      <OpenItemsCard v-if="isAdmin" />
       <PlanHeader
         :plan="plan" :is-admin="isAdmin" :group-filter="activeGroup"
         @navigate="navigate" @release="release" @discard="discardOpen = true"

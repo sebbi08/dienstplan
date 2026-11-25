@@ -1685,7 +1685,7 @@ Fällt das Internet oder der Server aus, kann am **Kita-Tablet** (Konto „Table
 
 ## 19. Dokumente: Vorlagen (leere Formulare zum Ausdrucken) und Bögen
 
-Im Menü gibt es **Dokumente** (Leitung und Träger unter **Mehr**, Mitarbeiter unter **Meins**). Die Seite hat drei
+Im Menü gibt es **Dokumente** (Leitung und Träger in der oberen Zeile, Mitarbeiter unter **Meins**). Die Seite hat drei
 Reiter: **Bögen** (die Vorlagen für Mitarbeitergespräche, Beobachtungsbögen, Teamsitzungen und Unfallberichte, siehe
 Abschnitt 25; nur wer Bögen pflegen darf), **Vorlagen** und **Wissen** (siehe Abschnitt 28). Jeder sieht nur die Reiter,
 die er nutzen darf – Mitarbeiter und das Tablet **Vorlagen** und **Wissen**. Alte Lesezeichen auf „Vorlagen“ oder „Bögen“ führen automatisch zum passenden Reiter.
@@ -1810,7 +1810,8 @@ Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsant
 - **Beim Update** auf die Version mit der Reihenfolge stehen die Vorlagen wie bisher alphabetisch, bis jemand sie
   verschiebt oder eine neue hochlädt; von da an zählt in diesem Unterreiter die gespeicherte Reihenfolge.
 - **Drucken**: **Öffnen** zeigt das PDF in einem neuen Tab; dort druckst du es mit der Druckfunktion des Browsers.
-- **Am Tablet**: Auf der Startseite des Tablets gibt es den Knopf **Vorlagen**; er öffnet **Dokumente** → **Vorlagen**.
+- **Am Tablet**: Auf der Startseite des Tablets gibt es die Kachel **Dokumente**; sie öffnet **Dokumente** mit den Reitern
+  **Vorlagen** und **Wissen**.
   Dort lassen sich die Vorlagen der Kategorien für **Alle** öffnen und drucken – **ohne PIN**, weil darin keine Daten
   von Kindern stehen. Hochladen und ändern geht am Tablet nicht.
 - **Mitarbeiter** finden die Vorlagen mit ihrem eigenen Konto (Handy, privater PC) unter **Meins** → **Dokumente**: nur
@@ -1958,7 +1959,7 @@ Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
   beendet die Anfrage für offene Personen; **Anfrage löschen** entfernt Anfrage und gesendetes PDF (die unterschriebenen
   Kopien und die Nachweise der Unterschriften bleiben, siehe unten). Ist das Datum „bis“ vorbei und jemand noch offen,
   ist die Anfrage als **überfällig** markiert: oben in der Übersicht, im Reiter („Unterschriften (1)“) und im Menü bei
-  **Dokumente** (und bei Leitung und Träger an **Mehr**) steht, wie viele es sind; in der Liste der Person ist sie rot
+  **Dokumente** steht, wie viele es sind; in der Liste der Person ist sie rot
   hervorgehoben.
 - **Wer darf was**: Senden und die Übersicht gehören zum Recht **„Personalakte: zum Unterschreiben senden“** (Rechte und
   Rollen; voreingestellt Leitung, der Träger immer). In der Übersicht sieht man nur Anfragen, deren Fächer man nutzen
@@ -2630,20 +2631,33 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
     Tablet, Löschfrist, Datensicherung) gelten wie bisher für die bei „Einstellungen für“ gewählte Einrichtung bzw. für
     alle.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
-  offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kasse**, **Kalender** (Jahreskalender) und **Teamsitzungen**. Seltener Gebrauchtes liegt
-  unter **Mehr**: Schließzeiten, Krankheitstage, Dokumente (Bögen und Vorlagen), Benutzer, Einstellungen und Passwort ändern (der
-  Träger dazu **Rechte und Rollen** und Löschfristen).
+  offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kalender** (Jahreskalender), **Teamsitzungen**,
+  **Notizen** und **Dokumente** (Bögen, Vorlagen und Wissen, mit der Zahl dessen, was dort wartet: Einträge zum Bestätigen,
+  überfällige Unterschriften). Seltener Gebrauchtes liegt unter **Mehr**: Kontakte, Kasse, Unfälle, **Benutzer & Rechte**,
+  Einstellungen, Passwort ändern (der Träger dazu Löschfristen).
+  - **Schließzeiten** sind ein Reiter von **Kalender**, **Krankheitstage** ein Reiter von **Mitarbeiter**, und **Benutzer**
+    und **Rechte und Rollen** (nur Träger) sind die zwei Reiter von **Benutzer & Rechte**. Alte Lesezeichen
+    (`/admin/closures`, `/admin/sick-days`, `/admin/rights`) führen automatisch zum passenden Reiter.
+  - **Offen für dich**: Wer einen eigenen Mitarbeiter-Eintrag hat, sieht oben auf **Mein Dienstplan** (Leitung und Träger
+    auf ihrem Dienstplan) einen Kasten mit dem, was für die Person selbst wartet – jeweils mit Zahl und Link: Dokumente zu
+    unterschreiben (davon überfällige), Einträge „Gelesen und verstanden“, Selbstbeurteilungen zum Ausfüllen, der Hinweis
+    zum Resturlaub, Rückmeldungen zu eigenen Urlaubsanträgen (der letzten 14 Tage) und fällige Pflichttermine (überfällig
+    oder noch nie eingetragen). Ist nichts offen, fehlt der Kasten. Er zeigt nur die eigenen Sachen der Person.
   Wer als Leitung oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“,
   „Mein Urlaub“, „Meine Termine“ und „Meine Gespräche“; die Zahl ungelesener Änderungen steht an **Meins** und an „Mein Dienstplan“. „Mehr“ und „Meins“ sind
   hervorgehoben, wenn man gerade auf einer ihrer Seiten ist. Der eigene Benutzername steht auf breiten Bildschirmen
   rechts; auf kleineren Laptops ist **Abmelden** nur ein Symbol, der Name erscheint beim Zeigen darauf.
 - **Mitarbeiter** sehen oben **Mein Dienstplan** (mit der Zahl ungelesener Änderungen), **Dienstplan**, **Kalender** und
-  **Teamsitzungen**; unter **Meins** liegen „Mein Urlaub“, „Meine Termine“, „Meine Gespräche“ und „Dokumente“ (die Vorlagen, nur lesen,
-  siehe Abschnitt 19).
+  **Teamsitzungen**; unter **Meins** liegen „Zu unterschreiben“, „Mein Urlaub“, „Meine Termine“, „Meine Gespräche“ und
+  „Dokumente“ (Vorlagen und Wissen, siehe Abschnitt 19). Die Zahlen von „Zu unterschreiben“ und „Dokumente“ (Einträge
+  „Gelesen und verstanden“) stehen auch an **Meins** und am Knopf **Menü** auf dem Handy.
 - **Auf dem Handy** ist die Kopfzeile nur eine Zeile: Name der App, Einrichtung und der Knopf **Menü** (mit der Zahl
   ungelesener Änderungen bzw. offener Anträge). Er öffnet eine Leiste mit allen Einträgen, gruppiert wie oben, dazu
   Benutzername, **Passwort ändern** und **Abmelden**. Ein Tipp auf einen Eintrag öffnet die Seite und schließt die Leiste.
-- **Am Tablet** stehen **Stempeln**, **Dienstplan** und **Teamsitzungen**.
+- **Am Tablet** ist die Startseite der einzige Weg zu allem; oben steht nur **Start**. Die Kacheln, nach Häufigkeit:
+  **Stempeln** und **Kinder** (groß), dann **Dokumente** (Vorlagen und Wissen), **Zu unterschreiben**, **Notizen**,
+  **Dienstplan**, **Teamsitzungen**, **Kontakte** (nur wenn es Kontakte für Mitarbeitende gibt) und **Dienstplan drucken**.
+  Alles passt auf ein 10-Zoll-Tablet ohne Blättern.
 
 ## 22. Zeiterfassung und Mein Dienstplan am Handy
 
@@ -3202,7 +3216,7 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
 - **Mit dem eigenen Zugang** bestätigt die Person für sich – dafür muss der Zugang mit ihrem Mitarbeiter-Eintrag
   verknüpft sein. Danach steht dort **„Bestätigt am …“**. Unter **Dokumente** zeigt das Menü die Zahl der noch offenen
   Einträge („Dokumente (2)“), ebenso der Reiter **Wissen**.
-- **Am Tablet** (Kachel **Wissen** auf der Startseite; lesen geht ohne PIN) tippt die Person nach **Gelesen und
+- **Am Tablet** (Kachel **Dokumente** → **Wissen** auf der Startseite; lesen geht ohne PIN) tippt die Person nach **Gelesen und
   verstanden** auf ihren Namen und gibt ihre **PIN** ein (wie beim Stempeln; falsche Versuche zählen
   wie beim Stempeln). Die Bestätigung gilt für diese Person.
 - **Geändert**: Wird die **Datei, der Link oder der Text** eines Eintrags geändert, gilt das als neue Fassung – alle

@@ -4,6 +4,7 @@ import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
 import { personRightsMode, providerSetsRights } from '~/utils/rights'
 import { accountLock, manageableRoles } from '#shared/domain/roles'
+import { userTabs } from '~/utils/areaTabs'
 
 const { data: users, refresh } = await useFetch<UserDto[]>('/api/users')
 const { data: employees } = await useFetch<EmployeeListItemDto[]>('/api/employees')
@@ -97,10 +98,11 @@ const selectClass = 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm
 
 <template>
   <div class="max-w-5xl space-y-4">
+    <AreaTabs :tabs="userTabs(can)" />
     <h1 class="text-2xl font-semibold">{{ de.users.title }}</h1>
     <p class="text-sm text-gray-500">{{ de.users.employeeAccessHint(canProviderAccounts) }}</p>
     <p class="text-sm text-gray-500">{{ de.users.rolesHint }}</p>
-    <p v-if="canManageRights" class="text-sm"><NuxtLink to="/admin/rights" class="text-sky-700 hover:underline">{{ de.users.rightsPage }}</NuxtLink></p>
+    <p v-if="canManageRights" class="text-sm"><NuxtLink to="/admin/users/rights" class="text-sky-700 hover:underline">{{ de.users.rightsPage }}</NuxtLink></p>
     <p v-if="activeName" class="text-sm text-gray-500">{{ de.facilities.createdIn(activeName) }}</p>
     <!-- Wide on a phone: the table scrolls on its own, not the page. -->
     <div class="overflow-x-auto rounded-lg ring-1 ring-gray-200">

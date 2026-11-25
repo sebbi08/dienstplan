@@ -7,6 +7,7 @@ import { absenceDates } from '~/utils/calendarKinds'
 import { calendarPrintItems } from '~/utils/calendarPrint'
 import { SHOW_REQUESTS_KEY, requestCells, requestText, showRequestsFrom } from '~/utils/calendarRequests'
 import { formatDate, formatDayShort } from '~/utils/format'
+import { calendarTabs } from '~/utils/areaTabs'
 
 /**
  * Admin-only year calendar. Entries are made by clicking: an employee day enters Urlaub/ÜF/Krank/Fortbildung/Schule
@@ -131,10 +132,13 @@ async function removeEvent(event: CalendarEventDto) {
   if (!await confirm(de.calendar.confirmDelete)) return
   if (await run(() => $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'DELETE' }), de.common.deleted)) eventDialog.open = false
 }
+// The tabs of the page (a former menu entry each).
+const { can: canTab } = useCan()
 </script>
 
 <template>
   <div class="space-y-4">
+    <AreaTabs :tabs="calendarTabs(canTab)" />
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-2xl font-semibold">{{ de.calendar.title }}</h1>
       <YearNav v-model="year" />

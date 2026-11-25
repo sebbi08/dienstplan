@@ -22,7 +22,7 @@ const areas = computed(() => (data.value?.areas ?? []).map(area => ({
   <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.users.rightsTitle }}</h2>
     <p class="text-sm text-gray-500">
-      {{ t.overviewHint }} <NuxtLink to="/admin/rights" class="text-sky-700 hover:underline">{{ de.users.rightsPage }}</NuxtLink>
+      {{ t.overviewHint }} <NuxtLink to="/admin/users/rights" class="text-sky-700 hover:underline">{{ de.users.rightsPage }}</NuxtLink>
     </p>
     <p v-if="error" class="text-sm text-red-700">{{ t.loadFailed }}</p>
     <div v-else-if="data" class="overflow-x-auto">

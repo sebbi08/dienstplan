@@ -19,6 +19,7 @@ import { splitLeavers } from '~/utils/leavers'
 import { archiveRetentionText } from '~/utils/retentionText'
 import { staffBadges, type StaffBadge } from '~/utils/staffList'
 import { workdaysText } from '~/utils/workdays'
+import { employeeTabs } from '~/utils/areaTabs'
 
 /**
  * All employees in one compact list: group, weekly hours, overtime balance today and the leave left in the chosen
@@ -31,7 +32,6 @@ const { can } = useCan()
 const route = useRoute()
 const seesApplicants = computed(() => can('visits.applicants.view'))
 const tab = computed(() => (seesApplicants.value && route.query.tab === 'applicants' ? 'applicants' : 'staff'))
-const setTab = (value: 'staff' | 'applicants') => navigateTo({ query: { ...route.query, tab: value === 'staff' ? undefined : value } }, { replace: true })
 const year = ref(today.year)
 const month = ref(today.month)
 
@@ -244,6 +244,8 @@ const td = 'px-3 py-2'
 
 <template>
   <div class="max-w-6xl space-y-4">
+    <!-- Mitarbeiter | Bewerbungen & Hospitationen (?tab=applicants) | Krankheitstage (a former menu entry): one tab bar. -->
+    <AreaTabs :tabs="employeeTabs(can)" />
     <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
       <h1 class="text-2xl font-semibold">{{ de.employees.title }}</h1>
       <MonthNav :year="year" :month="month" @change="change" />
@@ -260,16 +262,6 @@ const td = 'px-3 py-2'
       </div>
     </div>
 
-    <!-- „Bewerbungen & Hospitationen“ next to the staff list (visits.applicants.view, which visits.manage includes). -->
-    <div v-if="seesApplicants" class="flex gap-1 border-b border-gray-200" role="tablist" :aria-label="de.visits.tabsLabel">
-      <button
-        v-for="entry in (['staff', 'applicants'] as const)" :key="entry" type="button" role="tab" :aria-selected="tab === entry"
-        class="-mb-px min-h-11 border-b-2 px-3 text-sm" :class="tab === entry ? 'border-sky-600 font-semibold text-sky-800' : 'border-transparent text-gray-600 hover:text-gray-900'"
-        @click="setTab(entry)"
-      >
-        {{ entry === 'staff' ? de.employees.title : de.visits.tabs.applicants }}
-      </button>
-    </div>
     <VisitsApplicantList v-if="tab === 'applicants'" />
     <template v-else>
     <UCheckbox v-if="seesRequiredDocs" v-model="onlyMissingDocs" :label="de.requiredDocuments.filter" />

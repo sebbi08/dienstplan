@@ -63,6 +63,8 @@ function rowClass(day: MyPlanDayDto): string {
       <span v-if="data" class="text-gray-600">{{ data.employee.name }}</span>
       <UBadge v-if="data?.release.changeCount" color="warning" variant="soft" :label="de.plan.changesCount(data.release.changeCount)" />
     </div>
+    <!-- What waits for the person (to sign, to confirm, to fill in …), with links; hidden while nothing is open. -->
+    <OpenItemsCard />
     <MyNotifications />
     <UAlert v-if="error" color="warning" variant="soft" :title="errorMessage(error)" />
     <TimeMyTimeCard v-if="time?.enabled" :time="time" :refresh="refreshTime" />

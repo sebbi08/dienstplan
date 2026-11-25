@@ -41,14 +41,19 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   // „Bewerbungen & Hospitationen“ (visits.applicants.view, which visits.manage includes): the list on its own and an
   // applicant's page; with the staff list they are the tab of Mitarbeiter.
   ['/admin/employees/applicants', 'visits.applicants.view'],
+  // Krankheitstage: a tab of Mitarbeiter (/admin/sick-days, the old address, sends there).
+  ['/admin/employees/sick-days', 'employees.sickness'],
   ['/admin/employees', 'employees.view'],
   ['/admin/print/emergency-contacts', 'employees.view'],
+  // Old addresses of former menu entries, now tabs (the pages send on to them), with the keys of their new pages.
   ['/admin/sick-days', 'employees.sickness'],
   ['/admin/print/sick-days', 'employees.sickness'],
   ['/admin/print/bem-invitation', 'employees.sickness'],
   ['/admin/leave-planning', 'leave.overview'],
   ['/admin/print/leave-forfeit', 'leave.overview'],
   ['/admin/print/leave-list', 'leave.overview'],
+  // Schließzeiten: a tab of Kalender (/admin/closures, the old address, sends there).
+  ['/admin/calendar/closures', 'closures.manage'],
   ['/admin/calendar', 'calendar.edit'],
   ['/admin/print/calendar', 'calendar.edit'],
   ['/admin/closures', 'closures.manage'],
@@ -61,8 +66,10 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   ['/admin/print/accidents', 'accidents.manage'],
   ['/admin/print/cash', 'cash.view'],
   ['/cash', 'cash.view'],
+  // „Benutzer & Rechte“: Rechte und Rollen (the Träger sets the rights of the roles) is its tab /admin/users/rights;
+  // /admin/rights, the old address, sends there.
+  ['/admin/users/rights', 'rights.manage'],
   ['/admin/users', 'users.manage'],
-  // Rechte und Rollen: the Träger sets the rights of the roles.
   ['/admin/rights', 'rights.manage'],
   ['/admin/settings', 'settings.facility'],
   ['/admin/retention', 'retention.delete'],

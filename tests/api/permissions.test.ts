@@ -40,6 +40,8 @@ const USER_ROUTES = [
   // The own notice on remaining leave and its „Gelesen“: the employee follows from the session alone.
   'my/leave-forfeit.get.ts',
   'my/leave-forfeit/read.post.ts',
+  // „Offen für dich“: the own employee's open items, from the session alone.
+  'my/open-items.get.ts',
   // Renders a print page with the caller's cookie; that page's API calls check the permissions.
   'pdf.get.ts',
   // The facility name in the header (the own facility; the Träger's switcher lists all of them).

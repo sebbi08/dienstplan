@@ -380,6 +380,7 @@
   "my/leave.get.ts": ["provider","admin","group_lead","observer"],
   "my/notifications.get.ts": ["provider","admin","group_lead","observer"],
   "my/notifications/read.post.ts": ["provider","admin","group_lead","observer"],
+  "my/open-items.get.ts": ["provider","admin","group_lead","observer"],
   "my/plan/[year]/[month].get.ts": ["provider","admin","group_lead","observer"],
   "my/requirements.get.ts": ["provider","admin","group_lead","observer"],
   "my/sign-requests/[id]/decline.post.ts": ["provider","admin","group_lead","observer"],
