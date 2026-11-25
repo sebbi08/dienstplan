@@ -3,6 +3,8 @@ import {
   FACILITY_CARDS_KEY, cardDetails, isCardOpen, readCardState, toggledCardState, writeCardState,
 } from '../../app/utils/facilityCards'
 import { de } from '../../app/locales/de'
+import { errorMessage } from '../../app/utils/errors'
+import { pairedWith } from '../../app/utils/helpoutPairs'
 
 /** A storage holding the given text under the key (or throwing, like a blocked one). */
 const storageWith = (text: string | null) => ({ getItem: (key: string) => (key === FACILITY_CARDS_KEY ? text : null) })
@@ -37,5 +39,15 @@ describe('facility cards under Einstellungen → Einrichtung', () => {
     expect(cardDetails('Bayern', 0, groups)).toBe('Bayern · keine Gruppen')
     expect(cardDetails('Hessen', null, groups)).toBe('Hessen')
     expect(de.settingsAreas.settingsForChosen('Kita Sonnenschein')).toBe('Einstellungen für Kita Sonnenschein')
+  })
+
+  it('reads the help-out pairs of a facility from either side and names the facility a refusal names', () => {
+    const pairs = { pairs: [[1, 2], [2, 3]] as [number, number][], names: {}, unpaired: [] }
+    expect([...pairedWith(pairs, 2)].sort()).toEqual([1, 3])
+    expect([...pairedWith(pairs, 1)]).toEqual([2])
+    expect([...pairedWith(null, 1)]).toEqual([])
+    const refusal = (details?: unknown) => ({ data: { data: { code: 'help_out_not_paired', details } } })
+    expect(errorMessage(refusal({ facility: 'Krippe' }))).toBe('Aushilfe aus Krippe ist nicht freigegeben.')
+    expect(errorMessage(refusal())).toBe('Aushilfe aus dieser Einrichtung ist nicht freigegeben.')
   })
 })

@@ -211,7 +211,7 @@ einer späteren Version entfernt.
 | Mitarbeiter | sehen die Kinder **nur am Tablet der eigenen Einrichtung**, und dort nur lesend: alle aktiven Kinder, Vormerkungen und künftige Vertragskinder nur, wenn die Schalter (siehe unten) an sind. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. Mit dem eigenen Konto (Handy, privater PC) sehen sie keine Kinder. Beobachtungsbögen und Entwicklungsgespräche der Kinder ihrer Gruppe legen sie am Tablet an und füllen sie aus (Abschnitt 25). |
 | Mitarbeiter mit dem Recht „eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“) | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
 | Gruppenleitung | darf in der Grundeinstellung dasselbe wie ein Mitarbeiter mit „eintragen und Akten ändern“ (eigene Gruppe) – und das auch **mit dem eigenen Konto** im Büro, nicht nur am Tablet. Vormerkungen und künftige Vertragskinder sieht sie wie am Tablet nur, wenn die Tablet-Schalter an sind (außer der Träger gibt ihr „Kinder: verwalten“). Siehe Abschnitt 26. |
-| Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, und nur lesend. Beobachtungsbögen lesen sie nur (außer als Bezugserzieher oder für einen Bogen freigeschaltet, Abschnitt 25). |
+| Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, nur lesend und nur, wenn der Träger die gegenseitige Aushilfe der beiden Einrichtungen freigegeben hat (Abschnitt 21). Beobachtungsbögen lesen sie nur (außer als Bezugserzieher oder für einen Bogen freigeschaltet, Abschnitt 25). |
 
 Das Recht „eintragen und Akten ändern“ gibt die Leitung oder der Träger bei der Person (*Mitarbeiter → Name → Zugang*,
 oder *Benutzer* → „Rechte“). Es gilt am Tablet der Einrichtung. Was die Rollen sonst dürfen, stellt der Träger unter
@@ -2566,6 +2566,19 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Karte mit Kopfzeile (Haus-Symbol, Name · Bundesland · Zahl der Gruppen). Ein Klick auf die Kopfzeile klappt die Karte
   auf oder zu. Ohne eigene Wahl ist nur die Einrichtung aufgeklappt, die bei „Einstellungen für“ gewählt ist (markiert
   mit **„gewählt“**). Welche Karten offen sind, merkt sich das Gerät.
+  - **Aushilfe zwischen Einrichtungen nur mit Freigabe des Trägers:** In jeder Karte steht **„Gegenseitige Aushilfe
+    mit:“** mit einem Haken je anderer Einrichtung. Ein Haken gilt für beide Einrichtungen (er erscheint auch in der Karte
+    der anderen). Am Anfang ist keine Freigabe gesetzt; Aushilfe zwischen den Gruppen einer Einrichtung braucht keine.
+    - Ohne Freigabe bietet der Dienstplan unter „Aushilfe hinzufügen“ niemanden aus der anderen Einrichtung an, und der
+      Server lehnt jede neue Aushilfe ab („Aushilfe aus ‹Kita› ist nicht freigegeben.“): Aushilfe-Spalte, Dienst in einer
+      Aushilfe-Spalte, Ändern eines solchen Dienstes, Zurücksetzen auf die Freigabe des Plans.
+    - Schon geplante Aushilfen ohne Freigabe (auch die von vor dieser Version) bleiben im Dienstplan, die Stunden zählen
+      weiter. Die Spalte ist mit **„nicht freigegeben“** markiert, und die Aushilfe gibt dort keinen Zugriff: Sie steht
+      nicht auf dem Tablet der anderen Einrichtung, sieht dort keine Kinder und stempelt dort nicht. Oben über den Karten
+      nennt ein Hinweis dem Träger die Einrichtungen, zwischen denen es solche Aushilfen gibt, mit der Zahl der Einträge.
+    - Nimmt der Träger einen Haken weg und sind ab heute noch Aushilfen geplant, nennt die App sie (Datum, Person,
+      Einrichtung) und fragt nach; sie bleiben dann wie oben beschrieben.
+    - Die Leitung sieht in ihrer Karte, mit welchen Einrichtungen ihre Einrichtung freigegeben ist, ändern kann sie das nicht.
   - **In jeder Karte:** **Stammdaten** (Name, Bundesland, Höchstzahl Kinder, Speichern), **Gruppen** (wie bisher) und
     **Kontakt** (Anschrift, Website, Träger, Leitung, Telefonnummern und E-Mail-Adressen) mit je eigenem Speichern. So
     pflegt der Träger den Kontakt jeder Einrichtung, ohne bei „Einstellungen für“ zu wechseln. Den früheren eigenen

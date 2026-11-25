@@ -402,11 +402,33 @@ export const de = {
   helpers: {
     title: 'Aushilfe hinzufügen',
     hint: (month: string) => `Eine Person aus einer anderen Einrichtung bekommt für ${month} eine eigene Spalte in diesem Plan. `
-      + 'Ihre Dienste trägst du wie gewohnt ein. Stundenkonto, Urlaub und Vertrag bleiben in ihrer Einrichtung.',
+      + 'Ihre Dienste trägst du wie gewohnt ein. Stundenkonto, Urlaub und Vertrag bleiben in ihrer Einrichtung. '
+      + 'Zur Auswahl stehen nur Einrichtungen, mit denen der Träger gegenseitige Aushilfe freigegeben hat.',
     person: 'Person', search: 'Name suchen…',
-    none: 'Es gibt niemanden aus einer anderen Einrichtung, der noch hinzugefügt werden kann.',
+    none: 'Es gibt niemanden aus einer freigegebenen Einrichtung, der noch hinzugefügt werden kann. Freigaben setzt der Träger '
+      + 'unter Einstellungen → Einrichtung.',
     candidate: (name: string, facility: string) => `${name} (${facility})`,
     added: 'Aushilfe hinzugefügt',
+  },
+  // Aushilfe zwischen Einrichtungen only with the Träger's mutual permission (facility cards, plan).
+  helpoutPairs: {
+    title: 'Gegenseitige Aushilfe mit:',
+    none: 'keiner anderen Einrichtung',
+    noOthers: 'Es gibt keine andere Einrichtung.',
+    hint: 'Aushilfe zwischen Einrichtungen ist erst nach Freigabe möglich. Ein Haken gilt für beide Einrichtungen.',
+    readOnly: 'Diese Freigaben setzt der Träger.',
+    unpairedTitle: 'Zwischen diesen Einrichtungen gibt es geplante Aushilfe ohne Freigabe:',
+    unpairedPair: (a: string, b: string, count: number) => `${a} ↔ ${b} (${count === 1 ? '1 Eintrag' : `${count} Einträge`})`,
+    unpairedHint: 'Diese Einträge bleiben im Dienstplan (die Stunden zählen), sind dort als „nicht freigegeben“ markiert und geben '
+      + 'keinen Zugriff (Tablet, Kinder, Stempeln), bis die Freigabe gesetzt ist.',
+    removeConfirm: (other: string, entries: string[], more: number) => `Mit ${other} sind noch Aushilfen geplant: ${entries.join('; ')}`
+      + `${more > 0 ? ` und ${more} weitere` : ''}. Sie bleiben im Dienstplan, sind dann aber als „nicht freigegeben“ markiert und `
+      + 'geben keinen Zugriff. Freigabe trotzdem aufheben?',
+    removeAction: 'Freigabe aufheben',
+    entry: (date: string, employee: string, inFacility: string) => `${date} ${employee} in ${inFacility}`,
+    notPairedBadge: 'nicht freigegeben',
+    notPairedTitle: 'Aushilfe zwischen diesen Einrichtungen ist nicht (mehr) freigegeben: Die Einträge zählen, neue sind nicht möglich, '
+      + 'und sie geben keinen Zugriff.',
   },
   modal: {
     discardTitle: 'Noch nicht freigegebene Änderungen',
@@ -3398,6 +3420,9 @@ export const de = {
     help_out_exists: 'Diese Person ist in diesem Monat schon als Aushilfe eingetragen.',
     help_out_has_entries: 'Die Aushilfe hat in diesem Monat noch Einträge. Bitte zuerst ihre Dienste entfernen.',
     help_out_released: 'Die Aushilfe hat im freigegebenen Plan noch Dienste. Bitte zuerst den Monat neu freigeben, dann die Aushilfe entfernen.',
+    help_out_not_paired: 'Aushilfe aus dieser Einrichtung ist nicht freigegeben.',
+    help_out_not_paired_from: (facility: string) => `Aushilfe aus ${facility} ist nicht freigegeben.`,
+    helpout_pair_invalid: 'Bitte zwei verschiedene Einrichtungen wählen.',
     help_out_not_found: 'Diese Aushilfe gibt es nicht mehr.',
     cell_taken: 'An diesem Tag ist die Person schon in einem anderen Plan eingetragen.',
     cell_helps_elsewhere: 'An diesem Tag hilft die Person in einer anderen Einrichtung aus. Hier kann nur eine Abwesenheit eingetragen werden (z. B. Krank oder Urlaub).',

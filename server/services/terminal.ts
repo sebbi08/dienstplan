@@ -8,6 +8,7 @@ import { employees, entries, timeRecords } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword, verifyPassword } from '../lib/password'
 import { activeTrackingFrom } from './appSettings'
+import { pairedFacilityIds } from './helpoutPairs'
 import { loadEmployee, loadEmployees } from './queries'
 import { stamp } from './timeTracking'
 
@@ -43,10 +44,17 @@ export function unlockPin(db: Db, facilityId: number, employeeId: number): void 
   db.update(employees).set(PIN_RESET).where(eq(employees.id, employeeId)).run()
 }
 
-/** Ids of the employees planned in the facility's helper column (help-out entry) on the date. */
+/**
+ * Ids of the employees planned in the facility's helper column (help-out entry) on the date whose home facility is
+ * paired with it (server/services/helpoutPairs.ts): a help-out without the pair stays in the plan but gives no access
+ * here (tablet list, unlocking the children, stamping).
+ */
 export function helperIdsOn(db: Db, facilityId: number, date: string): number[] {
-  return [...new Set(db.select({ employeeId: entries.employeeId }).from(entries)
-    .where(and(eq(entries.helpFacilityId, facilityId), eq(entries.date, date))).all().map(row => row.employeeId))]
+  const paired = pairedFacilityIds(db, facilityId)
+  return [...new Set(db.select({ employeeId: entries.employeeId, home: employees.facilityId }).from(entries)
+    .innerJoin(employees, eq(entries.employeeId, employees.id))
+    .where(and(eq(entries.helpFacilityId, facilityId), eq(entries.date, date))).all()
+    .filter(row => paired.has(row.home)).map(row => row.employeeId))]
 }
 
 /**

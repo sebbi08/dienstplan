@@ -20,6 +20,7 @@ import { rebookHomeClosure } from './closureBooking'
 import { assertChildOf } from './employeeChildren'
 import { assertGroup, groupNames } from './groups'
 import { isHelperOn } from './helpOuts'
+import { assertHelpersAllowed } from './helpoutPairs'
 import { inPlanOf, loadEmployee, loadEntries } from './queries'
 import { withPlainMarkers } from './release'
 
@@ -246,6 +247,8 @@ export function applyToCells(
   if (cells.some(cell => isHelperCell(cell) && !isHelperOn(db, facilityId, cell.employeeId, cell.date))) {
     throw new ServiceError(400, 'employee_not_found')
   }
+  // Duties of helpers only between paired facilities (403 help_out_not_paired); emptying their cells always works.
+  if (mode !== 'clear') assertHelpersAllowed(db, facilityId, cells.filter(isHelperCell).map(cell => cell.employeeId))
   const values = mode === 'clear' ? null : resolveEntry(db, facilityId, input!)
   // A closure books for everybody (it skips private absences itself, closures.ts) and never tells what it replaces.
   // „Krank melden“ without the right leaves the days already „abwesend“ alone (privateCellsToSkip).
@@ -426,6 +429,7 @@ export function setEntryGroup(
   db: Db, actor: SessionUser, facilityId: number, id: number, groupId: number | null, now: Date = new Date(),
 ): void {
   const entry = requireOwnEntry(db, facilityId, id)
+  if (entry.helpFacilityId !== null) assertHelpersAllowed(db, facilityId, [entry.employeeId])
   assertGroup(db, facilityId, groupId)
   if (groupId !== null && !mayHaveGroup(entry, gapCodeIdsOf(db))) throw new ServiceError(400, 'group_not_allowed')
   const helper = entry.helpFacilityId !== null
@@ -472,6 +476,7 @@ export function updateEntryTimes(
   db: Db, actor: SessionUser, facilityId: number, id: number, change: EntryTimesChange, now: Date = new Date(),
 ): void {
   const entry = requireOwnEntry(db, facilityId, id)
+  if (entry.helpFacilityId !== null) assertHelpersAllowed(db, facilityId, [entry.employeeId])
   if (entry.start === null || entry.end === null) throw new ServiceError(400, 'not_a_timed_entry')
   const isBreak = entry.kind === 'break'
   const { homeOffice, ...times } = change

@@ -6,6 +6,7 @@ import type { HelpCandidateDto, HelperDto, SnapshotData } from '../../shared/typ
 import type { Db } from '../db/client'
 import { employeeHours, employees, entries, facilities, helpOuts, releaseSnapshots } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { assertHelpersAllowed, pairedFacilityIds } from './helpoutPairs'
 
 export interface HelpOutInput {
   employeeId: number
@@ -17,8 +18,12 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
   return { monthStart: toIsoDate(year, month, 1), monthEnd: toIsoDate(year, month, daysInMonth(year, month)) }
 }
 
-/** The month's helpers in facilityId's plan (employees of other facilities), ordered by name. */
+/**
+ * The month's helpers in facilityId's plan (employees of other facilities), ordered by name; `paired`: help-outs
+ * between their home facility and this one are allowed (server/services/helpoutPairs.ts).
+ */
 export function listHelpers(db: Db, facilityId: number, year: number, month: number): HelperDto[] {
+  const paired = pairedFacilityIds(db, facilityId)
   return db.select({
     helpOutId: helpOuts.id,
     employeeId: employees.id,
@@ -33,6 +38,7 @@ export function listHelpers(db: Db, facilityId: number, year: number, month: num
     .where(and(eq(helpOuts.facilityId, facilityId), eq(helpOuts.year, year), eq(helpOuts.month, month)))
     .orderBy(asc(employees.name), asc(employees.id))
     .all()
+    .map(helper => ({ ...helper, paired: paired.has(helper.fromFacilityId) }))
 }
 
 /** Employees of the other facilities who are employed in the month (only their names and home facility). */
@@ -40,7 +46,7 @@ function otherFacilitiesStaff(db: Db, facilityId: number, year: number, month: n
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rows = db.select({
     employeeId: employees.id, name: employees.name, shortName: employees.shortName, leftOn: employees.leftOn,
-    facilityName: facilities.name, state: facilities.state, assumptionDay: facilities.assumptionDay,
+    facilityId: facilities.id, facilityName: facilities.name, state: facilities.state, assumptionDay: facilities.assumptionDay,
   })
     .from(employees)
     .innerJoin(facilities, eq(employees.facilityId, facilities.id))
@@ -58,19 +64,27 @@ function otherFacilitiesStaff(db: Db, facilityId: number, year: number, month: n
   }, monthStart, monthEnd))
 }
 
-/** Who facilityId can add as a helper for the month: employed staff of other facilities who are not helpers yet. */
+/**
+ * Who facilityId can add as a helper for the month: employed staff of the facilities paired with it (the Träger's
+ * permission, server/services/helpoutPairs.ts) who are not helpers yet.
+ */
 export function helpCandidates(db: Db, facilityId: number, year: number, month: number): HelpCandidateDto[] {
   const helpers = new Set(listHelpers(db, facilityId, year, month).map(helper => helper.employeeId))
+  const paired = pairedFacilityIds(db, facilityId)
   return otherFacilitiesStaff(db, facilityId, year, month)
-    .filter(row => !helpers.has(row.employeeId))
+    .filter(row => paired.has(row.facilityId) && !helpers.has(row.employeeId))
     .map(({ employeeId, name, shortName, facilityName }) => ({ employeeId, name, shortName, facilityName }))
 }
 
-/** Adds an employee of another facility as a helper of facilityId for the month; returns the help-out id. */
+/**
+ * Adds an employee of another facility as a helper of facilityId for the month; returns the help-out id. Their home
+ * facility must be paired with it (403 help_out_not_paired otherwise).
+ */
 export function addHelpOut(db: Db, facilityId: number, input: HelpOutInput): number {
   const candidate = otherFacilitiesStaff(db, facilityId, input.year, input.month)
     .some(row => row.employeeId === input.employeeId)
   if (!candidate) throw new ServiceError(400, 'employee_not_found')
+  assertHelpersAllowed(db, facilityId, [input.employeeId])
   return db.transaction((tx) => {
     const existing = tx.select({ id: helpOuts.id }).from(helpOuts).where(and(
       eq(helpOuts.employeeId, input.employeeId), eq(helpOuts.facilityId, facilityId),

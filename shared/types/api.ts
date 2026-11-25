@@ -1110,6 +1110,33 @@ export interface HelperDto {
   shortName: string
   fromFacilityId: number
   fromFacility: string
+  /**
+   * Help-outs between the helper's home facility and this one are allowed (the Träger's pair, server/services/helpoutPairs.ts):
+   * without it the column stays (its duties count) but is marked „nicht freigegeben“ and takes no new duties.
+   */
+  paired: boolean
+}
+
+/**
+ * The Träger's mutual permissions for help-outs between facilities (Einstellungen → Einrichtung): the pairs the viewer may
+ * see (the Träger all, the Leitung those of her facility), each [smaller id, larger id].
+ */
+export interface HelpoutPairsDto {
+  pairs: [number, number][]
+  /** The names of the facilities in those pairs (the Leitung knows no other facility otherwise). */
+  names: Record<number, string>
+  /** For the Träger: facilities with help-outs planned between them but no pair (they give no visibility until it is set). */
+  unpaired: { facilityIds: [number, number]; names: [string, string]; entries: number }[]
+}
+
+/** A help-out planned between two facilities (shown before the Träger ends their pair). */
+export interface PairedHelpOutDto {
+  date: IsoDate
+  employee: string
+  /** The facility whose plan it is in. */
+  inFacility: string
+  /** The helper's home facility. */
+  fromFacility: string
 }
 
 /** Someone of another facility who could be added as a helper (only names are shown). */

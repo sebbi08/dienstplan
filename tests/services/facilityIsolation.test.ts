@@ -44,7 +44,7 @@ import {
 } from '../../server/services/weekTemplates'
 import { cellKey, noteKey } from '../../shared/domain/cells'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addGroup, addHelpOut, addUser, codeId, createTestDb, errorCode, templateId, makePlanner } from '../helpers/fixtures'
+import { addEmployee, addFacility, addGroup, addHelpOut, addHelpoutPair, addUser, codeId, createTestDb, errorCode, templateId, makePlanner } from '../helpers/fixtures'
 import { dueLevelSteps } from '../helpers/levelSteps'
 
 const today = '2026-10-05'
@@ -741,6 +741,10 @@ describe('facility isolation', () => {
     })
 
     it('C\'s candidates name A\'s and B\'s employees and nothing more', () => {
+      // Only from facilities the Träger paired with C (server/services/helpoutPairs.ts).
+      expect(helpCandidates(db, hort, 2026, 10)).toEqual([])
+      addHelpoutPair(db, hort, 1)
+      addHelpoutPair(db, hort, facility2)
       const candidates = helpCandidates(db, hort, 2026, 10)
       expect(candidates).toEqual([
         { employeeId: anna, name: 'Anna', shortName: expect.any(String), facilityName: 'Kindergarten' },

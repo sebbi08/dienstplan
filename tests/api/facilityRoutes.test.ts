@@ -47,6 +47,9 @@ beforeAll(async () => {
   routes['groups/[id].delete'] = (await import('../../server/api/groups/[id].delete')).default as Handler
   routes['facility-contact.get'] = (await import('../../server/api/facility-contact.get')).default as Handler
   routes['facility-contact.put'] = (await import('../../server/api/facility-contact.put')).default as Handler
+  routes['helpout-pairs.get'] = (await import('../../server/api/helpout-pairs/index.get')).default as Handler
+  routes['helpout-pairs.put'] = (await import('../../server/api/helpout-pairs/index.put')).default as Handler
+  routes['helpout-pairs/help-outs.get'] = (await import('../../server/api/helpout-pairs/help-outs.get')).default as Handler
 })
 
 /** A request of the user to the route. */
@@ -141,5 +144,16 @@ describe('routes that name a facility by id', () => {
     expect(getFacilityContact(db, traeger, 1).street).toBe('Parkweg 4')
     // An id that is no positive whole number is refused before anything is read.
     expect(await status(() => call('facility-contact.get', traeger, { query: { facilityId: 0 } }))).not.toBeNull()
+  })
+
+  it('lets only the Träger set the pairs of facilities allowed to help each other out; the Leitung reads her own', async () => {
+    const body = { facilityId: krippe, otherFacilityId: 1, paired: true }
+    expect(await status(() => call('helpout-pairs.put', leitung, { body }))).toBe(403)
+    expect(await call('helpout-pairs.get', traeger)).toEqual({ pairs: [], names: {}, unpaired: [] })
+    await call('helpout-pairs.put', traeger, { body })
+    expect(await call('helpout-pairs.get', leitung)).toMatchObject({ pairs: [[1, krippe]], unpaired: [] })
+    expect(await call('helpout-pairs/help-outs.get', traeger, { query: { facilityId: 1, otherFacilityId: krippe } })).toEqual([])
+    expect(await status(() => call('helpout-pairs/help-outs.get', leitung, { query: { facilityId: 1, otherFacilityId: krippe } }))).toBe(403)
+    expect(await status(() => call('helpout-pairs.put', traeger, { body: { facilityId: 1, otherFacilityId: 1, paired: true } }))).toBe(400)
   })
 })

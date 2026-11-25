@@ -20,7 +20,7 @@ import { listCategories } from '../../server/services/templateCategories'
 import { setPin } from '../../server/services/terminal'
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { DocumentGroupTarget, DocumentScope, KnowledgeEntryInput, Role } from '../../shared/types/api'
-import { addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
+import { addEmployee, addFacility, addGroup, addHelpoutPair, addUser, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
 
 const NOW = new Date('2026-11-23T09:00:00.000Z')
 const TODAY = '2026-11-23'
@@ -368,6 +368,8 @@ describe('„Gilt für“: facilities and groups of Vorlagen and „Wissen“', 
       setTimeTrackingFrom(db, krippe, '2026-10-01')
       const tablet = addUser(db, 'tablet', 'terminal')
       db.insert(entries).values({ employeeId: helper, date: TODAY, kind: 'shift', helpFacilityId: 1, updatedAt: NOW.toISOString() }).run()
+      // Help-outs between the two facilities are allowed (otherwise the helper is not on this tablet at all).
+      addHelpoutPair(db, 1, krippe)
       setPin(db, krippe, helper, '445566')
       const { token } = unlockChildren(db, { id: tablet.id, facilityId: 1 }, helper, '445566', NOW)
       const group = readerHomeGroup(db, tablet, token, NOW)

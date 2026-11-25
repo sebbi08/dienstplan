@@ -374,6 +374,19 @@ export const helpOuts = sqliteTable('help_outs', {
   month: integer('month').notNull(),
 }, table => [uniqueIndex('help_outs_employee_facility_month').on(table.employeeId, table.facilityId, table.year, table.month)])
 
+/**
+ * The Träger's mutual permission for help-outs between two facilities (server/services/helpoutPairs.ts): one row per
+ * pair, the smaller facility id first (the service keeps that order). Help-outs between the groups of one facility need
+ * none. Without a row no help-out between the two can be planned, and planned ones give no visibility. Starts empty.
+ */
+export const facilityHelpoutPairs = sqliteTable('facility_helpout_pairs', {
+  facilityAId: integer('facility_a_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  facilityBId: integer('facility_b_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+}, table => [
+  primaryKey({ columns: [table.facilityAId, table.facilityBId] }),
+  index('facility_helpout_pairs_b').on(table.facilityBId),
+])
+
 export const dayNotes = sqliteTable('day_notes', {
   facilityId: facilityId(),
   date: text('date').notNull(),

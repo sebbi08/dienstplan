@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { GERMAN_STATES, type GermanState } from '#shared/domain/states'
-import type { FacilityDto } from '#shared/types/api'
+import type { FacilityDto, HelpoutPairsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { cardDetails, isCardOpen, readCardState, toggledCardState, writeCardState, type CardState } from '~/utils/facilityCards'
 
@@ -40,6 +40,9 @@ const groupCounts = reactive<Record<number, number>>({})
 const { data: ownGroups } = useGroups()
 const groupCountOf = (facilityId: number) => (manages.value ? groupCounts[facilityId] ?? null : ownGroups.value?.length ?? null)
 const details = (facility: FacilityDto) => cardDetails(de.states[facility.state], groupCountOf(facility.id), de.facilities.groupCount)
+
+// Help-outs between facilities need the Träger's mutual permission (one pair for both cards).
+const { data: pairs, refresh: refreshPairs } = useFetch<HelpoutPairsDto>('/api/helpout-pairs', { key: 'helpout-pairs' })
 // The state decides the holidays (the list on the closures page reads the same facilities) and the suggested school cutoff.
 const run = useAction(async () => {
   await refresh()
@@ -127,6 +130,16 @@ function scrollToWhenShown(elementId: string, tries = 20) {
 <template>
   <section class="space-y-3">
     <h2 class="font-semibold">{{ de.facilities.title }}</h2>
+    <div v-if="manages" class="space-y-1 rounded-md bg-sky-50 p-3 text-sm text-sky-950 ring-1 ring-sky-200">
+      <p>{{ de.helpoutPairs.hint }}</p>
+      <template v-if="pairs?.unpaired.length">
+        <p class="font-medium">{{ de.helpoutPairs.unpairedTitle }}</p>
+        <ul class="list-disc pl-5">
+          <li v-for="pair in pairs.unpaired" :key="pair.facilityIds.join('-')">{{ de.helpoutPairs.unpairedPair(pair.names[0], pair.names[1], pair.entries) }}</li>
+        </ul>
+        <p class="text-xs">{{ de.helpoutPairs.unpairedHint }}</p>
+      </template>
+    </div>
     <article
       v-for="(facility, index) in data?.facilities ?? []" :id="`facility-card-${facility.id}`" :key="facility.id"
       class="overflow-hidden rounded-lg bg-white ring-1" :class="facility.id === chosenId ? 'ring-sky-300' : 'ring-gray-200'"
@@ -162,6 +175,9 @@ function scrollToWhenShown(elementId: string, tries = 20) {
           </div>
           <SettingsFacilityGroups :facility-id="facility.id" @count="groupCounts[facility.id] = $event" />
         </template>
+        <SettingsFacilityHelpoutPairs
+          :facility-id="facility.id" :facilities="data?.facilities ?? []" :pairs="pairs ?? null" :manages="manages" :refresh="refreshPairs"
+        />
         <SettingsFacilityContactSection :facility-id="facility.id" />
       </div>
     </article>

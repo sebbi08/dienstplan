@@ -8,7 +8,7 @@ import { getMonthPlan } from '../../server/services/plan'
 import { loadEntries, ownCellFilter } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
 import type { SessionUser } from '../../shared/types/api'
-import { addEmployee, addFacility, addHelpOut as addHelpOutRow, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpOut as addHelpOutRow, addHelpoutPair, addUser, createTestDb, errorCode, templateId } from '../helpers/fixtures'
 
 const today = '2026-10-28'
 
@@ -37,6 +37,10 @@ describe('help-outs', () => {
     lena = addEmployee(db, 'Lena')
     kim = addEmployee(db, 'Kim', { facilityId: krippe })
     zoe = addEmployee(db, 'Zoe', { facilityId: hort })
+    // The Träger allows help-outs between all three (server/services/helpoutPairs.ts; without a pair: helpoutPairs.test.ts).
+    addHelpoutPair(db, 1, krippe)
+    addHelpoutPair(db, 1, hort)
+    addHelpoutPair(db, krippe, hort)
   })
 
   describe('adding and listing', () => {
@@ -45,8 +49,8 @@ describe('help-outs', () => {
       const annaRow = addHelpOut(db, krippe, { employeeId: anna, year: 2026, month: 11 })
       addHelpOut(db, krippe, { employeeId: zoe, year: 2026, month: 12 })
       expect(listHelpers(db, krippe, 2026, 11)).toEqual([
-        { helpOutId: annaRow, employeeId: anna, name: 'Anna', shortName: 'An', fromFacilityId: 1, fromFacility: 'Kindergarten' },
-        { helpOutId: lenaRow, employeeId: lena, name: 'Lena', shortName: 'Le', fromFacilityId: 1, fromFacility: 'Kindergarten' },
+        { helpOutId: annaRow, employeeId: anna, name: 'Anna', shortName: 'An', fromFacilityId: 1, fromFacility: 'Kindergarten', paired: true },
+        { helpOutId: lenaRow, employeeId: lena, name: 'Lena', shortName: 'Le', fromFacilityId: 1, fromFacility: 'Kindergarten', paired: true },
       ])
       expect(listHelpers(db, krippe, 2026, 12).map(helper => [helper.name, helper.fromFacility])).toEqual([['Zoe', 'Hort']])
       expect(listHelpers(db, krippe, 2026, 10)).toEqual([])

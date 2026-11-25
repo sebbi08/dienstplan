@@ -41,8 +41,16 @@ export function templateCellMessage(code: string, name: string, weekdayIndex: nu
   return cellText ? cellText(name, day) : `${name}, ${day}: ${errorTextOf(code)}`
 }
 
+/** The facility a refusal names (help_out_not_paired: the helpers' home facility), if the details carry it. */
+export function refusedFacility(error: unknown): string | null {
+  const details = (error as { data?: { data?: { details?: { facility?: unknown } } } } | null)?.data?.data?.details
+  return typeof details?.facility === 'string' ? details.facility : null
+}
+
 export function errorMessage(error: unknown): string {
   const code = errorCode(error)
+  const facility = code === 'help_out_not_paired' ? refusedFacility(error) : null
+  if (facility) return de.errors.help_out_not_paired_from(facility)
   const cellText = code ? CELL_TEXTS[code] : undefined
   const cell = cellText ? refusedCell(error) : null
   if (cellText && cell) return cellText(cell.name, formatDayShort(cell.date, weekday(cell.date)))

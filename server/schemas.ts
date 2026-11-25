@@ -386,6 +386,14 @@ export const facilityCapacitySchema = z.object({ capacity: z.number().nullable()
  * works in. The service decides who may (the Träger every facility, the Leitung only the own one).
  */
 export const facilityContactQuery = z.object({ facilityId: z.coerce.number().int().positive().optional() })
+/** The Träger allows (paired) or ends help-outs between two facilities (server/services/helpoutPairs.ts). */
+export const helpoutPairSchema = z.object({
+  facilityId: z.number().int().positive(), otherFacilityId: z.number().int().positive(), paired: z.boolean(),
+})
+/** The two facilities whose future help-outs are shown before their pair is ended. */
+export const helpoutPairQuery = z.object({
+  facilityId: z.coerce.number().int().positive(), otherFacilityId: z.coerce.number().int().positive(),
+})
 /** The facility's contact data; the formats and lengths are checked by the service, which answers the German codes. */
 export const facilityContactSchema = z.object({
   street: z.string(), postalCode: z.string(), city: z.string(), website: z.string(), operator: z.string(), manager: z.string(),

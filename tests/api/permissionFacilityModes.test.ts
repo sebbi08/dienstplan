@@ -55,6 +55,8 @@ const NONE = [
   'print-templates/missing-categories.post.ts', 'knowledge/missing-categories.post.ts', 'contacts/missing-categories.post.ts',
   // The Träger's street list of the school districts for all facilities.
   'school-districts/global.put.ts', 'school-districts/global.delete.ts',
+  // The Träger's pairs of facilities allowed to help each other out (across all facilities).
+  'helpout-pairs/index.put.ts', 'helpout-pairs/help-outs.get.ts',
 ]
 
 const API_DIR = join(process.cwd(), 'server', 'api')

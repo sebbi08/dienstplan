@@ -120,6 +120,8 @@ function acknowledgedTitle(item: DayWarning): string | undefined {
 /** Helper columns ("Aushilfe aus …"): no overtime rows; removable while they hold no entries. */
 const helperColumns = computed(() => new Set(props.plan.employees.filter(employee => employee.helpFrom).map(employee => employee.id)))
 const helpOutIds = computed(() => new Map((props.plan.admin?.helpers ?? []).map(helper => [helper.employeeId, helper.helpOutId])))
+/** Helpers whose home facility is not (any more) paired with this one: their column stays, marked „nicht freigegeben“. */
+const unpairedHelpers = computed(() => new Set((props.plan.admin?.helpers ?? []).filter(helper => !helper.paired).map(helper => helper.employeeId)))
 const withEntries = computed(() => new Set(props.plan.entries.map(entry => entry.employeeId)))
 function removableHelpOut(employeeId: number): number | null {
   if (!props.editable || withEntries.value.has(employeeId)) return null
@@ -354,6 +356,9 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
                 <div v-if="print" class="font-normal">{{ de.plan.helperPrint }}</div>
                 <div v-else class="whitespace-nowrap font-normal text-gray-500">
                   {{ de.plan.helperFrom(column.employee.helpFrom) }}
+                  <span v-if="unpairedHelpers.has(column.employee.id)" class="ml-1 rounded bg-amber-100 px-1 text-xs font-medium text-amber-800" :title="de.helpoutPairs.notPairedTitle">
+                    {{ de.helpoutPairs.notPairedBadge }}
+                  </span>
                   <button
                     v-if="removableHelpOut(column.employee.id) !== null" type="button"
                     class="ml-1 align-middle text-gray-400 hover:text-red-600 print:hidden"

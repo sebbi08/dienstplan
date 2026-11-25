@@ -2731,6 +2731,27 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
+  it('0125 adds the pairs of facilities allowed to help each other out, empty: help-outs from before need the Träger to pair them', () => {
+    const { db, sqlite } = databaseAt('0124')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe'), (3, 'Hort');
+      INSERT INTO employees (id, name, short_name, facility_id) VALUES (1, 'Anna', 'An', 1);
+      INSERT INTO help_outs (employee_id, facility_id, year, month) VALUES (1, 2, 2026, 11);
+      INSERT INTO entries (employee_id, date, kind, help_facility_id, updated_at) VALUES (1, '2026-11-24', 'shift', 2, 'x');
+    `)
+    migrateThrough(db, '0125')
+    // No pair from the help-outs before: the Träger decides (Einstellungen → Einrichtung).
+    expect(count(sqlite, 'facility_helpout_pairs')).toBe(0)
+    expect(count(sqlite, 'help_outs')).toBe(1)
+    sqlite.exec('INSERT INTO facility_helpout_pairs (facility_a_id, facility_b_id) VALUES (1, 2), (2, 3)')
+    expect(() => sqlite.exec('INSERT INTO facility_helpout_pairs (facility_a_id, facility_b_id) VALUES (1, 2)')).toThrow(/UNIQUE|PRIMARY/)
+    expect(() => sqlite.exec('INSERT INTO facility_helpout_pairs (facility_a_id, facility_b_id) VALUES (1, 99)')).toThrow(/FOREIGN KEY/)
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    // Gone with either facility.
+    sqlite.exec('DELETE FROM facilities WHERE id = 3')
+    expect(sqlite.prepare('SELECT facility_a_id, facility_b_id FROM facility_helpout_pairs').all()).toEqual([{ facility_a_id: 1, facility_b_id: 2 }])
+  })
+
   it('0121 adds the requests to sign, their recipients and the tablet\'s sign unlocks: one row per employee, gone with the request or the employee', () => {
     const { db, sqlite } = databaseAt('0120')
     sqlite.exec(`

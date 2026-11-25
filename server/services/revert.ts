@@ -11,6 +11,7 @@ import { logChange } from './changeLog'
 import { rebookHomeClosure } from './closureBooking'
 import { cellOwner, describeCellAt, dropStaleSickLeave, logReplacedClosureDay, setDayNote, takeClosureDay } from './entries'
 import { groupNames } from './groups'
+import { assertHelpersAllowed } from './helpoutPairs'
 import { ownCellFilter } from './queries'
 import { loadReleases } from './release'
 
@@ -76,6 +77,8 @@ export function revertToRelease(
         ? takeClosureDay(tx, cell)
         : null
       if (!ownedHere && !replacedHome) continue
+      // Restoring a helper's duties is planning a help-out: only between paired facilities.
+      if (helpFacilityId !== null && restored.length > 0) assertHelpersAllowed(tx, facilityId, [cell.employeeId])
       reverted++
       const before = replacedHome ? '—' : describeCellAt(tx, cell, names)
       tx.delete(entries).where(and(

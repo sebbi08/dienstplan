@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { createDb, migrateDb, type Db } from '../../server/db/client'
 import {
-  absenceCodes, childGroupChanges, children, documentTypes, employeeHours, employees, helpOuts, requirementTypes, shiftTemplates, users,
+  absenceCodes, childGroupChanges, children, documentTypes, employeeHours, employees, facilityHelpoutPairs, helpOuts, requirementTypes,
+  shiftTemplates, users,
 } from '../../server/db/schema'
 import { seedDefaults } from '../../server/db/seed'
 import type { ChildActor } from '../../server/lib/childViewer'
@@ -148,9 +149,22 @@ export function documentTypeId(db: Db, facilityId: number, name: string): number
     .where(and(eq(documentTypes.facilityId, facilityId), eq(documentTypes.name, name))).get()!.id
 }
 
-/** Makes the employee a helper in facilityId's plan for the month (no checks); returns the help-out id. */
-export function addHelpOut(db: Db, employeeId: number, facilityId: number, year: number, month: number): number {
+/**
+ * Makes the employee a helper in facilityId's plan for the month (no checks); returns the help-out id. Unless `pair` is
+ * false it also allows help-outs between the employee's home facility and facilityId (the Träger's pair).
+ */
+export function addHelpOut(
+  db: Db, employeeId: number, facilityId: number, year: number, month: number, options: { pair?: boolean } = {},
+): number {
+  const home = db.select({ facilityId: employees.facilityId }).from(employees).where(eq(employees.id, employeeId)).get()?.facilityId
+  if (options.pair !== false && home !== undefined && home !== facilityId) addHelpoutPair(db, home, facilityId)
   return db.insert(helpOuts).values({ employeeId, facilityId, year, month }).returning({ id: helpOuts.id }).get().id
+}
+
+/** Allows help-outs between the two facilities (the Träger's mutual pair). */
+export function addHelpoutPair(db: Db, facilityId: number, otherFacilityId: number): void {
+  const [a, b] = facilityId < otherFacilityId ? [facilityId, otherFacilityId] : [otherFacilityId, facilityId]
+  db.insert(facilityHelpoutPairs).values({ facilityAId: a, facilityBId: b }).onConflictDoNothing().run()
 }
 
 export function templateId(db: Db, shortLabel: string, facilityId = 1): number {
