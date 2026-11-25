@@ -1,4 +1,5 @@
-import { and, asc, eq, gte, inArray, isNotNull, or } from 'drizzle-orm'
+import { and, asc, eq, gt, gte, inArray, isNotNull, lt, or } from 'drizzle-orm'
+import { todayIso } from '../../shared/domain/dates'
 import { can } from '../../shared/domain/permissions'
 import type { IsoDate } from '../../shared/domain/types'
 import type { HelpoutPairsDto, PairedHelpOutDto, SessionUser } from '../../shared/types/api'
@@ -14,13 +15,19 @@ import { ServiceError } from '../lib/errors'
  * there); they stay in the plan, so the hours stay right, marked „nicht freigegeben“. The pairs start empty.
  */
 
-/** The pair as stored: the smaller facility id first. */
+/** The pair as stored: the smaller facility id first (every write goes through it). */
 export const pairOf = (a: number, b: number): [number, number] => (a < b ? [a, b] : [b, a])
 
-/** The facilities paired with the facility (never itself). */
+/**
+ * The facilities paired with the facility (never itself). Only rows stored as pairOf writes them count (a < b), as in
+ * helpOutAllowed: a reversed or self row written outside the service grants nothing.
+ */
 export function pairedFacilityIds(db: Db, facilityId: number): Set<number> {
   return new Set(db.select().from(facilityHelpoutPairs)
-    .where(or(eq(facilityHelpoutPairs.facilityAId, facilityId), eq(facilityHelpoutPairs.facilityBId, facilityId))).all()
+    .where(or(
+      and(eq(facilityHelpoutPairs.facilityAId, facilityId), gt(facilityHelpoutPairs.facilityBId, facilityId)),
+      and(eq(facilityHelpoutPairs.facilityBId, facilityId), lt(facilityHelpoutPairs.facilityAId, facilityId)),
+    )).all()
     .map(row => (row.facilityAId === facilityId ? row.facilityBId : row.facilityAId)))
 }
 
@@ -50,17 +57,21 @@ const facilityNames = (db: Db) => new Map(db.select({ id: facilities.id, name: f
   .orderBy(asc(facilities.id)).all().map(row => [row.id, row.name]))
 
 /**
- * The help-outs planned between facilities that have no pair (any date), per pair of facilities with the number of
- * entries: they stay in the plan without visibility until the Träger sets the pair (shown in the facility cards).
+ * The help-out days planned from `from` on between facilities that have no pair, per pair of facilities with the number
+ * of days (per person): they stay in the plan without visibility until the Träger sets the pair (shown in the facility
+ * cards). Past ones do not count, so a pair the Träger does not want stops being hinted at once its days have passed.
  */
-function unpairedHelpOuts(db: Db): HelpoutPairsDto['unpaired'] {
-  const rows = db.select({ planned: entries.helpFacilityId, home: employees.facilityId }).from(entries)
-    .innerJoin(employees, eq(entries.employeeId, employees.id)).where(isNotNull(entries.helpFacilityId)).all()
+function unpairedHelpOuts(db: Db, from: IsoDate): HelpoutPairsDto['unpaired'] {
+  const pairs = new Set(db.select().from(facilityHelpoutPairs).all().map(row => `${row.facilityAId}:${row.facilityBId}`))
+  const rows = db.selectDistinct({ planned: entries.helpFacilityId, home: employees.facilityId, employeeId: entries.employeeId, date: entries.date })
+    .from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
+    .where(and(isNotNull(entries.helpFacilityId), gte(entries.date, from))).all()
   const counts = new Map<string, { facilityIds: [number, number]; entries: number }>()
   for (const row of rows) {
-    if (row.planned === null || row.planned === row.home || helpOutAllowed(db, row.planned, row.home)) continue
+    if (row.planned === null || row.planned === row.home) continue
     const facilityIds = pairOf(row.planned, row.home)
     const key = facilityIds.join(':')
+    if (pairs.has(key)) continue
     const known = counts.get(key)
     if (known) known.entries++
     else counts.set(key, { facilityIds, entries: 1 })
@@ -74,10 +85,12 @@ function unpairedHelpOuts(db: Db): HelpoutPairsDto['unpaired'] {
 }
 
 /**
- * The pairs for the facility cards: the Träger (facilities.manage) every pair and the facilities with help-outs but no
- * pair; the Leitung (settings.facility) the pairs of her own facility, read-only. 403 otherwise.
+ * The pairs for the facility cards: the Träger (facilities.manage) every pair and the facilities with help-outs from
+ * today on but no pair; the Leitung (settings.facility) the pairs of her own facility, read-only. 403 otherwise.
  */
-export function listHelpoutPairs(db: Db, viewer: Pick<SessionUser, 'permissions' | 'facilityId'>): HelpoutPairsDto {
+export function listHelpoutPairs(
+  db: Db, viewer: Pick<SessionUser, 'permissions' | 'facilityId'>, today: IsoDate = todayIso(),
+): HelpoutPairsDto {
   const all = db.select().from(facilityHelpoutPairs)
     .orderBy(asc(facilityHelpoutPairs.facilityAId), asc(facilityHelpoutPairs.facilityBId)).all()
     .map((row): [number, number] => [row.facilityAId, row.facilityBId])
@@ -85,7 +98,7 @@ export function listHelpoutPairs(db: Db, viewer: Pick<SessionUser, 'permissions'
     const names = facilityNames(db)
     return Object.fromEntries([...new Set(pairs.flat())].map(id => [id, names.get(id) ?? '']))
   }
-  if (can(viewer.permissions, 'facilities.manage')) return { pairs: all, names: named(all), unpaired: unpairedHelpOuts(db) }
+  if (can(viewer.permissions, 'facilities.manage')) return { pairs: all, names: named(all), unpaired: unpairedHelpOuts(db, today) }
   if (!can(viewer.permissions, 'settings.facility') || viewer.facilityId === null) throw new ServiceError(403, 'forbidden')
   const own = all.filter(pair => pair.includes(viewer.facilityId!))
   return { pairs: own, names: named(own), unpaired: [] }

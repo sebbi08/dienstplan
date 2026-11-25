@@ -5,13 +5,13 @@ import { ownEntries } from '../../shared/domain/releaseDiff'
 import type { IsoDate } from '../../shared/domain/types'
 import type { NoteField, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, entries, shiftTemplates } from '../db/schema'
+import { employees, entries, facilities, shiftTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { logChange } from './changeLog'
 import { rebookHomeClosure } from './closureBooking'
 import { cellOwner, describeCellAt, dropStaleSickLeave, logReplacedClosureDay, setDayNote, takeClosureDay } from './entries'
 import { groupNames } from './groups'
-import { assertHelpersAllowed } from './helpoutPairs'
+import { helpOutAllowed } from './helpoutPairs'
 import { ownCellFilter } from './queries'
 import { loadReleases } from './release'
 
@@ -36,11 +36,13 @@ function parseKey(key: string, year: number, month: number): RevertTarget {
  * elsewhere, or the home facility's absence over a help-out) is skipped. A helper's day holding only closure bookings of
  * the home facility gives way to the restored entries; a helper's day reset to empty gets the home closure booked
  * again. Entries get back their released group unless that group was deleted since. A cell reset to a day without
- * working time loses its "Im Dienst erkrankt" marker. Returns the number of reverted keys.
+ * working time loses its "Im Dienst erkrankt" marker. Restoring a helper's duties is planning a help-out: a helper's cell
+ * whose home facility is not paired with this one keeps its state, the home facility named in `notPaired` (the other
+ * keys are reset). Returns the number of reverted keys.
  */
-export function revertToRelease(
+export function revertCells(
   db: Db, actor: SessionUser, facilityId: number, year: number, month: number, keys: string[], now: Date = new Date(),
-): number {
+): { reverted: number; notPaired: string[] } {
   const latest = loadReleases(db, facilityId, year, month).at(-1)
   if (!latest) throw new ServiceError(400, 'month_not_released')
   const targets = [...new Set(keys)].map(key => parseKey(key, year, month))
@@ -54,6 +56,7 @@ export function revertToRelease(
   const released = ownEntries(facilityId, latest.data.entries)
   const timestamp = now.toISOString()
   let reverted = 0
+  const notPaired = new Set<string>()
 
   db.transaction((tx) => {
     for (const target of targets) {
@@ -71,14 +74,20 @@ export function revertToRelease(
       const owner = cellOwner(tx, cell.employeeId, cell.date)
       const ownedHere = owner === null || (helpFacilityId === null ? owner === 'home' : owner === facilityId)
       const restored = released.filter(e => e.employeeId === cell.employeeId && e.date === cell.date)
+      if (helpFacilityId !== null && restored.length > 0) {
+        const home = tx.select({ facilityId: employees.facilityId, name: facilities.name }).from(employees)
+          .innerJoin(facilities, eq(employees.facilityId, facilities.id)).where(eq(employees.id, cell.employeeId)).get()
+        if (home && !helpOutAllowed(tx, facilityId, home.facilityId)) {
+          notPaired.add(home.name)
+          continue
+        }
+      }
       // Nothing is ever deleted from, or restored over, another plan; only the home facility's closure booking gives
       // way to a helper's restored entries, as when they are written.
       const replacedHome = !ownedHere && helpFacilityId !== null && owner === 'home' && restored.length > 0
         ? takeClosureDay(tx, cell)
         : null
       if (!ownedHere && !replacedHome) continue
-      // Restoring a helper's duties is planning a help-out: only between paired facilities.
-      if (helpFacilityId !== null && restored.length > 0) assertHelpersAllowed(tx, facilityId, [cell.employeeId])
       reverted++
       const before = replacedHome ? '—' : describeCellAt(tx, cell, names)
       tx.delete(entries).where(and(
@@ -102,5 +111,12 @@ export function revertToRelease(
       dropStaleSickLeave(tx, cell)
     }
   })
-  return reverted
+  return { reverted, notPaired: [...notPaired].sort((a, b) => a.localeCompare(b, 'de')) }
+}
+
+/** revertCells, the number of reverted keys only. */
+export function revertToRelease(
+  db: Db, actor: SessionUser, facilityId: number, year: number, month: number, keys: string[], now: Date = new Date(),
+): number {
+  return revertCells(db, actor, facilityId, year, month, keys, now).reverted
 }

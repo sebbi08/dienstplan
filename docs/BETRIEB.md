@@ -2611,11 +2611,16 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
     der anderen). Am Anfang ist keine Freigabe gesetzt; Aushilfe zwischen den Gruppen einer Einrichtung braucht keine.
     - Ohne Freigabe bietet der Dienstplan unter „Aushilfe hinzufügen“ niemanden aus der anderen Einrichtung an, und der
       Server lehnt jede neue Aushilfe ab („Aushilfe aus ‹Kita› ist nicht freigegeben.“): Aushilfe-Spalte, Dienst in einer
-      Aushilfe-Spalte, Ändern eines solchen Dienstes, Zurücksetzen auf die Freigabe des Plans.
+      Aushilfe-Spalte, Ändern eines solchen Dienstes. Beim **Verwerfen** (Zurücksetzen auf die Freigabe des Plans) bleiben
+      solche Aushilfe-Tage, wie sie sind; die anderen markierten Tage werden zurückgesetzt, und ein Hinweis nennt die
+      Einrichtung. Bekommt ein Dienst neue Zeiten, behalten solche Aushilfe-Dienste ihre alten (sie zählen als übersprungen).
     - Schon geplante Aushilfen ohne Freigabe (auch die von vor dieser Version) bleiben im Dienstplan, die Stunden zählen
       weiter. Die Spalte ist mit **„nicht freigegeben“** markiert, und die Aushilfe gibt dort keinen Zugriff: Sie steht
-      nicht auf dem Tablet der anderen Einrichtung, sieht dort keine Kinder und stempelt dort nicht. Oben über den Karten
-      nennt ein Hinweis dem Träger die Einrichtungen, zwischen denen es solche Aushilfen gibt, mit der Zahl der Einträge.
+      nicht auf dem Tablet der anderen Einrichtung, sieht dort keine Kinder und stempelt dort nicht, und ihre Bestätigungen
+      unter „Wissen“ erscheinen nicht in der Übersicht der anderen Einrichtung (dort nur Aushilfen aus freigegebenen
+      Einrichtungen, die im letzten Jahr oder später dort geplant waren). Oben über den Karten nennt ein Hinweis dem Träger
+      die Einrichtungen, zwischen denen es **künftige Aushilfstage ohne Freigabe** gibt (ab heute), mit der Zahl der Tage;
+      vergangene zählen nicht, der Hinweis verschwindet also von selbst, wenn keine mehr geplant sind.
     - Nimmt der Träger einen Haken weg und sind ab heute noch Aushilfen geplant, nennt die App sie (Datum, Person,
       Einrichtung) und fragt nach; sie bleiben dann wie oben beschrieben.
     - Die Leitung sieht in ihrer Karte, mit welchen Einrichtungen ihre Einrichtung freigegeben ist, ändern kann sie das nicht.

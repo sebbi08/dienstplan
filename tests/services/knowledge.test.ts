@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import {
-  employees, entries, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeEntryOrder, knowledgeStarterSeeds,
+  employees, entries, facilityHelpoutPairs, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeEntryOrder, knowledgeStarterSeeds,
 } from '../../server/db/schema'
 import { deleteAssessmentData, deleteImmediateData } from '../../server/services/employeeDeletion'
 import { createFacility } from '../../server/services/facilities'
@@ -15,7 +15,7 @@ import { setPin } from '../../server/services/terminal'
 import { KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES } from '../../shared/domain/knowledge'
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { KnowledgeEntryInput, Role } from '../../shared/types/api'
-import { addEmployee, addFacility, addUser, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
+import { addEmployee, addFacility, addHelpoutPair, addUser, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
 
 const NOW = new Date('2026-11-23T09:00:00.000Z')
 const TODAY = '2026-11-23'
@@ -375,7 +375,8 @@ describe('„Wissen“ (knowledge library)', () => {
       const left = addEmployee(db, 'Alma Alt', { leftOn: '2026-06-30' })
       const krippe = addFacility(db, 'Krippe')
       const helper = addEmployee(db, 'Hans Helfer', { facilityId: krippe })
-      // Planned here once (a help-out entry): a helper of this facility.
+      // Planned here once (a help-out entry, the facilities paired): a helper of this facility.
+      addHelpoutPair(db, 1, krippe)
       db.insert(entries).values({ employeeId: helper, date: '2026-11-02', kind: 'shift', helpFacilityId: 1, updatedAt: NOW.toISOString() }).run()
       // Someone of the Krippe who confirmed (the entry was for them before) does not show here.
       const stranger = addEmployee(db, 'Kai Krippe', { facilityId: krippe })
@@ -402,6 +403,33 @@ describe('„Wissen“ (knowledge library)', () => {
       expect(overview(db, leitung, entry, TODAY).people.filter(person => person.expected).map(person => person.name)).toEqual(['Lea Leitung'])
       // Only for knowledge.manage.
       expect(errorCode(() => overview(db, tinaAccount(), entry, TODAY))).toBe('forbidden')
+    })
+
+    it('shows a helper\'s confirmation only while their facility is paired and they were planned here within a year', () => {
+      const krippe = addFacility(db, 'Krippe')
+      const hort = addFacility(db, 'Hort')
+      const recent = addEmployee(db, 'Hans Helfer', { facilityId: krippe })
+      const longAgo = addEmployee(db, 'Olga Alt', { facilityId: krippe })
+      const unpaired = addEmployee(db, 'Udo Hort', { facilityId: hort })
+      const planned = (employeeId: number, date: string) =>
+        db.insert(entries).values({ employeeId, date, kind: 'shift', helpFacilityId: 1, updatedAt: NOW.toISOString() }).run()
+      planned(recent, '2026-02-02')
+      planned(longAgo, '2025-11-20')
+      planned(unpaired, '2026-11-02')
+      for (const employeeId of [recent, longAgo, unpaired]) {
+        db.insert(knowledgeConfirmations).values({ entryId: entry, employeeId, entryVersion: 1, confirmedAt: NOW.toISOString(), via: 'account' }).run()
+      }
+      const helpers = () => overview(db, leitung, entry, TODAY).people.filter(person => !person.expected).map(person => person.name)
+      // Without the pair none of them (planned before pairs existed, or never allowed).
+      expect(helpers()).toEqual([])
+      addHelpoutPair(db, 1, krippe)
+      expect(helpers()).toEqual(['Hans Helfer'])
+      // Planned again within the year: back in.
+      planned(longAgo, '2026-12-01')
+      expect(helpers()).toEqual(['Hans Helfer', 'Olga Alt'])
+      // The Träger ends the pair: gone again.
+      db.delete(facilityHelpoutPairs).run()
+      expect(helpers()).toEqual([])
     })
 
     it('shows an entry for all facilities to each facility with its own staff only', () => {

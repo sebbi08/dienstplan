@@ -1,5 +1,5 @@
-import { and, asc, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm'
-import { todayIso } from '../../shared/domain/dates'
+import { and, asc, eq, gte, inArray, isNotNull, isNull, or } from 'drizzle-orm'
+import { addDays, todayIso } from '../../shared/domain/dates'
 import { FORM_LIMITS } from '../../shared/domain/forms'
 import {
   KNOWLEDGE_LIMITS, KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES, checkedAsOf, checkedKnowledgeUrl,
@@ -29,6 +29,7 @@ import { assertMayCreateCategories, createMissingCategories } from './categoryAd
 import {
   checkedTargets, facilitiesInScope, homeGroupOf, loadTargets, targetNames, targetsDto, targetsInput, targetsOf, writeTargets,
 } from './documentTargets'
+import { pairedFacilityIds } from './helpoutPairs'
 import { loadEmployees } from './queries'
 import { terminalStatus, verifyEmployeePin } from './terminal'
 
@@ -717,8 +718,9 @@ const STATE_ORDER: Record<KnowledgeConfirmState, number> = { open: 0, outdated: 
  * Mitarbeiter's without one: a category for Leitung and Träger counts only them; an entry limited to groups counts only
  * those of these groups, and Leitung and Träger), plus anyone who confirmed but left, no longer sees it (also after a
  * change of „Gilt für“: „nicht mehr erwartet“) or is not on the staff – but only the facility's own employees and the
- * helpers of other facilities it plans (a help-out entry here), so no other facility's names show, also not for an entry
- * that was another facility's or the Träger's before (its confirmations stay with it).
+ * helpers of other facilities it plans (a help-out entry here from HELPER_CONFIRMATION_DAYS ago on, their home facility
+ * paired with it by the Träger), so no other facility's names show, also not for an entry that was another facility's
+ * or the Träger's before (its confirmations stay with it), nor after the pair ended.
  */
 export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, today: IsoDate = todayIso()): KnowledgeConfirmationsDto {
   assertManager(actor)
@@ -727,13 +729,14 @@ export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, 
   const ids = staff.map(employee => employee.id)
   const roles = new Map(ids.length === 0 ? [] : db.select({ employeeId: users.employeeId, role: users.role }).from(users)
     .where(and(inArray(users.employeeId, ids), eq(users.active, true))).all().map(user => [user.employeeId!, user.role]))
+  const helperIds = helpersOf(db, actor.facilityId, today)
   const confirmations = db.select({
     employeeId: knowledgeConfirmations.employeeId, entryVersion: knowledgeConfirmations.entryVersion,
     confirmedAt: knowledgeConfirmations.confirmedAt, via: knowledgeConfirmations.via, name: employees.name,
   }).from(knowledgeConfirmations).innerJoin(employees, eq(employees.id, knowledgeConfirmations.employeeId))
     .where(and(eq(knowledgeConfirmations.entryId, id), or(
       eq(employees.facilityId, actor.facilityId),
-      inArray(employees.id, db.selectDistinct({ id: entries.employeeId }).from(entries).where(eq(entries.helpFacilityId, actor.facilityId))),
+      helperIds.length === 0 ? undefined : inArray(employees.id, helperIds),
     ))).all()
   const byEmployee = new Map(confirmations.map(confirmation => [confirmation.employeeId, confirmation]))
   const homeGroups = new Map(ids.length === 0 ? [] : db.select({ id: employees.id, groupId: employees.groupId }).from(employees)
@@ -765,6 +768,22 @@ export function confirmationOverview(db: Db, actor: KnowledgeActor, id: number, 
     facilityName: facility?.name ?? '',
     people,
   }
+}
+
+/** How far back a help-out entry makes someone a helper whose confirmations the facility's overview shows. */
+export const HELPER_CONFIRMATION_DAYS = 365
+
+/**
+ * The helpers of the facility for the confirmation overview: employees of a facility paired with it (the Träger's
+ * permission) with a help-out entry here from HELPER_CONFIRMATION_DAYS before today on.
+ */
+function helpersOf(db: Db, facilityId: number, today: IsoDate): number[] {
+  const paired = [...pairedFacilityIds(db, facilityId)]
+  if (paired.length === 0) return []
+  return db.selectDistinct({ id: entries.employeeId }).from(entries).innerJoin(employees, eq(employees.id, entries.employeeId))
+    .where(and(
+      eq(entries.helpFacilityId, facilityId), gte(entries.date, addDays(today, -HELPER_CONFIRMATION_DAYS)), inArray(employees.facilityId, paired),
+    )).all().map(row => row.id)
 }
 
 // ---- starters --------------------------------------------------------------

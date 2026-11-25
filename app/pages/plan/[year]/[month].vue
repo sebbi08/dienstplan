@@ -221,7 +221,11 @@ function onBreakSubmit(value: { start: number; end: number }) {
 }
 
 function onDiscard(keys: string[]) {
-  run(() => $fetch<unknown>(`/api/plan/${year.value}/${month.value}/revert`, { method: 'POST', body: { keys } }), de.plan.discarded)
+  run(async () => {
+    const result = await $fetch<{ reverted: number; notPaired: string[] }>(`/api/plan/${year.value}/${month.value}/revert`, { method: 'POST', body: { keys } })
+    // Helper cells of a facility without the Träger's permission stay as they are.
+    if (result.notPaired.length) toast.add({ title: de.plan.discardNotPaired(result.notPaired), color: 'warning' })
+  }, de.plan.discarded)
 }
 
 function onFillGap(gap: GapSuggestion) {

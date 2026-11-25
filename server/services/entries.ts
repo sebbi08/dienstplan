@@ -20,7 +20,7 @@ import { rebookHomeClosure } from './closureBooking'
 import { assertChildOf } from './employeeChildren'
 import { assertGroup, groupNames } from './groups'
 import { isHelperOn } from './helpOuts'
-import { assertHelpersAllowed } from './helpoutPairs'
+import { assertHelpersAllowed, pairedFacilityIds } from './helpoutPairs'
 import { inPlanOf, loadEmployee, loadEntries } from './queries'
 import { withPlainMarkers } from './release'
 
@@ -530,7 +530,8 @@ export function setDayNote(
  * After a service (Dienst) of the facility got new times: its fixed shifts in the facility's plan (helpers' included) from `from` on
  * that still have the old times get the new ones.
  * Earlier days and individually changed shifts stay as they are; a cell where the new times would clash with other
- * entries (e.g. VZ inside the shift or an extra break) is left alone and counted as skipped. Shifts keep their group.
+ * entries (e.g. VZ inside the shift or an extra break), and a helper's shift whose facility is not paired with this one
+ * (updateEntryTimes refuses it too), is left alone and counted as skipped. Shifts keep their group.
  */
 export function adoptShiftTimes(
   db: Db, actor: SessionUser, facilityId: number, shiftTemplateId: number, oldTimes: TimeSpan, newTimes: TimeSpan,
@@ -539,14 +540,19 @@ export function adoptShiftTimes(
   const result = { updated: 0, skipped: 0 }
   const timestamp = now.toISOString()
   const names = groupNames(db, facilityId)
-  const outdated = db.select({ entry: entries }).from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
+  const paired = pairedFacilityIds(db, facilityId)
+  const outdated = db.select({ entry: entries, home: employees.facilityId }).from(entries).innerJoin(employees, eq(entries.employeeId, employees.id))
     .where(and(
       eq(entries.shiftTemplateId, shiftTemplateId), eq(entries.kind, 'shift'), gte(entries.date, from),
       inPlanOf(facilityId),
-    )).all().map(row => row.entry).filter(entry => entry.start === oldTimes.start && entry.end === oldTimes.end
+    )).all().filter(({ entry }) => entry.start === oldTimes.start && entry.end === oldTimes.end
     && entry.breakStart === oldTimes.breakStart && entry.breakEnd === oldTimes.breakEnd)
   db.transaction((tx) => {
-    for (const entry of outdated) {
+    for (const { entry, home } of outdated) {
+      if (entry.helpFacilityId !== null && home !== facilityId && !paired.has(home)) {
+        result.skipped += 1
+        continue
+      }
       const cell = { employeeId: entry.employeeId, date: entry.date }
       const day = loadEntries(tx, { employeeId: cell.employeeId, from: cell.date, to: cell.date })
       const self = day.find(candidate => candidate.id === entry.id)!

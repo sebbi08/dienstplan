@@ -1,13 +1,14 @@
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { entries, facilityHelpoutPairs } from '../../server/db/schema'
+import { dayNotes, entries, facilityHelpoutPairs } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
-import { applyToCells, setEntryGroup, updateEntryTimes } from '../../server/services/entries'
+import { adoptShiftTimes, applyToCells, setEntryGroup, updateEntryTimes } from '../../server/services/entries'
 import { addHelpOut, helpCandidates, listHelpers } from '../../server/services/helpOuts'
-import { helpOutAllowed, helpOutsBetween, listHelpoutPairs, setHelpoutPair } from '../../server/services/helpoutPairs'
+import { helpOutAllowed, helpOutsBetween, listHelpoutPairs, pairedFacilityIds, setHelpoutPair } from '../../server/services/helpoutPairs'
 import { loadEntries } from '../../server/services/queries'
 import { releaseMonth } from '../../server/services/release'
-import { revertToRelease } from '../../server/services/revert'
+import { revertCells, revertToRelease } from '../../server/services/revert'
 import { unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin, terminalStatus } from '../../server/services/terminal'
 import { cellKey } from '../../shared/domain/cells'
@@ -107,18 +108,47 @@ describe('help-outs between facilities need the Träger\'s pair', () => {
     expect(helperEntry()).toMatchObject({ id, start: 420 })
   })
 
-  it('refuses to restore a helper\'s duties from the release without the pair', () => {
+  it('skips restoring a helper\'s duties from the release without the pair, the other cells reset', () => {
     setHelpoutPair(db, traeger, 1, krippe, true)
     addHelpOutRow(db, anna, krippe, 2026, 11)
     plan()
     releaseMonth(db, leitungKrippe, krippe, 2026, 11, NOW)
     plan('clear')
     setHelpoutPair(db, traeger, 1, krippe, false)
-    expect(errorCode(() => revertToRelease(db, leitungKrippe, krippe, 2026, 11, [cellKey(anna, TODAY)], NOW))).toBe('help_out_not_paired')
+    db.insert(dayNotes).values({ facilityId: krippe, date: TODAY, info1: 'geändert' }).run()
+    expect(revertCells(db, leitungKrippe, krippe, 2026, 11, [cellKey(anna, TODAY), `info1|${TODAY}`], NOW)).toEqual({ reverted: 1, notPaired: ['Kindergarten'] })
     expect(loadEntries(db, { employeeId: anna })).toEqual([])
+    expect(db.select().from(dayNotes).where(eq(dayNotes.facilityId, krippe)).get()!.info1).toBe('')
     setHelpoutPair(db, traeger, 1, krippe, true)
     expect(revertToRelease(db, leitungKrippe, krippe, 2026, 11, [cellKey(anna, TODAY)], NOW)).toBe(1)
     expect(helperEntry()).toMatchObject({ date: TODAY })
+  })
+
+  it('leaves a helper\'s shift without the pair alone when its Dienst gets new times (as a change of its times is refused)', () => {
+    setHelpoutPair(db, traeger, 1, krippe, true)
+    addHelpOutRow(db, anna, krippe, 2026, 11)
+    plan()
+    const old = helperEntry()
+    const oldTimes = { start: old.start!, end: old.end!, breakStart: old.breakStart, breakEnd: old.breakEnd }
+    const newTimes = { ...oldTimes, start: oldTimes.start + 30 }
+    const adopt = () => adoptShiftTimes(db, leitungKrippe, krippe, templateId(db, 'F1', krippe), oldTimes, newTimes, TODAY, NOW)
+    setHelpoutPair(db, traeger, 1, krippe, false)
+    expect(adopt()).toEqual({ updated: 0, skipped: 1 })
+    expect(helperEntry().start).toBe(oldTimes.start)
+    setHelpoutPair(db, traeger, 1, krippe, true)
+    expect(adopt()).toEqual({ updated: 1, skipped: 0 })
+    expect(helperEntry().start).toBe(newTimes.start)
+  })
+
+  it('counts only pairs stored with the smaller facility first, as the service writes them', () => {
+    // A reversed or self row written outside the service grants nothing.
+    db.insert(facilityHelpoutPairs).values([{ facilityAId: krippe, facilityBId: 1 }, { facilityAId: hort, facilityBId: hort }]).run()
+    expect([...pairedFacilityIds(db, 1)]).toEqual([])
+    expect([...pairedFacilityIds(db, krippe)]).toEqual([])
+    expect([...pairedFacilityIds(db, hort)]).toEqual([])
+    expect(helpOutAllowed(db, 1, krippe)).toBe(false)
+    setHelpoutPair(db, traeger, krippe, 1, true)
+    expect([[...pairedFacilityIds(db, 1)], [...pairedFacilityIds(db, krippe)]]).toEqual([[krippe], [1]])
   })
 
   it('gives a planned help-out visibility only with the pair; ending it keeps the duties, marked in the plan and listed first', () => {
@@ -146,10 +176,13 @@ describe('help-outs between facilities need the Träger\'s pair', () => {
     expect(listHelpers(db, krippe, 2026, 11)).toEqual([expect.objectContaining({ employeeId: anna, paired: false })])
     expect(terminalStatus(db, krippe, NOW).map(person => person.employeeId)).not.toContain(anna)
     expect(errorCode(() => unlockChildren(db, tablet, anna, '135790', NOW))).toBe('employee_not_found')
-    // The Träger sees which facilities have help-outs without a pair (any date); the Leitung does not.
-    expect(listHelpoutPairs(db, traeger).unpaired).toEqual([{ facilityIds: [1, krippe], names: ['Kindergarten', 'Krippe'], entries: 2 }])
-    expect(listHelpoutPairs(db, leitungKrippe).unpaired).toEqual([])
+    // The Träger sees which facilities have help-out days from today on without a pair; the Leitung does not.
+    expect(listHelpoutPairs(db, traeger, TODAY).unpaired).toEqual([{ facilityIds: [1, krippe], names: ['Kindergarten', 'Krippe'], entries: 2 }])
+    expect(listHelpoutPairs(db, traeger, '2026-11-25').unpaired).toEqual([{ facilityIds: [1, krippe], names: ['Kindergarten', 'Krippe'], entries: 1 }])
+    // Once they have passed, the hint is gone (a pair the Träger does not want is not asked for forever).
+    expect(listHelpoutPairs(db, traeger, '2026-11-28').unpaired).toEqual([])
+    expect(listHelpoutPairs(db, leitungKrippe, TODAY).unpaired).toEqual([])
     setHelpoutPair(db, traeger, krippe, 1, true)
-    expect(listHelpoutPairs(db, traeger).unpaired).toEqual([])
+    expect(listHelpoutPairs(db, traeger, TODAY).unpaired).toEqual([])
   })
 })

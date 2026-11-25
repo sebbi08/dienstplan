@@ -47,6 +47,31 @@ describe('database setup', () => {
   })
 })
 
+describe('the migration journal', () => {
+  /**
+   * drizzle's migrator applies a migration only if its `when` is later than the newest applied one: a migration
+   * generated in parallel with an earlier time would be skipped on databases that already have the later one.
+   * Known exception: 0087 (committed first) has an earlier time than 0086 (inserted afterwards with a round time). Safe:
+   * 0087 already existed when 0086 was added, so no database is at 0086 without 0087, and 0086 (later time) still runs
+   * after 0087.
+   */
+  const ALLOWED_EARLIER = new Set(['0087_leave_forfeit_receipts_repeat'])
+
+  it('numbers the entries by position and gives each a later time than the one before', () => {
+    const journal = JSON.parse(readFileSync(join('server/db/migrations', 'meta', '_journal.json'), 'utf8')) as {
+      entries: { idx: number; when: number; tag: string }[]
+    }
+    journal.entries.forEach((entry, index) => {
+      expect(entry.idx, entry.tag).toBe(index)
+      expect(entry.tag.slice(0, 4), entry.tag).toBe(String(index).padStart(4, '0'))
+      if (index > 0 && !ALLOWED_EARLIER.has(entry.tag)) expect(entry.when, entry.tag).toBeGreaterThan(journal.entries[index - 1]!.when)
+    })
+    // The exception stays the only one, and still runs after 0085.
+    const known = journal.entries.find(entry => entry.tag === '0087_leave_forfeit_receipts_repeat')!
+    expect(known.when).toBeGreaterThan(journal.entries[85]!.when)
+  })
+})
+
 describe('resetAdminFromEnv', () => {
   function lockedAdmin() {
     const db = createTestDb()
@@ -1714,12 +1739,14 @@ describe('upgrading a filled database through migrateDb', () => {
       .map(fk => { const { table: parent, from, on_delete } = fk as Record<string, string>; return { parent, from, on_delete } })
       .sort((a, b) => a.from.localeCompare(b.from))
     expect(fks('employee_payroll')).toEqual([{ parent: 'employees', from: 'employee_id', on_delete: 'CASCADE' }])
+    // (required_type_id and its index: 0127, the Pflichtdokumente.)
     expect(fks('employee_documents')).toEqual([
       { parent: 'employees', from: 'employee_id', on_delete: 'CASCADE' },
+      { parent: 'required_document_types', from: 'required_type_id', on_delete: 'SET NULL' },
       { parent: 'users', from: 'uploaded_by', on_delete: 'SET NULL' },
     ])
     expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'employee_documents' AND name NOT LIKE 'sqlite_%'`).all())
-      .toEqual([{ name: 'employee_documents_employee' }])
+      .toEqual([{ name: 'employee_documents_employee' }, { name: 'employee_documents_required_type' }])
 
     sqlite.exec(`
       INSERT INTO employee_payroll (employee_id, tax_id, tax_class) VALUES (1, '86095742719', 1), (2, NULL, NULL);

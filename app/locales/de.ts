@@ -365,6 +365,7 @@ export const de = {
     reportSickHint: 'Trägt „Krank“ ein. Danach steht dort „abwesend“; ändern oder löschen kann den Tag nur, wer die Krankheitstage sehen darf (Leitung oder Träger).',
     reportSickConfirm: 'Für die ausgewählten Tage „Krank“ eintragen? Danach steht dort „abwesend“; ändern oder löschen kann den Tag nur, wer die Krankheitstage sehen darf (Leitung oder Träger).',
     reportSickSkipped: 'Einige Tage sind bereits als abwesend eingetragen und wurden nicht geändert.',
+    discardNotPaired: (facilities: string[]) => `Nicht verworfen: Aushilfe aus ${facilities.join(', ')} ist nicht freigegeben (die Tage bleiben, wie sie sind).`,
     fillGap: 'Ergänzen:',
     stillMissing: (duration: string) => `noch ${duration} h`,
     empty: '(leer)', removeEntry: 'Eintrag entfernen', legend: 'Legende',
@@ -433,8 +434,8 @@ export const de = {
     noOthers: 'Es gibt keine andere Einrichtung.',
     hint: 'Aushilfe zwischen Einrichtungen ist erst nach Freigabe möglich. Ein Haken gilt für beide Einrichtungen.',
     readOnly: 'Diese Freigaben setzt der Träger.',
-    unpairedTitle: 'Zwischen diesen Einrichtungen gibt es geplante Aushilfe ohne Freigabe:',
-    unpairedPair: (a: string, b: string, count: number) => `${a} ↔ ${b} (${count === 1 ? '1 Eintrag' : `${count} Einträge`})`,
+    unpairedTitle: 'Zwischen diesen Einrichtungen gibt es künftige Aushilfstage ohne Freigabe:',
+    unpairedPair: (a: string, b: string, count: number) => `${a} ↔ ${b} (${count === 1 ? '1 Tag' : `${count} Tage`})`,
     unpairedHint: 'Diese Einträge bleiben im Dienstplan (die Stunden zählen), sind dort als „nicht freigegeben“ markiert und geben '
       + 'keinen Zugriff (Tablet, Kinder, Stempeln), bis die Freigabe gesetzt ist.',
     removeConfirm: (other: string, entries: string[], more: number) => `Mit ${other} sind noch Aushilfen geplant: ${entries.join('; ')}`
