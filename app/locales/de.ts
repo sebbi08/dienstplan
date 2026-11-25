@@ -1793,9 +1793,7 @@ export const de = {
     infoVisitMonths: 'Infogespräche ohne Vormerkung',
     infoVisitMonthsHelp: 'Ein Infogespräch, das nicht als Vormerkung übernommen wurde, darf so viele Monate nach dem Gesprächstag gelöscht werden – mit seinen Dokumenten und Bögen (1 bis 60 Monate, voreingestellt 12). Ein übernommenes gehört zur Kinderakte und wird mit ihr gelöscht.',
     applicantMonths: 'Abgesagte Bewerbungen und Hospitationen',
-    applicantMonthsHelp: 'Eine abgesagte Bewerbung, Hospitation oder ein abgesagtes Praktikum darf so viele Monate nach der Absage gelöscht werden – mit Dokumenten und Bögen (1 bis 24 Monate, voreingestellt 6). Hintergrund: Ansprüche nach § 15 Abs. 4 AGG sind innerhalb von 2 Monaten schriftlich geltend zu machen, die Klage innerhalb von 3 weiteren Monaten (§ 61b ArbGG); 6 Monate lassen Zeit für den Postweg. Wer eingestellt wurde, gehört zur Personalakte.',
-    openApplicantMonths: 'Bewerbungen und Hospitationen ohne Abschluss',
-    openApplicantMonthsHelp: 'Ein offener Eintrag (weder abgesagt noch eingestellt), an dem so viele Monate nichts geändert wurde und dessen letzter Termin so lange vorbei ist, steht unter Löschfristen und darf gelöscht werden – mit Dokumenten und Bögen (1 bis 60 Monate, voreingestellt 12).',
+    applicantMonthsHelp: 'Eine abgesagte Bewerbung, Hospitation oder ein abgesagtes Praktikum darf so viele Monate nach der Absage gelöscht werden – mit Dokumenten und Bögen (1 bis 24 Monate, voreingestellt 6). Hintergrund: Ansprüche nach § 15 Abs. 4 AGG sind innerhalb von 2 Monaten schriftlich geltend zu machen, die Klage innerhalb von 3 weiteren Monaten (§ 61b ArbGG); 6 Monate lassen Zeit für den Postweg. Offene Einträge ohne Abschluss stehen nach 12 Monaten ohne Änderung unter Mehr → Löschfristen. Wer eingestellt wurde, gehört zur Personalakte.',
     /** The archive line: „Persönliche Daten dürfen schon gelöscht werden (…). Zeitdaten dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ */
     archive: {
       labels: {
@@ -1834,8 +1832,8 @@ export const de = {
     maternityDetail: (date: string, employed: boolean) => `Mutterschutz beendet am ${date}${employed ? ' – Person noch beschäftigt' : ''}`,
     // A child record kept longer because of an accident report (DGUV Vorschrift 1 § 24 Abs. 6).
     accidentHold: 'Unfallanzeigen bleiben 5 Jahre ab dem Unfall',
-    // An open applicant without any activity for the facility's months: listed without a refusal.
-    openApplicant: (months: number) => `ohne Abschluss, seit ${months === 1 ? '1 Monat' : `${months} Monaten`} unverändert`,
+    // An open applicant without any activity for 12 months: listed without a refusal.
+    openApplicant: 'ohne Abschluss, seit 12 Monaten unverändert',
     delete: 'Löschen', deleteAll: 'Alle fälligen löschen',
     confirmOne: (what: string) => `Das wird endgültig gelöscht: ${what}. Lade vorher eine Datensicherung herunter.`,
     confirmAll: (counts: string) => `Das wird endgültig gelöscht: ${counts}. Lade vorher eine Datensicherung herunter.`,
@@ -2747,6 +2745,32 @@ export const de = {
       accident: 'Unfallberichte für Kinder (in der Kinderakte) und Unfallanzeigen für Mitarbeiter (Personalakte, „Meine Unfälle“).',
       info: 'Bögen für Infogespräche mit Familien – unter Kinder → Planung → Infogespräche; bei „Als Vormerkung übernehmen“ wandern sie in die Kinderakte.',
       applicant: 'Bögen für Bewerbungen, Hospitationen und Praktika – unter Mitarbeiter → Bewerbungen & Hospitationen; bei „Einstellen“ wandern sie in die Personalakte.',
+    },
+    // „Wofür“ of a template, the badge on its row (chosen when it is made, fixed afterwards).
+    forKinds: {
+      child: 'für Kinder', staff: 'für Mitarbeitergespräche', team: 'für Teamsitzungen', accident: 'für Unfälle',
+      info: 'für Infogespräche', applicant: 'für Hospitationen',
+    },
+    kindPick: 'Wofür?',
+    kindPickHint: 'Bestimmt, wo die Vorlage zur Auswahl steht (Kinderakte, Mitarbeitergespräch, Teamsitzung …). Lässt sich später nicht ändern.',
+    newTemplate: 'Neue Vorlage', moveTo: 'Verschieben', moveTitle: (name: string) => `„${name}“ verschieben`, moved: 'Verschoben',
+    /** The facility's own categories of the templates (one level of subcategories). */
+    categories: {
+      tabsLabel: 'Kategorien', manage: 'Kategorien verwalten', none: 'Ohne Kategorie',
+      noneHint: 'Vorlagen, die in keiner Kategorie liegen. Mit „Verschieben“ ordnest du sie einer Kategorie zu.',
+      allChip: 'Alle', generalChip: 'Allgemein', subTabsLabel: (name: string) => `Unterkategorien von ${name}:`,
+      empty: 'In dieser Kategorie gibt es noch keine Vorlagen. Lege mit „Neue Vorlage“ eine an.',
+      emptySub: 'In dieser Unterkategorie gibt es noch keine Vorlagen.',
+      noneYet: 'Es gibt noch keine Kategorien. Lege unter „Kategorien verwalten“ eine an.',
+      templateCount: (count: number) => (count === 1 ? '1 Vorlage' : `${count} Vorlagen`),
+      subcategoryCount: (count: number) => (count === 1 ? '1 Unterkategorie' : `${count} Unterkategorien`),
+      intro: 'Die Kategorien der Bögen-Vorlagen dieser Einrichtung, jede mit Unterkategorien (eine Ebene). Löschen geht nur, solange keine Vorlage (auch keine stillgelegte) und keine Unterkategorie darin liegt.',
+      add: 'Kategorie anlegen', addSub: 'Unterkategorie anlegen', addSubIn: (name: string) => `Unterkategorie in „${name}“ anlegen`,
+      edit: 'Kategorie umbenennen', editSub: 'Unterkategorie umbenennen', rename: 'Umbenennen', name: 'Name',
+      moveUp: 'Nach oben', moveDown: 'Nach unten',
+      confirmDelete: (name: string) => `Die Kategorie „${name}“ löschen?`,
+      confirmDeleteSub: (name: string) => `Die Unterkategorie „${name}“ löschen?`,
+      category: 'Kategorie', subcategory: 'Unterkategorie', categoryNone: 'keine Kategorie', subNone: 'Allgemein (keine Unterkategorie)',
     },
     subjects: { child: 'Kind', employee: 'Mitarbeiter' },
     subjectBadge: (subject: string) => `für ${subject}`,
@@ -3740,6 +3764,14 @@ export const de = {
     bem_not_accepted: 'Gespräche und Maßnahmen erst, wenn die Person dem BEM zugestimmt hat.',
     form_release_withdrawn: 'Die Leitung hat die Freigabe zurückgenommen. Deine Eingaben wurden nicht gespeichert.',
     form_template_changed: 'Die Vorlage wurde inzwischen von jemand anderem gespeichert. Bitte lade sie neu.',
+    form_category_invalid: 'Bitte eine Kategorie dieser Einrichtung wählen.',
+    form_category_not_found: 'Diese Kategorie gibt es nicht mehr. Bitte lade die Seite neu.',
+    form_category_name_required: 'Bitte einen Namen für die Kategorie angeben.',
+    form_category_name_too_long: 'Der Name der Kategorie darf höchstens 60 Zeichen lang sein.',
+    form_category_name_taken: 'Diesen Namen gibt es hier schon.',
+    form_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung (nicht zu einer Unterkategorie).',
+    form_category_has_subcategories: 'In dieser Kategorie liegen noch Unterkategorien. Lösch sie zuerst.',
+    form_category_not_empty: 'In dieser Kategorie liegen noch Vorlagen (auch stillgelegte). Verschieb sie zuerst.',
     child_form_meeting_taken: 'Für dieses Elterngespräch gibt es schon einen Bogen. Öffne ihn über „Bogen öffnen“.',
     child_form_date_invalid: 'Bitte gib ein gültiges Datum an.',
     child_form_start_invalid: 'Bitte gib eine gültige Uhrzeit an.',
