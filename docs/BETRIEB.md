@@ -3,6 +3,41 @@
 Diese Anleitung beschreibt, wie der Dienstplan auf einem eigenen Server läuft.
 Du brauchst dafür einen Linux-Server mit installiertem **Docker** (inklusive „Docker Compose“).
 
+## Inhalt
+
+- [1. Dateien auf den Server bringen](#1-dateien-auf-den-server-bringen)
+- [2. Einstellungen festlegen](#2-einstellungen-festlegen)
+- [3. Starten](#3-starten)
+- [4. Update auf eine neue Version](#4-update-auf-eine-neue-version)
+- [5. Datensicherung](#5-datensicherung)
+- [6. Wiederherstellen einer Sicherung](#6-wiederherstellen-einer-sicherung)
+- [7. Passwort des einzigen Admins vergessen](#7-passwort-des-einzigen-admins-vergessen)
+- [8. Datenschutz (Kinderakten)](#8-datenschutz-kinderakten)
+- [9. Platzplanung (Vormerkungen, Belegung, Höchstzahl Kinder, Gruppenwechsel, Schulkinder)](#9-platzplanung-vormerkungen-belegung-höchstzahl-kinder-gruppenwechsel-schulkinder)
+- [10. Bundesland und Feiertage](#10-bundesland-und-feiertage)
+- [11. Anwesenheit der Kinder](#11-anwesenheit-der-kinder)
+- [12. Wochenübersicht und Gruppenbücher](#12-wochenübersicht-und-gruppenbücher)
+- [13. Öffnungszeiten und Pflichtdienste](#13-öffnungszeiten-und-pflichtdienste)
+- [14. Übersicht der Kinder (wie die Excel-Liste)](#14-übersicht-der-kinder-wie-die-excel-liste)
+- [15. Mitarbeitende](#15-mitarbeitende)
+- [16. Erinnerungen](#16-erinnerungen)
+- [17. Automatische Ereignisse im Dienstplan und Jahreskalender](#17-automatische-ereignisse-im-dienstplan-und-jahreskalender)
+- [18. Zeiterfassung: zu spät und früher gegangen](#18-zeiterfassung-zu-spät-und-früher-gegangen)
+- [19. Dokumente: Zum Ausdrucken (leere PDF-Formulare) und Bögen](#19-dokumente-zum-ausdrucken-leere-pdf-formulare-und-bögen)
+- [20. Personalschlüssel](#20-personalschlüssel)
+- [21. Codes (Urlaub, Krank …)](#21-codes-urlaub-krank-)
+- [22. Warnungen im Dienstplan (die Liste rechts)](#22-warnungen-im-dienstplan-die-liste-rechts)
+- [23. Menü](#23-menü)
+- [24. Zeiterfassung und Mein Dienstplan am Handy](#24-zeiterfassung-und-mein-dienstplan-am-handy)
+- [25. Was noch fehlt](#25-was-noch-fehlt)
+- [26. Kasse](#26-kasse)
+- [27. Bögen, Mitarbeitergespräche, Beobachtungsbögen und Teamsitzungen](#27-bögen-mitarbeitergespräche-beobachtungsbögen-und-teamsitzungen)
+- [28. Rechte und Rollen](#28-rechte-und-rollen)
+- [29. Kontakte (Adressbuch der Einrichtung)](#29-kontakte-adressbuch-der-einrichtung)
+- [30. Wissen (Dokumente → Wissen) mit „Gelesen und verstanden“](#30-wissen-dokumente--wissen-mit-gelesen-und-verstanden)
+- [31. Schulbezirke (Straßenliste der Stadt)](#31-schulbezirke-straßenliste-der-stadt)
+- [32. Infogespräche, Bewerbungen und Hospitationen](#32-infogespräche-bewerbungen-und-hospitationen)
+
 ## 1. Dateien auf den Server bringen
 
 Kopiere den kompletten Projektordner auf den Server, z. B. nach `/opt/dienstplan`.
@@ -157,7 +192,7 @@ Datenbank wird wiederverwendet, die Datei selbst wird aber nicht kleiner.
 **Dokumentart „Nachweis ärztliche Impfberatung (§ 34 Abs. 10a IfSG)“:** Vor der ersten Aufnahme in eine Kita weisen die
 Eltern schriftlich nach, dass sie zeitnah ärztlich zum Impfschutz des Kindes beraten wurden; fehlt der Nachweis,
 benachrichtigt die Leitung das Gesundheitsamt. Dafür gibt es diese Dokumentart in jeder Einrichtung (beim Update dazu
-gekommen, wo es noch keine Art mit diesem Namen gab). Sie ist „wichtig“ (erscheint in der Dokumentenübersicht), aber
+gekommen, wo es noch keine Art mit diesem Namen gab). Sie ist „wichtig“ (erscheint unter Kinder → Kinderakte-Dokumente), aber
 nicht „für jedes Kind nötig“ – Kinder, die schon vorher aufgenommen wurden, brauchen keinen. Wer sie für neue Kinder rot
 markiert haben will, setzt in den Einstellungen „für jedes Kind nötig“. Die App blockiert nichts. Quelle: § 34 Abs. 10a
 IfSG; Stand 19.11.2026.
@@ -208,14 +243,14 @@ einer späteren Version entfernt.
 | Rolle | Kinderakten |
 |---|---|
 | Träger und Leitung | sehen alles in ihrer (gewählten) Einrichtung: alle Kinder, auch vertrauliche Dokumente. Nur sie dürfen ein Kind abmelden, das Archiv sehen und eine Vormerkung löschen. Eine **archivierte** Akte löscht nur der Träger (siehe „Löschen nach der Aufbewahrungsfrist“). Das gilt im Büro und am Tablet. |
-| Mitarbeiter | sehen die Kinder **nur am Tablet der eigenen Einrichtung**, und dort nur lesend: alle aktiven Kinder, Vormerkungen und künftige Vertragskinder nur, wenn die Schalter (siehe unten) an sind. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. Mit dem eigenen Konto (Handy, privater PC) sehen sie keine Kinder. Beobachtungsbögen und Entwicklungsgespräche der Kinder ihrer Gruppe legen sie am Tablet an und füllen sie aus (Abschnitt 25). |
+| Mitarbeiter | sehen die Kinder **nur am Tablet der eigenen Einrichtung**, und dort nur lesend: alle aktiven Kinder, Vormerkungen und künftige Vertragskinder nur, wenn die Schalter (siehe unten) an sind. Vertrauliche Dokumente öffnen sie nicht (Art und Datum sehen sie, den Titel nicht), und abgemeldete Kinder (Archiv) sehen sie nicht. Mit dem eigenen Konto (Handy, privater PC) sehen sie keine Kinder. Beobachtungsbögen und Entwicklungsgespräche der Kinder ihrer Gruppe legen sie am Tablet an und füllen sie aus (Abschnitt 27). |
 | Mitarbeiter mit dem Recht „eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“) | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
-| Gruppenleitung | darf in der Grundeinstellung dasselbe wie ein Mitarbeiter mit „eintragen und Akten ändern“ (eigene Gruppe) – und das auch **mit dem eigenen Konto** im Büro, nicht nur am Tablet. Vormerkungen und künftige Vertragskinder sieht sie wie am Tablet nur, wenn die Tablet-Schalter an sind (außer der Träger gibt ihr „Kinder: verwalten“). Siehe Abschnitt 26. |
-| Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, nur lesend und nur, wenn der Träger die gegenseitige Aushilfe der beiden Einrichtungen freigegeben hat (Abschnitt 21). Beobachtungsbögen lesen sie nur (außer als Bezugserzieher oder für einen Bogen freigeschaltet, Abschnitt 25). |
+| Gruppenleitung | darf in der Grundeinstellung dasselbe wie ein Mitarbeiter mit „eintragen und Akten ändern“ (eigene Gruppe) – und das auch **mit dem eigenen Konto** im Büro, nicht nur am Tablet. Vormerkungen und künftige Vertragskinder sieht sie wie am Tablet nur, wenn die Tablet-Schalter an sind (außer der Träger gibt ihr „Kinder: verwalten“). Siehe Abschnitt 28. |
+| Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, nur lesend und nur, wenn der Träger die gegenseitige Aushilfe der beiden Einrichtungen freigegeben hat (Abschnitt 23). Beobachtungsbögen lesen sie nur (außer als Bezugserzieher oder für einen Bogen freigeschaltet, Abschnitt 27). |
 
-Das Recht „eintragen und Akten ändern“ gibt die Leitung oder der Träger bei der Person (*Mitarbeiter → Name → Zugang*,
+Das Recht „eintragen und Akten ändern“ gibt die Leitung oder der Träger bei der Person (*Mitarbeitende → Name → Zugang*,
 oder *Benutzer* → „Rechte“). Es gilt am Tablet der Einrichtung. Was die Rollen sonst dürfen, stellt der Träger unter
-*Mehr → Rechte und Rollen* ein (Abschnitt 26); die Tabelle oben beschreibt die Grundeinstellung.
+*Mehr → Rechte und Rollen* ein (Abschnitt 28); die Tabelle oben beschreibt die Grundeinstellung.
 
 Mitarbeiter **mit einer Gruppe** sehen am Tablet nur die Akten ihrer eigenen Gruppe (und der Gruppen, die für sie
 freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
@@ -227,7 +262,7 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
   Unter „Kinder“ tippt die Person ihren Namen an und gibt ihre PIN ein; danach ist das Tablet für sie **aufgeschlossen**. Oben steht
   „Aufgeschlossen: ‹Name›“ mit dem Knopf **Sperren**.
 - Für den Zugang braucht jeder Mitarbeiter eine **PIN**. Die vergibt die Leitung wie fürs Stempeln (unter
-  *Mitarbeiter*). Auch wer kein eigenes Benutzerkonto hat, kann mit der PIN aufschließen (nur lesen). Die PIN hat
+  *Mitarbeitende*). Auch wer kein eigenes Benutzerkonto hat, kann mit der PIN aufschließen (nur lesen). Die PIN hat
   6 Ziffern; nach falschen Eingaben wird sie gesperrt – beim Stempeln und beim Aufschließen gleich (siehe Abschnitt 15,
   „Stempel-PIN“).
 - Das Tablet sperrt sich wieder, wenn die **Sperrzeit** ohne Bedienung abgelaufen ist, wenn jemand „Sperren“
@@ -259,7 +294,7 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 | Bereich | Reiter | Wer |
 |---|---|---|
 | **Heute** | Anwesenheit, Wochenübersicht – oben im Bereich der Kasten „Erinnerungen“ | alle |
-| **Kinder** | Liste, Übersicht, Geburtstage, Dokumente, Offen – für Mitarbeiter am Tablet dahinter „Vormerkungen & Verträge“, wenn ein Schalter es erlaubt | alle |
+| **Kinder** | Liste, Übersicht, Geburtstage, Kinderakte-Dokumente, Offen – für Mitarbeiter am Tablet dahinter „Vormerkungen & Verträge“, wenn ein Schalter es erlaubt | alle |
 | **Planung** | Vormerkungen & Verträge, Belegung, Personalschlüssel, Archiv | nur Leitung und Träger, im Büro und am Tablet |
 
 - Die Reiter haben ihre bisherigen Regeln: „Personalschlüssel“ gibt es nicht am Tablet. Mitarbeiter sehen den
@@ -823,11 +858,11 @@ Leitung und Träger drucken im Büro jeden Unterreiter mit **„Drucken“** (A4
 stehen Einrichtung, Unterreiter, die gewählte Gruppe bzw. „Alle Gruppen“ und das Datum. Am Tablet gibt es keine
 Druck-Knöpfe.
 
-## 15. Mitarbeiter
+## 15. Mitarbeitende
 
 ### Die Liste
 
-- Unter *Mitarbeiter* steht **eine Zeile pro Person** (auf dem Handy eine kleine Karte): Name, Gruppe, Wochenstunden,
+- Unter *Mitarbeitende* steht **eine Zeile pro Person** (auf dem Handy eine kleine Karte): Name, Gruppe, Wochenstunden,
   **Stundenkonto heute** (grün im Plus, rot im Minus; immer der Stand von heute) und **Resturlaub** (frei verfügbare
   Tage im Jahr des Monats, der oben gewählt ist). Mit den Pfeilen neben dem Monat blätterst du zu einem anderen Jahr
   für den Resturlaub.
@@ -839,15 +874,15 @@ Druck-Knöpfe.
   ein (Mitarbeiter → „Vertragsangaben ansehen“ bei der Leitung).
 - In der Spalte „Nächste Stufe“ steht bei Personen in der Probezeit zusätzlich **„in Probezeit bis ‹TT.MM.›“** (nur für
   wer die Vertragsangaben sieht, bis einschließlich zum letzten Tag der Probezeit).
-- **„Mitarbeiter anlegen“** oben öffnet das Formular für eine neue Person.
+- **„Mitarbeiter:in anlegen“** oben öffnet das Formular für eine neue Person.
 - **„Reihenfolge ändern“** blendet die Pfeile zum Verschieben ein; „Fertig“ blendet sie wieder aus.
 - Wer ausgeschieden ist (das Datum „ausgeschieden am“ liegt vor heute), steht nicht mehr bei den aktiven Mitarbeitern,
-  sondern am Ende der Seite im zugeklappten Abschnitt „Ausgeschiedene Mitarbeiter“ – gelöscht wird dabei nichts, der
+  sondern am Ende der Seite im zugeklappten Abschnitt „Ausgeschiedene Mitarbeitende“ – gelöscht wird dabei nichts, der
   Name führt weiter zu allen Daten der Person.
 
-### Ausgeschiedene Mitarbeiter endgültig löschen
+### Ausgeschiedene Mitarbeitende endgültig löschen
 
-- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person **„Endgültig löschen“**, wenn die Einstellung es erlaubt (siehe unten). Das geht nur, wenn das
+- Im Abschnitt „Ausgeschiedene Mitarbeitende“ steht bei jeder Person **„Endgültig löschen“**, wenn die Einstellung es erlaubt (siehe unten). Das geht nur, wenn das
   Datum „ausgeschieden am“ **vor heute** liegt (wer heute ausscheidet, ist noch aktiv). Leitung und Träger dürfen das
   für die Mitarbeiter der Einrichtung, in der sie gerade arbeiten – nur nicht den **eigenen** Eintrag, und eine Person
   mit **Träger-Konto** löscht nur der Träger.
@@ -883,7 +918,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 | am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit den Zusatztagen nur für ein Jahr, Elternzeiten |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz) als Nachweis, dass die Pflichten erfüllt wurden, Lesebestätigungen aus „Wissen“, die Nachweise der Unterschriften in der App („Zum Unterschreiben senden“: Zeitpunkt, Prüfsumme, Grund einer Ablehnung); Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
-| „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Unter „Jetzt löschbar“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Mitarbeiter-Seite beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
+| „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Unter „Jetzt löschbar“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Seite *Mitarbeitende* beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
 | „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
@@ -900,12 +935,16 @@ zurückgenommen (Datum entfernt oder in die Zukunft verschoben), geht die Anmeld
 nie gesperrt.
 
 - Die Fristen stellt der **Träger** **je Einrichtung** unter *Mehr → Datenschutz & Löschen → Fristen* ein (1 bis 40
-  Jahre). Welche Einrichtung, steht dort über den Fristen bei **„Löschfristen der Mitarbeitenden für“**: Es ist die bei
-  „Einstellungen für“ gewählte Einrichtung – kommst du aus den Einstellungen (Karte „Löschfristen“, Suche, alter Link),
-  bleibt deine Wahl; mit mehreren Einrichtungen kannst du sie dort auch wechseln. Die **Leitung** sieht die Fristen
-  ihrer Einrichtung dort nur (Einstellungen → Mitarbeitende → Karte „Löschfristen“; sie hat nur diesen Reiter) – auch,
-  ob sie ausgeschiedene Mitarbeiter selbst endgültig löschen darf. Dort stehen auch „Mitarbeiter endgültig löschen“
-  (siehe oben) und die „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
+  Jahre). Welche Einrichtung, steht dort im blauen Kasten **„Löschfristen der Einrichtung: ‹Name›“**; darin steht der
+  Abschnitt **„Mitarbeitende, Bewerbungen, Infogespräche und Kasse“**. Es ist die bei „Einstellungen für“ gewählte
+  Einrichtung – kommst du aus den Einstellungen (Karte „Löschfristen (Mitarbeitende, Bewerbungen, Kasse)“, Suche, alter
+  Link), bleibt deine Wahl; mit mehreren Einrichtungen kannst du sie dort auch wechseln. Die **Leitung** sieht die
+  Fristen ihrer Einrichtung dort nur (über dieselbe Karte unter Einstellungen → Mitarbeitende; sie hat nur diesen
+  Reiter, und der Einleitungssatz sagt ihr, dass der Träger von Hand löscht) – auch, ob sie ausgeschiedene Mitarbeitende
+  selbst endgültig löschen darf. Dort stehen auch „Mitarbeitende endgültig löschen“ (siehe oben) und die
+  „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
+- **Kurz und ausführlich:** Unter jeder Frist steht in einem Satz, was dazugehört; **„Mehr erfahren“** zeigt die ganze
+  Liste und die gesetzliche Grundlage (z. B. § 147 AO bei den ausgezahlten Überstunden, § 15 AGG bei den Bewerbungen).
 - **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** (je Einrichtung, nur der Träger; voreingestellt an): Rechnet
   ein Lohn- oder Steuerbüro ab und bewahrt es die Lohnunterlagen auf, darf „Lohn und Steuer“ schon am Tag nach dem
   Ausscheiden gelöscht werden (wie bisher, mit den „Persönlichen Daten“ in einer Zeile). Ohne Haken bleiben diese Angaben
@@ -913,7 +952,7 @@ nie gesperrt.
   „‹Name› – Lohn und Steuer“ zum Löschen bereit. Wird der Haken später gesetzt, gehen schon aufbewahrte Angaben wieder
   mit den „Persönlichen Daten“.
 - Eine geänderte Frist gilt sofort für „Jetzt löschbar“. Schon Gelöschtes kommt nicht zurück.
-- Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, ab wann was gelöscht werden darf („Persönliche
+- Im Abschnitt „Ausgeschiedene Mitarbeitende“ steht bei jeder Person, ab wann was gelöscht werden darf („Persönliche
   Daten dürfen schon gelöscht werden (vom Träger unter Mehr → Datenschutz & Löschen). Zeitdaten dürfen ab … gelöscht werden,
   Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“). Hat die Person keine Buchung mit
   „ausgezahlt“, fehlt dieses Datum. Sind alle Fristen abgelaufen, steht dort, dass der Träger die Daten unter
@@ -927,7 +966,7 @@ nie gesperrt.
 
 - **Eine Seite für alles zum Löschen:** *Mehr → Datenschutz & Löschen* hat drei Reiter: **Jetzt löschbar** (die
   Übersicht unten, früher „Mehr → Löschfristen“), **Fristen** (Löschfrist für abgemeldete Kinder; Löschfristen der
-  Mitarbeitenden, der Bewerbungen und der Kasse, „Mitarbeiter endgültig löschen“, „Lohnunterlagen bewahrt ein
+  Mitarbeitenden, der Bewerbungen, der Infogespräche und der Kasse, „Mitarbeitende endgültig löschen“, „Lohnunterlagen bewahrt ein
   Lohnbüro auf“ – früher unter *Einstellungen → Einrichtung* bzw. *Einstellungen → Personal*; dazu Links zu den
   Einwilligungsfragen, den Dokumentarten, dem Tablet und den Rechten) und **Datensicherung** (früher *Einstellungen →
   Einrichtung*). **„gilt für alle Einrichtungen“** steht nur an dem, was wirklich für alle gilt: der Löschfrist für
@@ -937,8 +976,8 @@ nie gesperrt.
   hierher, und die Suche der Einstellungen findet „Löschfrist“, „Datensicherung“ usw. weiterhin. Wer Fristen geändert
   und noch nicht gespeichert hat, wird vor dem Wechsel des Reiters und beim Verlassen der Seite gefragt.
 - **Wer was sieht:** Der Träger alle drei Reiter (Menü *Mehr*). Die Leitung nur **Fristen**, und dort nur die
-  Löschfristen der Mitarbeitenden ihrer Einrichtung zum Lesen; sie kommt über *Einstellungen → Mitarbeitende →
-  Löschfristen* hin (kein Menüpunkt).
+  Löschfristen ihrer Einrichtung (Mitarbeitende, Bewerbungen, Infogespräche, Kasse) zum Lesen; sie kommt über
+  *Einstellungen → Mitarbeitende → Löschfristen (Mitarbeitende, Bewerbungen, Kasse)* hin (kein Menüpunkt).
 
 - Unter **Mehr → Datenschutz & Löschen** sieht der Träger alles, was nach Ablauf einer Frist gelöscht werden darf – aus
   **allen Einrichtungen** auf einer Seite: die Daten ausgeschiedener Mitarbeiter (je Art eine Zeile: Persönliche
@@ -974,7 +1013,7 @@ mehreren Abschnitten (auf dem Handy untereinander):
 - **Zeiten & Urlaub:** Wochenstunden, Stundenkonto heute und am Ende eines wählbaren Monats, Stundenkonto-Buchungen,
   Urlaubskonto eines wählbaren Jahres (Anspruch, Übertrag, genommen, verplant, frei verfügbar), Urlaubsanspruch mit
   „Zusatztag nur für dieses Jahr“, Stempel-PIN und „Stempeln und Pausen“.
-- **Nachweise:** **Pflichtdokumente**, Pflichttermine und Fortbildungen, **Dokumente** (Personalakte, nur die Fächer,
+- **Nachweise:** **Pflichtdokumente**, Pflichttermine und Fortbildungen, **Personalakte** (die Dokumente, nur die Fächer,
   für die du das Recht hast, siehe unten).
 - **Gesundheit:** **Unfälle** (Recht „Unfallanzeigen“), **Krankheitstage** eines wählbaren Jahres (mit Link zur Liste
   aller), **BEM** und **Mutterschutz** (Recht „Krankheitstage …“) – nur mit dem jeweiligen Recht; Krankheitstage, BEM
@@ -997,7 +1036,9 @@ Abschnitt oder Reiter werden dabei nicht mitgespeichert und auch nicht gelöscht
 
 Die vorgegebenen Pflichttermine (*Einstellungen → Mitarbeitende → Pflichttermine*) sind Betriebsarzt, Erste-Hilfe-Kurs,
 Erweitertes Führungszeugnis, Masernimpfung (Nachweis), Erst- und Nachuntersuchung nach dem JArbSchG (siehe
-„Jugendarbeitsschutz“) und **„Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)“**.
+„Jugendarbeitsschutz“) und **„Belehrung Infektionsschutz (§ 34 Abs. 5a IfSG)“**. Was das Gesetz für Betriebsarzt,
+Belehrung und die beiden Untersuchungen verlangt, steht in den Einstellungen am **ⓘ** neben „vorgegeben“ in der Zeile der
+jeweiligen Art; über der Liste steht nur noch ein kurzer Hinweis mit „Mehr erfahren“.
 
 - **Betriebsarzt** (arbeitsmedizinische Pflichtvorsorge wegen biologischer Arbeitsstoffe in der Kita, ArbMedVV Anhang
   Teil 2 Abs. 1 Nr. 3 Buchst. f, AMR 2.1): die **erste vor dem ersten Arbeitstag** (höchstens 3 Monate vorher), die
@@ -1036,10 +1077,10 @@ Im Reiter **Stammdaten** steht unter den Stammdaten der Abschnitt **„Notfallko
 Person im Dienst etwas passiert. Je Kontakt: **Name** und **Telefon** (beides Pflicht), **Beziehung** (z. B. „Ehemann“,
 „Mutter“), **Telefon 2** und ein **Hinweis** (z. B. „nur abends erreichbar“). Mit den Pfeilen ↑↓ legst du die
 Reihenfolge fest – **der erste Kontakt wird zuerst angerufen**. Sehen und ändern können die Notfallkontakte nur
-**Leitung und Träger**; Mitarbeiter sehen nur die eigenen (schreibgeschützt, unter „Meine Termine“), das Tablet
+**Leitung und Träger**; Mitarbeiter sehen nur die eigenen (schreibgeschützt, unter „Meine Pflichttermine“), das Tablet
 zeigt sie nur mit Zustimmung (siehe unten). **„Notfallkontakte
-drucken“** (oben auf der Seite *Mitarbeiter* und im Abschnitt selbst) öffnet die Liste **„Notfallkontakte aller
-Mitarbeiter“** (A4 hochkant): alle, die nicht ausgeschieden sind, in der Reihenfolge der Mitarbeiter-Liste, je mit
+drucken“** (oben auf der Seite *Mitarbeitende* und im Abschnitt selbst) öffnet die Liste **„Notfallkontakte aller
+Mitarbeitenden“** (A4 hochkant): alle, die nicht ausgeschieden sind, in der Reihenfolge der Liste *Mitarbeitende*, je mit
 ihren Kontakten in der Anruf-Reihenfolge – wer keinen hat, steht mit „keine Notfallkontakte erfasst“ darin. Nach dem
 Ausscheiden gehören die Notfallkontakte zu den **„Persönlichen Daten“** (löschbar ab dem Tag nach dem Ausscheiden,
 siehe „Löschfristen“).
@@ -1053,7 +1094,7 @@ aufgeschlossenen Seite. Sie zeigt nur Mitarbeiter der Einrichtung, die nicht aus
 Kontakt haben: Name, Kontakt, Beziehung und Telefonnummern zum Antippen – **nie den Hinweis**, nichts anderes.
 Ein Widerruf gilt sofort. Es wird nicht festgehalten, wer die Liste geöffnet hat.
 
-- **Mitarbeiter mit Konto** schalten unter **„Meine Termine“ → „Notfallkontakte am Tablet“** den Schalter „Meine
+- **Mitarbeiter mit Konto** schalten unter **„Meine Pflichttermine“ → „Notfallkontakte am Tablet“** den Schalter „Meine
   Notfallkontakte am Kita-Tablet zeigen“ selbst ein und aus; darunter sehen sie, welche Kontakte dann angezeigt würden.
 - **Leitung und Träger** tragen im Abschnitt „Notfallkontakte“ der Person ein: **„Zustimmung liegt schriftlich vor am
   ‹Datum›“** (für Personen ohne Konto oder wenn die Zustimmung auf Papier gegeben wurde; das Datum darf nicht in der
@@ -1077,8 +1118,8 @@ Voreingestellt gilt:
 | Staatsangehörigkeit, Schwerbehinderung (ja/nein, Grad der Behinderung 20–100, „gleichgestellt“, gültig bis) | Reiter **Stammdaten**, Abschnitt „Staatsangehörigkeit und Schwerbehinderung“ | ja | nein | nein |
 | „befristet bis“, „Probezeit bis“ | Reiter **Vertrag & Lohn**, Vertragsangaben | bearbeiten | wie unter *Rechte und Rollen* eingestellt (Grundeinstellung: nein; „Vertragsangaben ansehen“ = nur lesen, „Vertragsangaben bearbeiten“ = auch ändern) | nein |
 | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, IBAN, Kontoinhaber, Konfession (Kirchensteuer) | Reiter **Vertrag & Lohn**, Abschnitt „Lohn und Steuer“ | ja | nein | nein |
-| Dokumente im Fach „Qualifikationen und Fortbildungen“ | Reiter **Nachweise**, Abschnitt „Dokumente“ | ja | ja | nein |
-| Dokumente in den Fächern „Vertrag und Nachträge, Stellenbeschreibung“, „Bewerbung“, „Korrespondenz“, „Arbeitsrechtliche Maßnahmen“, „Gehalt“ | Reiter **Nachweise**, Abschnitt „Dokumente“ | ja | nein | nein |
+| Dokumente im Fach „Qualifikationen und Fortbildungen“ | Reiter **Nachweise**, Abschnitt „Personalakte“ | ja | ja | nein |
+| Dokumente in den Fächern „Vertrag und Nachträge, Stellenbeschreibung“, „Bewerbung“, „Korrespondenz“, „Arbeitsrechtliche Maßnahmen“, „Gehalt“ | Reiter **Nachweise**, Abschnitt „Personalakte“ | ja | nein | nein |
 
 Mitarbeiter sehen nichts davon – auch nicht ihre eigene Akte; am Tablet und auf den „Mein …“-Seiten steht nichts davon.
 Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
@@ -1450,7 +1491,7 @@ Mitarbeiter sehen in ihrem Kalender keine Anträge anderer.
   gleich mit der Person verknüpft; sie muss das Passwort bei der ersten Anmeldung ändern.
 - Hat die Person schon ein Konto, siehst du dort Benutzername, Rolle und „aktiv“ und kannst das **Passwort
   zurücksetzen**. Es gelten dieselben Rechte wie unter *Benutzer*: Ein Träger-Konto kann nur ein Träger ändern.
-- Darunter stehen die **Rechte der Person** (Abschnitt 26): beim Träger alle Schalter mit Ausnahmen, bei der Leitung für
+- Darunter stehen die **Rechte der Person** (Abschnitt 28): beim Träger alle Schalter mit Ausnahmen, bei der Leitung für
   Mitarbeiter nur „Kinder: eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“). Bei einer Gruppenleitung
   sieht die Leitung statt der Rechte den Hinweis „Die Rechte der Gruppenleitung stellt der Träger ein.“
 
@@ -1467,7 +1508,7 @@ sie auf. Auf dem Handy lässt sich die Tabelle der Konten seitlich wischen.
 ### Stempel-PIN
 
 - Mit der PIN stempelt jeder Mitarbeiter am Kita-Tablet und schließt dort die Kinder auf. Die PIN hat **genau
-  6 Ziffern**. Leitung und Träger setzen sie unter *Mitarbeiter → Name → Zeiten & Urlaub* (nur für die Mitarbeiter der
+  6 Ziffern**. Leitung und Träger setzen sie unter *Mitarbeitende → Name → Zeiten & Urlaub* (nur für die Mitarbeiter der
   Einrichtung, in der sie gerade arbeiten).
 - **Nach dem Update auf die 6-stellige PIN sind alle bisherigen 4-stelligen PINs gelöscht.** Bitte für jeden
   Mitarbeiter eine neue PIN setzen. In der Mitarbeiterliste steht bei allen ohne PIN **„PIN fehlt“**; wer keine PIN
@@ -1515,7 +1556,7 @@ Die Einträge stehen in dieser Reihenfolge: überfällig, heute, dann nach Datum
 - **Abschied**: „Lena Muster verlässt uns am 31.07.“ – für Kinder mit eingetragenem Austritt und, wenn die
   automatische Abmeldung der Schulkinder eingeschaltet ist, für die Kinder, die sie abmelden wird. Ein Wechsel in
   eine andere Einrichtung geschieht in der App sofort und gibt keine Erinnerung.
-- **Löschfristen** (nur der Träger, nicht am Tablet): „3 Einträge dürfen gelöscht werden“, solange auf der Seite
+- **Jetzt löschbar** (nur der Träger, nicht am Tablet): „3 Einträge dürfen gelöscht werden“, solange auf der Seite
   **Mehr → Datenschutz & Löschen** etwas aus irgendeiner Einrichtung löschbar ist; der Text führt dorthin (Abschnitt 15).
 - **BEM anbieten** (wer das Recht für die Krankheitstage hat, also Leitung und Träger; nicht am Tablet, nie über sich
   selbst): „BEM anbieten: ‹Name› war in den letzten 12 Monaten ‹n› Arbeitstage krank (mehr als 6 Wochen, § 167 SGB IX)“
@@ -1598,7 +1639,7 @@ Entwicklungsdokumentation*):
   die Einstellung, gilt das sofort.
 
 Den **Geburtstag eines Mitarbeiters** (Tag und Monat, ohne Jahr) tragen Leitung und Träger freiwillig in den
-Stammdaten unter *Mitarbeiter* ein. Wer am 29. Februar Geburtstag hat, wird in Nicht-Schaltjahren am 28. Februar
+Stammdaten unter *Mitarbeitende* ein. Wer am 29. Februar Geburtstag hat, wird in Nicht-Schaltjahren am 28. Februar
 erinnert (bei Kindern ebenso).
 
 ## 17. Automatische Ereignisse im Dienstplan und Jahreskalender
@@ -1735,8 +1776,8 @@ Fällt das Internet oder der Server aus, kann am **Kita-Tablet** (Konto „Table
 
 Im Menü gibt es **Dokumente** (Leitung und Träger in der oberen Zeile, Mitarbeiter unter **Meins**). Die Seite hat bis zu
 vier Reiter: **Bögen** – „Vorlagen für Bögen, die im Programm ausgefüllt werden“ (Mitarbeitergespräche,
-Beobachtungsbögen, Teamsitzungen, Unfallberichte, siehe Abschnitt 25; nur wer Bögen pflegen darf) –, **Zum Ausdrucken** –
-„PDF-Formulare zum Ausdrucken oder Ausfüllen“ –, **Wissen** (siehe Abschnitt 28) und **Unterschriften**. Die kurze
+Beobachtungsbögen, Teamsitzungen, Unfallberichte, siehe Abschnitt 27; nur wer Bögen pflegen darf) –, **Zum Ausdrucken** –
+„PDF-Formulare zum Ausdrucken oder Ausfüllen“ –, **Wissen** (siehe Abschnitt 30) und **Unterschriften**. Die kurze
 Zeile steht auf Computer und Tablet im Reiter selbst, auf dem Handy unter den Reitern. Jeder sieht nur die Reiter, die er
 nutzen darf – Mitarbeiter und das Tablet **Zum Ausdrucken** und **Wissen**. Alte Lesezeichen (auch auf die frühere Seite
 „Vorlagen“ oder auf „Bögen“) führen automatisch zum passenden Reiter. Der Reiter **Zum Ausdrucken** hieß früher
@@ -1920,7 +1961,7 @@ du außerdem überall **Text**, ein **Häkchen**, ein **Kreuz** und eine **Unter
     Namen der Vorlage, sonst „Sonstiges“), das **Datum** (heute) und die **Bezeichnung** (vorgeschlagen: Titel der
     Vorlage und Datum, z. B. „Einverständnis Ausflug 20.11.2026“). **Vertraulich** ist es, wenn die Art das so vorsieht;
     das lässt sich ändern.
-  - **bei einer Person** in der Personalakte (Reiter **Nachweise** → **Dokumente**) in einem **Fach**, das du nutzen
+  - **bei einer Person** in der Personalakte (Reiter **Nachweise** → **Personalakte**) in einem **Fach**, das du nutzen
     darfst, mit Datum und Bezeichnung wie oben.
   Text, Häkchen, Kreuz und Unterschrift werden als normale PDF-Anmerkungen gespeichert, die jedes PDF-Programm anzeigt
   und druckt. Wäre die Datei größer als **30 MB**, sagt die App das und speichert nicht.
@@ -1933,7 +1974,7 @@ du außerdem überall **Text**, ein **Häkchen**, ein **Kreuz** und eine **Unter
   wer zuletzt gespeichert hat und wann. Das Speichern zählt wie ein neues Hochladen: Muss nach einem Gruppenwechsel
   oder für einen Vertrag ein Dokument dieser Art neu eingereicht werden, gilt es damit als eingereicht. Das darf, wer
   das Dokument auch ändern darf.
-- **Aus Vorlage ausfüllen**: In der Kinderakte (Dokumente) und in der Personalakte (Nachweise → Dokumente) gibt es
+- **Aus Vorlage ausfüllen**: In der Kinderakte (Dokumente) und in der Personalakte (Reiter „Nachweise“) gibt es
   außerdem den Knopf **Aus Vorlage ausfüllen**. Er zeigt die Vorlagen der Einrichtung, die du sehen darfst; Kind bzw.
   Person sind schon gewählt.
 - **Am Tablet** geht das nur bei Kindern und nur, wenn das Tablet mit einer PIN entsperrt ist, deren Person Dokumente in
@@ -1969,7 +2010,7 @@ Die Leitung (und der Träger) kann Mitarbeitenden ein PDF **zum Unterschreiben i
 Belehrung, eine Datenschutz- oder Schweigepflichterklärung. Die Mitarbeitenden unterschreiben am eigenen Gerät oder am
 Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
 
-- **Senden**: unter **Dokumente → Zum Ausdrucken** bei einer Vorlage, oder in der Personalakte (Nachweise → Dokumente) bei
+- **Senden**: unter **Dokumente → Zum Ausdrucken** bei einer Vorlage, oder in der Personalakte (Reiter „Nachweise“) bei
   einem PDF, jeweils mit **Zum Unterschreiben senden**. Ein PDF aus der Personalakte geht nur an diese Person. Im Fenster
   wählst du die **Bezeichnung**, **an wen** (Mitarbeitende der Einrichtung, die nicht ausgeschieden sind), die
   **Ablage** der unterschriebenen Kopie (ein Fach der Personalakte, das du nutzen darfst; wer das Fach sehen darf, sieht
@@ -2029,7 +2070,7 @@ Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
   es mit ihrer PIN entsperrt hat. Die unterschriebenen Kopien folgen den Rechten der Fächer.
 - **Aufbewahren und Löschen**: Die App löscht nichts von selbst. Eine erledigte Anfrage (alle haben unterschrieben,
   abgelehnt oder sind zurückgezogen) erscheint **ein Jahr, nachdem die letzte Person fertig war**, unter **Mehr →
-  Löschfristen** als „Anfrage zum Unterschreiben“; dort löscht sie der Träger. Gelöscht wird das gesendete PDF; der
+  Datenschutz & Löschen → Jetzt löschbar** als „Anfrage zum Unterschreiben“; dort löscht sie der Träger. Gelöscht wird das gesendete PDF; der
   **Nachweis der Unterschrift** (wer, wann, Prüfsumme, Grund einer Ablehnung) bleibt – auch wenn die Leitung die Anfrage
   löscht – und gehört bei einer ausgeschiedenen Person zu „Beurteilungen und Zeugnisse“. Die unterschriebenen Kopien
   bleiben in der Personalakte und folgen deren Löschfristen. Ein PDF, das aus der Personalakte einer Person gesendet
@@ -2052,7 +2093,7 @@ auch im Reiter und in den Einstellungen.
 ### Was vorher eingetragen sein muss
 
 - **Bundesland** der Einrichtung (Einstellungen → Einrichtung → Einrichtungen, Träger). Danach richten sich alle Zahlen.
-- **Qualifikation** bei jedem Mitarbeiter (Mitarbeiter → Name → Stammdaten, Leitung oder Träger): Fachkraft,
+- **Qualifikation** bei jedem Mitarbeiter (Mitarbeitende → Name → Stammdaten, Leitung oder Träger): Fachkraft,
   Ergänzungs-/Zusatzkraft, Auszubildende/r (1./2./3. Jahr), Studium praxisintegriert/dual (1./2./ab 3. Studienjahr),
   Berufspraktikant/in (Anerkennungsjahr), Haushaltskraft oder **keine pädagogische Kraft (z. B. Aushilfe,
   Werkstudent/in)**. Küche, Hauswirtschaft und Reinigung bitte als „keine pädagogische Kraft“ eintragen, sonst zählen
@@ -2187,7 +2228,7 @@ Dienstbeginn: wer zu Beginn des ÜF geht (oder am Ende eines ÜF am Morgen kommt
 Der Träger kann Bezeichnung, Farbe und Anrechnung wie bei den anderen Codes ändern; der Code selbst bleibt
 Überstundenfrei (z. B. für Urlaubsanträge).
 
-### Kinder der Mitarbeiter, „Kind krank“ und Kinderkrankentage
+### Kinder der Mitarbeitenden, „Kind krank“ und Kinderkrankentage
 
 - **Kinder:** In der Personalakte (Reiter „Stammdaten“, Abschnitt **„Kinder“**) stehen die Kinder einer Person mit
   Geburtsdatum, freiwilligem Vornamen und „Kind mit Behinderung, auf Hilfe angewiesen“, dazu **„alleinerziehend“**. Es
@@ -2275,7 +2316,7 @@ Leitung führt der Träger. Der Server prüft das bei jeder Anfrage.
   „BEM-Einladung für ‹Name› noch nicht verschickt“ (7 Tage nach „BEM einleiten“ ohne „Verschickt am“) und
   „BEM ‹Name›: Antwortfrist abgelaufen – Antwort eintragen“ (ab dem Tag nach dem Antwortdatum, solange keine Antwort
   eingetragen ist).
-- **Mitarbeiter-Seite, Reiter „Nachweise“, Abschnitt „BEM“:** oben „Krankheitstage letzte 12 Monate: ‹n› von ‹Grenze›“
+- **Seite der Person, Reiter „Gesundheit“, Abschnitt „BEM“:** oben „Krankheitstage letzte 12 Monate: ‹n› von ‹Grenze›“
   (gelb ab 80 %, rot darüber). Darunter:
   - **„BEM einleiten“** legt ein BEM an (Stand „eingeladen“). **„Einladung drucken“** öffnet den Brief (A4 hoch, Drucken
     oder PDF): Briefkopf mit Name, Träger, Anschrift und Telefon der Einrichtung (*Einstellungen → Einrichtung →
@@ -2399,8 +2440,8 @@ Die App weist darauf hin, verhindert aber nichts: Speichern, Freigeben und Stemp
 
 ### Mutterschutz (MuSchG)
 
-Eine Schwangerschaft ist ein Gesundheitsdatum. Den Abschnitt **„Mutterschutz“** im Reiter „Nachweise“ der
-Mitarbeiterseite sehen nur Leitung und Träger (Recht „Krankheitstage …“, `employees.sickness`), nie auf der eigenen
+Eine Schwangerschaft ist ein Gesundheitsdatum. Den Abschnitt **„Mutterschutz“** im Reiter „Gesundheit“ der
+Seite einer Person sehen nur Leitung und Träger (Recht „Krankheitstage …“, `employees.sickness`), nie auf der eigenen
 Seite: Den Mutterschutz einer Leitung trägt der Träger ein. Der Server prüft das bei jeder Anfrage; das Tablet und
 Mitarbeiter kommen nicht heran.
 
@@ -2542,7 +2583,7 @@ Mitarbeiter kommen nicht heran.
   genommener Urlaub, und Urlaub in den Fristen wird beim Eintragen zurückgegeben (siehe oben). Am Eintrag steht
   „Resturlaub nach dem Mutterschutz bleibt erhalten (§ 24 MuSchG).“ Den Verfall von Resturlaub nach dem Mutterschutz
   rechnet die App nicht gesondert – bitte beim Verfallshinweis daran denken.
-- **Löschfristen:** eigene Kategorie **„Mutterschutz-Unterlagen“** (Einstellungen → Löschfristen, Vorgabe **2 Jahre**,
+- **Löschfristen:** eigene Kategorie **„Mutterschutz-Unterlagen“** (Datenschutz & Löschen → Fristen, Vorgabe **2 Jahre**,
   vgl. § 27 Abs. 5 MuSchG): Ein Eintrag darf so viele Jahre nach seinem Ende gelöscht werden (Ende der Schutzfrist nach
   der Entbindung bzw. der Stillzeit oder „Beendet am“; bei einer Fehlgeburt das Ende ihrer Frist), **auch bei
   Mitarbeiterinnen, die noch da sind**; ein laufender Mutterschutz einer Ausgeschiedenen zählt ab dem Austritt. Die
@@ -2646,7 +2687,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   als besonders schützenswert, und wer plant, muss wissen, dass die Person nicht eingeplant werden darf. Der Hinweis
   verrät damit, dass die Nachuntersuchung fehlt (kein Befund, keine Gesundheitsangabe).
 
-## 21. Menü
+## 23. Menü
 
 - **Einrichtung wechseln (Träger):** Nach dem Wechsel bleibt die App auf derselben Seite, jetzt für die neue Einrichtung.
   Warst du auf einer einzelnen Person, einem Kind, einer Kasse, einer Teamsitzung oder einer Gruppe, landest du auf der
@@ -2711,13 +2752,16 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   zählen, Kinderkrankentage; „Elternzeit im Dienstplan“ für wen die Vertragsangaben nur ansehen darf), stehen am Ende
   des Bereichs in einer Zeile **„Diese Einstellungen pflegt der Träger: …“**, die man zum Lesen aufklappen kann.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
-  offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kalender** (Jahreskalender), **Teamsitzungen**,
-  **Notizen** und **Dokumente** (Bögen, Zum Ausdrucken, Wissen und Unterschriften, mit der Zahl dessen, was dort wartet: Einträge zum Bestätigen,
-  überfällige Unterschriften). Seltener Gebrauchtes liegt unter **Mehr**: Kontakte, Kasse, Unfälle, **Benutzer & Rechte**,
-  Einstellungen, Passwort ändern (der Träger dazu Löschfristen).
-  - **Schließzeiten** sind ein Reiter von **Kalender**, **Krankheitstage** ein Reiter von **Mitarbeiter**, und **Benutzer**
-    und **Rechte und Rollen** (nur Träger) sind die zwei Reiter von **Benutzer & Rechte**. Alte Lesezeichen
-    (`/admin/closures`, `/admin/sick-days`, `/admin/rights`) führen automatisch zum passenden Reiter.
+  offener Anträge), **Zeiterfassung**, **Mitarbeitende**, **Kinder**, **Kalender** (Jahreskalender), **Teamsitzungen**,
+  **Notizen** und **Dokumente** (Bögen, Zum Ausdrucken, Wissen und Unterschriften, mit der Zahl dessen, was dort wartet:
+  Einträge zum Bestätigen, überfällige Unterschriften). Seltener Gebrauchtes liegt unter **Mehr**: **Kontakte**,
+  **Kasse**, **Unfälle**, **Benutzer & Rechte**, **Einstellungen** und (nur der Träger) **Datenschutz & Löschen**; wer
+  „Bewerbungen & Hospitationen“ sehen darf, aber nicht die Liste der Mitarbeitenden, findet sie ebenfalls dort.
+  **Passwort ändern** und **Abmelden** stehen bei jedem am Ende des Menüs.
+  - **Schließzeiten** sind ein Reiter von **Kalender**, **Krankheitstage** und **Bewerbungen & Hospitationen** Reiter von
+    **Mitarbeitende**, und **Benutzer** und **Rechte und Rollen** (nur Träger) sind die zwei Reiter von
+    **Benutzer & Rechte**. Alte Lesezeichen (`/admin/closures`, `/admin/sick-days`, `/admin/rights`) führen automatisch
+    zum passenden Reiter.
   - **Offen für dich**: Wer einen eigenen Mitarbeiter-Eintrag hat, sieht oben auf **Mein Dienstplan** (Leitung und Träger
     auf ihrem Dienstplan) einen Kasten mit dem, was für die Person selbst wartet – jeweils mit Zahl und Link: Dokumente zu
     unterschreiben (davon überfällige), Einträge „Gelesen und verstanden“, Selbstbeurteilungen zum Ausfüllen, der Hinweis
@@ -2727,14 +2771,26 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
     (noch) nicht.
   - Wer nur das Recht für Schließzeiten hat (ohne den Jahreskalender zu bearbeiten), findet **Schließzeiten** weiter
     direkt unter **Mehr**.
-  Wer als Leitung oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“,
-  „Mein Urlaub“, „Meine Termine“ und „Meine Gespräche“; die Zahl ungelesener Änderungen steht an **Meins** und an „Mein Dienstplan“. „Mehr“ und „Meins“ sind
-  hervorgehoben, wenn man gerade auf einer ihrer Seiten ist. Der eigene Benutzername steht auf breiten Bildschirmen
-  rechts; auf kleineren Laptops ist **Abmelden** nur ein Symbol, der Name erscheint beim Zeigen darauf.
-- **Mitarbeiter** sehen oben **Mein Dienstplan** (mit der Zahl ungelesener Änderungen), **Dienstplan**, **Kalender** und
-  **Teamsitzungen**; unter **Meins** liegen „Zu unterschreiben“, „Mein Urlaub“, „Meine Termine“, „Meine Gespräche“ und
-  „Dokumente“ (Zum Ausdrucken und Wissen, siehe Abschnitt 19). Die Zahlen von „Zu unterschreiben“ und „Dokumente“ (Einträge
-  „Gelesen und verstanden“) stehen auch an **Meins** und am Knopf **Menü** auf dem Handy.
+  - Wer als Leitung oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“,
+    „Zu unterschreiben“, „Mein Urlaub“, „Meine Pflichttermine“, „Meine Gespräche“ und „Meine Unfälle“; die Zahl
+    ungelesener Änderungen und offener Unterschriften steht an **Meins**, die ungelesenen Änderungen auch an
+    „Mein Dienstplan“.
+  - „Mehr“ und „Meins“ sind hervorgehoben, wenn man gerade auf einer ihrer Seiten ist. Der eigene Benutzername steht auf
+    breiten Bildschirmen rechts; auf kleineren Laptops ist **Abmelden** nur ein Symbol, der Name erscheint beim Zeigen
+    darauf.
+- **Mitarbeitende** (Rolle Mitarbeiter) sehen oben **Mein Dienstplan** (mit der
+  Zahl ungelesener Änderungen), **Dienstplan**, **Kalender**, **Teamsitzungen** und **Notizen**; unter **Meins** liegen
+  „Zu unterschreiben“, „Mein Urlaub“, „Meine Pflichttermine“, „Meine Gespräche“, „Meine Unfälle“, „Dokumente“ (Zum
+  Ausdrucken und Wissen, siehe Abschnitt 19) und „Kontakte“ (nur wenn es Kontakte für Mitarbeitende gibt), dazu
+  „Bewerbungen & Hospitationen“, wenn der Träger das Recht dafür gegeben hat. „Zu unterschreiben“, „Meine Unfälle“,
+  „Dokumente“ und „Kontakte“ gibt es nur mit einem Konto, das mit einem Mitarbeiter-Eintrag verknüpft ist. Die Zahlen
+  von „Zu unterschreiben“ und „Dokumente“ (Einträge „Gelesen und verstanden“) stehen auch an **Meins** und am Knopf
+  **Menü** auf dem Handy.
+- Die **Gruppenleitung** hat mit „Kinder“ im eigenen Konto den Aufbau von Leitung und Träger (eigene Seiten unter
+  **Meins**), mit den Einträgen, die ihre Rechte erlauben.
+- **Lange Hinweise** zeigen nur ihren ersten Satz; den Rest (Einzelheiten, gesetzliche Grundlagen) öffnet
+  **„Mehr erfahren“** darunter, **„Weniger anzeigen“** klappt ihn wieder zu. Kurze Erklärungen stehen hinter dem
+  kleinen **ⓘ** (am Computer beim Zeigen darauf, auf Handy und Tablet beim Antippen).
 - **Auf dem Handy** ist die Kopfzeile nur eine Zeile: Name der App, Einrichtung und der Knopf **Menü** (mit der Zahl
   ungelesener Änderungen bzw. offener Anträge). Er öffnet eine Leiste mit allen Einträgen, gruppiert wie oben, dazu
   Benutzername, **Passwort ändern** und **Abmelden**. Ein Tipp auf einen Eintrag öffnet die Seite und schließt die Leiste.
@@ -2743,7 +2799,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   **Dienstplan**, **Teamsitzungen**, **Kontakte** (nur wenn es Kontakte für Mitarbeitende gibt) und **Dienstplan drucken**.
   Alles passt auf ein 10-Zoll-Tablet ohne Blättern.
 
-## 22. Zeiterfassung und Mein Dienstplan am Handy
+## 24. Zeiterfassung und Mein Dienstplan am Handy
 
 - Auf schmalen Bildschirmen zeigen **Zeiterfassung** (Leitung/Träger) und **Mein Dienstplan** statt der breiten Tabelle eine
   **Karte je Tag**; am Computer bleibt die Tabelle.
@@ -2756,10 +2812,10 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   graue Zeile. In der Zeiterfassung kann man dort mit „+“ trotzdem eine Zeit eintragen und über den Pfeil eine Abwesenheit
   setzen.
 
-## 23. Was noch fehlt
+## 25. Was noch fehlt
 
 - Ganz oben auf **Einstellungen** zeigt die Karte **Was noch fehlt** (nur Leitung und Träger), was in der gewählten
-  Einrichtung noch nicht eingetragen ist, sortiert nach **Einrichtung**, **Mitarbeiter** und **Kinder**: z. B. fehlende
+  Einrichtung noch nicht eingetragen ist, sortiert nach **Einrichtung**, **Mitarbeitende** und **Kinder**: z. B. fehlende
   Öffnungszeiten, kein Tablet-Konto, Gruppen ohne Gruppenart (nur wenn das Bundesland Gruppenarten kennt), Mitarbeiter
   ohne PIN (nur mit Zeiterfassung), PINs, die erst entsperrt werden müssen, ohne Qualifikation, ohne Geburtstag oder ohne
   Zugang, Kinder mit Vertrag ohne Betreuungsart und Gruppen ohne Erinnerung an die Entwicklungsdoku. Unter Mitarbeiter
@@ -2774,7 +2830,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 - Im **Dienstplan** steht für Leitung und Träger eine kleine Zeile „Noch n Punkte offen“ mit Link zu den Einstellungen,
   solange etwas offen ist.
 
-## 24. Kasse
+## 26. Kasse
 
 - **Wer:** nur **Leitung** (eigene Einrichtung) und **Träger** (die gewählte Einrichtung), über den Menüpunkt **Kasse**.
   Mitarbeiter und das Tablet sehen die Kassen nicht.
@@ -2818,7 +2874,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   auch **PDF herunterladen**. **Excel-Datei (Monat)** und **Excel-Datei (Jahr)** laden eine Datei, die Excel direkt öffnet.
 - Kassen, Einträge und Belege sind in der normalen Datensicherung enthalten.
 
-## 25. Bögen, Mitarbeitergespräche, Beobachtungsbögen und Teamsitzungen
+## 27. Bögen, Mitarbeitergespräche, Beobachtungsbögen und Teamsitzungen
 
 - **Vorlagen:** im Menü unter **Mehr → Dokumente**, Reiter **Bögen** (Leitung und Träger). Die Seite sieht aus wie
   „Zum Ausdrucken“: Die **eigenen Kategorien** der Einrichtung stehen als Reiter oben, darunter die **Unterkategorien** der
@@ -2845,19 +2901,21 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   ihrer Liste (die Vorlagen direkt in einer Kategorie, oder die einer Unterkategorie). Überall, wo eine Vorlage gewählt
   wird (Bogen in der Kinderakte, Mitarbeitergespräch, Teamsitzung, Unfallbericht bzw. Unfallanzeige, Infogespräch,
   Hospitation), stehen nur die Vorlagen der passenden Art – gruppiert nach „Kategorie › Unterkategorie“ in der Reihenfolge
-  der Kategorien und darin in dieser Reihenfolge; Vorlagen ohne Kategorie zuletzt. Neue und kopierte Vorlagen
+  der Kategorien und darin in dieser Reihenfolge; Vorlagen ohne Kategorie zuletzt (Überschrift „Ohne Kategorie“, sobald
+  es andere Gruppen gibt; heißt eine echte Kategorie ebenfalls „Ohne Kategorie“, steht über den Vorlagen ohne Kategorie
+  „Ohne Kategorie (keiner zugeordnet)“). Neue und kopierte Vorlagen
   kommen ans Ende ihrer Liste. Stillgelegte Vorlagen haben keine Pfeile; sie behalten ihren Platz und stehen nach dem
   **Wieder aktivieren** wieder dort, wo sie vorher waren.
 - **Neue Einrichtungen** (unter Einstellungen neu angelegt, seit dem Update mit „Dokumente“) bekommen nur die
   Startvorlagen für Unfälle (**Unfallbericht Kind** und **Unfallanzeige (U 1000)**). Selbstbeurteilung,
   Beurteilungsbogen, Entwicklungsgespräch und Teamsitzung legt die App dort nicht an – auch später nicht. Eine Kategorie
   ohne Vorlage zeigt einen Hinweis („Neue Vorlage“). Bestehende Einrichtungen behalten alle ihre Vorlagen.
-- **Vorlage bearbeiten:** Name, bei Mitarbeitergesprächen „Vom Mitarbeiter auszufüllen“, dann **Bereiche** (Titel,
+- **Vorlage bearbeiten:** Name, bei Mitarbeitergesprächen „Von der Person selbst auszufüllen“, dann **Bereiche** (Titel,
   Hinweistext) und darin **Punkte**: Hinweis, Freitext, Ankreuzliste (mit Möglichkeiten), Bewertung (+ / ~ / −),
   Meilenstein (mit Altersstufe) und Datum. Mit den Pfeilen verschiebst du Bereiche und Punkte (Punkte auch in den
   nächsten Bereich). Die Art eines Punkts lässt sich nicht ändern – lösch ihn und leg ihn neu an. Erst **Vorlage
   speichern** übernimmt alles. Änderungen gelten nur für neue Bögen; schon angelegte Bögen behalten ihren Inhalt.
-- **Gespräch anlegen:** Mitarbeiter → Person → Reiter **Gespräche** → **Gespräch anlegen**: Datum, Uhrzeit, Teilnehmer,
+- **Gespräch anlegen:** Mitarbeitende → Person → Reiter **Gespräche** → **Gespräch anlegen**: Datum, Uhrzeit, Teilnehmer,
   Zeitraum und die Bögen (vorgeschlagen: Selbstbeurteilung und Beurteilungsbogen). **Öffnen** zeigt den Bogen zum
   Ausfüllen; **Speichern** nicht vergessen (ein Hinweis zeigt ungespeicherte Änderungen).
 - **Eigene Gespräche:** Niemand führt ein Gespräch über sich selbst. Ist dein Konto mit einem Mitarbeiter verknüpft,
@@ -2954,7 +3012,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Mitarbeitende anderer Gruppen sehen den Bogen nur zum Lesen, bis Leitung oder Träger sie über **Mitarbeiter
   freischalten** für genau diesen Bogen freischalten (zurücknehmbar, gilt am Tablet). Wechselt der Bezugserzieher, wechselt
   das Recht sofort mit. Schaltet der Träger den Schalter für eine Rolle aus, gilt für sie wieder nur Bezugserzieher und
-  Freischaltung. **Löschen** (mit Rückfrage) und **Mitarbeiter freischalten** können nur Leitung und Träger. Im Archiv
+  Freischaltung. **Löschen** (mit Rückfrage) und **Mitarbeitende freischalten** können nur Leitung und Träger. Im Archiv
   wird nichts mehr geändert.
 - **Speichern:** Kopffelder und Antworten werden zusammen mit **Speichern** übernommen. Mit ungespeicherten Änderungen
   fragt die App, bevor der Bogen geschlossen oder die Akte verlassen wird; am Tablet fragt **Sperren** ebenfalls, und
@@ -3017,7 +3075,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Protokollführung, das Protokoll und am Ende „freigegeben am … von …“ bzw. „Entwurf – noch nicht freigegeben“. Am
   Tablet wird nicht gedruckt.
 
-## 26. Rechte und Rollen
+## 28. Rechte und Rollen
 
 ### Die Seite „Rechte und Rollen“ (nur Träger)
 
@@ -3076,20 +3134,20 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
 
 - Die Mitarbeitenden legen **Beobachtungsbögen und Entwicklungsgespräche der Kinder ihrer Gruppe** an und füllen sie aus
   (Schalter „Bögen: eigene Gruppe anlegen und ausfüllen (auch Entwicklungsgespräche)“, an bei Mitarbeiter,
-  Gruppenleitung und Leitung; Abschnitt 25). Bestehende Installationen bekommen ihn ohne weiteres Zutun: Gespeichert
+  Gruppenleitung und Leitung; Abschnitt 27). Bestehende Installationen bekommen ihn ohne weiteres Zutun: Gespeichert
   werden nur die Schalter, die von der Grundeinstellung abweichen, also gilt für den neuen Schalter die Grundeinstellung
   („an“), bis der Träger ihn ausschaltet. Der bisherige Schalter heißt jetzt „Bögen: alle anlegen und ausfüllen“.
   Unfallberichte bleiben, wie sie sind: Einen Unfallbericht schreibt, wer die Anwesenheit des Kindes führt (eigene Gruppe).
 - Die Leitung darf abgeschlossene **Kassenmonate wieder öffnen** (Schalter „Monate abschließen und wieder öffnen“).
 - Ob die Leitung die **Vertragsangaben** sieht, ist jetzt der Schalter „Vertragsangaben ansehen“ der Leitung (der
-  frühere Schalter auf der Seite *Mitarbeiter* ist weg; die bisherige Einstellung wurde übernommen).
+  frühere Schalter auf der Seite *Mitarbeitende* ist weg; die bisherige Einstellung wurde übernommen).
 - Wer **Urlaub plant und genehmigt**, ist der Schalter „Urlaub: planen und genehmigen“ (je Rolle oder als Ausnahme je
   Person). Bisherige Zuständige (Leitung) wurden als Ausnahme übernommen. In *Einstellungen → Urlaub* wählst du nur noch,
   welche Träger-Konten bei neuen Anträgen benachrichtigt werden.
 
 ### Ausnahmen je Person
 
-- Bei der Person (*Mitarbeiter → Name → Reiter „Zugang“*, aufklappbar **„Rechte dieser Person“**, oder *Benutzer* →
+- Bei der Person (*Mitarbeitende → Name → Reiter „Zugang“*, aufklappbar **„Rechte dieser Person“**, oder *Benutzer* →
   „Rechte“) siehst du als Träger jeden Schalter mit dem Stand der Rolle, der Ausnahme und dem, was gilt.
 - Je Schalter wählst du **„von der Rolle“** (keine Ausnahme), **„zusätzlich erlaubt“** oder **„weggenommen“**; bei den
   Kinder-Schaltern mit Umfang. Jede Änderung wird sofort gespeichert. Auch hier kommt mit, was ein Schalter braucht, und
@@ -3124,7 +3182,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Leitung Rechte weggenommen, könnte sie so mit einem anderen Konto arbeiten. Gib das Leitungs-Konto deshalb nur
   Personen, denen du die ganze Einrichtung anvertraust.
 
-## 27. Kontakte (Adressbuch der Einrichtung)
+## 29. Kontakte (Adressbuch der Einrichtung)
 
 Unter **Mehr → Kontakte** führt jede Einrichtung ihr Adressbuch mit wichtigen Kontakten nach außen: Schulen, Jugendamt,
 Gesundheitsamt, Fachberatung, Ärztinnen und Ärzte, Handwerk und Notdienst usw.
@@ -3239,6 +3297,11 @@ Beim Anlegen und später mit **Bearbeiten** gibt es **„Gilt für“** – gena
   E-Mail und Notiz nicht. **Ausnahme „Nur Träger“**: Eine Schule, die nur der Träger sieht (eigene Einstellung oder
   Kategorie), steht nur beim Träger zur Auswahl – als „künftige Schule“ in der Kinderakte und in den Schulbezirken. Ist sie
   bei einem Kind schon eingetragen, bleibt sie dort mit Namen stehen, auch wenn die Leitung die Akte speichert.
+  Ebenso bewusst: Ordnet der Träger in **seiner** Straßenliste (der Liste für alle Einrichtungen ohne eigene) einem Bezirk
+  eine „Nur Träger“-Schule zu, sieht die Leitung deren **Namen** in *Einstellungen → Kinder → Schulbezirke* (Liste des
+  Trägers), und jede Person, die eine passende Kinderakte sieht, liest ihn im Hinweis zum Schulbezirk – „Übernehmen“ gibt
+  es dort nicht. Ansprechperson, Telefon, E-Mail und Notiz bleiben verborgen. Soll auch der Name nicht sichtbar sein, ordne
+  dem Bezirk keine „Nur Träger“-Schule zu.
 - Das frühere Freitextfeld heißt jetzt **„Grundschule (Notiz)“**. Es erscheint nur noch, wenn darin schon etwas steht oder
   unter Kontakte noch keine Schule eingetragen ist; für die Liste der Schulkinder zählt nur „künftige Schule“.
 - Die Liste **Kinder → Belegung → „Schulkinder zum 1.9.“** zeigt die künftige Schule, lässt sich **nach Schule
@@ -3255,7 +3318,7 @@ sind sie wie alle Daten enthalten. Wer einen Kontakt zuletzt geändert hat (Benu
 Träger, nicht die Mitarbeiter und nicht das Tablet. E-Mail-Adressen dürfen keine Zusätze wie „?bcc=“ enthalten, damit ein
 Klick darauf keine weiteren Empfänger einträgt.
 
-## 28. Wissen (Dokumente → Wissen) mit „Gelesen und verstanden“
+## 30. Wissen (Dokumente → Wissen) mit „Gelesen und verstanden“
 
 Unter **Dokumente → Wissen** sammelt jede Einrichtung, was das Team nachlesen soll: Konzepte und Pläne als **PDF**,
 **Links** zu offiziellen Seiten (Gesetze, Orientierungsplan, RKI) und **kurze Texte** (mit Fett, Kursiv, Unterstrichen
@@ -3376,10 +3439,10 @@ Das Recht „Wissen: pflegen“ steht auf der Seite **Rechte und Rollen** (Berei
 - Die **Lesebestätigungen** sind personenbezogen (wer hat was wann gelesen) und zugleich der Nachweis einer Unterweisung
   (z. B. Kinderschutzkonzept, Hygieneplan, Aufsichtspflicht). Sie gehören deshalb wie die Fortbildungsnachweise zu
   **„Beurteilungen und Zeugnisse“** (voreingestellt 3 Jahre nach dem Ende des Jahres, in dem die Person ausgeschieden ist;
-  Mehr → Datenschutz & Löschen, siehe Abschnitt „Löschfristen“); „Endgültig löschen“ im Archiv der Mitarbeiter-Seite löscht sie
+  Mehr → Datenschutz & Löschen, siehe Abschnitt „Löschfristen“); „Endgültig löschen“ im Archiv der Seite *Mitarbeitende* löscht sie
   sofort mit.
 
-## 29. Schulbezirke (Straßenliste der Stadt)
+## 31. Schulbezirke (Straßenliste der Stadt)
 
 Mit der Straßenliste der Stadt (welche Hausnummern welcher Straße zu welchem Grundschulbezirk gehören) zeigt die
 Kinderakte, zu welchem **Schulbezirk** die Adresse eines Kindes gehört, und die Liste der Schulkinder lässt sich nach
@@ -3466,10 +3529,10 @@ Die Straßenlisten enthalten keine personenbezogenen Daten. Der Bezirk eines Kin
 Kinder berechnet, die die Person ohnehin sehen darf, und nirgends gespeichert. Die eigene Liste gehört zur Einrichtung
 und würde mit ihr gelöscht; eine Schule, die aus den Kontakten gelöscht wird, verschwindet aus der Zuordnung des Bezirks.
 
-## 30. Infogespräche, Bewerbungen und Hospitationen
+## 32. Infogespräche, Bewerbungen und Hospitationen
 
 **Wo:** Die **Infogespräche** mit Familien stehen unter **Kinder → Planung → Infogespräche** (neben den Vormerkungen),
-die **Bewerbungen, Hospitationen und Praktika** unter **Mitarbeiter → Bewerbungen & Hospitationen** (neben der
+die **Bewerbungen, Hospitationen und Praktika** unter **Mitarbeitende → Bewerbungen & Hospitationen** (neben der
 Mitarbeiterliste). Beides gibt es nicht am Tablet.
 
 **Recht:** „Infogespräche & Hospitationen: führen“ (Rechte und Rollen, voreingestellt für Leitung; der Träger darf es
@@ -3505,7 +3568,7 @@ im Eintrag der Bewerbung (nur mit dem Recht „führen“ sichtbar), und das Fen
 Person später in eine andere Einrichtung um, verlassen Telefon und E-Mail den Eintrag: Hat, wer den Umzug macht, das
 Recht „Anschrift und Kontakt“, kommen sie in die Personalakte (wo dort noch nichts steht); sonst werden sie nur gelöscht. Die Dokumente kommen in ein gewähltes Fach der
 Personalakte, für das man das Recht hat (voreingestellt „Bewerbung“, sonst das erste erlaubte), die Bögen erscheinen in
-der Personalakte unter Nachweise → Dokumente als „Bögen aus der Bewerbung“ (nur lesen; sichtbar mit dem Fach „Bewerbung“
+der Personalakte unter Nachweise als „Bögen aus der Bewerbung“ (nur lesen; sichtbar mit dem Fach „Bewerbung“
 oder dem Recht „Infogespräche & Hospitationen führen“). Der Eintrag bleibt als „eingestellt“ stehen (ein Tag der Absage
 entfällt) und behält nur Art, Termine, Stand und den Verweis: Name, Notizen und Einschätzung stehen ab dann nur in der
 Personalakte. Er gehört dann zu den „Beurteilungen und Zeugnissen“ der Person (gelöscht mit dieser Frist, zusammen mit
