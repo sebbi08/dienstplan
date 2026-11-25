@@ -27,7 +27,7 @@ export const calendarTabs = (can: Can): AreaTab[] => only([
  * „Mitarbeiter“: the staff list (employees.view), „Bewerbungen & Hospitationen“ on the same page (?tab=applicants,
  * visits.applicants.view) and the sick days (employees.sickness).
  */
-export const employeeTabs = (can: Can): AreaTab[] => only([
+export const staffAreaTabs = (can: Can): AreaTab[] => only([
   [can('employees.view'), { label: de.nav.employees, to: '/admin/employees' }],
   [can('employees.view') && can('visits.applicants.view'), { label: de.visits.tabs.applicants, to: '/admin/employees', tab: 'applicants' }],
   [can('employees.sickness'), { label: de.nav.sickDays, to: '/admin/employees/sick-days' }],
@@ -42,6 +42,13 @@ export const userTabs = (can: Can): AreaTab[] => only([
 /** Whether the tab is the one shown: its page and its `?tab=` (none for the page's main tab). */
 export const isAreaTabActive = (tab: AreaTab, route: { path: string; query: LocationQuery }): boolean =>
   route.path === tab.to && (typeof route.query.tab === 'string' ? route.query.tab : undefined) === tab.tab
+
+/** The old addresses of the former menu entries and the tab each one is now. */
+export const MOVED_PAGES = {
+  '/admin/closures': '/admin/calendar/closures',
+  '/admin/sick-days': '/admin/employees/sick-days',
+  '/admin/rights': '/admin/users/rights',
+} as const
 
 /** Where an old address leads: the new one, keeping the query (e.g. ?year=) and the anchor. */
 export function movedLocation(path: string, from: { query: LocationQuery; hash: string }): RouteLocationRaw {

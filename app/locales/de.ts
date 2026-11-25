@@ -83,7 +83,7 @@ export const de = {
     selfAssessments: (count: number) => (count === 1 ? '1 Selbstbeurteilung ausfüllen' : `${count} Selbstbeurteilungen ausfüllen`),
     leaveDecisions: (count: number) => (count === 1 ? 'Rückmeldung zu deinem Urlaubsantrag' : `${count} Rückmeldungen zu deinen Urlaubsanträgen`),
     leaveNotice: 'Hinweis zu deinem Resturlaub lesen',
-    requirements: (count: number) => (count === 1 ? '1 Pflichttermin fällig' : `${count} Pflichttermine fällig`),
+    requirements: (count: number) => (count === 1 ? '1 Pflichttermin überfällig' : `${count} Pflichttermine überfällig`),
   },
   leavePlanning: {
     title: 'Urlaubsplanung', countRow: 'im Urlaub',

@@ -19,7 +19,7 @@ import { splitLeavers } from '~/utils/leavers'
 import { archiveRetentionText } from '~/utils/retentionText'
 import { staffBadges, type StaffBadge } from '~/utils/staffList'
 import { workdaysText } from '~/utils/workdays'
-import { employeeTabs } from '~/utils/areaTabs'
+import { staffAreaTabs } from '~/utils/areaTabs'
 
 /**
  * All employees in one compact list: group, weekly hours, overtime balance today and the leave left in the chosen
@@ -245,7 +245,7 @@ const td = 'px-3 py-2'
 <template>
   <div class="max-w-6xl space-y-4">
     <!-- Mitarbeiter | Bewerbungen & Hospitationen (?tab=applicants) | Krankheitstage (a former menu entry): one tab bar. -->
-    <AreaTabs :tabs="employeeTabs(can)" />
+    <AreaTabs :tabs="staffAreaTabs(can)" />
     <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
       <h1 class="text-2xl font-semibold">{{ de.employees.title }}</h1>
       <MonthNav :year="year" :month="month" @change="change" />

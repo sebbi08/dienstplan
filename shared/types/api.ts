@@ -4587,7 +4587,7 @@ export interface MyOpenItemsDto {
   leaveDecisions: number
   /** The notice on remaining leave is still to be read. */
   leaveNotice: boolean
-  /** Own mandatory appointments overdue or never recorded. */
+  /** Own mandatory appointments overdue (one never entered only after the first 4 weeks of employment). */
   requirements: number
 }
 

@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { calendarTabs, employeeTabs, isAreaTabActive, movedLocation, userTabs } from '../../app/utils/areaTabs'
+import { MOVED_PAGES, calendarTabs, isAreaTabActive, movedLocation, staffAreaTabs, userTabs } from '../../app/utils/areaTabs'
+import { navMenu } from '../../app/utils/navMenu'
+import { accountRedirect, pageKeys } from '../../app/utils/routeAccess'
+import { tabletStartTiles } from '../../app/utils/tabletStart'
 import { openItemLinks } from '../../app/utils/openItems'
 import { effectivePermissions } from '../../shared/domain/permissionBundles'
 import type { PermissionKey } from '../../shared/domain/permissions'
@@ -18,7 +21,7 @@ describe('former menu entries as tabs', () => {
   it('shows each role the tabs it may use', () => {
     expect(calendarTabs(canOf('admin')).map(tab => tab.to)).toEqual(['/admin/calendar', '/admin/calendar/closures'])
     // One tab bar on Mitarbeiter: the list, „Bewerbungen & Hospitationen“ (?tab=applicants) and Krankheitstage.
-    const staffTabs = employeeTabs(key => key === 'employees.view' || key === 'employees.sickness' || key === 'visits.applicants.view')
+    const staffTabs = staffAreaTabs(key => key === 'employees.view' || key === 'employees.sickness' || key === 'visits.applicants.view')
     expect(staffTabs.map(tab => [tab.label, tab.to, tab.tab])).toEqual([
       ['Mitarbeiter', '/admin/employees', undefined], ['Bewerbungen & Hospitationen', '/admin/employees', 'applicants'],
       ['Krankheitstage', '/admin/employees/sick-days', undefined],
@@ -30,15 +33,24 @@ describe('former menu entries as tabs', () => {
     // The Leitung manages accounts, only the Träger the rights of the roles.
     expect(userTabs(canOf('admin')).map(tab => tab.to)).toEqual(['/admin/users'])
     expect(userTabs(canOf('provider')).map(tab => tab.to)).toEqual(['/admin/users', '/admin/users/rights'])
-    expect(employeeTabs(key => key === 'employees.view')).toEqual([{ label: 'Mitarbeiter', to: '/admin/employees' }])
+    expect(staffAreaTabs(key => key === 'employees.view')).toEqual([{ label: 'Mitarbeiter', to: '/admin/employees' }])
   })
 
-  it('sends the old addresses to the tabs, keeping the query and the anchor', () => {
-    expect(movedLocation('/admin/calendar/closures', { query: { year: '2027' }, hash: '#x' }))
-      .toEqual({ path: '/admin/calendar/closures', query: { year: '2027' }, hash: '#x' })
-    expect(page('admin/closures.vue')).toContain(`definePageMeta({ redirect: to => movedLocation('/admin/calendar/closures', to) })`)
-    expect(page('admin/sick-days.vue')).toContain(`definePageMeta({ redirect: to => movedLocation('/admin/employees/sick-days', to) })`)
-    expect(page('admin/rights.vue')).toContain(`definePageMeta({ redirect: to => movedLocation('/admin/users/rights', to) })`)
+  it('sends the old addresses to the tabs, keeping the query and the anchor; old and new address need the same key', () => {
+    expect(MOVED_PAGES).toEqual({
+      '/admin/closures': '/admin/calendar/closures', '/admin/sick-days': '/admin/employees/sick-days', '/admin/rights': '/admin/users/rights',
+    })
+    for (const [from, to] of Object.entries(MOVED_PAGES)) {
+      expect(movedLocation(to, { query: { year: '2027' }, hash: '#x' }), from).toEqual({ path: to, query: { year: '2027' }, hash: '#x' })
+      expect(pageKeys(from), from).toEqual(pageKeys(to))
+      // Whoever may not open the tab is not sent there either: the old address answers the same way.
+      for (const role of ['admin', 'observer', 'provider'] as const) {
+        const viewer = { mustChangePassword: false, can: canOf(role) }
+        expect(accountRedirect(from, viewer), `${from} ${role}`).toEqual(accountRedirect(to, viewer))
+      }
+      // Each old page sends to its tab (the redirect names the map entry).
+      expect(page(`${from.slice(1)}.vue`), from).toContain(`movedLocation(MOVED_PAGES['${from}'], to)`)
+    }
     // Each tab page carries the tab bar.
     for (const path of ['admin/calendar/index.vue', 'admin/calendar/closures.vue', 'admin/employees/index.vue', 'admin/employees/sick-days.vue', 'admin/users/index.vue', 'admin/users/rights.vue']) {
       expect(page(path), path).toContain('<AreaTabs :tabs=')
@@ -56,7 +68,7 @@ describe('„Offen für dich“', () => {
       ['1 Selbstbeurteilung ausfüllen', '/my/talks'],
       ['Hinweis zu deinem Resturlaub lesen', '/my/leave'],
       ['Rückmeldung zu deinem Urlaubsantrag', '/my/leave'],
-      ['2 Pflichttermine fällig', '/my/requirements'],
+      ['2 Pflichttermine überfällig', '/my/requirements'],
     ])
     expect(openItemLinks({ ...NOTHING, sign: 1 })[0]!.label).toBe('1 Dokument zu unterschreiben')
   })
@@ -68,14 +80,18 @@ describe('„Offen für dich“', () => {
 })
 
 describe('the tablet\'s start page', () => {
-  const terminal = page('terminal.vue')
-  const start = terminal.slice(terminal.indexOf(`<template v-if="mode === 'start'">`), terminal.indexOf('<template v-else>'))
   it('holds every destination as a tile, by frequency, and shows „Kontakte“ only with contacts for the staff', () => {
-    const order = ['setMode(\'stamp\')', 'setMode(\'children\')', 'to="/documents"', 'setMode(\'sign\')', 'to="/notes"', ':to="planPath"', 'to="/team-meetings"', 'to="/contacts"', 'printMenuOpen = true']
-    const positions = order.map(marker => start.indexOf(marker))
-    expect(positions.every(position => position >= 0), JSON.stringify(positions)).toBe(true)
-    expect([...positions].sort((a, b) => a - b)).toEqual(positions)
-    expect(start).toContain('<NuxtLink v-if="showContacts" to="/contacts"')
-    expect(terminal).toContain('const showContacts = computed(() => (tabletContacts.value?.contacts.length ?? 0) > 0)')
+    const without = tabletStartTiles({ showContacts: false, planPath: '/plan/2026/11' })
+    expect(without.map(tile => tile.key)).toEqual(['stamp', 'children', 'documents', 'sign', 'notes', 'plan', 'teamMeetings', 'print'])
+    expect(without.filter(tile => tile.big).map(tile => tile.key)).toEqual(['stamp', 'children'])
+    expect(without.find(tile => tile.key === 'plan')!.action).toEqual({ kind: 'link', to: '/plan/2026/11' })
+    expect(without.find(tile => tile.key === 'documents')).toMatchObject({ label: 'Dokumente', hint: 'Vorlagen und Wissen', action: { kind: 'link', to: '/documents' } })
+    const withContacts = tabletStartTiles({ showContacts: true, planPath: '/plan/2026/11' })
+    expect(withContacts.map(tile => tile.key)).toEqual(['stamp', 'children', 'documents', 'sign', 'notes', 'plan', 'teamMeetings', 'contacts', 'print'])
+    // Every former header destination is a tile now; the header itself only leads back to the start page.
+    const header = navMenu({ role: 'terminal', can: () => false, employeeId: null, isPlanner: false, openCount: 0, unread: 0, today: { year: 2026, month: 11 } })
+    expect(header.main.map(entry => entry.to)).toEqual(['/terminal'])
+    expect(withContacts.flatMap(tile => (tile.action.kind === 'link' ? [tile.action.to] : []))).toEqual(expect.arrayContaining(['/plan/2026/11', '/team-meetings', '/notes']))
+    expect(page('terminal.vue')).toContain('tabletStartTiles({ showContacts: showContacts.value, planPath })')
   })
 })

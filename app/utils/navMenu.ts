@@ -123,6 +123,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // „Bewerbungen & Hospitationen“ without the staff list (e.g. a Gruppenleitung with the applicants' view); with it they
   // are a tab of „Mitarbeiter“, and the info visits a tab of Kinder → Planung.
   const applicants = shown([[!can('employees.view') && can('visits.applicants.view'), entry(de.visits.tabs.applicants, '/admin/employees/applicants')]])
+  // Schließzeiten are a tab of „Kalender“ (calendar.edit); an account with closures.manage alone keeps its own entry.
+  const closuresOnly = shown([[can('closures.manage') && !can('calendar.edit'), entry(de.nav.closures, '/admin/calendar/closures')]])
   const adminMore = shown([
     // All accident reports of the facility (children and employees) with the year's list.
     [can('accidents.manage'), entry(de.nav.accidents, '/admin/accidents')],
@@ -137,7 +139,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // (Schließzeiten and Krankheitstage are tabs of „Kalender“ and „Mitarbeiter“ now; their keys still make an office account.)
   const officeKeys = can('closures.manage') || can('employees.sickness') || cash.length > 0
   if (office.length > 0 || officeKeys || adminMore.length > 0 || formsManager || can('calendar.edit')) {
-    const more = [...contacts, ...cash, ...applicants, ...adminMore]
+    const more = [...closuresOnly, ...contacts, ...cash, ...applicants, ...adminMore]
     // With office pages (Leitung, Träger): the everyday ones in the row, the rest under "Mehr"; linked to an employee
     // also the own pages under "Meins" (stamping on "Mein Dienstplan", leave requests, own appointments).
     // "Urlaubsplanung": the planners with their open requests; whoever sees the leave overview too, for the notice on

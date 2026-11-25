@@ -49,6 +49,12 @@ describe('navMenu', () => {
     expect(labels(navMenu({ ...base, can: key => key !== 'users.manage' && key !== 'rights.manage' && base.can(key) }).more)).not.toContain('Benutzer & Rechte')
   })
 
+  it('keeps „Schließzeiten“ under „Mehr“ for an account with closures.manage but no calendar.edit (the tab sits on Kalender)', () => {
+    const closuresOnly = navMenu({ ...base, can: key => key !== 'calendar.edit' && base.can(key) })
+    expect(closuresOnly.more[0]).toEqual({ label: 'Schließzeiten', to: '/admin/calendar/closures', match: '/admin/calendar/closures' })
+    expect(labels(navMenu(base).more)).not.toContain('Schließzeiten')
+  })
+
   it('puts "Urlaubsplanung" with the open requests second for a planner and counts them in the total', () => {
     const menu = navMenu({ ...base, employeeId: 3, isPlanner: true, openCount: 4, unread: 1 })
     expect(labels(menu.main)).toEqual(['Dienstplan', 'Urlaubsplanung (4)', 'Zeiterfassung', 'Mitarbeiter', 'Kinder', 'Kalender', 'Teamsitzungen', 'Notizen', 'Dokumente'])

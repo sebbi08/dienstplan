@@ -2646,8 +2646,12 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   - **Offen für dich**: Wer einen eigenen Mitarbeiter-Eintrag hat, sieht oben auf **Mein Dienstplan** (Leitung und Träger
     auf ihrem Dienstplan) einen Kasten mit dem, was für die Person selbst wartet – jeweils mit Zahl und Link: Dokumente zu
     unterschreiben (davon überfällige), Einträge „Gelesen und verstanden“, Selbstbeurteilungen zum Ausfüllen, der Hinweis
-    zum Resturlaub, Rückmeldungen zu eigenen Urlaubsanträgen (der letzten 14 Tage) und fällige Pflichttermine (überfällig
-    oder noch nie eingetragen). Ist nichts offen, fehlt der Kasten. Er zeigt nur die eigenen Sachen der Person.
+    zum Resturlaub, Rückmeldungen zu eigenen Urlaubsanträgen (der letzten 14 Tage) und überfällige Pflichttermine (ein
+    noch nie eingetragener zählt erst nach den ersten 4 Wochen der Beschäftigung). Ist nichts offen, fehlt der Kasten. Er
+    zeigt nur die eigenen Sachen der Person. Noch offen: Aufgaben aus Infogesprächen und Hospitationen erscheinen dort
+    (noch) nicht.
+  - Wer nur das Recht für Schließzeiten hat (ohne den Jahreskalender zu bearbeiten), findet **Schließzeiten** weiter
+    direkt unter **Mehr**.
   Wer als Leitung oder Träger auch einen eigenen Mitarbeiter-Eintrag hat, findet unter **Meins** „Mein Dienstplan“,
   „Mein Urlaub“, „Meine Termine“ und „Meine Gespräche“; die Zahl ungelesener Änderungen steht an **Meins** und an „Mein Dienstplan“. „Mehr“ und „Meins“ sind
   hervorgehoben, wenn man gerade auf einer ihrer Seiten ist. Der eigene Benutzername steht auf breiten Bildschirmen

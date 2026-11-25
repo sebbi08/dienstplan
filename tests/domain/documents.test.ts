@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { chosenDocumentTab, documentsLocation, documentTabs } from '../../app/utils/documents'
+import { tabletStartTiles } from '../../app/utils/tabletStart'
 import { effectivePermissions } from '../../shared/domain/permissionBundles'
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { Role } from '../../shared/types/api'
@@ -43,6 +44,6 @@ describe('„Dokumente“', () => {
     expect(page('templates.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('templates', to) })")
     expect(page('admin/forms.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('forms', to) })")
     // One tile „Dokumente“ (Vorlagen and Wissen) on the tablet's start page.
-    expect(page('terminal.vue')).toContain('to="/documents"')
+    expect(tabletStartTiles({ showContacts: false, planPath: '/plan/2026/11' }).find(tile => tile.key === 'documents')!.action).toEqual({ kind: 'link', to: '/documents' })
   })
 })

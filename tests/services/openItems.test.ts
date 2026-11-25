@@ -62,11 +62,25 @@ describe('„Offen für dich“ (myOpenItems)', () => {
     leave(ben, 'approved', '2026-11-24T10:00:00.000Z')
 
     const items = myOpenItems(db, tinaAccount, TODAY)
+    // Tina works here since 01.01.2026 (more than 4 weeks): never entered kinds count as overdue too.
     const requirements = getEmployeeRequirements(db, 1, tina, TODAY).kinds.filter(kind => kind.state === 'overdue' || kind.state === 'missing').length
     expect(items).toEqual({
       knowledge: before.knowledge + 1, sign: 2, signOverdue: 1, selfAssessments: 1, leaveDecisions: 2, leaveNotice: false, requirements,
     })
     expect(requirements).toBeGreaterThan(0)
+  })
+
+  it('counts never entered Pflichttermine only after the first 4 weeks, overdue ones always', () => {
+    const fresh = addEmployee(db, 'Neu Neumann', { validFrom: '2026-11-10' })
+    const account = addUser(db, 'neu', 'observer', fresh)
+    const missing = getEmployeeRequirements(db, 1, fresh, TODAY).kinds.filter(kind => kind.state === 'missing').length
+    expect(missing).toBeGreaterThan(0)
+    expect(myOpenItems(db, account, TODAY).requirements).toBe(0)
+    // Four weeks after the start every kind never entered is due.
+    expect(myOpenItems(db, account, '2026-12-08').requirements).toBe(getEmployeeRequirements(db, 1, fresh, '2026-12-08').kinds
+      .filter(kind => kind.state === 'overdue' || kind.state === 'missing').length)
+    expect(myOpenItems(db, account, '2026-12-07').requirements).toBe(getEmployeeRequirements(db, 1, fresh, '2026-12-07').kinds
+      .filter(kind => kind.state === 'overdue').length)
   })
 
   it('has nothing open for an account without a linked employee', () => {
