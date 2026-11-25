@@ -72,7 +72,7 @@ export const BW: StaffingRuleSet[] = [
       + 'Berufspraktikum (Anerkennungsjahr) mit bis zu 100 % „als Fachkraft“ (§ 7 Abs. 4 KiTaG, KM-FAQ zum KiTaG) – '
       + 'bei der Mindestbesetzung nach Uhrzeit aber nicht als ganze Fachkraft. Sozialpädagogische Assistenz praxisintegriert (PiA): '
       + 'eigene Qualifikation, 1. Jahr 0 %, 2. und 3. Jahr 20 % (KM-FAQ). Direkteinstieg Kita (2. Jahr) bis 20 %, über '
-      + 'das L-Bank-Programm geförderte PiA-Plätze 0 % – beim Mitarbeiter eintragen. Staatlich anerkannte '
+      + 'das L-Bank-Programm geförderte PiA-Plätze 0 % – bei der Person eintragen. Staatlich anerkannte '
       + 'Kinderpfleger/innen und Sozialpädagogische Assistent/innen sind Fachkräfte (§ 7 Abs. 2 Nr. 6 KiTaG) – als '
       + '„Fachkraft“ eintragen, nicht als Ergänzungskraft (zählt 0 %). Praxissemester an anderen Hochschulen zählen '
       + `nicht. ${NOTE}. Beginn der Fassung vom 14.07.2025 nicht recherchiert.`,

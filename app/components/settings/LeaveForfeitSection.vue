@@ -41,7 +41,7 @@ const save = () => dirty.value && validDate.value && validText.value && run(() =
 <template>
   <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ t.title }}</h2>
-    <p class="text-xs text-gray-500">{{ t.settingsHint }}</p>
+    <MoreHint class="text-xs text-gray-500" :text="t.settingsHint" :more="t.settingsHintMore" />
     <form class="space-y-3" @submit.prevent="save">
       <UFormField :label="t.dateLabel" :hint="t.dateHint" :error="validDate ? undefined : de.errors.invalid_forfeit_date">
         <div class="flex flex-wrap gap-2">

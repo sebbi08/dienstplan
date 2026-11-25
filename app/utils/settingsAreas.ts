@@ -119,7 +119,7 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
       to: privacyPath('periods'),
       keywords: [
         'Löschfrist', 'Löschfristen', 'löschen', 'Datenschutz', 'Aufbewahrung', 'abgemeldete Kinder', 'Archiv', 'Backup', 'Datenbank',
-        'herunterladen', 'Sicherung', 'Datensicherung', 'Kopie', 'ausgeschieden', 'Mitarbeiter löschen', 'endgültig löschen', 'Lohnbüro',
+        'herunterladen', 'Sicherung', 'Datensicherung', 'Kopie', 'ausgeschieden', 'Mitarbeitende löschen', 'endgültig löschen', 'Lohnbüro',
         'Steuerbüro', 'Lohnunterlagen', 'Bewerbungen', 'Kasse',
       ],
     },
@@ -248,8 +248,8 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
     },
     {
       // The staff's Löschfristen (per facility; the Leitung reads them): on „Datenschutz & Löschen“, a link card stays here.
-      key: 'staff-retention', title: de.retention.title, permission: 'settings.facility', replaces: [], to: privacyPath('periods'),
-      keywords: ['Löschfrist Mitarbeiter', 'ausgezahlt', 'Überstunden', 'Beurteilung', 'Zeugnis', 'Altersvorsorge', 'Lohnkonto'],
+      key: 'staff-retention', title: de.privacy.staffCardTitle, permission: 'settings.facility', replaces: [], to: privacyPath('periods'),
+      keywords: ['Löschfrist Mitarbeitende', 'ausgezahlt', 'Überstunden', 'Beurteilung', 'Zeugnis', 'Altersvorsorge', 'Lohnkonto'],
     },
   ],
 }

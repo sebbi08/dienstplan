@@ -67,7 +67,7 @@ function save() {
       </UFormField>
       <fieldset class="space-y-2">
         <legend class="text-sm font-medium">{{ s.noLockTitle }}</legend>
-        <p class="text-xs text-gray-500">{{ s.noLockHint }}</p>
+        <MoreHint class="text-xs text-gray-500" :text="s.noLockHint" :more="s.noLockHintMore" />
         <p v-if="!windows.length" class="text-sm text-gray-500">{{ s.noLockNone }}</p>
         <ul class="space-y-2">
           <li
@@ -92,7 +92,7 @@ function save() {
           v-if="windows.length < MAX_NO_LOCK_WINDOWS" size="sm" color="neutral" variant="outline" icon="i-lucide-plus"
           :label="s.noLockAdd" :disabled="busy" @click="addWindow"
         />
-        <p class="text-xs text-gray-500">{{ s.noLockDays }}</p>
+        <MoreHint class="text-xs text-gray-500" :text="s.noLockDays" :more="s.noLockDaysMore" />
       </fieldset>
       <USwitch v-model="showWaitlist" :label="s.showWaitlist" />
       <USwitch v-model="showFutureContracts" :label="s.showFutureContracts" />

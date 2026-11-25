@@ -52,7 +52,8 @@ const save = () => dirty.value && run(() => $fetch<LeaveCountingDto>('/api/leave
     <h2 class="font-semibold">{{ t.title }}</h2>
     <p v-if="!canConfigure" class="text-xs text-gray-500">{{ t.providerOnly }}</p>
     <form class="space-y-3" @submit.prevent="save">
-      <UFormField :help="t.tvoedHint">
+      <UFormField>
+        <template #help><MoreHint :text="t.tvoedHint" :more="t.tvoedHintMore" /></template>
         <div class="flex flex-wrap items-center gap-2">
           <USwitch v-model="form.tvoedSue" :label="t.tvoed" :disabled="!canConfigure" />
           <UBadge v-if="validity && form.tvoedSue" size="sm" variant="soft" color="info" :label="t.validFrom(validity.fromYear)" />
@@ -71,6 +72,6 @@ const save = () => dirty.value && run(() => $fetch<LeaveCountingDto>('/api/leave
       </UFormField>
       <UButton v-if="canConfigure" type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />
     </form>
-    <p class="text-xs text-gray-500">{{ t.hint }}</p>
+    <MoreHint class="text-xs text-gray-500" :text="t.hint" :more="t.hintMore" />
   </section>
 </template>

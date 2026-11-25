@@ -218,7 +218,7 @@ async function remove(form: ChildFormListItemDto) {
     <UModal v-model:open="editorsOpen" :title="c.editors" :description="editorsForm ? `${titleLine(editorsForm)} · ${editorsForm.title}` : undefined">
       <template #body>
         <div class="space-y-3">
-          <p class="text-sm text-gray-600">{{ c.editorsHint }}</p>
+          <MoreHint class="text-sm text-gray-600" :text="c.editorsHint" :more="c.editorsHintMore" />
           <ul class="max-h-80 space-y-1 overflow-y-auto">
             <li v-for="person in editorChoices" :key="person.id">
               <UCheckbox

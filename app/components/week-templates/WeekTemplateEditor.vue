@@ -266,7 +266,7 @@ async function save() {
       </div>
 
       <div class="space-y-2">
-        <p class="text-xs text-gray-500">{{ e.hint }}</p>
+        <MoreHint class="text-xs text-gray-500" :text="e.hint" :more="e.hintMore" />
         <PlanToolbar
           :templates="templates" :codes="templateCodes" :selected-count="selectedCells.length"
           @template="enter({ kind: 'shift', templateId: $event.id })" @code="onCode" @special="openTimeModal(null)" @clear="onClear"

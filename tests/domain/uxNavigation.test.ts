@@ -23,7 +23,7 @@ describe('former menu entries as tabs', () => {
     // One tab bar on Mitarbeiter: the list, „Bewerbungen & Hospitationen“ (?tab=applicants) and Krankheitstage.
     const staffTabs = staffAreaTabs(key => key === 'employees.view' || key === 'employees.sickness' || key === 'visits.applicants.view')
     expect(staffTabs.map(tab => [tab.label, tab.to, tab.tab])).toEqual([
-      ['Mitarbeiter', '/admin/employees', undefined], ['Bewerbungen & Hospitationen', '/admin/employees', 'applicants'],
+      ['Mitarbeitende', '/admin/employees', undefined], ['Bewerbungen & Hospitationen', '/admin/employees', 'applicants'],
       ['Krankheitstage', '/admin/employees/sick-days', undefined],
     ])
     expect(isAreaTabActive(staffTabs[0]!, { path: '/admin/employees', query: {} })).toBe(true)
@@ -33,7 +33,7 @@ describe('former menu entries as tabs', () => {
     // The Leitung manages accounts, only the Träger the rights of the roles.
     expect(userTabs(canOf('admin')).map(tab => tab.to)).toEqual(['/admin/users'])
     expect(userTabs(canOf('provider')).map(tab => tab.to)).toEqual(['/admin/users', '/admin/users/rights'])
-    expect(staffAreaTabs(key => key === 'employees.view')).toEqual([{ label: 'Mitarbeiter', to: '/admin/employees' }])
+    expect(staffAreaTabs(key => key === 'employees.view')).toEqual([{ label: 'Mitarbeitende', to: '/admin/employees' }])
   })
 
   it('sends the old addresses to the tabs, keeping the query and the anchor; old and new address need the same key', () => {

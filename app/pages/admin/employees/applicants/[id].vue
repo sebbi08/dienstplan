@@ -228,7 +228,7 @@ async function confirmHire() {
     <UModal v-model:open="hireOpen" :title="t.hireTitle">
       <template #body>
         <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="confirmHire">
-          <p class="text-sm text-gray-600 sm:col-span-2">{{ t.hireIntro }}</p>
+          <MoreHint class="text-sm text-gray-600 sm:col-span-2" :text="t.hireIntro" :more="t.hireIntroMore" />
           <p v-if="contactStays" class="text-sm text-amber-800 sm:col-span-2">{{ t.hireContactHint }}</p>
           <UFormField :label="t.shortName" required>
             <UInput v-model="hire.shortName" maxlength="10" class="w-full" required />

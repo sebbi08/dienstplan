@@ -159,7 +159,7 @@ function save() {
       <UFormField :label="de.contract.fixedTermUntil" :help="de.contract.fixedTermUntilHint" class="sm:col-span-2 sm:col-start-1">
         <DateTextInput :model-value="form.fixedTermUntil ?? ''" :label="de.contract.fixedTermUntil" class="w-full sm:w-44" @update:model-value="form.fixedTermUntil = $event || null" />
       </UFormField>
-      <p class="text-xs text-gray-500 sm:col-span-4">{{ de.contract.hint }}</p>
+      <MoreHint class="text-xs text-gray-500 sm:col-span-4" :text="de.contract.hint" :more="de.contract.hintMore" />
       <div class="sm:col-span-4"><UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy" /></div>
     </form>
   </section>

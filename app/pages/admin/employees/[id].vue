@@ -891,7 +891,7 @@ async function onTabKey(event: KeyboardEvent) {
           <USelect v-model="stamping.breakMode" :items="breakModeItems" :disabled="!canEditStamping" class="w-full" />
         </UFormField>
       </div>
-      <p class="text-xs text-gray-500">{{ de.employees.stampingHint }}</p>
+      <MoreHint class="text-xs text-gray-500" :text="de.employees.stampingHint" :more="de.employees.stampingHintMore" />
       <UButton v-if="canEditStamping" type="submit" :label="de.common.save" />
       <p v-else class="text-xs text-gray-500">{{ de.errors.own_account }}</p>
     </form>

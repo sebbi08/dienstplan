@@ -4,7 +4,7 @@ import type { ChildSickSettingsDto, ChildSickSettingsInput } from '#shared/types
 import { de } from '~/locales/de'
 
 /**
- * Einstellungen → Personal → Kinderkrankentage (§ 45 SGB V): days per child and per year, and the same for single
+ * Einstellungen → Mitarbeitende → Kinderkrankentage (§ 45 SGB V): days per child and per year, and the same for single
  * parents. One setting for all facilities; the Träger changes it, the Leitung sees it read-only (the server checks as
  * well). Without own values every year gets its legal values (2026: 15 / 35, from 2027: 10 / 25); own values count for
  * every year, and „Gesetzliche Werte verwenden“ removes them. Entering „Kind krank“ is never blocked, the plan only warns.

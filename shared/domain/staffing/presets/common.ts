@@ -23,7 +23,7 @@ export const TRAINEES_REVISED: IsoDate = '2026-11-01'
 export const TRAINEES_NOTE = 'Ab 01.11.2026 mit neu recherchierter Anrechnung von Auszubildenden, Studierenden und '
   + 'Berufspraktikanten (keine Gesetzesänderung). Auszubildende = angestellte Erzieher-Auszubildende (PiA/'
   + 'berufsbegleitend), Studium = duales/praxisintegriertes Studium (Kindheitspädagogik, Soziale Arbeit); andere '
-  + 'Fälle bitte beim Mitarbeiter unter „Anrechnung in %“ eintragen.'
+  + 'Fälle bitte bei der Person unter „Anrechnung in %“ eintragen.'
 
 /** Leitung add-on: once per facility, shown only (not checked against the plan in this step). */
 export function leitung(addOn: Omit<AddOn, 'key' | 'label' | 'scope' | 'counts'>): AddOn {

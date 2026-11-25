@@ -41,14 +41,21 @@ describe('form template categories', () => {
       { id: 1, name: 'A', category: 'Kinder' }, { id: 2, name: 'B', category: 'Kinder › Krippe' }, { id: 3, name: 'C', category: 'Kinder' },
       { id: 4, name: 'D', category: null },
     ])).toEqual([
-      { heading: 'Kinder', choices: [{ id: 1, name: 'A', category: 'Kinder' }, { id: 3, name: 'C', category: 'Kinder' }] },
-      { heading: 'Kinder › Krippe', choices: [{ id: 2, name: 'B', category: 'Kinder › Krippe' }] },
-      { heading: null, choices: [{ id: 4, name: 'D', category: null }] },
+      { key: 'category:Kinder', heading: 'Kinder', choices: [{ id: 1, name: 'A', category: 'Kinder' }, { id: 3, name: 'C', category: 'Kinder' }] },
+      { key: 'category:Kinder › Krippe', heading: 'Kinder › Krippe', choices: [{ id: 2, name: 'B', category: 'Kinder › Krippe' }] },
+      { key: 'none', heading: null, choices: [{ id: 4, name: 'D', category: null }] },
     ])
     // With a heading for those without a category, once another group has one; alone they stay without a heading.
     expect(groupTemplateChoices([{ id: 1, name: 'A', category: 'Kinder' }, { id: 4, name: 'D', category: null }], 'Ohne Kategorie')
       .map(group => group.heading)).toEqual(['Kinder', 'Ohne Kategorie'])
     expect(groupTemplateChoices([{ id: 4, name: 'D', category: null }], 'Ohne Kategorie').map(group => group.heading)).toEqual([null])
+    // A real category named „Ohne Kategorie“: two groups, two keys, two headings.
+    const clash = groupTemplateChoices(
+      [{ id: 1, name: 'A', category: 'Ohne Kategorie' }, { id: 4, name: 'D', category: null }], 'Ohne Kategorie', 'Ohne Kategorie (keiner zugeordnet)',
+    )
+    expect(clash.map(group => [group.key, group.heading])).toEqual([
+      ['category:Ohne Kategorie', 'Ohne Kategorie'], ['none', 'Ohne Kategorie (keiner zugeordnet)'],
+    ])
   })
 
   it('starts a new template in an example category with that category\'s kind, in any other without one', () => {

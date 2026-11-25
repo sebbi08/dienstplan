@@ -28,6 +28,10 @@ const router = useRouter()
 const { can } = useCan()
 const canDeleteDue = computed(() => can('retention.delete'))
 const tabs = computed(() => visiblePrivacyTabs(can))
+/** A tab's panel; with a single tab (the Leitung) there is no tab bar, so no tab to point to. */
+const panelAttrs = (key: string) => (tabs.value.length > 1
+  ? { id: `privacy-panel-${key}`, role: 'tabpanel', 'aria-labelledby': `privacy-tab-${key}` }
+  : {})
 if (!tabs.value.length) await navigateTo('/', { replace: true })
 const tab = computed<PrivacyTab>(() => requestedPrivacyTab(route.query.tab, tabs.value))
 useUnsavedGuard()
@@ -200,8 +204,8 @@ async function deleteAll() {
       </div>
     </div>
 
-    <div v-if="tab === 'periods'" id="privacy-panel-periods" role="tabpanel" aria-labelledby="privacy-tab-periods" class="space-y-4">
-      <p class="text-sm text-gray-600">{{ p.periodsIntro }}</p>
+    <div v-if="tab === 'periods'" v-bind="panelAttrs('periods')" class="space-y-4">
+      <p class="text-sm text-gray-600">{{ p.periodsIntro(canDeleteDue) }}</p>
       <!-- One for all facilities (the Träger). -->
       <div v-if="can('settings.retention')" class="space-y-1">
         <SettingsGlobalBadge />
@@ -231,12 +235,12 @@ async function deleteAll() {
       </section>
     </div>
 
-    <div v-else-if="tab === 'backup'" id="privacy-panel-backup" role="tabpanel" aria-labelledby="privacy-tab-backup" class="space-y-1">
+    <div v-else-if="tab === 'backup'" v-bind="panelAttrs('backup')" class="space-y-1">
       <SettingsGlobalBadge />
       <SettingsBackupSection />
     </div>
 
-    <div v-else-if="canDeleteDue" id="privacy-panel-due" role="tabpanel" aria-labelledby="privacy-tab-due" class="space-y-6">
+    <div v-else-if="canDeleteDue" v-bind="panelAttrs('due')" class="space-y-6">
     <p class="text-sm text-gray-600">
       {{ t.intro }}
       <NuxtLink :to="privacyPath('backup')" class="font-medium text-sky-700 hover:underline">{{ t.backupLink }}</NuxtLink>

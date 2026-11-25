@@ -20,10 +20,7 @@ export interface RowAction {
   show?: boolean
 }
 
-/**
- * The row's buttons split for phones: the first shown one stays a button (the main action, e.g. „Öffnen“), the others
- * go into the „⋯“ menu. From 640 px all of them show in a row.
- */
+/** An entry of the „⋯“ menu on phones (the shape of a Nuxt UI DropdownMenu item). */
 export interface RowMenuItem {
   label: string
   icon: string
@@ -48,6 +45,10 @@ export function rowMenuItem(action: RowAction): RowMenuItem {
   }
 }
 
+/**
+ * The row's buttons split for phones: the first shown one stays a button (the main action, e.g. „Öffnen“), the others
+ * go into the „⋯“ menu. From 640 px all of them show in a row.
+ */
 export function rowActionSplit(actions: readonly RowAction[]): { primary: RowAction | null; rest: RowAction[] } {
   const shown = actions.filter(action => action.show !== false)
   return { primary: shown[0] ?? null, rest: shown.slice(1) }

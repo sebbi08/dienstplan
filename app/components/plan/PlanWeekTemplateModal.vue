@@ -105,7 +105,7 @@ async function apply() {
         </div>
       </form>
       <form v-else class="space-y-3" @submit.prevent="apply">
-        <p class="text-sm text-gray-500">{{ de.weekTemplates.applyHint }}</p>
+        <MoreHint class="text-sm text-gray-500" :text="de.weekTemplates.applyHint" :more="de.weekTemplates.applyHintMore" />
         <p v-if="templates && !templates.length" class="text-sm">{{ de.weekTemplates.none }}</p>
         <template v-else>
           <UFormField :label="de.weekTemplates.template">

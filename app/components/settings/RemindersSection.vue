@@ -136,7 +136,7 @@ async function saveRow(row: DocRow) {
       <component :is="groupId === undefined ? 'h3' : 'h2'" :class="groupId === undefined ? 'text-sm font-semibold' : 'font-semibold'">
         {{ s.docTitle }}<template v-if="groupId === undefined"> – {{ docRow.label }}</template>
       </component>
-      <p class="text-xs text-gray-500">{{ s.docHint }}</p>
+      <MoreHint class="text-xs text-gray-500" :text="s.docHint" :more="s.docHintMore" />
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="saveRow(docRow)">
         <UFormField :label="s.mode">
           <USelect

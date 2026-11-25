@@ -210,7 +210,7 @@ const childNamed = computed(() => form.childFirstName.trim() !== '' && form.chil
     <UModal v-model:open="takeOverOpen" :title="t.takeOverTitle">
       <template #body>
         <form class="space-y-3" @submit.prevent="confirmTakeOver">
-          <p class="text-sm text-gray-600">{{ t.takeOverIntro }}</p>
+          <MoreHint class="text-sm text-gray-600" :text="t.takeOverIntro" :more="t.takeOverIntroMore" />
           <p class="text-sm font-medium">{{ form.childFirstName }} {{ form.childLastName }}<template v-if="form.desiredStart"> · {{ t.fields.desiredStart }}: {{ formatDate(form.desiredStart) }}</template></p>
           <UFormField :label="t.takeOverBirthDate" required>
             <DateTextInput v-model="takeOver.birthDate" :label="t.takeOverBirthDate" class="w-full" required />

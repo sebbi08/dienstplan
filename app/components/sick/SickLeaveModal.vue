@@ -75,7 +75,7 @@ async function remove() {
   <UModal v-model:open="open" :title="title">
     <template #body>
       <form class="space-y-3" @submit.prevent="save">
-        <p class="text-sm text-gray-600">{{ de.sickLeave.hint }}</p>
+        <MoreHint class="text-sm text-gray-600" :text="de.sickLeave.hint" :more="de.sickLeave.hintMore" />
         <UFormField :label="de.sickLeave.leftAt" :help="recordTime ? de.sickLeave.leftAtFromRecord(recordTime) : de.sickLeave.leftAtHelp">
           <TimeInput v-model="form.leftAt" any-minute autofocus class="w-32" />
         </UFormField>

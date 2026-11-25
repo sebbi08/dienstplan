@@ -5,7 +5,7 @@ import type { BemSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
- * Einstellungen → Personal → „BEM-Einladung (Text)“ (per facility, „Einstellungen für“ applies): the text of the
+ * Einstellungen → Mitarbeitende → „BEM-Einladung (Text)“ (per facility, „Einstellungen für“ applies): the text of the
  * invitation to a BEM that Leitung and Träger print on the employee page. Leitung and Träger change it
  * (settings.facility, the server checks as well); empty means the default text.
  */
@@ -30,7 +30,8 @@ const save = () => dirty.value && run(() => $fetch<BemSettingsDto>('/api/bem-set
     <h2 class="font-semibold">{{ t.title }}</h2>
     <p class="text-xs text-gray-500">{{ t.hint }}</p>
     <form class="space-y-3" @submit.prevent="save">
-      <UFormField :label="t.textLabel" :hint="t.textHint">
+      <UFormField :label="t.textLabel">
+        <template #help><MoreHint :text="t.textHint" :more="t.textHintMore" /></template>
         <UTextarea v-model="text" :rows="10" :maxlength="BEM_LIMITS.invitationText" autoresize class="w-full" />
       </UFormField>
       <UButton

@@ -48,7 +48,7 @@ async function remove(template: WeekTemplateDto) {
       <h2 class="font-semibold">{{ de.weekTemplates.title }}</h2>
       <UButton size="sm" icon="i-lucide-plus" class="ml-auto" :label="de.weekTemplates.create" :to="editorPath('new')" />
     </div>
-    <p class="text-xs text-gray-500">{{ de.weekTemplates.hint }}</p>
+    <MoreHint class="text-xs text-gray-500" :text="de.weekTemplates.hint" :more="de.weekTemplates.hintMore" />
     <p v-if="!templates?.length" class="text-sm text-gray-500">{{ de.weekTemplates.none }}</p>
     <div
       v-for="template in templates" :key="template.id"

@@ -27,7 +27,7 @@ const current: StaffingRuleSet = {
 /** What the notes of the versions from 01.11.2026 on say about trainees, assistants and the quota. */
 const TRAINEES = `${TRAINEES_NOTE} Auszubildende (Erzieher für 0- bis 10-Jährige): `
   + '0/0/50 % nach Ausbildungsjahr (§ 14 Abs. 7; das 1. Jahr zählt seit 01.08.2023, das 2. seit 01.08.2024 '
-  + 'nicht mehr); andere Ausbildungen (Erzieher, Sozialassistenz, Kinderpflege) 0 % – beim Mitarbeiter '
+  + 'nicht mehr); andere Ausbildungen (Erzieher, Sozialassistenz, Kinderpflege) 0 % – bei der Person '
   + 'eintragen. Pädagogische Assistenzkräfte 80 % (§ 14 Abs. 9). Studierende zählen nicht, auch nicht mit 120 '
   + 'Leistungspunkten (§ 13 Abs. 3). Assistenzkräfte, Auszubildende und Kräfte nach §§ 11/12 zusammen '
   + 'grundsätzlich höchstens 25 % des Bedarfs (§ 14 Abs. 6) – als Quote ohne die Kräfte nach §§ 11/12.'

@@ -6,7 +6,7 @@ import type { PrintTemplateDto, RequiredDocumentTypeDto, RequiredDocumentTypeInp
 import { de } from '~/locales/de'
 
 /**
- * Einstellungen → Personal → Pflichtdokumente (Leitung and Träger): the documents every employee – or those of chosen
+ * Einstellungen → Mitarbeitende → Pflichtdokumente (Leitung and Träger): the documents every employee – or those of chosen
  * qualifications – must have in the personnel file, each filed in a folder the editor may use (the list shows only
  * those), optionally valid for some months and filled from a print template. ▲/▼ orders them; deleting keeps the
  * documents.

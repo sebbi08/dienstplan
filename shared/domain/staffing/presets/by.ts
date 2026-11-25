@@ -40,9 +40,9 @@ const revised: StaffingRuleSet = {
   note: `${TRAINEES_NOTE} Berufspraktikum (Erzieher) zählt als Ergänzungskraft (§ 16 Abs. 4 Nr. 2 AVBayKiBiG), `
     + 'PiA ab dem 2. Ausbildungsjahr als Ergänzungskraft, im 1. Jahr nicht (Allgemeinverfügung, BayMBl. 2024 '
     + 'Nr. 34); jeweils mit allen Stunden, nicht für die Fachkraftquote. Kinderpflege- und SPS-Auszubildende zählen '
-    + 'nicht – beim Mitarbeiter 0 % eintragen. Duales oder berufsbegleitendes Studium und Praxissemester zählen '
+    + 'nicht – bei der Person 0 % eintragen. Duales oder berufsbegleitendes Studium und Praxissemester zählen '
     + 'nicht; nur die Kombinierte Ausbildung (Fachakademie mit Bachelor) im Praxissemester als Ergänzungskraft, ab '
-    + 'dem 6. Semester als Fachkraft (BayMBl. 2025 Nr. 314) – beim Mitarbeiter eintragen. Weitere Gewichte '
+    + 'dem 6. Semester als Fachkraft (BayMBl. 2025 Nr. 314) – bei der Person eintragen. Weitere Gewichte '
     + '(Behinderung 4,5; nichtdeutschsprachige Eltern 1,3; Tagespflege 1,3) erst mit dem Kindergewicht; das '
     + 'Gewicht 4,5 dürfte nicht für die Fachkraftquote zählen – hier nicht abgebildet. Berechnet wird je Monat; '
     + 'Jahresdurchschnitt und bis zu 3 Monate Überschreitung nicht abgebildet. Leitung ist enthalten. Nicht '

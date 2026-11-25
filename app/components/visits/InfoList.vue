@@ -48,7 +48,7 @@ const badge = (value: InfoVisitListItemDto['status']) =>
 
 <template>
   <div class="space-y-3">
-    <p class="text-sm text-gray-600">{{ t.intro }}</p>
+    <MoreHint class="text-sm text-gray-600" :text="t.intro" :more="t.introMore" />
     <div class="flex flex-wrap items-end gap-2">
       <UFormField :label="t.search" class="min-w-56 flex-1 sm:flex-none">
         <UInput v-model="query" icon="i-lucide-search" :placeholder="t.searchPlaceholder" class="w-full" />

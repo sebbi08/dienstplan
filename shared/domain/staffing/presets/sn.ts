@@ -28,7 +28,7 @@ const NOTE = `${BASE_NOTE} Anrechnung anderer Auszubildender nicht geprüft.`
 const TRAINEES = `${TRAINEES_NOTE} Berufspraktikum 0 % (die Anrechnung mit 0,5 stand nur in der SächsQualiVO 2004, `
   + 'seit 2010 nicht mehr). Berufsbegleitende Ausbildung und berufsbegleitendes/duales Studium zählen nur mit einer '
   + 'anderen abgeschlossenen Berufsausbildung, dann als Fachkraft mit 100 % (§ 5a SächsQualiVO; höchstens 1 Person '
-  + 'je 70 Plätze – nicht geprüft) – beim Mitarbeiter eintragen; sonst 0 %. Vollzeitschüler, Praxissemester und '
+  + 'je 70 Plätze – nicht geprüft) – bei der Person eintragen; sonst 0 %. Vollzeitschüler, Praxissemester und '
   + 'Werkstudenten zählen nicht.'
 
 /** Sachsen: Vollzeitkräfte (40 Std.) je Kinderzahl nach Alter (SächsKitaG § 12). */

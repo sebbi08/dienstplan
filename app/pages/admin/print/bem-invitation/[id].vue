@@ -7,7 +7,7 @@ import { formatDate } from '~/utils/format'
 /**
  * The invitation to a BEM (§ 167 Abs. 2 SGB IX), A4 portrait, for Leitung and Träger (employees.sickness): the
  * facility's name, Träger, address and phone as letterhead, the employee's name and address (blank lines when not stored or the viewer
- * may not read personal data), place and date, the facility's text (Einstellungen → Personal → BEM-Einladung) and the
+ * may not read personal data), place and date, the facility's text (Einstellungen → Mitarbeitende → BEM-Einladung) and the
  * contact person for questions, the closing with the sender's signature line, and the reply slip „Ich nehme teil / Ich
  * nehme nicht teil“ with the signature line.
  */

@@ -125,7 +125,7 @@ const stepLabel = (item: BemStepDto) => (item.kind === 'measure' && item.status 
   <section class="space-y-4 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <div>
       <h2 class="font-semibold">{{ t.title }}</h2>
-      <p class="text-sm text-gray-500">{{ t.intro }}</p>
+      <MoreHint class="text-sm text-gray-500" :text="t.intro" :more="t.introMore" />
     </div>
     <UAlert v-if="loadError" color="error" variant="soft" :title="loadError" />
     <p v-else-if="!data" class="text-sm text-gray-500">{{ t.loading }}</p>

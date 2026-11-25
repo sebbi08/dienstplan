@@ -87,7 +87,7 @@ async function remove(type: RequirementTypeDto) {
 <template>
   <section class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ de.requirements.kinds }}</h2>
-    <p class="text-xs text-gray-500">{{ de.requirements.settingsHint }}</p>
+    <MoreHint class="text-xs text-gray-500" :text="de.requirements.settingsHint" :more="de.requirements.settingsHintMore" />
     <p v-if="ownBriefings.length" class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ de.requirements.ownBriefingHint(ownBriefings.join('“, „')) }}</p>
     <template v-for="type in types ?? []" :key="type.id">
       <form v-if="drafts[type.id]" class="flex flex-wrap items-center gap-2" @submit.prevent="save(type.id)">
@@ -116,7 +116,10 @@ async function remove(type: RequirementTypeDto) {
           v-if="type.builtinKey === null" size="sm" color="error" variant="ghost" icon="i-lucide-trash-2"
           :aria-label="de.common.delete" @click="remove(type)"
         />
-        <span v-else class="text-xs text-gray-500">{{ de.requirements.builtin }}</span>
+        <span v-else class="inline-flex items-center gap-1 text-xs text-gray-500">
+          {{ de.requirements.builtin }}
+          <InfoHint v-if="type.builtinKey && de.requirements.builtinRules[type.builtinKey]" :text="de.requirements.builtinRules[type.builtinKey]!" />
+        </span>
       </form>
     </template>
     <form class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2" @submit.prevent="create">

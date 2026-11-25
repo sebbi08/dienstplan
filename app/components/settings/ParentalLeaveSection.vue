@@ -3,7 +3,7 @@ import type { ParentalLeaveSettingsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 
 /**
- * Einstellungen → Personal → „Elternzeit im Dienstplan“ (per facility, „Einstellungen für“ applies): „Elternzeit für alle
+ * Einstellungen → Mitarbeitende → „Elternzeit im Dienstplan“ (per facility, „Einstellungen für“ applies): „Elternzeit für alle
  * sichtbar anzeigen“. Off (the default), only viewers with employees.view see „Elternzeit“ in the plan, everybody else and
  * the tablet „abwesend“. Shown with employees.contractView, changed with employees.contractEdit (the server checks too).
  */

@@ -370,7 +370,7 @@ export interface TemplatePickerItem { label: string; value: number; type?: 'labe
  * without a category last, headed „Ohne Kategorie“ (without any category: one group without a heading). Empty without templates.
  */
 export function templatePickerItems(templates: readonly TemplateChoice[]): TemplatePickerItem[][] {
-  return groupTemplateChoices(templates, de.forms.categories.none).map(group => [
+  return groupTemplateChoices(templates, de.forms.categories.none, de.forms.categories.noneClash).map(group => [
     ...(group.heading === null ? [] : [{ type: 'label' as const, label: group.heading, value: 0 }]),
     ...group.choices.map(choice => ({ label: choice.name, value: choice.id })),
   ])

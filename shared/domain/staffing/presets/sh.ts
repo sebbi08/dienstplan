@@ -44,7 +44,7 @@ export const SH: StaffingRuleSet[] = [
       + 'Assistenzkraft sein (außer bei weniger als 10 Kindern); Leitungsfreistellung (§ 29). Endgültiger '
       + `Gesetzeswortlaut nicht geprüft. ${TRAINEES_NOTE} Auszubildende (Erzieher, Heilerziehungspflege) zählen im `
       + '3. Jahr als pädagogische Assistenzkraft mit allen Stunden der Praxiszeit (§ 4 Nr. 1 PQVO); im 2. Jahr nur in '
-      + 'berufsbegleitender oder PiA-Form mit deutlich mehr Praxisstunden im 1. Jahr – dann beim Mitarbeiter '
+      + 'berufsbegleitender oder PiA-Form mit deutlich mehr Praxisstunden im 1. Jahr – dann bei der Person '
       + 'eintragen; PiA Sozialpädagogische Assistenz 0 %. Duales Studium (Kindheitspädagogik, Soziale Arbeit) ab dem '
       + '3. Semester, wenn die Module der ersten beiden Semester bestanden sind, als Assistenzkraft (§ 4 Nr. 2 PQVO), '
       + 'nicht für die Fachkraftquote. Praktikanten, Praxissemester und Werkstudenten sind Hilfskräfte und zählen '

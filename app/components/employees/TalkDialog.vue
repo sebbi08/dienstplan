@@ -21,7 +21,7 @@ const STARTERS = ['staff_self_assessment', 'staff_assessment']
 const form = reactive({ date: '', start: '', participants: '', period: '', templateIds: [] as number[] })
 const active = computed(() => props.templates.filter(template => !template.archived))
 /** The active templates grouped by „Kategorie › Unterkategorie“, in the categories' order. */
-const activeGroups = computed(() => groupTemplateChoices(active.value, de.forms.categories.none))
+const activeGroups = computed(() => groupTemplateChoices(active.value, de.forms.categories.none, de.forms.categories.noneClash))
 
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -88,7 +88,7 @@ async function save() {
         <fieldset v-if="!talk && !reuseFrom" class="col-span-2 space-y-1">
           <legend class="mb-1 text-sm font-medium">{{ de.talks.forms }}</legend>
           <p v-if="!active.length" class="text-sm text-gray-500">{{ de.talks.noTemplates }}</p>
-          <template v-for="group in activeGroups" :key="group.heading ?? ''">
+          <template v-for="group in activeGroups" :key="group.key">
             <p v-if="group.heading" class="pt-1 text-xs font-semibold text-gray-500">{{ group.heading }}</p>
             <UCheckbox
               v-for="template in group.choices" :key="template.id" :model-value="form.templateIds.includes(template.id)"

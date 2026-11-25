@@ -36,10 +36,11 @@ const save = () => dirty.value && run(() => $fetch<RetentionSettings>('/api/rete
 <template>
   <section class="space-y-3 rounded-lg bg-white p-4 ring-1 ring-gray-200">
     <h2 class="font-semibold">{{ t.title }}</h2>
-    <p class="text-sm text-gray-600">{{ t.intro }}</p>
+    <MoreHint class="text-sm text-gray-600" :text="t.intro" :more="t.introMore" />
     <p v-if="!canEditRetention" class="text-xs text-gray-500">{{ t.providerOnly }}</p>
     <form class="space-y-3" @submit.prevent="save">
-      <UFormField v-for="period in PERIODS" :key="period" :label="t.periods[period]" :help="t.periodHelp[period]">
+      <UFormField v-for="period in PERIODS" :key="period" :label="t.periods[period]">
+        <template #help><MoreHint :text="t.periodHelp[period]" :more="t.periodHelpMore[period]" /></template>
         <div class="flex items-center gap-2">
           <UInput
             v-model.number="form[period]" type="number" :min="minYears(period)" :max="RETENTION_YEARS_RANGE.max" step="1"
@@ -51,7 +52,8 @@ const save = () => dirty.value && run(() => $fetch<RetentionSettings>('/api/rete
           {{ t.paidOvertimeBelowMinimum(data!.paidOvertimeYears) }}
         </p>
       </UFormField>
-      <UFormField :help="t.payrollOfficeHelp">
+      <UFormField>
+        <template #help><MoreHint :text="t.payrollOfficeHelp" :more="t.payrollOfficeHelpMore" /></template>
         <UCheckbox v-model="form.payrollOffice" :label="t.payrollOffice" :disabled="!canEditRetention" />
       </UFormField>
       <UFormField :label="t.employeeDelete" :help="t.employeeDeleteHelp">
@@ -75,7 +77,8 @@ const save = () => dirty.value && run(() => $fetch<RetentionSettings>('/api/rete
           <span class="text-sm text-gray-600">{{ t.months }}</span>
         </div>
       </UFormField>
-      <UFormField :label="t.applicantMonths" :help="t.applicantMonthsHelp">
+      <UFormField :label="t.applicantMonths">
+        <template #help><MoreHint :text="t.applicantMonthsHelp" :more="t.applicantMonthsHelpMore" /></template>
         <div class="flex items-center gap-2">
           <UInput
             v-model.number="form.applicantMonths" type="number" :min="APPLICANT_MONTHS_RANGE.min" :max="APPLICANT_MONTHS_RANGE.max" step="1"

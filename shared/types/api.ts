@@ -1671,7 +1671,7 @@ export interface EmployeeDocumentDto extends EmployeeDocumentMeta {
   requiredTypeId: number | null
 }
 
-/** A Pflichtdokument of the facility as entered (Einstellungen → Personal → Pflichtdokumente). */
+/** A Pflichtdokument of the facility as entered (Einstellungen → Mitarbeitende → Pflichtdokumente). */
 export interface RequiredDocumentTypeInput {
   name: string
   /** The folder of the personnel file it is filed in; its key decides who sees and files it. */

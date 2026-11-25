@@ -15,7 +15,7 @@ useUnsavedGuard()
 <template>
   <div class="max-w-3xl space-y-4">
     <h1 class="text-2xl font-semibold">{{ de.accidents.my.title }}</h1>
-    <p class="text-sm text-gray-500">{{ de.accidents.my.intro }}</p>
+    <MoreHint class="text-sm text-gray-500" :text="de.accidents.my.intro" :more="de.accidents.my.introMore" />
     <p v-if="user?.employeeId === null" class="text-sm text-gray-500">{{ de.accidents.my.noEmployee }}</p>
     <section v-else class="rounded-lg bg-white p-4 ring-1 ring-gray-200">
       <AccidentsAccidentList

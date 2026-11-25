@@ -90,7 +90,7 @@ const { can: canTab } = useCan()
     <ClosuresEditDialog v-model:open="editOpen" :closure="editing" @saved="edited" />
     <form class="grid gap-3 rounded-lg bg-white p-4 ring-1 ring-gray-200 sm:grid-cols-4 sm:items-end" @submit.prevent="create">
       <h2 class="font-semibold sm:col-span-4">{{ de.closures.create }}</h2>
-      <p class="text-xs text-gray-500 sm:col-span-4">{{ de.closures.hint }}</p>
+      <MoreHint class="text-xs text-gray-500 sm:col-span-4" :text="de.closures.hint" :more="de.closures.hintMore" />
       <UFormField :label="de.closures.from"><DateTextInput v-model="form.startDate" :label="de.closures.from" class="w-full" required /></UFormField>
       <UFormField :label="de.closures.to"><DateTextInput v-model="form.endDate" :label="de.closures.to" class="w-full" required /></UFormField>
       <UFormField :label="de.closures.label"><UInput v-model="form.label" maxlength="100" class="w-full" required /></UFormField>

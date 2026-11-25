@@ -9,7 +9,7 @@ const NOTE = `${BASE_NOTE} Auszubildende = tätigkeitsbegleitende Qualifizierung
 
 const TRAINEES = `${TRAINEES_NOTE} Angestellte Auszubildende (PiA/berufsbegleitend) und Studierende (dual/`
   + 'berufsbegleitend, Kindheits- oder Sozialpädagogik) = tätigkeitsbegleitende Qualifizierung: 70 % für die '
-  + 'Finanzierung (KitaPersV § 17 Abs. 1; nach mind. 2 Jahren als Ergänzungskraft 80 % – beim Mitarbeiter '
+  + 'Finanzierung (KitaPersV § 17 Abs. 1; nach mind. 2 Jahren als Ergänzungskraft 80 % – bei der Person '
   + 'eintragen); sie zählen zur Fachkraftquote von 80 % (§§ 15, 16). Nicht geprüft: als Fachkraft zählen sie nur '
   + 'bis zur Zahl der Fachkräfte ohne zugeordnete Ergänzungskraft (§ 15 Abs. 1 S. 2). Studierende als '
   + 'tätigkeitsbegleitende Qualifizierung: abgeleitet, nicht ausdrücklich geregelt. Vollzeitschüler, Praktikanten, '

@@ -530,7 +530,7 @@ const td = 'px-3 py-2'
             <p v-if="statutoryLeaveHint" class="text-sm text-gray-700">{{ statutoryLeaveHint }}</p>
             <p class="text-sm text-gray-700">{{ de.employees.tvoedLeave(formatNumber(tvoedLeave.days), tvoedLeave.year) }}</p>
             <EmployeesClosurePreview :name="form.name" :input="closurePreviewInput" />
-            <p :class="hint">{{ de.employees.carryOverHint }}</p>
+            <MoreHint :class="hint" :text="de.employees.carryOverHint" :more="de.employees.carryOverHintMore" />
           </fieldset>
 
           <div class="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">

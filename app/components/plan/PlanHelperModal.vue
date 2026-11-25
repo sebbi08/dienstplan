@@ -50,7 +50,7 @@ async function submit() {
   <UModal v-model:open="open" :title="de.helpers.title">
     <template #body>
       <form class="space-y-3" @submit.prevent="submit">
-        <p class="text-sm text-gray-500">{{ de.helpers.hint(monthTitle(year, month)) }}</p>
+        <MoreHint class="text-sm text-gray-500" :text="de.helpers.hint(monthTitle(year, month))" :more="de.helpers.hintMore" />
         <UAlert v-if="loadError" color="error" variant="soft" :title="loadError" />
         <p v-else-if="candidates && !candidates.length" class="text-sm">{{ de.helpers.none }}</p>
         <UFormField v-else :label="de.helpers.person">

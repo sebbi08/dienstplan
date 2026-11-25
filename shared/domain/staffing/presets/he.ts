@@ -49,9 +49,9 @@ export const HE: StaffingRuleSet[] = [
     note: `${TRAINEES_NOTE} PivA, berufsbegleitende Ausbildung und berufsbegleitendes/duales Studium zählen als `
       + 'Fachkräfte zur Mitarbeit mit 100 % der vereinbarten Zeit in der Kita (§ 25b Abs. 3 Nr. 1, Ministeriums-FAQ; '
       + 'duales Studium nicht ausdrücklich genannt); Schulzeit zählt nicht. Plätze aus dem Landesprogramm '
-      + 'Fachkräfteoffensive: 0/30/70 % nach Ausbildungsjahr – beim Mitarbeiter eintragen. Berufspraktikant/in = '
+      + 'Fachkräfteoffensive: 0/30/70 % nach Ausbildungsjahr – bei der Person eintragen. Berufspraktikant/in = '
       + 'Anerkennungsjahr, auch nach einem Studium: bis 50 % (§ 25c Abs. 4; 100 %, wenn schon Kinderpfleger/in oder '
-      + 'Sozialassistent/in – beim Mitarbeiter eintragen). Vollzeitschüler, Praxissemester und Werkstudenten zählen '
+      + 'Sozialassistent/in – bei der Person eintragen). Vollzeitschüler, Praxissemester und Werkstudenten zählen '
       + 'nicht. Nicht abgebildet: Kräfte der Nr. 7–9 des § 25b (Gesundheitsberufe, Fachfremde) höchstens 30 % des '
       + 'Bedarfs ohne Leitung; Kräfte, die 42 Tage oder länger fehlen, zählen nicht; Gruppengröße nach § 25d. '
       + 'Mindestbesetzung hier je Gruppe geprüft; das Gesetz meint ggf. die ganze Einrichtung – bitte prüfen. Beginn '

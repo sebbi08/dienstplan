@@ -30,6 +30,6 @@ const save = () => guard(async () => {
       <UFormField :label="de.childSettings.retentionYears"><USelect v-model="years" :items="yearItems" class="w-24" /></UFormField>
       <UButton type="submit" :label="de.common.save" :loading="busy" :disabled="busy || !dirty" />
     </form>
-    <p class="text-xs text-gray-500">{{ de.childSettings.retentionHint }}</p>
+    <MoreHint class="text-xs text-gray-500" :text="de.childSettings.retentionHint" :more="de.childSettings.retentionHintMore" />
   </section>
 </template>

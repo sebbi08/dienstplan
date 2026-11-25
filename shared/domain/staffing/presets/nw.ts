@@ -26,7 +26,7 @@ const NOTE = `${BASE_NOTE} Anrechnung von Auszubildenden (PiA) nicht geprüft.`
 const TRAINEES = `${TRAINEES_NOTE} Nach § 13 der Personalverordnung (PersVO vom 27.11.2024, GV. NRW. S. 910): `
   + 'Auszubildende (PiA Erzieher/Heilerziehungspflege) zählen mit ihrer Zeit in der Kita (100 %), aber nicht als '
   + 'Fachkraft – im 1. Jahr auf Ergänzungskraftstunden, im 2./3. Jahr mit der Hälfte bzw. zwei Dritteln auf '
-  + 'Fachkraftstunden (nicht abgebildet). PiA Kinderpflege: 1. Jahr 0 %, 2. Jahr 50 % – beim Mitarbeiter '
+  + 'Fachkraftstunden (nicht abgebildet). PiA Kinderpflege: 1. Jahr 0 %, 2. Jahr 50 % – bei der Person '
   + 'eintragen. Berufspraktikum 100 % (Ergänzungskraftstunden). Studierende der Studiengänge nach § 4 Abs. 2 '
   + 'PersVO (Soziale Arbeit, Sozial- und Kindheitspädagogik, Erziehungswissenschaft, Heil-/Sonderpädagogik) ab 60 '
   + 'Leistungspunkten und 200 Std. Praxis als Ergänzungskraft, ab 90 Leistungspunkten und 400 Std. als Fachkraft '

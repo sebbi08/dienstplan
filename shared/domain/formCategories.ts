@@ -79,19 +79,21 @@ export interface TemplateChoice {
 /**
  * The choices grouped by their path in the order they come (the server's: by category, then by order). Those without a
  * category form one group: headed `noneHeading` („Ohne Kategorie“) when another group has a heading (so they do not look
- * like part of the group above), else without a heading (`heading` null).
+ * like part of the group above), else without a heading (`heading` null). A real category of that very name keeps it;
+ * the group without a category is then headed `clashHeading`. `key` tells the groups apart in any case (a list key).
  */
 export function groupTemplateChoices<T extends TemplateChoice>(
-  choices: readonly T[], noneHeading: string | null = null,
-): { heading: string | null; choices: T[] }[] {
-  const groups: { heading: string | null; choices: T[] }[] = []
+  choices: readonly T[], noneHeading: string | null = null, clashHeading: string | null = noneHeading,
+): { key: string; heading: string | null; choices: T[] }[] {
+  const groups: { key: string; heading: string | null; choices: T[] }[] = []
   for (const choice of choices) {
     const group = groups.find(entry => entry.heading === choice.category)
     if (group) group.choices.push(choice)
-    else groups.push({ heading: choice.category, choices: [choice] })
+    else groups.push({ key: choice.category === null ? 'none' : `category:${choice.category}`, heading: choice.category, choices: [choice] })
   }
   if (!groups.some(group => group.heading !== null)) return groups
-  return groups.map(group => (group.heading === null ? { ...group, heading: noneHeading } : group))
+  const clash = groups.some(group => group.heading !== null && group.heading === noneHeading)
+  return groups.map(group => (group.heading === null ? { ...group, heading: clash ? clashHeading : noneHeading } : group))
 }
 
 /**
