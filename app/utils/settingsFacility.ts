@@ -4,9 +4,12 @@
  * active facility. Pure helpers, so a test can load this file.
  */
 
-/** The settings pages: /admin/settings and everything below it (areas, a group's page). */
+/**
+ * The settings pages: /admin/settings and everything below it (areas, a group's page), and „Datenschutz & Löschen“
+ * (/admin/retention), whose staff Löschfristen are per facility like the settings they came from.
+ */
 export function isSettingsPath(path: string): boolean {
-  return path === '/admin/settings' || path.startsWith('/admin/settings/')
+  return path === '/admin/settings' || path.startsWith('/admin/settings/') || path === '/admin/retention'
 }
 
 /**

@@ -128,7 +128,9 @@ describe('employee page tabs', () => {
       requirements: 'records', documents: 'records', accidents: 'health', bem: 'health', maternity: 'health', records: 'records',
     })
     // Not seen: the first tab (the Leitung has no contract data by default, nobody a talk about themselves).
-    expect(requestedEmployeeTab('contract', '', employeeTabs(canOf('admin')))).toBe('master')
+    // Without the contract data the former „Vertrag & Lohn“ opens the tab with its Wochenstunden and Stundenkonto.
+    expect(requestedEmployeeTab('contract', '', employeeTabs(canOf('admin')))).toBe('times')
+    expect(requestedEmployeeTab('contract', '', ['master'])).toBe('master')
     expect(requestedEmployeeTab('talks', '', employeeTabs(canOf('admin'), true))).toBe('master')
     expect(requestedEmployeeTab('bem', '', employeeTabs(canOf('observer')))).toBe('master')
   })

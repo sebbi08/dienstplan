@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  AREA_SECTIONS, FORMER_SECTIONS, GROUP_SECTIONS, JUMP_LINKS_FROM, MOVED_SECTIONS, SETTINGS_AREAS, areaOfSlug, areaPath, normalizeSearch,
-  privacyPath, readOnlyForViewer, requestedPrivacyTab, searchSettings, visibleSettingsAreas, type SettingsViewer,
+  AREA_SECTIONS, FORMER_SECTIONS, GROUP_SECTIONS, JUMP_LINKS_FROM, MOVED_SECTIONS, SETTINGS_AREAS, areaAnchorAction, areaOfSlug, areaPath,
+  normalizeSearch, privacyPath, readOnlyForViewer, requestedPrivacyTab, searchSettings, visiblePrivacyTabs, visibleSettingsAreas,
+  type SettingsViewer,
 } from '../../app/utils/settingsAreas'
 import { effectivePermissions } from '../../shared/domain/permissionBundles'
 
@@ -37,7 +38,7 @@ describe('visibleSettingsAreas', () => {
       ['roster', ['shift-templates', 'week-templates', 'codes', 'coverage-rules']],
       ['time', ['time-tracking']],
       ['children', ['care-types', 'document-types', 'consent-questions', 'overview-sheets', 'school-children', 'school-districts', 'attendance', 'ifsg', 'ifsg-local', 'reminders']],
-      ['staff', ['staffing', 'required-documents', 'requirement-types', 'leave-counting', 'leave-forfeit', 'child-sick-days', 'bem-invitation']],
+      ['staff', ['staffing', 'required-documents', 'requirement-types', 'leave-counting', 'leave-forfeit', 'child-sick-days', 'bem-invitation', 'staff-retention']],
     ])
   })
 
@@ -132,12 +133,32 @@ describe('searchSettings', () => {
     expect(firstHit('LÖSCHFRIST')?.to).toBe('/admin/retention?tab=periods')
   })
 
-  it('leads the Löschfristen and the Datensicherung to „Datenschutz & Löschen“ (the Träger; the Leitung no longer sees them)', () => {
+  it('leads the Löschfristen and the Datensicherung to „Datenschutz & Löschen“ (the Leitung finds her staff periods there)', () => {
     expect(searchSettings('ausgezahlt', provider)[0]).toMatchObject({ key: 'staff-retention', where: 'Mitarbeitende', to: '/admin/retention?tab=periods' })
     expect(searchSettings('Löschfristen', provider).map(hit => [hit.key, hit.to])).toEqual([['staff-retention', '/admin/retention?tab=periods'], ['privacy', '/admin/retention?tab=periods']])
     expect(searchSettings('Datensicherung', provider)[0]).toMatchObject({ key: 'privacy' })
-    expect(searchSettings('ausgezahlt', leitung)).toEqual([])
-    expect(searchSettings('Löschfristen', leitung)).toEqual([])
+    expect(searchSettings('ausgezahlt', leitung).map(hit => [hit.key, hit.to])).toEqual([['staff-retention', '/admin/retention?tab=periods']])
+    expect(searchSettings('Löschfristen', leitung).map(hit => hit.key)).toEqual(['staff-retention'])
+    expect(searchSettings('Datensicherung', leitung)).toEqual([])
+  })
+
+  it('opens on „Datenschutz & Löschen“ only the tabs the viewer may (the Leitung: Fristen)', () => {
+    expect(visiblePrivacyTabs(provider.can)).toEqual(['due', 'periods', 'backup'])
+    expect(visiblePrivacyTabs(leitung.can)).toEqual(['periods'])
+    expect(visiblePrivacyTabs(() => false)).toEqual([])
+    expect(requestedPrivacyTab(undefined, ['periods'])).toBe('periods')
+    expect(requestedPrivacyTab('due', ['periods'])).toBe('periods')
+    expect(requestedPrivacyTab('backup', ['due', 'periods', 'backup'])).toBe('backup')
+  })
+
+  it('decides what an area page does with the anchor: redirect a moved section, open the fold, else scroll', () => {
+    expect(areaAnchorAction('', [])).toEqual({ kind: 'none' })
+    expect(areaAnchorAction('#section-backup', [])).toEqual({ kind: 'redirect', to: '/admin/retention?tab=backup' })
+    expect(areaAnchorAction('#section-employee-retention', ['codes'])).toEqual({ kind: 'redirect', to: '/admin/retention?tab=periods' })
+    expect(areaAnchorAction('#section-retention', [])).toEqual({ kind: 'redirect', to: '/admin/retention?tab=periods' })
+    expect(areaAnchorAction('#section-codes', ['codes', 'leave-counting'])).toEqual({ kind: 'scroll', id: 'section-codes', openFold: true })
+    expect(areaAnchorAction('#section-codes', [])).toEqual({ kind: 'scroll', id: 'section-codes', openFold: false })
+    expect(areaAnchorAction('section-tablet', ['codes'])).toEqual({ kind: 'scroll', id: 'section-tablet', openFold: false })
   })
 
   it('opens the tabs of „Datenschutz & Löschen“ and sends the former settings anchors there', () => {
@@ -154,10 +175,14 @@ describe('searchSettings', () => {
 
   it('marks the settings for all facilities and folds the Träger\'s sections for whoever only reads them', () => {
     const all = Object.values(AREA_SECTIONS).flat()
-    expect(all.filter(section => section.global).map(section => section.key).sort())
-      .toEqual(['child-sick-days', 'codes', 'leave-module', 'privacy', 'staff-retention'])
-    expect(all.filter(section => readOnlyForViewer(section, leitung)).map(section => section.key)).toEqual(['codes', 'leave-counting', 'child-sick-days'])
+    // Only what is really the same everywhere (the staff Löschfristen are per facility).
+    expect(all.filter(section => section.global).map(section => section.key).sort()).toEqual(['child-sick-days', 'codes', 'leave-module'])
+    expect(all.filter(section => readOnlyForViewer(section, leitung)).map(section => section.key)).toEqual(['codes', 'leave-counting', 'child-sick-days', 'parental-leave'])
     expect(all.filter(section => readOnlyForViewer(section, provider))).toEqual([])
+    // Elternzeit im Dienstplan: folded for whoever sees the contract data without editing it.
+    const contractReader: SettingsViewer = { can: key => key === 'settings.facility' || key === 'employees.contractView' }
+    expect(visibleSettingsAreas(contractReader).find(entry => entry.area === 'staff')!.sections.filter(section => readOnlyForViewer(section, contractReader))
+      .map(section => section.key)).toContain('parental-leave')
   })
 
   it('gives the long areas jump links (Kinder, Mitarbeitende, Einrichtung, Dienstplan)', () => {

@@ -87,12 +87,12 @@ describe('route access per role (unchanged by the permissions)', () => {
     expect(pagePaths.filter(tabletOnlyPage)).toEqual([TABLET_ONLY])
   })
 
-  it('lets the Leitung open every page but the Träger\'s retention page', () => {
+  it('lets the Leitung open every page but Rechte und Rollen („Datenschutz & Löschen“ read-only: her staff Löschfristen)', () => {
     const leitung = viewerOf('admin')
     for (const path of [...OPEN, ...CHILDREN, ...OFFICE, TEMPLATES, DOCUMENTS, NOTES, ...CONTACTS]) expect(accountRedirect(path, leitung), path).toBeUndefined()
-    // Before the permissions the retention page sent the Leitung to the start page itself (retention.vue); now the
-    // middleware does, with the same result.
-    expect(accountRedirect(RETENTION, leitung)).toBe('/')
+    // „Datenschutz & Löschen“: only the tab „Fristen“ for her (each tab checks its own right, the server every request).
+    expect(accountRedirect(RETENTION, leitung)).toBeUndefined()
+    expect(accountRedirect(RETENTION, viewerOf('observer'))).toBe('/')
     // Rechte und Rollen: only the Träger sets the rights.
     for (const path of RIGHTS) expect(accountRedirect(path, leitung), path).toBe('/')
   })
@@ -167,7 +167,7 @@ describe('pagePermission', () => {
       expect(ROLE_DEFAULTS.admin, path).toContain(key)
       expect(ROLE_DEFAULTS.observer, path).not.toContain(key)
     }
-    expect(pagePermission(RETENTION)).toBe('retention.delete')
+    expect(pagePermission(RETENTION)).toBe('settings.facility')
     for (const path of RIGHTS) expect(pagePermission(path), path).toBe('rights.manage')
     // The tabs that were menu entries keep the keys of their old pages.
     expect(pagePermission('/admin/calendar/closures')).toBe('closures.manage')

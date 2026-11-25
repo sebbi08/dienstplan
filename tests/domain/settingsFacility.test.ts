@@ -7,6 +7,9 @@ describe('settings facility header (Träger edits another facility\'s settings)'
     expect(isSettingsPath('/admin/settings/facility')).toBe(true)
     expect(isSettingsPath('/admin/settings/groups/3')).toBe(true)
     expect(isSettingsPath('/admin/settingsx')).toBe(false)
+    // „Datenschutz & Löschen“: its staff Löschfristen are per facility, like the settings they came from.
+    expect(isSettingsPath('/admin/retention')).toBe(true)
+    expect(isSettingsPath('/admin/retentionx')).toBe(false)
     expect(isSettingsPath('/admin/users')).toBe(false)
     expect(isSettingsPath('/plan/2026/10')).toBe(false)
   })
@@ -15,12 +18,15 @@ describe('settings facility header (Träger edits another facility\'s settings)'
     expect(settingsFacilityHeader('/admin/settings/facility', 1, 1)).toBeNull()
     expect(settingsFacilityHeader('/admin/settings/facility', null, 1)).toBeNull()
     expect(settingsFacilityHeader('/plan/2026/10', 2, 1)).toBeNull()
+    expect(settingsFacilityHeader('/admin/retention', 2, 1)).toBe('2')
   })
   it('keeps the choice when a navigation out of the settings is refused (unsaved edits stay on screen)', () => {
     expect(afterSettingsNavigation({ toPath: '/plan/2026/10', failed: true, chosen: 2, signedIn: true })).toBe('keep')
   })
   it('keeps the choice within the settings and drops it on really leaving them', () => {
     expect(afterSettingsNavigation({ toPath: '/admin/settings/groups/4', failed: false, chosen: 2, signedIn: true })).toBe('keep')
+    // From the card „Löschfristen“, the search or an old link to „Datenschutz & Löschen“: the facility chosen stays.
+    expect(afterSettingsNavigation({ toPath: '/admin/retention', failed: false, chosen: 2, signedIn: true })).toBe('keep')
     expect(afterSettingsNavigation({ toPath: '/plan/2026/10', failed: false, chosen: null, signedIn: true })).toBe('keep')
     expect(afterSettingsNavigation({ toPath: '/plan/2026/10', failed: false, chosen: 2, signedIn: true })).toBe('drop')
   })

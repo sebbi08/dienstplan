@@ -13,8 +13,9 @@ import { formatDate } from '~/utils/format'
 const props = defineProps<{ employeeId: number; active: boolean }>()
 const t = de.sickDays
 const year = ref(parseIsoDate(todayIso()).year)
+// Its own key: the list page fetches the same address with other options.
 const { data, error, execute } = useFetch<SickYearRowDto[]>('/api/sick-days', {
-  query: { year }, server: false, immediate: false, watch: false,
+  key: `employee-sick-days-${props.employeeId}`, query: { year }, server: false, immediate: false, watch: false,
 })
 const loaded = ref(false)
 onMounted(() => {
@@ -44,7 +45,7 @@ const period = (range: { from: string; to: string; days: number }) =>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
     <template v-else-if="data">
       <p>{{ t.total }}: <span class="font-semibold">{{ row?.total ?? 0 }}</span></p>
-      <p v-if="!row?.ranges.length" class="text-gray-500">{{ t.none }}</p>
+      <p v-if="!row?.ranges.length" class="text-gray-500">{{ t.noneThisYear }}</p>
       <ul v-else>
         <li v-for="range in row.ranges" :key="range.from">{{ period(range) }}</li>
       </ul>

@@ -72,7 +72,8 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   ['/admin/users', 'users.manage'],
   ['/admin/rights', 'rights.manage'],
   ['/admin/settings', 'settings.facility'],
-  ['/admin/retention', 'retention.delete'],
+  // „Datenschutz & Löschen“: the Leitung reads her facility's staff Löschfristen there (each tab checks its own right).
+  ['/admin/retention', 'settings.facility'],
   // „Dokumente“: the tab „Bögen“ (formTemplates.manage) or the tab „Vorlagen“ (printTemplates.view: managers and, read
   // only, the categories visible to all, Mitarbeiter accounts; the tablet by tabletMayOpen). The page shows the tabs the
   // account may use.

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { de } from '~/locales/de'
 import {
-  areaOfSlug, JUMP_LINKS_FROM, MOVED_SECTIONS, readOnlyForViewer, sectionAnchor, visibleSettingsAreas,
+  areaAnchorAction, areaOfSlug, JUMP_LINKS_FROM, readOnlyForViewer, sectionAnchor, visibleSettingsAreas,
 } from '~/utils/settingsAreas'
 
 /**
@@ -38,13 +38,13 @@ const settingsForBefore = computed(() => {
 const target = ref('')
 const foldOpen = ref(false)
 async function scrollToTarget() {
-  const id = route.hash.slice(1)
-  if (!id) return
-  // A section that moved to another page (Löschfristen, Datensicherung): old links lead there.
-  const moved = MOVED_SECTIONS[id]
-  if (moved) return void navigateTo(moved, { replace: true })
-  // A folded section of the Träger opens its fold.
-  if (readOnly.value.some(section => sectionAnchor(section.key) === id)) foldOpen.value = true
+  // A section that moved to another page (Löschfristen, Datensicherung): old links lead there; a folded section of the
+  // Träger opens its fold.
+  const action = areaAnchorAction(route.hash, readOnly.value.map(section => section.key))
+  if (action.kind === 'none') return
+  if (action.kind === 'redirect') return void navigateTo(action.to, { replace: true })
+  const id = action.id
+  if (action.openFold) foldOpen.value = true
   target.value = id
   await nextTick()
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -59,14 +59,10 @@ watch(() => route.hash, scrollToTarget)
 <template>
   <div v-if="entry" class="space-y-4">
     <h2 class="text-xl font-semibold">{{ entry.title }}</h2>
-    <nav v-if="jumpLinks.length" :aria-label="s.jumpLinks" class="flex flex-wrap gap-1.5">
-      <NuxtLink
-        v-for="section in jumpLinks" :key="section.key" :to="{ hash: `#${sectionAnchor(section.key)}` }"
-        class="rounded-full bg-white px-3 py-1 text-xs text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
-      >
-        {{ section.title }}
-      </NuxtLink>
-    </nav>
+    <InPageToc
+      v-if="jumpLinks.length" :label="s.jumpLinks"
+      :items="jumpLinks.map(section => ({ id: sectionAnchor(section.key), title: section.title }))"
+    />
     <template v-for="section in editable" :key="section.key">
       <h2 v-if="section.key === settingsForBefore && chosenName" class="border-t border-gray-200 pt-4 text-lg font-semibold">
         {{ de.settingsAreas.settingsForChosen(chosenName) }}
@@ -116,6 +112,7 @@ watch(() => route.hash, scrollToTarget)
           <SettingsCodesSection v-if="section.key === 'codes'" />
           <SettingsLeaveCountingSection v-else-if="section.key === 'leave-counting'" />
           <SettingsChildSickSection v-else-if="section.key === 'child-sick-days'" />
+          <SettingsParentalLeaveSection v-else-if="section.key === 'parental-leave'" />
         </div>
       </div>
     </details>

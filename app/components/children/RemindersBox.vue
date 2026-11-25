@@ -202,7 +202,7 @@ async function markDone(entry: ReminderDto) {
             class="ml-2 text-xs text-sky-700 hover:underline"
           >{{ r.probationLink }}</NuxtLink>
           <NuxtLink
-            v-if="entry.kind === 'parentalLeave' && entry.parentalLeave" :to="`/admin/employees/${entry.parentalLeave.employeeId}?tab=contract`"
+            v-if="entry.kind === 'parentalLeave' && entry.parentalLeave" :to="`/admin/employees/${entry.parentalLeave.employeeId}?tab=parentalLeave`"
             class="ml-2 text-xs text-sky-700 hover:underline"
           >{{ r.parentalLeaveLink }}</NuxtLink>
         </span>

@@ -7,7 +7,7 @@ import {
 import { de } from '~/locales/de'
 
 /**
- * Einstellungen → Personal → Löschfristen (per facility, „Einstellungen für“ applies): how long the data of left
+ * „Datenschutz & Löschen“ → Fristen (per facility, „Einstellungen für“ applies): how long the data of left
  * employees is kept (Lohn und Steuer by „Lohnunterlagen bewahrt ein Lohnbüro auf“), who may delete a left employee by
  * hand, and how long an archived cash box is kept. The Träger
  * changes them, the Leitung sees them read-only (the server checks as well).

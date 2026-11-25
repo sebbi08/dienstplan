@@ -22,7 +22,11 @@ const chosenFacility = useSettingsFacility()
 const shownFacility = useSettingsFacilityId()
 const confirm = useConfirm()
 
-/** Opens the group's page; for another facility than the shown one, its settings are chosen first. */
+/**
+ * Opens the group's page; for another facility than the shown one, its settings are chosen first – asking about unsaved
+ * edits before the switch (the switch shows the page anew, so the guard of the navigation that follows finds nothing
+ * unsaved and does not ask a second time).
+ */
 async function openGroup(group: GroupDto) {
   if (shownFacility.value !== props.facilityId) {
     if (hasUnsavedChanges() && !await confirm(s.unsavedConfirm, { confirmLabel: s.unsavedSwitch, danger: true })) return

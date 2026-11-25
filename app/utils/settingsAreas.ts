@@ -50,17 +50,25 @@ export interface SettingsSection {
 const s = de.settingsAreas
 
 /**
- * „Datenschutz & Löschen“ (the Träger, Mehr → Datenschutz & Löschen): what may be deleted now, the retention periods of
- * children, staff, applicants and cash boxes, and the Datensicherung – one page instead of four places.
+ * „Datenschutz & Löschen“ (Mehr → Datenschutz & Löschen): what may be deleted now, the retention periods of children,
+ * staff, applicants and cash boxes, and the Datensicherung – one page instead of four places. Each tab has its own
+ * right: „Jetzt löschbar“ the Träger's retention.delete, „Fristen“ settings.facility (the Leitung reads her facility's
+ * staff periods there), „Datensicherung“ backup.download.
  */
 export const PRIVACY_PATH = '/admin/retention'
 export const PRIVACY_TABS = ['due', 'periods', 'backup'] as const
 export type PrivacyTab = typeof PRIVACY_TABS[number]
+const PRIVACY_TAB_PERMISSION: Record<PrivacyTab, PermissionKey> = {
+  due: 'retention.delete', periods: 'settings.facility', backup: 'backup.download',
+}
+/** The tabs of „Datenschutz & Löschen“ the viewer may open (none: the page is not for them). */
+export const visiblePrivacyTabs = (can: (key: PermissionKey) => boolean): PrivacyTab[] =>
+  PRIVACY_TABS.filter(tab => can(PRIVACY_TAB_PERMISSION[tab]))
 export const privacyPath = (tab: PrivacyTab) => (tab === 'due' ? PRIVACY_PATH : `${PRIVACY_PATH}?tab=${tab}`)
-/** The tab of „Datenschutz & Löschen“ to open (`?tab=`), the first one when unknown. */
-export function requestedPrivacyTab(query: unknown): PrivacyTab {
+/** The tab to open (`?tab=`): the named one when the viewer may open it, otherwise the first one they may. */
+export function requestedPrivacyTab(query: unknown, visible: readonly PrivacyTab[] = PRIVACY_TABS): PrivacyTab {
   const key = typeof query === 'string' ? query : Array.isArray(query) && typeof query[0] === 'string' ? query[0] : null
-  return PRIVACY_TABS.find(tab => tab === key) ?? 'due'
+  return visible.find(tab => tab === key) ?? visible[0] ?? 'due'
 }
 
 /** Former anchors of sections that moved to another page (old links and bookmarks lead there). */
@@ -68,6 +76,21 @@ export const MOVED_SECTIONS: Readonly<Record<string, string>> = {
   'section-retention': privacyPath('periods'),
   'section-employee-retention': privacyPath('periods'),
   'section-backup': privacyPath('backup'),
+}
+
+/**
+ * What an area page does with the anchor of the address (`#section-…`): go to the page a moved section lives on now,
+ * open the fold of the Träger's sections when it names one of them, otherwise scroll to the section (nothing without an
+ * anchor).
+ */
+export function areaAnchorAction(
+  hash: string, foldedKeys: readonly string[],
+): { kind: 'none' } | { kind: 'redirect'; to: string } | { kind: 'scroll'; id: string; openFold: boolean } {
+  const id = hash.replace(/^#/, '')
+  if (!id) return { kind: 'none' }
+  const moved = MOVED_SECTIONS[id]
+  if (moved) return { kind: 'redirect', to: moved }
+  return { kind: 'scroll', id, openFold: foldedKeys.some(key => sectionAnchor(key) === id) }
 }
 
 /** The sections of each area, in their order on the page. */
@@ -92,7 +115,7 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
     },
     {
       // The Löschfristen (children, staff, applicants, cash) and the Datensicherung: on their own page.
-      key: 'privacy', title: de.privacy.title, permission: 'retention.delete', replaces: ['retention', 'backup'], global: true,
+      key: 'privacy', title: de.privacy.title, permission: 'retention.delete', replaces: ['retention', 'backup'],
       to: privacyPath('periods'),
       keywords: [
         'Löschfrist', 'Löschfristen', 'löschen', 'Datenschutz', 'Aufbewahrung', 'abgemeldete Kinder', 'Archiv', 'Backup', 'Datenbank',
@@ -220,11 +243,12 @@ export const AREA_SECTIONS: Record<SettingsArea, readonly SettingsSection[]> = {
     {
       // Whoever sees the contract data (the Träger by default) sees it; whoever edits it changes it.
       key: 'parental-leave', title: de.parentalLeave.settings.title, permission: 'employees.contractView', replaces: [],
+      editPermission: 'employees.contractEdit',
       keywords: ['Elternzeit', 'BEEG', 'abwesend', 'Dienstplan', 'sichtbar', 'Tablet'],
     },
     {
-      // The staff's Löschfristen: on „Datenschutz & Löschen“ (a link card stays where they were).
-      key: 'staff-retention', title: de.retention.title, permission: 'retention.delete', replaces: [], global: true, to: privacyPath('periods'),
+      // The staff's Löschfristen (per facility; the Leitung reads them): on „Datenschutz & Löschen“, a link card stays here.
+      key: 'staff-retention', title: de.retention.title, permission: 'settings.facility', replaces: [], to: privacyPath('periods'),
       keywords: ['Löschfrist Mitarbeiter', 'ausgezahlt', 'Überstunden', 'Beurteilung', 'Zeugnis', 'Altersvorsorge', 'Lohnkonto'],
     },
   ],

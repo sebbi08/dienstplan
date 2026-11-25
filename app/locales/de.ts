@@ -256,7 +256,7 @@ export const de = {
     title: 'Krankheitstage', printTitle: (year: number) => `Krankheitstage ${year}`, name: 'Mitarbeiter:in', periods: 'Zeiträume',
     total: 'Arbeitstage gesamt', none: 'keine', days: (count: number) => (count === 1 ? '1 Tag' : `${count} Tage`),
     hint: 'Grundlage sind die Einträge „Krank“ im Dienstplan. Gezählt werden Arbeitstage (ohne Wochenenden und Feiertage).',
-    allStaff: 'Alle Mitarbeitenden',
+    allStaff: 'Alle Mitarbeitenden', noneThisYear: 'Keine Krankheitstage in diesem Jahr.',
   },
   /** "Im Dienst erkrankt": someone fell ill during the duty and left early (Leitung and Träger only). */
   sickLeave: {
@@ -1796,7 +1796,7 @@ export const de = {
     applicantMonths: 'Abgesagte Bewerbungen und Hospitationen',
     applicantMonthsHelp: 'Eine abgesagte Bewerbung, Hospitation oder ein abgesagtes Praktikum darf so viele Monate nach der Absage gelöscht werden – mit Dokumenten und Bögen (1 bis 24 Monate, voreingestellt 6). Hintergrund: Ansprüche nach § 15 Abs. 4 AGG sind innerhalb von 2 Monaten schriftlich geltend zu machen, die Klage innerhalb von 3 weiteren Monaten (§ 61b ArbGG); 6 Monate lassen Zeit für den Postweg. Wer eingestellt wurde, gehört zur Personalakte.',
     openApplicantMonths: 'Bewerbungen und Hospitationen ohne Abschluss',
-    openApplicantMonthsHelp: 'Ein offener Eintrag (weder abgesagt noch eingestellt), an dem so viele Monate nichts geändert wurde und dessen letzter Termin so lange vorbei ist, steht unter Löschfristen und darf gelöscht werden – mit Dokumenten und Bögen (1 bis 60 Monate, voreingestellt 12).',
+    openApplicantMonthsHelp: 'Ein offener Eintrag (weder abgesagt noch eingestellt), an dem so viele Monate nichts geändert wurde und dessen letzter Termin so lange vorbei ist, steht unter „Datenschutz & Löschen → Jetzt löschbar“ und darf gelöscht werden – mit Dokumenten und Bögen (1 bis 60 Monate, voreingestellt 12).',
     /** The archive line: „Persönliche Daten dürfen schon gelöscht werden (…). Zeitdaten dürfen ab … gelöscht werden, Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“ */
     archive: {
       labels: {
@@ -1823,6 +1823,9 @@ export const de = {
     related: 'Weitere Einstellungen zum Datenschutz',
     relatedConsents: 'Einwilligungen der Eltern (Fragen)', relatedTablet: 'Tablet: PIN und Sperrzeit', relatedRights: 'Rechte und Rollen',
     relatedDocumentTypes: 'Dokumentarten (vertraulich)',
+    // The staff periods are per facility (the one chosen in „Einstellungen für“).
+    forFacility: 'Löschfristen der Mitarbeitenden für',
+    perFacilityHint: (name: string) => `Diese Fristen gelten nur für ${name}; jede Einrichtung hat ihre eigenen.`,
   },
   retentionPage: {
     title: 'Datenschutz & Löschen',
@@ -2373,7 +2376,7 @@ export const de = {
     },
     leaving: (date: string) => ({ before: '', after: ` verlässt uns am ${date}` }),
     meeting: (time: string, kind: string) => ({ before: 'Elterngespräch ', after: ` heute ${time} (${kind})` }),
-    // Only for the Träger; the whole text links to the page „Löschfristen“.
+    // Only for the Träger; the whole text links to „Datenschutz & Löschen“ (Jetzt löschbar).
     retention: (count: number) => (count === 1 ? '1 Eintrag darf gelöscht werden' : `${count} Einträge dürfen gelöscht werden`),
     // Leitung/Träger: an accident report with Arztbesuch or arbeitsunfähig that is not reported yet (overdue after 3 days).
     accident: (date: string, employee: boolean) => ({
@@ -2637,7 +2640,7 @@ export const de = {
     globalHint: 'Diese Einstellung gilt für alle Einrichtungen, egal welche oben gewählt ist.',
     // The Leitung: the sections only the Träger changes, folded at the end of an area.
     traegerSections: (titles: string[]) => `Diese Einstellungen pflegt der Träger: ${titles.join(', ')}`,
-    jumpLinks: 'Springe zu',
+    jumpLinks: 'Direkt zu',
     groupsSummary: 'Alles zu einer Gruppe: Name, Farbe, Höchstzahl, Gruppenart, Öffnungszeiten, Entwicklungsdoku, Lesen',
     // Above the sections of the area Einrichtung that apply to the facility chosen in „Einstellungen für“.
     settingsForChosen: (name: string) => `Einstellungen für ${name}`,
@@ -2655,7 +2658,7 @@ export const de = {
     groupListHint: 'Tippe auf eine Gruppe, um alles zu dieser Gruppe an einer Stelle einzustellen.',
     groupListNone: 'Noch keine Gruppen.',
     groupListNoneProvider: 'Lege unten die erste Gruppe an.',
-    groupsEditOnPage: 'Name, Gruppenart, Plätze, Schulkinder, Lesen und Löschen: auf der Seite der Gruppe (antippen).',
+    groupsEditOnPage: 'Name, Gruppenart, Plätze, Schulkinder, „Darf zusätzlich lesen“ und Löschen stellst du auf der Seite der Gruppe ein (Gruppe antippen).',
     groupDelete: 'Gruppe löschen',
     groupListNoneLeitung: 'Gruppen legt der Träger an.',
     groupOwnHours: 'eigene Öffnungszeiten',
@@ -3152,7 +3155,7 @@ export const de = {
     signTablet: 'Unterzeichnen',
     signName: 'Dein Name',
     signPin: 'Deine PIN',
-    signPinHint: 'Noch keine PIN? Die Leitung vergibt sie beim Mitarbeiter im Reiter „Urlaub & Zeiten“.',
+    signPinHint: 'Noch keine PIN? Die Leitung vergibt sie beim Mitarbeiter im Reiter „Zeiten & Urlaub“.',
     mineOpen: 'Du hast noch nicht unterzeichnet',
     toSign: (count: number) => (count === 1 ? 'Du musst noch 1 Protokoll unterzeichnen.' : `Du musst noch ${count} Protokolle unterzeichnen.`),
     toSignOpen: 'Zum Protokoll',
@@ -3396,7 +3399,7 @@ export const de = {
     employee_not_left: 'Löschen geht erst, wenn die Person ausgeschieden ist, also der Tag „ausgeschieden am“ vorbei ist.',
     employee_delete_confirm_mismatch: 'Der eingetippte Name stimmt nicht. Bitte tippe den Namen genau so ein, wie er dasteht.',
     employee_delete_blocked: 'Löschen hat nicht geklappt: Es gibt noch Daten, die auf diese Person verweisen. Es wurde nichts gelöscht. Bitte wende dich an den Träger.',
-    employee_delete_disabled: 'Endgültig löschen ist für dich nicht freigegeben (Mehr → Datenschutz & Löschen → Fristen). Nach Ablauf der Löschfristen löscht der Träger die Daten (Mehr → Datenschutz & Löschen).',
+    employee_delete_disabled: 'Endgültig löschen ist für dich nicht freigegeben: Der Träger legt fest, wer endgültig löschen darf (nachzulesen unter Einstellungen → Mitarbeitende → Löschfristen). Nach Ablauf der Löschfristen löscht der Träger die Daten.',
     retention_settings_invalid: 'Bitte ganze Jahre angeben: 1 bis 40, bei der Kasse 1 bis 30.',
     retention_paid_overtime_too_short: 'Ausgezahlte Überstunden, Verträge und Gehalt: mindestens 8 Jahre (Buchungsbelege, § 147 Abs. 3 AO, § 257 Abs. 4 HGB).',
     retention_item_not_found: 'Diese Zeile gibt es nicht mehr, sie wurde vielleicht schon gelöscht. Lade die Seite neu.',

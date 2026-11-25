@@ -106,6 +106,8 @@ export function requestedEmployeeTab(query: unknown, hash: string, visible: read
   const wanted = queryKey(query)
   const tab = isSection(wanted) ? EMPLOYEE_SECTIONS[wanted] : visible.find(key => key === wanted)
   if (tab && visible.includes(tab)) return tab
+  // The former tab „Vertrag & Lohn“ also held Wochenstunden and Stundenkonto: without the contract data it opens their tab.
+  if (wanted === 'contract' && visible.includes('times')) return 'times'
   if (hash === '#requirements' && visible.includes('records')) return 'records'
   return visible[0] ?? 'master'
 }

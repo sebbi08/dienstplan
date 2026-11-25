@@ -3,30 +3,66 @@ import type { RetentionDeleteResult, RetentionItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
-import { areaPath, PRIVACY_TABS, privacyPath, requestedPrivacyTab, sectionAnchor, type PrivacyTab } from '~/utils/settingsAreas'
+import { areaPath, privacyPath, requestedPrivacyTab, sectionAnchor, visiblePrivacyTabs, type PrivacyTab } from '~/utils/settingsAreas'
 
 /**
- * Mehr → „Datenschutz & Löschen“, only for the Träger, for all facilities – one page with three tabs:
- * - „Jetzt löschbar“ (spec Löschübersicht §2): every item of every facility that may be deleted after its retention
- *   period, with a button per row and „Alle fälligen löschen“ (exactly the rows shown, so the facility filter counts),
- *   „Später löschbar“ by date without buttons. The server sorts and checks due-ness again before deleting. A cash box
- *   asks for its name, like the cash page did before.
- * - „Fristen“: the Löschfrist of children and the Löschfristen of staff, applicants and cash boxes (formerly in the
- *   settings), with links to the other privacy-relevant settings.
- * - „Datensicherung“ (formerly Einstellungen → Einrichtung).
- * `?tab=periods` / `?tab=backup` open a tab; the old settings anchors lead here (MOVED_SECTIONS).
+ * „Datenschutz & Löschen“ (Mehr, the Träger; the Leitung reads her own facility's staff periods, reached from
+ * Einstellungen → Mitarbeitende) – one page with up to three tabs, each with its own right:
+ * - „Jetzt löschbar“ (retention.delete, spec Löschübersicht §2): every item of every facility that may be deleted after
+ *   its retention period, with a button per row and „Alle fälligen löschen“ (exactly the rows shown, so the facility
+ *   filter counts), „Später löschbar“ by date without buttons. The server sorts and checks due-ness again before
+ *   deleting. A cash box asks for its name, like the cash page did before.
+ * - „Fristen“ (settings.facility): the Löschfrist of children (one for all facilities, the Träger) and the Löschfristen
+ *   of staff, applicants and cash boxes of ONE facility – the one chosen in „Einstellungen für“ (this page counts as a
+ *   settings page for it, so a choice made in the settings is kept and sent along), named above them; links to the other
+ *   privacy-relevant settings.
+ * - „Datensicherung“ (backup.download, one for all).
+ * `?tab=periods` / `?tab=backup` open a tab; the old settings anchors lead here (MOVED_SECTIONS). Unsaved edits ask
+ * before the page or a tab is left, as on the settings pages.
  */
 const t = de.retentionPage
 const p = de.privacy
 useHead({ title: p.title })
 const route = useRoute()
 const router = useRouter()
-const tab = computed<PrivacyTab>(() => requestedPrivacyTab(route.query.tab))
-const selectTab = (next: PrivacyTab) => router.replace({ query: next === 'due' ? {} : { tab: next } })
-
 const { can } = useCan()
 const canDeleteDue = computed(() => can('retention.delete'))
-if (!canDeleteDue.value) await navigateTo('/', { replace: true })
+const tabs = computed(() => visiblePrivacyTabs(can))
+if (!tabs.value.length) await navigateTo('/', { replace: true })
+const tab = computed<PrivacyTab>(() => requestedPrivacyTab(route.query.tab, tabs.value))
+useUnsavedGuard()
+/** The tabs are separate forms: unsaved edits ask first (switching unmounts them). */
+async function selectTab(next: PrivacyTab) {
+  if (next === tab.value) return
+  if (hasUnsavedChanges() && !await confirm(de.settingsAreas.unsavedConfirm, { confirmLabel: de.settingsAreas.unsavedLeave, danger: true })) return
+  await router.replace({ query: next === tabs.value[0] ? {} : { tab: next } })
+}
+/** Arrow keys, Home and End move between the tabs (and open the one reached), as in a tab list. */
+async function onTabKey(event: KeyboardEvent) {
+  const keys = tabs.value
+  const index = keys.indexOf(tab.value)
+  const last = keys.length - 1
+  const next = { ArrowRight: index === last ? 0 : index + 1, ArrowLeft: index <= 0 ? last : index - 1, Home: 0, End: last }[event.key]
+  if (next === undefined || !keys[next]) return
+  event.preventDefault()
+  const target = keys[next]
+  await selectTab(target)
+  if (tab.value === target) nextTick(() => document.getElementById(`privacy-tab-${target}`)?.focus())
+}
+
+// The staff periods are per facility: „Einstellungen für“ as in the settings (the Träger with more than one facility).
+const { data: facilities } = useFacilities()
+const chosenFacility = useSettingsFacility()
+const shownFacility = useSettingsFacilityId()
+const facilityItems = computed(() => (facilities.value?.facilities ?? []).map(facility => ({ label: facility.name, value: facility.id })))
+const showFacilityChoice = computed(() => can('settings.otherFacility') && facilityItems.value.length > 1)
+const shownFacilityName = computed(() => facilities.value?.facilities.find(facility => facility.id === shownFacility.value)?.name ?? '')
+async function chooseFacility(facilityId: number) {
+  if (!Number.isInteger(facilityId) || facilityId === shownFacility.value) return
+  if (hasUnsavedChanges() && !await confirm(de.settingsAreas.unsavedConfirm, { confirmLabel: de.settingsAreas.unsavedSwitch, danger: true })) return
+  chosenFacility.value = facilityId === facilities.value?.activeId ? null : facilityId
+  await refreshNuxtData()
+}
 
 const { data, error, refresh } = await useFetch<RetentionItemDto[]>('/api/retention', {
   key: 'retention-overview', default: () => [], immediate: canDeleteDue.value,
@@ -34,7 +70,7 @@ const { data, error, refresh } = await useFetch<RetentionItemDto[]>('/api/retent
 
 const ALL = 'all'
 const facilityFilter = ref(ALL)
-const facilityItems = computed(() => {
+const filterItems = computed(() => {
   const names = new Map<number, string>()
   for (const item of data.value) names.set(item.facilityId, item.facilityName)
   return [
@@ -43,7 +79,7 @@ const facilityItems = computed(() => {
   ]
 })
 // A facility that no longer has items (all deleted) falls back to „Alle Einrichtungen“.
-watch(facilityItems, (items) => {
+watch(filterItems, (items) => {
   if (!items.some(item => item.value === facilityFilter.value)) facilityFilter.value = ALL
 })
 const shown = computed(() => data.value.filter(item => facilityFilter.value === ALL || String(item.facilityId) === facilityFilter.value))
@@ -148,26 +184,42 @@ async function deleteAll() {
 </script>
 
 <template>
-  <div v-if="canDeleteDue" class="max-w-4xl space-y-6">
+  <div v-if="tabs.length" class="max-w-4xl space-y-6">
     <div class="space-y-2">
       <h1 class="text-2xl font-semibold">{{ p.title }}</h1>
-      <SettingsGlobalBadge />
-      <div role="tablist" :aria-label="p.tabsLabel" class="flex flex-wrap gap-1.5">
+      <div v-if="tabs.length > 1" role="tablist" :aria-label="p.tabsLabel" class="flex flex-wrap gap-1.5">
         <button
-          v-for="key in PRIVACY_TABS" :key="key" type="button" role="tab" :aria-selected="tab === key"
-          class="min-h-10 rounded-full px-3.5 text-sm ring-1"
+          v-for="key in tabs" :id="`privacy-tab-${key}`" :key="key" type="button" role="tab"
+          :aria-selected="tab === key" :tabindex="tab === key ? 0 : -1" :aria-controls="`privacy-panel-${key}`"
+          class="min-h-10 rounded-full px-3.5 text-sm ring-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           :class="tab === key ? 'bg-sky-50 font-semibold text-sky-800 ring-sky-400' : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50'"
-          @click="selectTab(key)"
+          @click="selectTab(key)" @keydown="onTabKey"
         >
           {{ p.tabs[key] }}
         </button>
       </div>
     </div>
 
-    <div v-if="tab === 'periods'" class="space-y-4">
+    <div v-if="tab === 'periods'" id="privacy-panel-periods" role="tabpanel" aria-labelledby="privacy-tab-periods" class="space-y-4">
       <p class="text-sm text-gray-600">{{ p.periodsIntro }}</p>
-      <SettingsChildRetentionSection />
-      <SettingsEmployeeRetentionSection />
+      <!-- One for all facilities (the Träger). -->
+      <div v-if="can('settings.retention')" class="space-y-1">
+        <SettingsGlobalBadge />
+        <SettingsChildRetentionSection />
+      </div>
+      <!-- Per facility: the one chosen in „Einstellungen für“ (kept from the settings), named here. -->
+      <div class="space-y-2 rounded-lg border border-sky-200 bg-sky-50/50 p-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-sm font-medium">{{ p.forFacility }}:</span>
+          <USelect
+            v-if="showFacilityChoice" :model-value="shownFacility ?? undefined" :items="facilityItems" :aria-label="p.forFacility"
+            class="w-full sm:w-64" @update:model-value="chooseFacility(Number($event))"
+          />
+          <span v-else class="text-sm font-semibold">{{ shownFacilityName }}</span>
+        </div>
+        <p class="text-xs text-gray-600">{{ p.perFacilityHint(shownFacilityName) }}</p>
+        <SettingsEmployeeRetentionSection :key="shownFacility ?? 'active'" />
+      </div>
       <section class="space-y-2 rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">
         <h2 class="font-semibold">{{ p.related }}</h2>
         <ul class="list-inside list-disc space-y-1 text-sky-700">
@@ -179,11 +231,12 @@ async function deleteAll() {
       </section>
     </div>
 
-    <div v-else-if="tab === 'backup'" class="space-y-4">
+    <div v-else-if="tab === 'backup'" id="privacy-panel-backup" role="tabpanel" aria-labelledby="privacy-tab-backup" class="space-y-1">
+      <SettingsGlobalBadge />
       <SettingsBackupSection />
     </div>
 
-    <template v-else>
+    <div v-else-if="canDeleteDue" id="privacy-panel-due" role="tabpanel" aria-labelledby="privacy-tab-due" class="space-y-6">
     <p class="text-sm text-gray-600">
       {{ t.intro }}
       <NuxtLink :to="privacyPath('backup')" class="font-medium text-sky-700 hover:underline">{{ t.backupLink }}</NuxtLink>
@@ -193,7 +246,7 @@ async function deleteAll() {
     <p v-else-if="!data.length" class="text-sm text-gray-500">{{ t.empty }}</p>
     <template v-else>
       <UFormField :label="t.facility" class="max-w-xs">
-        <USelect v-model="facilityFilter" :items="facilityItems" class="w-full" />
+        <USelect v-model="facilityFilter" :items="filterItems" class="w-full" />
       </UFormField>
 
       <section class="space-y-2">
@@ -226,7 +279,7 @@ async function deleteAll() {
       </section>
     </template>
 
-    </template>
+    </div>
 
     <CashPurgeDialog :name="purging?.name ?? null" :pending="busy" @close="purging = null" @confirm="confirmPurge" />
   </div>

@@ -870,7 +870,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 | am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit den Zusatztagen nur für ein Jahr, Elternzeiten |
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz) als Nachweis, dass die Pflichten erfüllt wurden, Lesebestätigungen aus „Wissen“, die Nachweise der Unterschriften in der App („Zum Unterschreiben senden“: Zeitpunkt, Prüfsumme, Grund einer Ablehnung); Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
-| „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Mitarbeiter-Seite beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
+| „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Unter „Jetzt löschbar“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Mitarbeiter-Seite beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
 | „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
@@ -886,42 +886,52 @@ wenn der Träger die Zeile „‹Name› – Persönliche Daten“ unter **Mehr 
 zurückgenommen (Datum entfernt oder in die Zukunft verschoben), geht die Anmeldung wieder. Ein **Träger-Konto** wird
 nie gesperrt.
 
-- Die Fristen stellt der **Träger** je Einrichtung unter *Mehr → Datenschutz & Löschen → Fristen* ein (1 bis 40 Jahre;
-  welche Einrichtung, wählst du dort). Die Leitung sieht die Fristen nicht. Dort stehen auch „Mitarbeiter endgültig
-  löschen“ (siehe oben) und die „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
+- Die Fristen stellt der **Träger** **je Einrichtung** unter *Mehr → Datenschutz & Löschen → Fristen* ein (1 bis 40
+  Jahre). Welche Einrichtung, steht dort über den Fristen bei **„Löschfristen der Mitarbeitenden für“**: Es ist die bei
+  „Einstellungen für“ gewählte Einrichtung – kommst du aus den Einstellungen (Karte „Löschfristen“, Suche, alter Link),
+  bleibt deine Wahl; mit mehreren Einrichtungen kannst du sie dort auch wechseln. Die **Leitung** sieht die Fristen
+  ihrer Einrichtung dort nur (Einstellungen → Mitarbeitende → Karte „Löschfristen“; sie hat nur diesen Reiter) – auch,
+  ob sie ausgeschiedene Mitarbeiter selbst endgültig löschen darf. Dort stehen auch „Mitarbeiter endgültig löschen“
+  (siehe oben) und die „Aufbewahrungsfrist Kasse“ (1 bis 30 Jahre, voreingestellt 10).
 - **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** (je Einrichtung, nur der Träger; voreingestellt an): Rechnet
   ein Lohn- oder Steuerbüro ab und bewahrt es die Lohnunterlagen auf, darf „Lohn und Steuer“ schon am Tag nach dem
   Ausscheiden gelöscht werden (wie bisher, mit den „Persönlichen Daten“ in einer Zeile). Ohne Haken bleiben diese Angaben
-  6 Jahre nach dem Ende des Austrittsjahres und stehen dann auf der Seite „Löschfristen“ als eigene Zeile
+  6 Jahre nach dem Ende des Austrittsjahres und stehen dann unter „Jetzt löschbar“ als eigene Zeile
   „‹Name› – Lohn und Steuer“ zum Löschen bereit. Wird der Haken später gesetzt, gehen schon aufbewahrte Angaben wieder
   mit den „Persönlichen Daten“.
-- Eine geänderte Frist gilt sofort für die Seite „Löschfristen“. Schon Gelöschtes kommt nicht zurück.
+- Eine geänderte Frist gilt sofort für „Jetzt löschbar“. Schon Gelöschtes kommt nicht zurück.
 - Im Abschnitt „Ausgeschiedene Mitarbeiter“ steht bei jeder Person, ab wann was gelöscht werden darf („Persönliche
   Daten dürfen schon gelöscht werden (vom Träger unter Mehr → Datenschutz & Löschen). Zeitdaten dürfen ab … gelöscht werden,
   Beurteilungen ab …, ausgezahlte Überstunden ab …; danach der Eintrag.“). Hat die Person keine Buchung mit
   „ausgezahlt“, fehlt dieses Datum. Sind alle Fristen abgelaufen, steht dort, dass der Träger die Daten unter
   Mehr → Datenschutz & Löschen löscht und zuletzt den Eintrag.
-- Wird das Ausscheiden zurückgenommen (Datum entfernt oder in die Zukunft verschoben), verschwindet die Person von der
-  Seite „Löschfristen“.
+- Wird das Ausscheiden zurückgenommen (Datum entfernt oder in die Zukunft verschoben), verschwindet die Person aus
+  „Jetzt löschbar“.
 - Die Fristen sind vorbelegt nach den Vorgaben des Trägers – bitte im Zweifel mit Steuerberatung bzw. Datenschutz
   klären. Gelöschtes steckt noch in älteren Sicherungen (siehe Abschnitt 8, „Gelöschte Daten und Sicherungen“).
 
-### Die Seite „Datenschutz & Löschen“ (nur Träger)
+### Die Seite „Datenschutz & Löschen“
 
 - **Eine Seite für alles zum Löschen:** *Mehr → Datenschutz & Löschen* hat drei Reiter: **Jetzt löschbar** (die
   Übersicht unten, früher „Mehr → Löschfristen“), **Fristen** (Löschfrist für abgemeldete Kinder; Löschfristen der
   Mitarbeitenden, der Bewerbungen und der Kasse, „Mitarbeiter endgültig löschen“, „Lohnunterlagen bewahrt ein
   Lohnbüro auf“ – früher unter *Einstellungen → Einrichtung* bzw. *Einstellungen → Personal*; dazu Links zu den
   Einwilligungsfragen, den Dokumentarten, dem Tablet und den Rechten) und **Datensicherung** (früher *Einstellungen →
-  Einrichtung*). Die Seite ist mit **„gilt für alle Einrichtungen“** markiert. In den Einstellungen steht an der alten
-  Stelle eine Karte mit Link hierher; alte Links auf die früheren Abschnitte führen hierher, und die Suche der
-  Einstellungen findet „Löschfrist“, „Datensicherung“ usw. weiterhin.
+  Einrichtung*). **„gilt für alle Einrichtungen“** steht nur an dem, was wirklich für alle gilt: der Löschfrist für
+  abgemeldete Kinder und der Datensicherung („Jetzt löschbar“ zeigt ohnehin alle Einrichtungen). Die Löschfristen der
+  Mitarbeitenden, Bewerbungen und Kasse gelten **je Einrichtung** – welche, steht darüber (siehe oben). In den
+  Einstellungen steht an der alten Stelle eine Karte mit Link hierher; alte Links auf die früheren Abschnitte führen
+  hierher, und die Suche der Einstellungen findet „Löschfrist“, „Datensicherung“ usw. weiterhin. Wer Fristen geändert
+  und noch nicht gespeichert hat, wird vor dem Wechsel des Reiters und beim Verlassen der Seite gefragt.
+- **Wer was sieht:** Der Träger alle drei Reiter (Menü *Mehr*). Die Leitung nur **Fristen**, und dort nur die
+  Löschfristen der Mitarbeitenden ihrer Einrichtung zum Lesen; sie kommt über *Einstellungen → Mitarbeitende →
+  Löschfristen* hin (kein Menüpunkt).
 
 - Unter **Mehr → Datenschutz & Löschen** sieht der Träger alles, was nach Ablauf einer Frist gelöscht werden darf – aus
   **allen Einrichtungen** auf einer Seite: die Daten ausgeschiedener Mitarbeiter (je Art eine Zeile: Persönliche
   Daten, Zeitdaten, Beurteilungen, ausgezahlte Überstunden, zuletzt der Mitarbeiter-Eintrag), die Akten abgemeldeter
   Kinder, archivierte Kassen und erledigte Anfragen zum Unterschreiben (das gesendete PDF, ein Jahr nach der letzten
-  Unterschrift oder Ablehnung). Eine Zeile steht nur da, wenn es dazu noch Daten gibt. Die Leitung hat die Seite nicht.
+  Unterschrift oder Ablehnung). Eine Zeile steht nur da, wenn es dazu noch Daten gibt. Die Leitung hat diesen Reiter nicht.
 - „Persönliche Daten“ (Geburtstag, PIN, Benutzerkonto …) sind ab dem Tag nach dem Ausscheiden löschbar. Das Konto einer
   Leitung oder eines Mitarbeiters ist ab diesem Tag schon gesperrt; mit dieser Zeile löschst du es.
 - Je Zeile: Einrichtung, was (Name und Art der Daten) und **löschbar ab**. Mit **„Einrichtung“** oben zeigst du nur
@@ -959,7 +969,9 @@ mehreren Abschnitten (auf dem Handy untereinander):
 - **Gespräche** und **Zugang**.
 
 Ältere Links mit einem früheren Reiter oder Abschnitt (z. B. `?tab=bem`, `?tab=hours`, `?tab=stamping`) öffnen den
-Reiter, in dem der Abschnitt jetzt steht.
+Reiter, in dem der Abschnitt jetzt steht. Ein alter Link auf „Vertrag & Lohn“ öffnet für jemanden ohne die Vertragsangaben
+(die Leitung in der Grundeinstellung) „Zeiten & Urlaub“, wo die früher dort stehenden Wochenstunden und das
+Stundenkonto jetzt sind.
 
 Einen Reiter, von dem du keinen Abschnitt sehen darfst, gibt es für dich nicht. Die App merkt sich keinen Reiter; sie
 öffnet immer mit „Stammdaten“, außer ein Link führt direkt zu einem Reiter oder Abschnitt (z. B. aus dem Hinweis auf
@@ -1082,7 +1094,7 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   (voreingestellt) – alles aus „Lohn und Steuer“ zu den **„Persönlichen Daten“** (löschbar ab dem Tag nach dem
   Ausscheiden; ohne Lohnbüro bleibt „Lohn und Steuer“ 6 Jahre, siehe *Löschfristen*). Die Dokumente in den Fächern Bewerbung, Qualifikationen, Korrespondenz und Maßnahmen gehen
   mit den **„Beurteilungen“** (3 Jahre), die in den Fächern Vertrag und Gehalt mit den **„ausgezahlten Überstunden“**
-  (voreingestellt 8 Jahre; auf der Seite „Löschfristen“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
+  (voreingestellt 8 Jahre; unter „Jetzt löschbar“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
   wie immer von Hand durch den Träger unter **Mehr → Datenschutz & Löschen** (siehe oben).
 
 ### Pflichtdokumente
@@ -2670,10 +2682,10 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Pflichtdokumente, **Pflichttermine**, **Urlaubsanträge**, **Urlaub zählen**, **Resturlaub-Verfall** – die vier
   kamen aus „Dienstplan“ –, Kinderkrankentage, BEM-Einladung, Elternzeit). Lange Bereiche beginnen mit einer Reihe
   **Sprungmarken** zu ihren Abschnitten. Einstellungen, die für **alle Einrichtungen** gelten (Codes, Urlaubsanträge
-  an/aus, Kinderkrankentage, Datenschutz & Löschen, Rechte und Rollen), tragen das graue Zeichen **„gilt für alle
-  Einrichtungen“**. Die Abschnitte, die nur der Träger ändert (Codes, Urlaub zählen, Kinderkrankentage), sieht die
-  Leitung am Ende des Bereichs in einer Zeile **„Diese Einstellungen pflegt der Träger: …“**, die sie zum Lesen
-  aufklappen kann.
+  an/aus, Kinderkrankentage, Löschfrist für abgemeldete Kinder, Datensicherung, Rechte und Rollen), tragen das graue
+  Zeichen **„gilt für alle Einrichtungen“**. Die Abschnitte, die jemand sieht, aber nicht ändern darf (Codes, Urlaub
+  zählen, Kinderkrankentage; „Elternzeit im Dienstplan“ für wen die Vertragsangaben nur ansehen darf), stehen am Ende
+  des Bereichs in einer Zeile **„Diese Einstellungen pflegt der Träger: …“**, die man zum Lesen aufklappen kann.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
   offener Anträge), **Zeiterfassung**, **Mitarbeiter**, **Kinder**, **Kalender** (Jahreskalender), **Teamsitzungen**,
   **Notizen** und **Dokumente** (Bögen, Vorlagen und Wissen, mit der Zahl dessen, was dort wartet: Einträge zum Bestätigen,
