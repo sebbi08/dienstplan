@@ -5,9 +5,10 @@ import type { Role } from '../../shared/types/api'
 
 /**
  * The entries of the main menu, grouped, by the account's permissions. Whoever has office pages (Leitung and Träger)
- * sees the everyday ones directly (`main`, with „Dokumente“ and its count), the rarely used ones under "Mehr" (`more`)
- * and, when linked to an employee, their own pages under "Meins" (`mine`). Schließzeiten sit in „Kalender“,
- * Krankheitstage in „Mitarbeiter“, Benutzer and Rechte together in „Benutzer & Rechte“ (tabs there). Mitarbeiter have
+ * sees the everyday ones directly (`main`, with „Mitarbeitende“ and „Dokumente“ and their counts), the rarely used ones
+ * under "Mehr" (`more`) and, when linked to an employee, their own pages under "Meins" (`mine`). Schließzeiten sit in
+ * „Kalender“, Krankheitstage, Unterschriften and the employees' Unfälle in „Mitarbeitende“, the children's Unfälle in
+ * „Kinder“, Benutzer and Rechte together in „Benutzer & Rechte“ (tabs there). Mitarbeiter have
  * `main` and their own lists and "Dokumente" under "Meins"; the tablet only has „Start“ (its start page is the one hub).
  * Passwort ändern and Abmelden are added by the layout.
  */
@@ -56,7 +57,10 @@ export interface NavViewer {
   knowledgeOpen?: number
   /** Requests to sign the account's employee still has open (GET /api/my/sign-requests/count), at „Zu unterschreiben“. */
   signOpen?: number
-  /** Overdue requests to sign of the facility (GET /api/sign-requests/overdue-count, signRequests.manage), counted at „Dokumente“. */
+  /**
+   * Overdue requests to sign of the facility (GET /api/sign-requests/overdue-count, signRequests.manage), counted at
+   * „Mitarbeitende“ (its tab „Unterschriften“).
+   */
   signOverdue?: number
 }
 
@@ -101,10 +105,12 @@ export function navMenu(viewer: NavViewer): NavMenu {
     [can('notes.view') && (viewer.role === 'admin' || viewer.role === 'provider' || viewer.employeeId !== null), notes],
   ])
   // Every office entry shows with the key its page needs (utils/routeAccess.ts).
+  const employeesCount = can('employees.view') && can('signRequests.manage') ? viewer.signOverdue ?? 0 : 0
   const office = shown([
     [can('time.manage'), entry(de.nav.time, '/admin/time')],
-    // Includes the overtime balances and leave accounts of all employees.
-    [can('employees.view'), entry(de.nav.employees, '/admin/employees')],
+    // Includes the overtime balances and leave accounts of all employees; with the overdue requests to sign counted (the
+    // tab „Unterschriften“, signRequests.manage).
+    [can('employees.view'), entry(navLabelWithCount(de.nav.employees, employeesCount), '/admin/employees')],
     // Mitarbeiter see the children only at the tablet, so the entry needs access with the own account.
     [can('children.ownAccount'), entry(de.nav.children, '/children')],
   ])
@@ -115,7 +121,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // account). In the row for the managers (with its count), under "Meins" for Mitarbeiter (read only); the tablet reaches
   // them from its start page.
   const formsManager = can('formTemplates.manage')
-  const documentsCount = (viewer.knowledgeOpen ?? 0) + (viewer.signOverdue ?? 0)
+  const documentsCount = viewer.knowledgeOpen ?? 0
   const documents = shown([[formsManager || can('printTemplates.view') || can('knowledge.view'), entry(navLabelWithCount(de.nav.documents, documentsCount), '/documents')]])
   // „Kontakte“, the facility's address book: whoever maintains it, everyone else once there are contacts for the staff.
   const contactsEntry = entry(de.contacts.title, '/contacts')
@@ -125,9 +131,8 @@ export function navMenu(viewer: NavViewer): NavMenu {
   const applicants = shown([[!can('employees.view') && can('visits.applicants.view'), entry(de.visits.tabs.applicants, '/admin/employees/applicants')]])
   // Schließzeiten are a tab of „Kalender“ (calendar.edit); an account with closures.manage alone keeps its own entry.
   const closuresOnly = shown([[can('closures.manage') && !can('calendar.edit'), entry(de.nav.closures, '/admin/calendar/closures')]])
+  // (The accident reports are tabs of „Kinder“ and „Mitarbeitende“ now, no entry of their own.)
   const adminMore = shown([
-    // All accident reports of the facility (children and employees) with the year's list.
-    [can('accidents.manage'), entry(de.nav.accidents, '/admin/accidents')],
     // „Benutzer & Rechte“: the accounts (users.manage) and, for the Träger, the rights of the roles (rights.manage) as tabs.
     [can('users.manage') || can('rights.manage'), entry(de.nav.usersRights, can('users.manage') ? '/admin/users' : '/admin/users/rights', '/admin/users')],
     [can('settings.facility'), entry(de.nav.settings, '/admin/settings')],
@@ -157,7 +162,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
       more,
       mineCount,
       moreCount: 0,
-      totalCount: mineCount + open + documentsShown,
+      totalCount: mineCount + open + documentsShown + employeesCount,
     }
   }
 

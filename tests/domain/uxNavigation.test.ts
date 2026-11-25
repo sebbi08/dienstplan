@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { MOVED_PAGES, calendarTabs, isAreaTabActive, movedLocation, staffAreaTabs, userTabs } from '../../app/utils/areaTabs'
+import {
+  MOVED_PAGES, accidentsLocation, accidentsTabLink, calendarTabs, isAreaTabActive, movedLocation, staffAreaTabs, userTabs,
+} from '../../app/utils/areaTabs'
 import { navMenu } from '../../app/utils/navMenu'
 import { accountRedirect, pageKeys } from '../../app/utils/routeAccess'
 import { tabletStartTiles } from '../../app/utils/tabletStart'
@@ -34,6 +36,56 @@ describe('former menu entries as tabs', () => {
     expect(userTabs(canOf('admin')).map(tab => tab.to)).toEqual(['/admin/users'])
     expect(userTabs(canOf('provider')).map(tab => tab.to)).toEqual(['/admin/users', '/admin/users/rights'])
     expect(staffAreaTabs(key => key === 'employees.view')).toEqual([{ label: 'Mitarbeitende', to: '/admin/employees' }])
+  })
+
+  it('adds „Unterschriften“ (with the overdue ones) and „Unfälle“ to Mitarbeitende for exactly who sees them today', () => {
+    // Leitung and Träger: every tab; the overdue requests to sign counted at „Unterschriften“.
+    for (const role of ['admin', 'provider'] as const) {
+      expect(staffAreaTabs(canOf(role), { signOverdue: 2 }).map(tab => [tab.label, tab.to]), role).toEqual([
+        ['Mitarbeitende', '/admin/employees'], ['Bewerbungen & Hospitationen', '/admin/employees'],
+        ['Krankheitstage', '/admin/employees/sick-days'], ['Unterschriften (2)', '/admin/employees/signatures'],
+        ['Unfälle', '/admin/employees/accidents'],
+      ])
+    }
+    expect(staffAreaTabs(canOf('admin')).find(tab => tab.to === '/admin/employees/signatures')!.label).toBe('Unterschriften')
+    // Each tab needs the key of the page it opens (signRequests.manage, accidents.manage), and only that one.
+    const only = (key: PermissionKey) => staffAreaTabs(granted => granted === 'employees.view' || granted === key).map(tab => tab.to)
+    expect(only('signRequests.manage')).toEqual(['/admin/employees', '/admin/employees/signatures'])
+    expect(only('accidents.manage')).toEqual(['/admin/employees', '/admin/employees/accidents'])
+    for (const tab of staffAreaTabs(canOf('provider'))) {
+      for (const role of ['admin', 'group_lead', 'observer'] as const) {
+        const viewer = { mustChangePassword: false, can: canOf(role) }
+        // Whoever gets the tab may open its page; whoever may not, does not get the tab.
+        expect(staffAreaTabs(canOf(role)).some(shown => shown.to === tab.to && shown.tab === tab.tab), `${tab.to} ${role}`)
+          .toBe(accountRedirect(tab.to, viewer) === undefined && (tab.tab !== 'applicants' || canOf(role)('visits.applicants.view')))
+      }
+    }
+    expect(staffAreaTabs(canOf('observer'))).toEqual([])
+    // The new tab pages carry the tab bar with the count (useStaffAreaTabs), like the others of Mitarbeitende.
+    for (const path of ['admin/employees/index.vue', 'admin/employees/sick-days.vue', 'admin/employees/signatures.vue', 'admin/employees/accidents.vue']) {
+      expect(page(path), path).toContain('useStaffAreaTabs()')
+    }
+  })
+
+  it('sends the former page Mehr → „Unfälle“ to the tab of Kinder or Mitarbeitende, keeping the year', () => {
+    const at = (query: Record<string, string>, children = true) => accidentsLocation({ query, hash: '' }, { children })
+    expect(at({})).toEqual({ path: '/children', query: { tab: 'accidents' }, hash: '' })
+    expect(at({ year: '2025' })).toEqual({ path: '/children', query: { tab: 'accidents', year: '2025' }, hash: '' })
+    expect(at({ year: '2025', filter: 'all' })).toEqual({ path: '/children', query: { tab: 'accidents', year: '2025' }, hash: '' })
+    expect(at({ year: '2025', filter: 'child' })).toEqual({ path: '/children', query: { tab: 'accidents', year: '2025' }, hash: '' })
+    expect(at({ year: '2025', filter: 'employee' })).toEqual({ path: '/admin/employees/accidents', query: { year: '2025' }, hash: '' })
+    // Without the children's pages on the own account: the employees' tab (the Kinder tab would not open).
+    expect(at({ filter: 'child' }, false)).toEqual({ path: '/admin/employees/accidents', query: {}, hash: '' })
+    // A year that is no year is dropped (the tab opens the current one).
+    expect(at({ year: 'x' })).toEqual({ path: '/children', query: { tab: 'accidents' }, hash: '' })
+    expect(accidentsLocation({ query: {}, hash: '#a' }, { children: true })).toMatchObject({ hash: '#a' })
+    // The reminder „Unfallanzeige an die Unfallkasse“ links to the tab of its kind.
+    expect(accidentsTabLink('child', '2026')).toEqual({ path: '/children', query: { tab: 'accidents', year: '2026' } })
+    expect(accidentsTabLink('employee', '2026')).toEqual({ path: '/admin/employees/accidents', query: { year: '2026' } })
+    // The old page sends on (with the viewer's access to the children's pages); old and new addresses need the same key.
+    expect(page('admin/accidents.vue')).toContain("navigateTo(accidentsLocation(to, { children: can('children.ownAccount') }), { replace: true })")
+    expect(pageKeys('/admin/accidents')).toEqual(pageKeys('/admin/employees/accidents'))
+    expect(page('admin/accidents.vue')).not.toContain('useFetch')
   })
 
   it('sends the old addresses to the tabs, keeping the query and the anchor; old and new address need the same key', () => {

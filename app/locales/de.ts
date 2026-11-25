@@ -1564,14 +1564,14 @@ export const de = {
     folder: 'Fach',
   },
   /**
-   * „Dokumente“: the form templates („Bögen“), the blank PDFs („Zum Ausdrucken“, key `templates`), „Wissen“ and
-   * „Unterschriften“ as tabs; the first two with a short line saying what is in them.
+   * „Dokumente“: the form templates („Bögen“), the blank PDFs („Zum Ausdrucken“, key `templates`) and „Wissen“ as tabs;
+   * the first two with a short line saying what is in them („Unterschriften“ is a tab of Mitarbeitende now).
    */
   documents: {
-    title: 'Dokumente', tabsLabel: 'Bereich', tabs: { forms: 'Bögen', templates: 'Zum Ausdrucken', knowledge: 'Wissen', signatures: 'Unterschriften' },
+    title: 'Dokumente', tabsLabel: 'Bereich', tabs: { forms: 'Bögen', templates: 'Zum Ausdrucken', knowledge: 'Wissen' },
     tabHints: {
       forms: 'Vorlagen für Bögen, die im Programm ausgefüllt werden', templates: 'PDF-Formulare zum Ausdrucken oder Ausfüllen',
-      knowledge: '', signatures: '',
+      knowledge: '',
     },
   },
   /**
@@ -1597,7 +1597,8 @@ export const de = {
     prefillSend: 'Senden',
     sent: (count: number) => (count === 1 ? 'An 1 Person gesendet.' : `An ${count} Personen gesendet.`),
     noRecipients: 'Bitte mindestens eine Person auswählen.',
-    // Dokumente → Unterschriften.
+    // Mitarbeitende → Unterschriften.
+    pageTitle: 'Unterschriften',
     intro: 'Was du zum Unterschreiben gesendet hast, mit dem Stand je Person. Die unterschriebenen Kopien liegen in der Personalakte.',
     howToSend: 'Senden kannst du unter „Zum Ausdrucken“ oder bei einem PDF in der Personalakte, jeweils mit „Zum Unterschreiben senden“.',
     none: 'Es wurde noch nichts zum Unterschreiben gesendet.',
@@ -1611,6 +1612,18 @@ export const de = {
     copyModified: 'nachträglich geändert', copyModifiedTitle: 'Die Kopie in der Personalakte ist nicht mehr die Datei, die beim Unterschreiben gespeichert wurde.',
     copyDeleted: 'Kopie gelöscht',
     tabLabel: (overdue: number) => (overdue ? `Unterschriften (${overdue})` : 'Unterschriften'),
+    // „Wer muss noch unterschreiben?“ on top of the tab: per person what is still open.
+    openTitle: 'Wer muss noch unterschreiben?',
+    openIntro: 'Je Person, was noch offen ist, das Überfällige zuerst. Erinnern und Zurückziehen geht unten bei der Anfrage oder auf der Seite der Person.',
+    openNone: 'Niemand muss gerade etwas unterschreiben.',
+    openSince: (date: string) => `offen seit ${date}`,
+    sentListTitle: 'Gesendete Anfragen',
+    // The hint at a person in the list of Mitarbeitende, and the box on the person's tab „Nachweise“.
+    listHint: (count: number) => `${count} offen`,
+    listHintTitle: (count: number, overdue: number) => `${count === 1 ? '1 Dokument' : `${count} Dokumente`} noch nicht unterschrieben${overdue > 0 ? `, davon ${overdue} überfällig` : ''}`,
+    personTitle: 'Noch zu unterschreiben',
+    personIntro: 'Was diese Person noch unterschreiben soll. Die unterschriebene Kopie kommt in die Personalakte.',
+    allRequests: 'Alle Unterschriften',
     reason: (text: string) => `Grund: ${text}`, hash: (hash: string) => `SHA-256 ${hash.slice(0, 12)}…`,
     hashTitle: 'Prüfsumme der Datei, wie sie beim Unterschreiben gespeichert wurde',
     counts: (signed: number, total: number) => `${signed} von ${total} unterschrieben`,
@@ -3104,6 +3117,11 @@ export const de = {
       date: 'Datum', person: 'Person', template: 'Vorlage', doctorUnfit: 'Arztbesuch / arbeitsunfähig', reportedOn: 'gemeldet am',
       subjects: { child: 'Kind', employee: 'Mitarbeiter:in' },
       none: 'In diesem Jahr ist kein Unfall eingetragen.',
+      // The tabs „Unfälle“ on Kinder and on Mitarbeitende: one kind of report each.
+      introChild: 'Die Unfallberichte der Kinder dieser Einrichtung im gewählten Jahr. Eintragen und ändern in der Kinderakte.',
+      introEmployee: 'Die Unfallanzeigen der Mitarbeitenden dieser Einrichtung im gewählten Jahr. Eintragen und ändern in der Personalakte (Reiter „Gesundheit“).',
+      noneChild: 'In diesem Jahr ist kein Unfall eines Kindes eingetragen.',
+      noneEmployee: 'In diesem Jahr ist kein Unfall von Mitarbeitenden eingetragen.',
       printList: 'Liste drucken', printTitle: (year: number) => `Unfälle ${year}`,
       count: (count: number) => (count === 1 ? '1 Unfall' : `${count} Unfälle`),
     },

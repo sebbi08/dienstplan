@@ -42,6 +42,8 @@ const CHILDREN = [
 /** The office pages: Leitung and Träger only. */
 const OFFICE = [
   '/admin/accidents', '/admin/calendar', '/admin/calendar/closures', '/admin/closures', '/admin/employees', '/admin/employees/sick-days', '/admin/employees/1', '/admin/employees/applicants',
+  // The tabs „Unterschriften“ and „Unfälle“ of Mitarbeitende.
+  '/admin/employees/signatures', '/admin/employees/accidents',
   '/admin/employees/applicants/1', '/children/info-visits/1', '/admin/forms',
   '/admin/leave-planning', '/admin/print/accidents/2026', '/admin/print/bem-invitation/1', '/admin/print/calendar/2026', '/admin/print/cash/1/2026/10', '/admin/print/early-closures/2026',
   '/admin/print/leave-forfeit/2026', '/admin/print/leave-list/2026/1',
@@ -122,8 +124,13 @@ describe('route access per role (unchanged by the permissions)', () => {
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'formTemplates.manage' })).toBeUndefined()
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'knowledge.view' })).toBeUndefined()
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: () => false })).toBe('/')
-    expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'signRequests.manage' })).toBeUndefined()
-    expect(pageKeys(DOCUMENTS)).toEqual(['printTemplates.view', 'formTemplates.manage', 'knowledge.view', 'signRequests.manage'])
+    // „Unterschriften“ is a tab of Mitarbeitende now: its key alone no longer opens „Dokumente“, it opens that tab.
+    expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'signRequests.manage' })).toBe('/')
+    expect(pageKeys(DOCUMENTS)).toEqual(['printTemplates.view', 'formTemplates.manage', 'knowledge.view'])
+    expect(pageKeys('/admin/employees/signatures')).toEqual(['signRequests.manage'])
+    // „Unfälle“: the employees' tab and the old address need the key of the overview.
+    expect(pageKeys('/admin/employees/accidents')).toEqual(['accidents.manage'])
+    expect(pageKeys('/admin/accidents')).toEqual(['accidents.manage'])
     expect(pageKeys('/notes')).toEqual(['notes.view'])
     // Infogespräche (Kinder → Planung) and Bewerbungen & Hospitationen (Mitarbeiter): their own keys, never the tablet.
     expect(pageKeys('/children/info-visits/1')).toEqual(['visits.manage'])

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { de } from '~/locales/de'
+import { signaturesLocation } from '~/utils/areaTabs'
 import { chosenDocumentTab, documentTabs, type DocumentTab } from '~/utils/documents'
 
 /**
@@ -7,10 +8,13 @@ import { chosenDocumentTab, documentTabs, type DocumentTab } from '~/utils/docum
  * „Bögen“ with the form templates of the active facility (formTemplates.manage) and the tab „Zum Ausdrucken“ (key
  * `templates`) with the blank PDF forms to print or fill in (printTemplates.view; the tablet without an unlock) – both
  * with a short line saying what is in them – and the tab „Wissen“ with the knowledge library
- * (knowledge.view: every account, the tablet; with „Gelesen und verstanden“, the open ones counted in the tab), and the tab
- * „Unterschriften“ with the requests to sign sent from the facility (signRequests.manage). Only the
- * tabs the viewer may use show; `?tab=` opens one (the old addresses /templates and /admin/forms send here with it).
+ * (knowledge.view: every account, the tablet; with „Gelesen und verstanden“, the open ones counted in the tab). Only the
+ * tabs the viewer may use show; `?tab=` opens one (the old addresses /templates and /admin/forms send here with it). The
+ * former tab „Unterschriften“ is a tab of Mitarbeitende now: `?tab=signatures` sends there.
  */
+definePageMeta({
+  middleware: [to => (to.query.tab === 'signatures' ? navigateTo(signaturesLocation(to), { replace: true }) : undefined)],
+})
 useHead({ title: de.documents.title })
 const { user } = useUserSession()
 const { can } = useCan()
@@ -39,15 +43,11 @@ function onTabKey(event: KeyboardEvent) {
   nextTick(() => document.getElementById(`documents-tab-${keys[next]}`)?.focus())
 }
 const TAB_ICONS: Record<DocumentTab, string> = {
-  forms: 'i-lucide-clipboard-list', templates: 'i-lucide-printer', knowledge: 'i-lucide-book-open', signatures: 'i-lucide-signature',
+  forms: 'i-lucide-clipboard-list', templates: 'i-lucide-printer', knowledge: 'i-lucide-book-open',
 }
 /** The entries the account's employee still has to confirm (loaded by the layout for the menu). */
 const { data: knowledgeOpen } = useNuxtData<{ count: number }>('knowledge-open-count')
-/** The overdue requests to sign (loaded by the layout for the menu). */
-const { data: signOverdue } = useNuxtData<{ count: number }>('sign-overdue-count')
-const tabLabel = (key: DocumentTab) => (key === 'knowledge'
-  ? de.knowledge.tabLabel(knowledgeOpen.value?.count ?? 0)
-  : key === 'signatures' ? de.signRequests.tabLabel(signOverdue.value?.count ?? 0) : de.documents.tabs[key])
+const tabLabel = (key: DocumentTab) => (key === 'knowledge' ? de.knowledge.tabLabel(knowledgeOpen.value?.count ?? 0) : de.documents.tabs[key])
 </script>
 
 <template>
@@ -62,7 +62,7 @@ const tabLabel = (key: DocumentTab) => (key === 'knowledge'
 
     <div
       v-if="tabs.length > 1" role="tablist" :aria-label="de.documents.tabsLabel" class="grid gap-2"
-      :class="tabs.length > 3 ? 'grid-cols-2 sm:max-w-3xl sm:grid-cols-4' : tabs.length > 2 ? 'grid-cols-3 sm:max-w-xl' : 'grid-cols-2 sm:max-w-md'"
+      :class="tabs.length > 2 ? 'grid-cols-3 sm:max-w-xl' : 'grid-cols-2 sm:max-w-md'"
     >
       <button
         v-for="key in tabs" :id="`documents-tab-${key}`" :key="key" type="button" role="tab"
@@ -89,7 +89,6 @@ const tabLabel = (key: DocumentTab) => (key === 'knowledge'
       <FormsTemplateEditor v-if="tab === 'forms'" />
       <TemplatesLibrary v-else-if="tab === 'templates'" class="max-w-3xl" />
       <KnowledgeLibrary v-else-if="tab === 'knowledge'" class="max-w-3xl" />
-      <SignRequestsOverview v-else-if="tab === 'signatures'" class="max-w-3xl" />
     </div>
   </div>
 </template>

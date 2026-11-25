@@ -18,6 +18,7 @@ import { saveRoleBundle } from '../../server/services/permissions'
 import type { SessionUser } from '../../shared/types/api'
 import { fillablePdf, plainPdf } from '../helpers/fillablePdf'
 import { addEmployee, addFacility, addUser, createTestDb, errorCode, refreshPermissions } from '../helpers/fixtures'
+import { openSignHints, openSignPeople } from '../../app/utils/signRequestsOpen'
 
 /**
  * „Zum Unterschreiben senden“: sending from a template or a personnel document, who may send, the employee's own list
@@ -243,6 +244,25 @@ describe('requests to sign', () => {
     const otherLeitung = sender(addUser(db, 'leitung-krippe', 'admin', null, krippe))
     expect(listSignRequests(db, otherLeitung, TODAY)).toEqual([])
     expect(errorCode(() => readSignRequestFile(db, otherLeitung, visible))).toBe('sign_request_not_found')
+  })
+
+  it('builds „Wer muss noch unterschreiben?“ and the list hints only from the requests the viewer sees (folders, facility)', () => {
+    const traeger = sender(addUser(db, 'traeger', 'provider'))
+    // Into „Vertrag“ (the Leitung has no such folder by default): Anna's open request is the Träger's business only.
+    createSignRequest(db, traeger, input({ recipientIds: [anna], folder: 'contract', title: 'Vertrag' }), null, NOW)
+    const forAll = createSignRequest(db, traeger, input({ recipientIds: [anna, ben], title: 'Für alle', dueDate: '2026-11-20' }), null, NOW)
+    signMyRequest(db, byAccount(ben), db.select().from(signRequestRecipients).where(eq(signRequestRecipients.requestId, forAll)).all()
+      .find(row => row.employeeId === ben)!.id, signedTemplate(), LATER)
+    const people = (viewer: SignSender) => openSignPeople(listSignRequests(db, viewer, TODAY), TODAY)
+      .map(person => [person.name, person.items.map(item => [item.request.title, item.overdue])])
+    expect(people(traeger)).toEqual([['Anna Probe', [['Für alle', true], ['Vertrag', false]]]])
+    expect(people(leitung)).toEqual([['Anna Probe', [['Für alle', true]]]])
+    expect([...openSignHints(listSignRequests(db, leitung, TODAY), TODAY)]).toEqual([[anna, { count: 1, overdue: 1, color: 'error' }]])
+    // Another facility sees nobody; signed, declined and withdrawn ones are not open.
+    const otherLeitung = sender(addUser(db, 'leitung-krippe', 'admin', null, addFacility(db, 'Krippe')))
+    expect(people(otherLeitung)).toEqual([])
+    withdrawSignRequest(db, traeger, forAll, null, LATER)
+    expect(people(leitung)).toEqual([])
   })
 
   it('links the signed copy only for a viewer who may use the folder it is in now; marks it changed or deleted', () => {

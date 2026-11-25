@@ -3,7 +3,6 @@ import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import type { EarlySickLeaveRowDto, EarlySickLeavesDto, SickYearRowDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
-import { staffAreaTabs } from '~/utils/areaTabs'
 
 const route = useRoute()
 const year = ref(Number(route.query.year) || parseIsoDate(todayIso()).year)
@@ -16,13 +15,13 @@ async function removeEarlyLeave(row: EarlySickLeaveRowDto) {
   if (!await confirm(de.sickLeave.deleteConfirm(row.employeeName, formatDate(row.date)))) return
   run(() => $fetch<unknown>(`/api/early-sick-leaves/${row.id}`, { method: 'DELETE' }), de.common.deleted)
 }
-// The tabs of the page (a former menu entry each).
-const { can: canTab } = useCan()
+// The tabs of Mitarbeitende (a former menu entry each).
+const staffTabs = useStaffAreaTabs()
 </script>
 
 <template>
   <div class="max-w-4xl space-y-4">
-    <AreaTabs :tabs="staffAreaTabs(canTab)" />
+    <AreaTabs :tabs="staffTabs" />
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-2xl font-semibold">{{ de.sickDays.title }}</h1>
       <YearNav v-model="year" />

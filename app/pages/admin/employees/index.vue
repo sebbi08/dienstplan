@@ -19,7 +19,7 @@ import { splitLeavers } from '~/utils/leavers'
 import { archiveRetentionText } from '~/utils/retentionText'
 import { staffBadges, type StaffBadge } from '~/utils/staffList'
 import { workdaysText } from '~/utils/workdays'
-import { staffAreaTabs } from '~/utils/areaTabs'
+import { openSignHints } from '~/utils/signRequestsOpen'
 
 /**
  * All employees in one compact list: group, weekly hours, overtime balance today and the leave left in the chosen
@@ -71,6 +71,12 @@ const badgesOf = computed(() => new Map(split.value.active.map(employee => [empl
 const BADGE_COLOR: Record<StaffBadge, 'warning' | 'error' | 'neutral'> = {
   pinMissing: 'warning', pinLocked: 'error', qualificationMissing: 'warning', noAccess: 'neutral',
 }
+// „2 offen“: the open requests to sign of each person (signRequests.manage; only the requests the viewer sees in
+// Mitarbeitende → Unterschriften), red once one is overdue; leads to the person's „Nachweise“.
+const { data: signRequests } = useSignRequests()
+const signHintOf = computed(() => openSignHints(signRequests.value ?? [], todayIso()))
+// The tab bar, with the overdue requests to sign counted at „Unterschriften“.
+const staffTabs = useStaffAreaTabs()
 
 // Column „Nächste Stufe“: only for who may see the contract data (the server sends no level data otherwise).
 const seesLevel = computed(() => can('employees.contractView'))
@@ -246,8 +252,8 @@ const td = 'px-3 py-2'
 
 <template>
   <div class="max-w-6xl space-y-4">
-    <!-- Mitarbeiter | Bewerbungen & Hospitationen (?tab=applicants) | Krankheitstage (a former menu entry): one tab bar. -->
-    <AreaTabs :tabs="staffAreaTabs(can)" />
+    <!-- Mitarbeitende | Bewerbungen & Hospitationen (?tab=applicants) | Krankheitstage | Unterschriften | Unfälle: one tab bar. -->
+    <AreaTabs :tabs="staffTabs" />
     <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
       <h1 class="text-2xl font-semibold">{{ de.employees.title }}</h1>
       <MonthNav :year="year" :month="month" @change="change" />
@@ -348,6 +354,16 @@ const td = 'px-3 py-2'
           <td :class="td">
             <span class="flex flex-wrap gap-1">
               <UBadge v-for="badge in badgesOf.get(employee.id)" :key="badge" size="sm" variant="soft" :color="BADGE_COLOR[badge]" :label="de.employees.badges[badge]" />
+              <NuxtLink
+                v-if="signHintOf.get(employee.id)" :to="recordsLink(employee)" class="hover:opacity-80"
+                :title="de.signRequests.listHintTitle(signHintOf.get(employee.id)!.count, signHintOf.get(employee.id)!.overdue)"
+              >
+                <UBadge
+                  size="sm" variant="soft" icon="i-lucide-signature" :color="signHintOf.get(employee.id)!.color"
+                  :label="de.signRequests.listHint(signHintOf.get(employee.id)!.count)" aria-hidden="true"
+                />
+                <span class="sr-only">{{ de.signRequests.listHintTitle(signHintOf.get(employee.id)!.count, signHintOf.get(employee.id)!.overdue) }}</span>
+              </NuxtLink>
             </span>
           </td>
           <td v-if="seesSpecialRights" :class="td">
@@ -420,6 +436,15 @@ const td = 'px-3 py-2'
           <span class="text-gray-600">{{ de.requiredDocuments.column }}:</span>
           <UBadge size="sm" variant="soft" color="error" :label="de.requiredDocuments.badge(missingDocsOf(employee.id).length)" />
           <span class="text-xs text-gray-600">{{ de.requiredDocuments.tooltip(missingDocNames(employee.id)) }}</span>
+        </NuxtLink>
+        <NuxtLink v-if="signHintOf.get(employee.id)" :to="recordsLink(employee)" class="mt-1 flex flex-wrap items-center gap-1">
+          <UBadge
+            size="sm" variant="soft" icon="i-lucide-signature" :color="signHintOf.get(employee.id)!.color"
+            :label="de.signRequests.listHint(signHintOf.get(employee.id)!.count)" aria-hidden="true"
+          />
+          <span class="text-xs" :class="signHintOf.get(employee.id)!.overdue ? 'font-medium text-red-700' : 'text-gray-600'">
+            {{ de.signRequests.listHintTitle(signHintOf.get(employee.id)!.count, signHintOf.get(employee.id)!.overdue) }}
+          </span>
         </NuxtLink>
         <div v-if="badgesOf.get(employee.id)?.length" class="mt-1.5 flex flex-wrap gap-1">
           <UBadge v-for="badge in badgesOf.get(employee.id)" :key="badge" size="sm" variant="soft" :color="BADGE_COLOR[badge]" :label="de.employees.badges[badge]" />

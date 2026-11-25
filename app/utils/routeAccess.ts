@@ -43,6 +43,10 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   ['/admin/employees/applicants', 'visits.applicants.view'],
   // Krankheitstage: a tab of Mitarbeiter (/admin/sick-days, the old address, sends there).
   ['/admin/employees/sick-days', 'employees.sickness'],
+  // Unterschriften: a tab of Mitarbeitende (the requests to sign; formerly a tab of „Dokumente“, whose ?tab=signatures sends here).
+  ['/admin/employees/signatures', 'signRequests.manage'],
+  // Unfälle (the employees'): a tab of Mitarbeitende; the children's are a tab of Kinder (/admin/accidents, the old address, sends on).
+  ['/admin/employees/accidents', 'accidents.manage'],
   ['/admin/employees', 'employees.view'],
   ['/admin/print/emergency-contacts', 'employees.view'],
   // Old addresses of former menu entries, now tabs (the pages send on to them), with the keys of their new pages.
@@ -62,6 +66,7 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   ['/admin/forms', 'formTemplates.manage'],
   ['/admin/print/form-templates', 'formTemplates.manage'],
   ['/admin/print/forms', 'talks.manage'],
+  // The old address of Mehr → „Unfälle“ (the page sends to the tabs „Unfälle“ of Kinder and Mitarbeitende).
   ['/admin/accidents', 'accidents.manage'],
   ['/admin/print/accidents', 'accidents.manage'],
   ['/admin/print/cash', 'cash.view'],
@@ -78,8 +83,8 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   // only, the categories visible to all, Mitarbeiter accounts; the tablet by tabletMayOpen). The page shows the tabs the
   // account may use.
   // The tab „Wissen“ (knowledge.view, every account) as well; its proof of reading („Nachweis“) only for knowledge.manage.
-  // The tab „Unterschriften“ (signRequests.manage): the requests to sign sent from the facility.
-  ['=/documents', ['printTemplates.view', 'formTemplates.manage', 'knowledge.view', 'signRequests.manage']],
+  // (The former tab „Unterschriften“ is a tab of Mitarbeitende now: /admin/employees/signatures.)
+  ['=/documents', ['printTemplates.view', 'formTemplates.manage', 'knowledge.view']],
   ['/print/knowledge', 'knowledge.manage'],
   // The old address of the print templates (the page sends on to „Dokumente“ → „Zum Ausdrucken“).
   ['=/templates', 'printTemplates.view'],

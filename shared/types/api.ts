@@ -4661,7 +4661,7 @@ export interface SignRequestRecipientDto {
   copyDeleted: boolean
 }
 
-/** A request to sign, as the senders see it (Dokumente → Unterschriften). */
+/** A request to sign, as the senders see it (Mitarbeitende → Unterschriften). */
 export interface SignRequestDto {
   id: number
   title: string

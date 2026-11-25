@@ -3,6 +3,7 @@ import { todayIso } from '#shared/domain/dates'
 import { formatTime } from '#shared/domain/time'
 import type { ReminderDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { accidentsTabLink } from '~/utils/areaTabs'
 import { formatDate, formatDayMonth, formatDayMonthNear } from '~/utils/format'
 import { offlineHintParts } from '~/utils/offlineHints'
 
@@ -189,7 +190,7 @@ async function markDone(entry: ReminderDto) {
           >{{ entry.name }}</NuxtLink><span v-else class="font-medium">{{ entry.name }}</span>{{ textOf(entry).after }}
           <span v-if="entry.ownChild" class="ml-2 rounded bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">{{ r.ownChild }}</span>
           <NuxtLink
-            v-if="entry.kind === 'accident'" :to="`/admin/accidents?year=${entry.date.slice(0, 4)}`" class="ml-2 text-xs text-sky-700 hover:underline"
+            v-if="entry.kind === 'accident'" :to="accidentsTabLink(entry.childId === null ? 'employee' : 'child', entry.date.slice(0, 4))" class="ml-2 text-xs text-sky-700 hover:underline"
           >{{ r.accidentLink }}</NuxtLink>
           <NuxtLink v-if="entry.kind === 'ifsg'" to="/children?tab=ifsg" class="ml-2 text-xs text-sky-700 hover:underline">{{ r.ifsgLink }}</NuxtLink>
           <NuxtLink v-if="entry.kind === 'offlineStamp'" :to="offlineStampLink(entry)" class="ml-2 text-xs text-sky-700 hover:underline">{{ r.offlineStampLink }}</NuxtLink>

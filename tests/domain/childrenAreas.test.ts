@@ -32,6 +32,19 @@ describe('visibleChildrenAreas', () => {
     expect(areas(providerInOffice).at(-1)![1]).not.toContain('infoVisits')
   })
 
+  it('shows „Unfälle“ after „Offen“ in Kinder for whoever sees the accident reports, never at the tablet', () => {
+    expect(areas({ ...providerInOffice, accidents: true })[1]).toEqual(['children', ['list', 'overview', 'birthdays', 'documents', 'open', 'accidents']])
+    expect(areas(providerInOffice)[1]![1]).not.toContain('accidents')
+    expect(areas({ ...leaderAtTablet, accidents: true })[1]![1]).not.toContain('accidents')
+    // A staff account given the right: before its planned children.
+    expect(areas({ isManager: false, onTablet: false, showPlanned: true, accidents: true })[1])
+      .toEqual(['children', ['list', 'overview', 'birthdays', 'documents', 'open', 'accidents', 'planned']])
+    // `?tab=accidents` (the old page Mehr → „Unfälle“ sends here) opens it, only for who sees it.
+    expect(requestedChildrenTab('accidents', { ...providerInOffice, accidents: true })).toBe('accidents')
+    expect(requestedChildrenTab('accidents', providerInOffice)).toBeNull()
+    expect(areaOfTab('accidents', providerInOffice)).toBe('children')
+  })
+
   it('adds the Planung for the Leitung at the tablet, without the Personalschlüssel', () => {
     expect(areas(leaderAtTablet)).toEqual([
       ['today', ['attendance', 'week']],

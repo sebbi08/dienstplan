@@ -7,50 +7,17 @@ import { formatDate, formatDateTime } from '~/utils/format'
 import { employeeDocumentUrl } from '~/utils/personnel'
 
 /**
- * Dokumente → Unterschriften (signRequests.manage): the requests to sign sent from the facility, newest first, each with
- * its recipients (offen, unterschrieben am …, abgelehnt mit Grund, zurückgezogen), the signed copy when the viewer may use
- * its folder, „Erinnern“ and „Zurückziehen“ (one or all open ones), the sent PDF and deleting the request. Overdue
+ * Mitarbeitende → Unterschriften (signRequests.manage): the requests to sign sent from the facility, newest first, each
+ * with its recipients (offen, unterschrieben am …, abgelehnt mit Grund, zurückgezogen), the signed copy when the viewer may
+ * use its folder, „Erinnern“ and „Zurückziehen“ (one or all open ones), the sent PDF and deleting the request. Overdue
  * requests are marked and counted at the top.
  */
 const t = de.signRequests
-const toast = useToast()
-const confirm = useConfirm()
-const { data, error, refresh, status } = useFetch<SignRequestDto[]>('/api/sign-requests', { key: 'sign-requests', default: () => [] })
+const { data, error, status } = useSignRequests()
 const requests = computed(() => data.value ?? [])
 const overdueCount = computed(() => requests.value.filter(request => request.overdue).length)
-const busy = ref(false)
-
-async function act(run: () => Promise<unknown>, success?: string) {
-  if (busy.value) return
-  busy.value = true
-  try {
-    await run()
-    if (success) toast.add({ title: success, color: 'success' })
-    await Promise.all([refresh(), refreshNuxtData('sign-overdue-count')])
-  }
-  catch (caught) {
-    toast.add({ title: errorMessage(caught), color: 'error' })
-  }
-  finally {
-    busy.value = false
-  }
-}
-
-const openOf = (request: SignRequestDto) => request.recipients.filter(recipient => recipient.status === 'open')
+const { busy, openOf, remind, withdraw, remove } = useSignRequestActions()
 const signedOf = (request: SignRequestDto) => request.recipients.filter(recipient => recipient.status === 'signed').length
-
-function remind(request: SignRequestDto, recipient: SignRequestRecipientDto | null) {
-  void act(() => $fetch<{ count: number }>(`/api/sign-requests/${request.id}/remind`, { method: 'POST', body: { recipientId: recipient?.id ?? null } }), t.reminded)
-}
-async function withdraw(request: SignRequestDto, recipient: SignRequestRecipientDto | null) {
-  const question = recipient ? t.confirmWithdraw(recipient.name) : t.confirmWithdrawAll(openOf(request).length)
-  if (!(await confirm(question, { confirmLabel: t.withdraw, danger: true }))) return
-  void act(() => $fetch<{ count: number }>(`/api/sign-requests/${request.id}/withdraw`, { method: 'POST', body: { recipientId: recipient?.id ?? null } }), t.withdrawn)
-}
-async function remove(request: SignRequestDto) {
-  if (!(await confirm(t.confirmDelete(request.title), { confirmLabel: t.deleteRequest, danger: true }))) return
-  void act(() => $fetch<unknown>(`/api/sign-requests/${request.id}`, { method: 'DELETE' }), de.common.deleted)
-}
 
 function stateOf(recipient: SignRequestRecipientDto): string {
   if (recipient.status === 'signed' && recipient.signedAt) return t.signedOn(formatDateTime(recipient.signedAt))

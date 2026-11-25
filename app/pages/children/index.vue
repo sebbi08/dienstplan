@@ -49,9 +49,11 @@ await lookups.ready
 // The areas Heute, Kinder and Planung with their sub-tabs (app/utils/childrenAreas.ts): the Planung is for Leitung
 // and Träger only (the server answers 403 to everybody else), the Personalschlüssel never at the tablet; without manager
 // rights the planned children follow „Offen“ in Kinder, as far as the tablet's switches allow.
-// „Infogespräche“ in Planung: whoever keeps them (visits.manage), never at the tablet.
+// „Infogespräche“ in Planung: whoever keeps them (visits.manage), never at the tablet. „Unfälle“ in Kinder: whoever sees
+// the facility's accident reports (accidents.manage), never at the tablet.
 const viewer = computed<ChildrenViewer>(() => ({
   isManager: isLeader.value, onTablet: onTablet.value, showPlanned: showPlanned.value, infoVisits: can('visits.manage'),
+  accidents: can('accidents.manage'),
 }))
 const areas = computed(() => visibleChildrenAreas(viewer.value))
 const shown = (key: ChildrenTab) => childrenTabVisible(key, viewer.value)
@@ -97,7 +99,7 @@ watch(viewer, (current) => {
 const TAB_LABELS: Record<ChildrenTab, string> = {
   attendance: de.attendance.tab, week: de.groupBook.tab, list: de.children.tabs.list, overview: de.children.tabs.overview,
   planned: de.children.tabs.planned, infoVisits: de.visits.tabs.info, birthdays: de.children.tabs.birthdays, documents: de.children.tabs.documents,
-  open: de.groupChange.openTab, occupancy: de.occupancy.tab, staffing: de.staffing.tab, ifsg: de.ifsg.tab, archive: de.children.tabs.archive,
+  open: de.groupChange.openTab, accidents: de.nav.accidents, occupancy: de.occupancy.tab, staffing: de.staffing.tab, ifsg: de.ifsg.tab, archive: de.children.tabs.archive,
 }
 const AREA_ICONS: Record<ChildrenArea, string> = { today: 'i-lucide-sun', children: 'i-lucide-users', planning: 'i-lucide-calendar-range' }
 
@@ -312,6 +314,7 @@ const td = 'px-3 py-2'
 
           <ChildrenDocumentOverviewTab v-else-if="tab === 'documents'" />
           <ChildrenOpenTab v-else-if="tab === 'open'" />
+          <AccidentsYearList v-else-if="tab === 'accidents' && shown('accidents')" subject="child" />
           <ChildrenOccupancyTab v-else-if="tab === 'occupancy' && shown('occupancy')" />
           <ChildrenStaffingTab v-else-if="tab === 'staffing' && shown('staffing')" />
           <ChildrenIfsgTab v-else-if="tab === 'ifsg' && shown('ifsg')" />

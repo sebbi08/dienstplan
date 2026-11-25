@@ -38,7 +38,8 @@ const { data: knowledgeOpen } = useFetch<{ count: number }>('/api/knowledge/open
 const { data: signOpen, refresh: refreshSignOpen } = useFetch<MySignRequestCountDto>('/api/my/sign-requests/count', {
   key: 'sign-open-count', watch: false, immediate: signedIn.value && user.value?.employeeId != null,
 })
-// „Dokumente (1)“ for the senders: requests to sign that are overdue (someone has not signed by the due date).
+// „Mitarbeitende (1)“ and its tab „Unterschriften (1)“ for the senders: requests to sign that are overdue (someone has not
+// signed by the due date).
 const { data: signOverdue, refresh: refreshSignOverdue } = useFetch<{ count: number }>('/api/sign-requests/overdue-count', {
   key: 'sign-overdue-count', watch: false, immediate: signedIn.value && can('signRequests.manage'),
 })

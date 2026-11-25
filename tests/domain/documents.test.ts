@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { de } from '../../app/locales/de'
+import { signaturesLocation } from '../../app/utils/areaTabs'
 import { chosenDocumentTab, documentsLocation, documentTabs } from '../../app/utils/documents'
 import { tabletStartTiles } from '../../app/utils/tabletStart'
 import { effectivePermissions } from '../../shared/domain/permissionBundles'
@@ -16,16 +17,17 @@ function as(role: Role) {
 
 describe('„Dokumente“', () => {
   it('names the tabs by what is in them: „Bögen“ (filled in the app) and „Zum Ausdrucken“ (PDFs), each with a short line', () => {
-    expect(de.documents.tabs).toEqual({ forms: 'Bögen', templates: 'Zum Ausdrucken', knowledge: 'Wissen', signatures: 'Unterschriften' })
+    expect(de.documents.tabs).toEqual({ forms: 'Bögen', templates: 'Zum Ausdrucken', knowledge: 'Wissen' })
     expect(de.documents.tabHints.forms).toBe('Vorlagen für Bögen, die im Programm ausgefüllt werden')
     expect(de.documents.tabHints.templates).toBe('PDF-Formulare zum Ausdrucken oder Ausfüllen')
-    expect([de.documents.tabHints.knowledge, de.documents.tabHints.signatures]).toEqual(['', ''])
+    expect(de.documents.tabHints.knowledge).toBe('')
   })
 
-  it('shows each viewer the tabs they may use: managers all four, Mitarbeiter and the tablet „Zum Ausdrucken“ and „Wissen“', () => {
-    expect(documentTabs(as('provider'))).toEqual(['forms', 'templates', 'knowledge', 'signatures'])
-    expect(documentTabs(as('admin'))).toEqual(['forms', 'templates', 'knowledge', 'signatures'])
-    expect(documentTabs({ role: 'admin', can: key => key === 'signRequests.manage' })).toEqual(['signatures'])
+  it('shows each viewer the tabs they may use: managers all three, Mitarbeiter and the tablet „Zum Ausdrucken“ and „Wissen“', () => {
+    expect(documentTabs(as('provider'))).toEqual(['forms', 'templates', 'knowledge'])
+    expect(documentTabs(as('admin'))).toEqual(['forms', 'templates', 'knowledge'])
+    // „Unterschriften“ is a tab of Mitarbeitende now.
+    expect(documentTabs({ role: 'admin', can: key => key === 'signRequests.manage' })).toEqual([])
     expect(documentTabs(as('observer'))).toEqual(['templates', 'knowledge'])
     expect(documentTabs(as('terminal'))).toEqual(['templates', 'knowledge'])
     expect(documentTabs({ role: 'observer', can: key => key === 'knowledge.view' })).toEqual(['knowledge'])
@@ -45,6 +47,14 @@ describe('„Dokumente“', () => {
     expect(documentsLocation('templates', { query: {}, hash: '' })).toEqual({ path: '/documents', query: { tab: 'templates' }, hash: '' })
     expect(documentsLocation('forms', { query: { x: '1', tab: 'old' }, hash: '#unfaelle' }))
       .toEqual({ path: '/documents', query: { x: '1', tab: 'forms' }, hash: '#unfaelle' })
+  })
+
+  it('sends the former tab „Unterschriften“ (?tab=signatures) to the tab of Mitarbeitende, keeping the rest of the address', () => {
+    expect(signaturesLocation({ query: { tab: 'signatures' }, hash: '' })).toEqual({ path: '/admin/employees/signatures', query: {}, hash: '' })
+    expect(signaturesLocation({ query: { tab: 'signatures', x: '1' }, hash: '#a' })).toEqual({ path: '/admin/employees/signatures', query: { x: '1' }, hash: '#a' })
+    const page = readFileSync(join(process.cwd(), 'app', 'pages', 'documents.vue'), 'utf8')
+    expect(page).toContain("to.query.tab === 'signatures' ? navigateTo(signaturesLocation(to), { replace: true }) : undefined")
+    expect(page).not.toContain('SignRequestsOverview')
   })
 
   it('redirects /templates to „Zum Ausdrucken“ and /admin/forms to „Bögen“; the tablet\'s start page links to „Dokumente“', () => {

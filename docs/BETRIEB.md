@@ -294,7 +294,7 @@ Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter d
 | Bereich | Reiter | Wer |
 |---|---|---|
 | **Heute** | Anwesenheit, Wochenübersicht – oben im Bereich der Kasten „Erinnerungen“ | alle |
-| **Kinder** | Liste, Übersicht, Geburtstage, Kinderakte-Dokumente, Offen – für Mitarbeiter am Tablet dahinter „Vormerkungen & Verträge“, wenn ein Schalter es erlaubt | alle |
+| **Kinder** | Liste, Übersicht, Geburtstage, Kinderakte-Dokumente, Offen, **Unfälle** (nur wer Unfälle verwalten darf, nicht am Tablet) – für Mitarbeiter am Tablet dahinter „Vormerkungen & Verträge“, wenn ein Schalter es erlaubt | alle |
 | **Planung** | Vormerkungen & Verträge, Belegung, Personalschlüssel, Archiv | nur Leitung und Träger, im Büro und am Tablet |
 
 - Die Reiter haben ihre bisherigen Regeln: „Personalschlüssel“ gibt es nicht am Tablet. Mitarbeiter sehen den
@@ -879,6 +879,36 @@ Druck-Knöpfe.
 - Wer ausgeschieden ist (das Datum „ausgeschieden am“ liegt vor heute), steht nicht mehr bei den aktiven Mitarbeitern,
   sondern am Ende der Seite im zugeklappten Abschnitt „Ausgeschiedene Mitarbeitende“ – gelöscht wird dabei nichts, der
   Name führt weiter zu allen Daten der Person.
+- Wer zum Unterschreiben senden darf, sieht bei jeder Person mit offenen Anfragen einen kleinen Hinweis **„‹n› offen“**
+  (gelb, rot sobald eine überfällig ist; beim Zeigen darauf bzw. auf dem Handy daneben steht, wie viele davon überfällig
+  sind). Ein Tipp darauf öffnet den Reiter „Nachweise“ der Person. Gezählt werden nur Anfragen, die man auch im Reiter
+  **Unterschriften** sieht (siehe dort).
+- Oben über der Liste stehen die **Reiter** der Seite: **Mitarbeitende** (die Liste), **Bewerbungen & Hospitationen**,
+  **Krankheitstage**, **Unterschriften** und **Unfälle** – jeden Reiter gibt es nur mit dem Recht dafür.
+
+### Reiter „Unterschriften“
+
+- Oben **„Wer muss noch unterschreiben?“**: je Person, was noch offen ist – Bezeichnung, seit wann (gesendet am) und
+  bis wann; Überfälliges steht rot und zuerst, ebenso die Personen mit Überfälligem. Der Name führt zum Reiter
+  „Nachweise“ der Person (dort mit **Erinnern** und **Zurückziehen**).
+- Darunter die **gesendeten Anfragen** mit dem Stand je Person (siehe Abschnitt 19, *Zum Unterschreiben senden*).
+- Im Reiter und im Menü bei **Mitarbeitende** steht die Zahl der überfälligen Anfragen, z. B. „Unterschriften (1)“.
+- Der Reiter war früher unter **Dokumente**; alte Lesezeichen (`/documents?tab=signatures`) führen hierher.
+- Wer sieht was: genau wie bisher – nur wer zum Unterschreiben senden darf, und nur die Anfragen, deren Fächer (und
+  Vorlage) er sehen darf, aus der eigenen Einrichtung. Das gilt auch für den Hinweis in der Liste und den Kasten auf der
+  Seite der Person. Mitarbeitende sehen weiter nur ihr eigenes **Zu unterschreiben**.
+
+### Reiter „Unfälle“
+
+- **Mitarbeitende → Unfälle** zeigt die Unfallanzeigen der Mitarbeitenden eines Jahres (mit den Pfeilen blättern),
+  **Kinder → Kinder → Unfälle** die Unfallberichte der Kinder. Je Unfall: Datum, Person (führt zur Personalakte bzw. zur
+  Kinderakte), Vorlage, Arztbesuch / arbeitsunfähig, gemeldet am und der Ausdruck. **Liste drucken** druckt die Liste
+  des Jahres für Kinder bzw. für Mitarbeitende.
+- Beide Reiter sieht nur, wer Unfälle verwalten darf (Recht „Unfallanzeigen“, voreingestellt Leitung und Träger), nicht
+  am Tablet. Eintragen und Ändern geht wie bisher in der Kinderakte bzw. in der Personalakte (Reiter „Gesundheit“);
+  **Meine Unfälle** bleibt unverändert. Der Link „zu den Unfällen“ in den Erinnerungen führt zum passenden Reiter.
+- Früher stand die Übersicht unter **Mehr → Unfälle**. Alte Lesezeichen (`/admin/accidents`) führen zum Reiter der
+  Kinder, mit „nur Mitarbeitende“ (`filter=employee`) zum Reiter der Mitarbeitenden; das Jahr bleibt.
 
 ### Ausgeschiedene Mitarbeitende endgültig löschen
 
@@ -1013,8 +1043,10 @@ mehreren Abschnitten (auf dem Handy untereinander):
 - **Zeiten & Urlaub:** Wochenstunden, Stundenkonto heute und am Ende eines wählbaren Monats, Stundenkonto-Buchungen,
   Urlaubskonto eines wählbaren Jahres (Anspruch, Übertrag, genommen, verplant, frei verfügbar), Urlaubsanspruch mit
   „Zusatztag nur für dieses Jahr“, Stempel-PIN und „Stempeln und Pausen“.
-- **Nachweise:** **Pflichtdokumente**, Pflichttermine und Fortbildungen, **Personalakte** (die Dokumente, nur die Fächer,
-  für die du das Recht hast, siehe unten).
+- **Nachweise:** **Noch zu unterschreiben** (nur wer zum Unterschreiben senden darf und nur, solange etwas offen ist:
+  die offenen Anfragen mit „bis“, Überfälliges rot, mit **Erinnern** und **Zurückziehen**), **Pflichtdokumente**,
+  Pflichttermine und Fortbildungen, **Personalakte** (die Dokumente, nur die Fächer, für die du das Recht hast, siehe
+  unten).
 - **Gesundheit:** **Unfälle** (Recht „Unfallanzeigen“), **Krankheitstage** eines wählbaren Jahres (mit Link zur Liste
   aller), **Längere Abwesenheit**, **BEM** und **Mutterschutz** (Recht „Krankheitstage …“) – nur mit dem jeweiligen
   Recht; Krankheitstage, Längere Abwesenheit, BEM und Mutterschutz nie auf der eigenen Seite.
@@ -1852,12 +1884,13 @@ Fällt das Internet oder der Server aus, kann am **Kita-Tablet** (Konto „Table
 ## 19. Dokumente: Zum Ausdrucken (leere PDF-Formulare) und Bögen
 
 Im Menü gibt es **Dokumente** (Leitung und Träger in der oberen Zeile, Mitarbeiter unter **Meins**). Die Seite hat bis zu
-vier Reiter: **Bögen** – „Vorlagen für Bögen, die im Programm ausgefüllt werden“ (Mitarbeitergespräche,
+drei Reiter: **Bögen** – „Vorlagen für Bögen, die im Programm ausgefüllt werden“ (Mitarbeitergespräche,
 Beobachtungsbögen, Teamsitzungen, Unfallberichte, siehe Abschnitt 27; nur wer Bögen pflegen darf) –, **Zum Ausdrucken** –
-„PDF-Formulare zum Ausdrucken oder Ausfüllen“ –, **Wissen** (siehe Abschnitt 30) und **Unterschriften**. Die kurze
+„PDF-Formulare zum Ausdrucken oder Ausfüllen“ – und **Wissen** (siehe Abschnitt 30); **Unterschriften** ist jetzt ein
+Reiter von **Mitarbeitende** (siehe Abschnitt 15). Die kurze
 Zeile steht auf Computer und Tablet im Reiter selbst, auf dem Handy unter den Reitern. Jeder sieht nur die Reiter, die er
 nutzen darf – Mitarbeiter und das Tablet **Zum Ausdrucken** und **Wissen**. Alte Lesezeichen (auch auf die frühere Seite
-„Vorlagen“ oder auf „Bögen“) führen automatisch zum passenden Reiter. Der Reiter **Zum Ausdrucken** hieß früher
+„Vorlagen“, auf „Bögen“ oder auf den früheren Reiter „Unterschriften“) führen automatisch zum passenden Reiter. Der Reiter **Zum Ausdrucken** hieß früher
 „Vorlagen“; die einzelnen PDFs darin heißen weiterhin „Vorlage“ (z. B. „Vorlage hochladen“).
 
 Unter **Zum Ausdrucken** liegen leere PDF-Formulare, die man immer wieder ausdruckt oder in der App ausfüllt – z. B.
@@ -2128,7 +2161,8 @@ Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
     Zeiten, in denen sich das Tablet für die Kinderakten nicht sperrt – und sobald die Person nicht mehr in der Liste
     des Tablets steht (PIN gelöscht, ausgeschieden, Aushilfstag vorbei). Danach steht wieder die Startseite da („Das Tablet
     ist wieder gesperrt. Bitte Namen und PIN neu eingeben.“).
-- **Übersicht**: **Dokumente → Unterschriften** (wer senden darf) zeigt jede Anfrage mit dem Stand je Person – offen,
+- **Übersicht**: **Mitarbeitende → Unterschriften** (wer senden darf; früher unter „Dokumente“) zeigt oben „Wer muss noch
+  unterschreiben?“ je Person (siehe Abschnitt 15) und darunter jede Anfrage mit dem Stand je Person – offen,
   unterschrieben am …, abgelehnt mit Grund, zurückgezogen –, den Link zur unterschriebenen Kopie (wenn du das Fach sehen
   darfst – geprüft wird das Fach, in dem die Kopie jetzt liegt) und das gesendete PDF. Wurde die Kopie in der Personalakte
   später durch eine andere Datei ersetzt, steht dort rot **„nachträglich geändert“**; wurde sie gelöscht, **„Kopie
@@ -2136,8 +2170,8 @@ Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
   beendet die Anfrage für offene Personen; **Anfrage löschen** entfernt Anfrage und gesendetes PDF (die unterschriebenen
   Kopien und die Nachweise der Unterschriften bleiben, siehe unten). Ist das Datum „bis“ vorbei und jemand noch offen,
   ist die Anfrage als **überfällig** markiert: oben in der Übersicht, im Reiter („Unterschriften (1)“) und im Menü bei
-  **Dokumente** steht, wie viele es sind; in der Liste der Person ist sie rot
-  hervorgehoben.
+  **Mitarbeitende** steht, wie viele es sind; in der Liste der Person ist sie rot hervorgehoben, ebenso im Hinweis
+  „‹n› offen“ in der Liste der Mitarbeitenden und im Kasten „Noch zu unterschreiben“ auf der Seite der Person.
 - **Wer darf was**: Senden und die Übersicht gehören zum Recht **„Personalakte: zum Unterschreiben senden“** (Rechte und
   Rollen; voreingestellt Leitung, der Träger immer). In der Übersicht sieht man nur Anfragen, deren Fächer man nutzen
   darf: das Fach der unterschriebenen Kopie und – bei einem PDF aus der Personalakte – das Fach, aus dem es kam; bei
@@ -2829,16 +2863,18 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   zählen, Kinderkrankentage; „Elternzeit im Dienstplan“ für wen die Vertragsangaben nur ansehen darf), stehen am Ende
   des Bereichs in einer Zeile **„Diese Einstellungen pflegt der Träger: …“**, die man zum Lesen aufklappen kann.
 - **Leitung und Träger** sehen oben immer: **Dienstplan**, **Urlaubsplanung** (nur wer dafür zuständig ist, mit der Zahl
-  offener Anträge), **Zeiterfassung**, **Mitarbeitende**, **Kinder**, **Kalender** (Jahreskalender), **Teamsitzungen**,
-  **Notizen** und **Dokumente** (Bögen, Zum Ausdrucken, Wissen und Unterschriften, mit der Zahl dessen, was dort wartet:
-  Einträge zum Bestätigen, überfällige Unterschriften). Seltener Gebrauchtes liegt unter **Mehr**: **Kontakte**,
-  **Kasse**, **Unfälle**, **Benutzer & Rechte**, **Einstellungen** und (nur der Träger) **Datenschutz & Löschen**; wer
+  offener Anträge), **Zeiterfassung**, **Mitarbeitende** (mit der Zahl überfälliger Unterschriften), **Kinder**,
+  **Kalender** (Jahreskalender), **Teamsitzungen**, **Notizen** und **Dokumente** (Bögen, Zum Ausdrucken und Wissen, mit
+  der Zahl der Einträge zum Bestätigen). Seltener Gebrauchtes liegt unter **Mehr**: **Kontakte**,
+  **Kasse**, **Benutzer & Rechte**, **Einstellungen** und (nur der Träger) **Datenschutz & Löschen**; wer
   „Bewerbungen & Hospitationen“ sehen darf, aber nicht die Liste der Mitarbeitenden, findet sie ebenfalls dort.
   **Passwort ändern** und **Abmelden** stehen bei jedem am Ende des Menüs.
-  - **Schließzeiten** sind ein Reiter von **Kalender**, **Krankheitstage** und **Bewerbungen & Hospitationen** Reiter von
-    **Mitarbeitende**, und **Benutzer** und **Rechte und Rollen** (nur Träger) sind die zwei Reiter von
-    **Benutzer & Rechte**. Alte Lesezeichen (`/admin/closures`, `/admin/sick-days`, `/admin/rights`) führen automatisch
-    zum passenden Reiter.
+  - **Schließzeiten** sind ein Reiter von **Kalender**; **Krankheitstage**, **Bewerbungen & Hospitationen**,
+    **Unterschriften** (früher unter „Dokumente“) und **Unfälle** der Mitarbeitenden Reiter von **Mitarbeitende**; die
+    **Unfälle** der Kinder ein Reiter von **Kinder** (Bereich „Kinder“) – beide Unfall-Reiter ersetzen den früheren
+    Eintrag „Unfälle“ unter **Mehr**; **Benutzer** und **Rechte und Rollen** (nur Träger) sind die zwei Reiter von
+    **Benutzer & Rechte**. Alte Lesezeichen (`/admin/closures`, `/admin/sick-days`, `/admin/rights`,
+    `/documents?tab=signatures`, `/admin/accidents`) führen automatisch zum passenden Reiter.
   - **Offen für dich**: Wer einen eigenen Mitarbeiter-Eintrag hat, sieht oben auf **Mein Dienstplan** (Leitung und Träger
     auf ihrem Dienstplan) einen Kasten mit dem, was für die Person selbst wartet – jeweils mit Zahl und Link: Dokumente zu
     unterschreiben (davon überfällige), Einträge „Gelesen und verstanden“, Selbstbeurteilungen zum Ausfüllen, der Hinweis

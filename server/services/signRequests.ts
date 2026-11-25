@@ -223,7 +223,7 @@ export function listSignRequests(db: Db, sender: SignSender, today: IsoDate): Si
   })
 }
 
-/** How many of the requests the sender may see are overdue (the count at „Dokumente“ and „Unterschriften“). */
+/** How many of the requests the sender may see are overdue (the count at „Mitarbeitende“ and its tab „Unterschriften“). */
 export function overdueSignRequestCount(db: Db, sender: SignSender, today: IsoDate): number {
   const requests = visibleRequests(db, sender).filter(request => request.dueDate !== null && request.dueDate < today)
   if (requests.length === 0) return 0
