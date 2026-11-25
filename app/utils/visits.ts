@@ -64,10 +64,10 @@ export function infoVisitBody(form: InfoVisitForm, status?: 'open' | 'declined')
 }
 
 /** A day of the applicant's form, the times as text. */
-export interface DayForm { date: string; from: string; to: string }
+export interface ApplicantDayForm { date: string; from: string; to: string }
 
 export interface ApplicantForm {
-  name: string; phone: string; email: string; kind: ApplicantVisitInput['kind']; notes: string; mentorEmployeeId: number | null; days: DayForm[]
+  name: string; phone: string; email: string; kind: ApplicantVisitInput['kind']; notes: string; mentorEmployeeId: number | null; days: ApplicantDayForm[]
 }
 
 export const emptyApplicantForm = (): ApplicantForm => ({
