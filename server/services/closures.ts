@@ -3,7 +3,7 @@ import { dateRange, daysBetween } from '../../shared/domain/dates'
 import { isHolidayIn, type HolidayRules } from '../../shared/domain/holidays'
 import { countLeaveDays, countsAsLeaveDay, type HalfOnEves } from '../../shared/domain/leave'
 import { PRIVATE_CODE_KEYS } from '../../shared/domain/maternity'
-import { isWorkday } from '../../shared/domain/targets'
+import { isLeaveWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureDto, ClosureListItemDto, ClosureMode, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -62,7 +62,8 @@ type Cell = { employeeId: number; date: IsoDate }
  * other facility, so nothing there is booked or replaced. Days holding a private absence (Krank, Kind krank,
  * Mutterschutz, Beschäftigungsverbot) are skipped for everyone: no leave is used during sickness or the protection period
  * (§ 9 BUrlG, § 24 MuSchG), „abwesend“ stays the same for all four, and a closure manager without the right is neither
- * refused nor told about it. Returns the cells booked.
+ * refused nor told about it. The days of a long absence Langzeitkrank or Kur/Reha are skipped the same way (sick days
+ * without an entry, isLeaveWorkday); Sonstiges has no working days anyway. Returns the cells booked.
  */
 function bookClosure(
   db: Db, actor: SessionUser, facilityId: number, closure: ClosureDto, staff: EmployeeRecord[], now: Date,
@@ -86,7 +87,7 @@ function bookClosure(
       ? onlyEmpty(employee.id, date) && cellOwner(db, employee.id, date) === null
       : typeof cellOwner(db, employee.id, date) !== 'number'
     const dates = dateRange(closure.startDate, closure.endDate)
-      .filter(date => isWorkday(employee.info, date) && (from === undefined || date >= from) && (since === null || date >= since)
+      .filter(date => isLeaveWorkday(employee.info, date) && (from === undefined || date >= from) && (since === null || date >= since)
         && !protectedCells.has(`${employee.id}|${date}`) && free(date))
     const split = closure.mode === 'vacation' ? splitLeave(db, employee, dates) : { vacation: [], closureDays: dates }
     vacationCells.push(...split.vacation.map(date => ({ employeeId: employee.id, date })))

@@ -5,7 +5,7 @@ import {
   absentThroughout, checkLongAbsence, countsAsSick, joinSpans, longAbsenceReturnState, longSickDates, spansOfDates,
   type LongAbsencePeriod,
 } from '../../shared/domain/longAbsence'
-import { dailyTarget, isWorkday, longSickOn, type EmploymentInfo } from '../../shared/domain/targets'
+import { dailyTarget, isLeaveWorkday, isWorkday, longSickOn, type EmploymentInfo } from '../../shared/domain/targets'
 import { dayWarnings, type CoverageRule, type EmployeeDay } from '../../shared/domain/warnings'
 import { code, F1, S, shift } from '../helpers/entries'
 
@@ -56,6 +56,14 @@ describe('the sick days of a long absence', () => {
     expect(summarize(computeRange(info, [], '2026-11-02', '2026-11-08'))).toEqual({ target: 2340, credit: 2340, delta: 0 })
     // Before the period the day is as always (no entry: the target is missing).
     expect(computeDay(info, '2026-10-30', []).delta).toBe(-468)
+  })
+
+  it('uses no leave on a day of Langzeitkrank or Kur/Reha (§ 9 BUrlG), still on the working days around it', () => {
+    const info = withAbsence({ start: '2026-11-02', end: '2026-11-06', reason: 'rehab' })
+    expect(isLeaveWorkday(info, '2026-11-03')).toBe(false)
+    expect(isWorkday(info, '2026-11-03')).toBe(true)
+    expect(isLeaveWorkday(info, '2026-11-09')).toBe(true)
+    expect(isLeaveWorkday(info, '2026-11-07')).toBe(false) // Saturday
   })
 
   it('makes Sonstiges a time without working days and without target hours (unpaid)', () => {
@@ -130,6 +138,9 @@ describe('the plan\'s warnings on a day of a long absence', () => {
         { type: 'coverage', date, ruleId: 1, label: 'Frühdienst ab 7:00', found: 0, required: 1 },
         { type: 'long_absence_duty', date, employeeId: 1 },
       ])
+    // A whole Büro day left in it is named as well.
+    expect(dayWarnings(date, [day(1, [code(1, date, 'office', 'timed')], 'stored'), others], rules, false, BW_RULES))
+      .toEqual([{ type: 'long_absence_duty', date, employeeId: 1 }])
     // A duty planned anyway on a day of a booked Mutterschutz (e.g. chosen before the birth) counts as before.
     expect(dayWarnings(date, [day(1, [shift(1, date, ...F1)], 'derived'), day(2, [code(2, date, 'vacation', 'daily_target')])], rules, false, BW_RULES))
       .toEqual([])

@@ -16,8 +16,8 @@ import { bemProcesses, bemSteps, employees, facilities } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { facilityContactData } from './facilityContact'
 import { actorName } from './formTemplates'
-import { longSickDays } from './longAbsence'
-import { loadClosures, loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
+import { sickDatesWithLongAbsences } from './longAbsence'
+import { loadEmployee, loadEmployees, loadEntries, type EmployeeRecord } from './queries'
 import { getRetentionSettings } from './retentionSettings'
 
 // Betriebliches Eingliederungsmanagement (§ 167 Abs. 2 SGB IX). Health data: only for whoever has employees.sickness
@@ -102,7 +102,7 @@ function lastEnd(processes: ProcessRow[]): IsoDate | null {
  * The sick working days the BEM counts for the employee today: „Krank“ entries (not „Kind krank“, not „im Dienst
  * erkrankt“) on working days, in the last 12 months but only after the last ended BEM; the limit from the working days
  * per week of the hours period valid today. `sickDates` are the employee's „Krank“ days (at least the window), with the
- * days of a long absence Langzeitkrank or Kur/Reha (longSickDays; a day with both counts once).
+ * days of a long absence Langzeitkrank or Kur/Reha (sickDatesWithLongAbsences; a day with both counts once).
  */
 function sickDaysOf(employee: EmployeeRecord, sickDates: IsoDate[], restartAfter: IsoDate | null, today: IsoDate): BemSickDaysDto {
   const window = bemWindow(today, restartAfter)
@@ -116,19 +116,14 @@ function sickDaysOf(employee: EmployeeRecord, sickDates: IsoDate[], restartAfter
 
 /**
  * The „Krank“ days of the employees of the facility from `from` to `to`, by employee, with the days of a long absence
- * Langzeitkrank or Kur/Reha (computed from the period: its working days without public holidays and closure days).
+ * Langzeitkrank or Kur/Reha (sickDatesWithLongAbsences: counted exactly as „Krank“ entries).
  */
 function sickDatesByEmployee(db: Db, facilityId: number, staff: readonly EmployeeRecord[], from: IsoDate, to: IsoDate): Map<number, IsoDate[]> {
-  const result = new Map<number, IsoDate[]>()
+  const manual = new Map<number, IsoDate[]>()
   for (const entry of loadEntries(db, { homeFacilityId: facilityId, codeKey: 'sick', from, to })) {
-    result.set(entry.employeeId, [...result.get(entry.employeeId) ?? [], entry.date])
+    manual.set(entry.employeeId, [...manual.get(entry.employeeId) ?? [], entry.date])
   }
-  const closures = loadClosures(db, facilityId)
-  for (const employee of staff) {
-    const days = longSickDays(employee, closures, from, to)
-    if (days.length > 0) result.set(employee.id, [...result.get(employee.id) ?? [], ...days])
-  }
-  return result
+  return new Map(staff.map(employee => [employee.id, sickDatesWithLongAbsences(employee, manual.get(employee.id) ?? [], from, to)]))
 }
 
 /** The employee page's BEM part: the count, the running process and the earlier ones (403 bem_own, 404 employee_not_found). */
@@ -137,10 +132,10 @@ export function getEmployeeBem(db: Db, scope: BemScope, employeeId: number, toda
   const employee = loadEmployee(db, employeeId)!
   const processes = processesOf(db, [employeeId])
   const steps = stepsByProcess(db, processes.map(process => process.id))
-  const sickDates = [
-    ...loadEntries(db, { employeeId, codeKey: 'sick', from: addDays(today, -364), to: today }).map(entry => entry.date),
-    ...longSickDays(employee, loadClosures(db, employee.facilityId), addDays(today, -364), today),
-  ]
+  const sickDates = sickDatesWithLongAbsences(
+    employee, loadEntries(db, { employeeId, codeKey: 'sick', from: addDays(today, -364), to: today }).map(entry => entry.date),
+    addDays(today, -364), today,
+  )
   const open = processes.find(process => isBemOpen(process.status))
   return {
     sickDays: sickDaysOf(employee, sickDates, lastEnd(processes), today),

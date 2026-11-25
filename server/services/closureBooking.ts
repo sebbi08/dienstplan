@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { describeCellDetailed } from '../../shared/domain/describe'
 import { parseIsoDate } from '../../shared/domain/dates'
 import { leaveAccount, leaveDaysThatFit, type HalfOnEves, type LeaveEntitlement } from '../../shared/domain/leave'
-import { employmentStart, isWorkday, type EmploymentInfo } from '../../shared/domain/targets'
+import { employmentStart, isLeaveWorkday, type EmploymentInfo } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -57,7 +57,7 @@ export function splitLeaveOf(person: LeaveSplitPerson, dates: IsoDate[]): { vaca
     }
     const otherLeave = person.otherLeave(year, new Set(yearDates))
     const available = leaveAccount(
-      entitlement, otherLeave, year, `${year}-01-01`, date => isWorkday(person.info, date), person.halfLeaveOnEves,
+      entitlement, otherLeave, year, `${year}-01-01`, date => isLeaveWorkday(person.info, date), person.halfLeaveOnEves,
     ).available
     // 24 and 31 December may use only half a day each (facility setting): a whole day that no longer fits becomes a
     // closure day, and a later half day still takes the half day left (as rebookHomeClosure does day by day).
@@ -91,7 +91,8 @@ export function rebookHomeClosure(db: Db, actor: SessionUser, employeeId: number
   const employee = loadEmployee(db, employeeId)
   if (!employee) return
   const closure = closureOn(loadClosures(db, employee.facilityId), date)
-  if (!closure || !isWorkday(employee.info, date)) return
+  // Not on a day of Langzeitkrank or Kur/Reha: like a day holding „Krank“, it gets no closure booking.
+  if (!closure || !isLeaveWorkday(employee.info, date)) return
   const since = db.select({ since: employees.facilitySince }).from(employees).where(eq(employees.id, employeeId)).get()?.since
   if (since != null && date < since) return
   const asLeave = closure.mode === 'vacation' && splitLeave(db, employee, [date]).vacation.length > 0

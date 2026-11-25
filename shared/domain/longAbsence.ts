@@ -10,9 +10,10 @@ import type { IsoDate } from './types'
  * (server/services/longAbsence.ts), so there is one source for each.
  *
  * In the background (shared/domain/targets.ts, shared/domain/balance.ts): Langzeitkrank and Kur/Reha are sick days on
- * each of the person's working days (no public holiday; for the counts no closure day either) – the Stundenkonto credits
- * the daily target as for „Krank“, the Krankheitstage and the BEM count them – without a plan entry per day (computed,
- * nothing stored). Kur/Reha counts like Krank (§ 9 EFZG: medical rehabilitation is paid like an incapacity). Sonstiges is
+ * each of the person's working days (no public holiday, closure days included), exactly as a whole-day „Krank“ entry –
+ * the Stundenkonto credits the daily target, the Krankheitstage and the BEM count them, no leave is used on them
+ * (isLeaveWorkday: a closure books no Urlaub there, an Urlaub entry there does not count, § 9 BUrlG) – without a plan
+ * entry per day (computed, nothing stored). Kur/Reha counts like Krank (§ 9 EFZG: medical rehabilitation is paid like an incapacity). Sonstiges is
  * unpaid time without target hours: no working days, like a full Elternzeit. The reason is health data: only viewers
  * with employees.sickness see it, everybody else sees „abwesend“.
  */
@@ -67,7 +68,7 @@ export function checkLongAbsence(
 
 /**
  * The sick days of Langzeitkrank and Kur/Reha from `from` to `to`: each day of such a period that `isCountedDay`
- * accepts (the caller passes the person's working days without public holidays and closure days, as „Krank“ is counted).
+ * accepts (the caller passes the person's working days, as a „Krank“ entry is counted).
  */
 export function longSickDates(
   periods: readonly LongAbsencePeriod[] | undefined, from: IsoDate, to: IsoDate, isCountedDay: (date: IsoDate) => boolean,

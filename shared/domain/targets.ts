@@ -142,6 +142,15 @@ export function isWorkday(info: EmploymentInfo, date: IsoDate): boolean {
 }
 
 /**
+ * A working day on which leave counts (Urlaub, the leave a closure books): not a day of Langzeitkrank or Kur/Reha, which
+ * is a sick day – leave is not used during an incapacity (§ 9 BUrlG), exactly as a whole day „Krank“ replaces Urlaub
+ * in the plan. The one rule for the leave account, the leave lists, the closures and the leave requests.
+ */
+export function isLeaveWorkday(info: EmploymentInfo, date: IsoDate): boolean {
+  return isWorkday(info, date) && !longSickOn(info, date)
+}
+
+/**
  * Weekly hours spread evenly over the working days of the valid period (during part-time work in an Elternzeit its
  * weekly hours); 0 on all other days.
  */

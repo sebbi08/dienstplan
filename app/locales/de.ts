@@ -3359,7 +3359,6 @@ export const de = {
       saved: 'Gespeichert',
     },
   },
-  /** Mutterschutz (MuSchG): the section of the employee page (employees.sickness, never on the own page). */
   /**
    * „Längere Abwesenheit“: the section of the employee page (tab „Gesundheit“, employees.sickness), the line below the
    * plan and the marks in the plan and in „Mein Dienstplan“.
@@ -3367,7 +3366,7 @@ export const de = {
   longAbsence: {
     title: 'Längere Abwesenheit',
     intro: 'Wer länger fehlt, steht in dieser Zeit nicht im Dienstplan. Krankheitstage zählen von selbst. Gesundheitsdaten: nur für Leitung und Träger sichtbar.',
-    introMore: 'Langzeitkrank und Kur/Reha zählen an jedem Arbeitstag der Person als Krankheitstag (ohne Feiertage und Schließtage) – für das Stundenkonto (wie „Krank“), die Krankheitstage und das BEM. Ein einzelner Eintrag „Krank“ im Zeitraum zählt nicht doppelt. Sonstiges (z. B. Sabbatical) ist unbezahlt: keine Soll-Stunden.\nMutterschutz/Beschäftigungsverbot und Elternzeit werden hier nicht noch einmal eingetragen: Sie kommen aus „Mutterschutz“ (sobald die Schutzfristen im Dienstplan eingetragen sind) und „Elternzeit“ und werden dort geändert.\nIm Dienstplan steht unten nur „Längere Abwesenheit: N Personen“; den Grund sehen nur Leitung und Träger, alle anderen sehen „abwesend“. 2 Wochen vor einem bekannten Ende erinnert die App an die Rückkehr.',
+    introMore: 'Langzeitkrank und Kur/Reha zählen an jedem Arbeitstag der Person genau wie ein ganztägiger Eintrag „Krank“ (ohne Feiertage, auch in Schließzeiten) – für das Stundenkonto, die Krankheitstage und das BEM. Ein einzelner Eintrag „Krank“ im Zeitraum zählt nicht doppelt. Urlaub wird an diesen Tagen nicht verbraucht (§ 9 BUrlG): Schließzeiten buchen dort keinen Urlaub, und schon eingetragener Urlaub zählt nicht als genommen. Sonstiges (z. B. Sabbatical) ist unbezahlt: keine Soll-Stunden.\nMutterschutz/Beschäftigungsverbot und Elternzeit werden hier nicht noch einmal eingetragen: Sie kommen aus „Mutterschutz“ (sobald die Schutzfristen im Dienstplan eingetragen sind) und „Elternzeit“ und werden dort geändert.\nIm Dienstplan steht unten nur „Längere Abwesenheit: N Personen“; den Grund sehen nur Leitung und Träger, alle anderen sehen „abwesend“. 2 Wochen vor einem bekannten Ende erinnert die App an die Rückkehr.',
     loading: 'Lädt …',
     none: 'Keine längere Abwesenheit eingetragen.',
     add: 'Längere Abwesenheit eintragen',
@@ -3388,8 +3387,9 @@ export const de = {
     reasonHints: {
       sick: 'Zählt an jedem Arbeitstag als Krankheitstag (Stundenkonto, Krankheitstage, BEM).',
       rehab: 'Zählt wie Krank (Entgeltfortzahlung wie bei Arbeitsunfähigkeit, § 9 EFZG).',
-      other: 'Unbezahlt: keine Soll-Stunden, keine Krankheitstage.',
+      other: 'Unbezahlt: keine Soll-Stunden, keine Krankheitstage. Den Urlaubsanspruch kürzt die App nicht von selbst.',
     } as Record<StoredLongAbsenceReason, string>,
+    otherLeaveHint: 'Unbezahlte Freistellung: Für diese Zeit entsteht in der Regel kein Urlaubsanspruch – bitte den Urlaubsanspruch des Jahres prüfen und von Hand anpassen.',
     takenOverHint: 'Mutterschutz und Elternzeit werden aus ihren Einträgen übernommen.',
     start: 'Von',
     end: 'Bis',
@@ -3402,24 +3402,43 @@ export const de = {
     fromParentalLeave: 'aus „Elternzeit“ – dort ändern',
     toMaternity: 'zum Mutterschutz',
     toParentalLeave: 'zur Elternzeit',
-    // Duties still planned in the period (never removed without asking).
+    // What the plan still holds in the period (at the period, as long as it holds it; never removed without asking).
+    conflictsToast: 'Im Zeitraum steht noch etwas im Dienstplan – siehe bei der Abwesenheit.',
     duties: (count: number) => (count === 1
       ? 'In diesem Zeitraum ist noch 1 Dienst eingetragen. Er zählt nicht mit und steht als Warnung im Dienstplan.'
       : `In diesem Zeitraum sind noch ${count} Dienste eingetragen. Sie zählen nicht mit und stehen als Warnung im Dienstplan.`),
-    dutiesQuestion: 'Jetzt aus dem Dienstplan entfernen?',
+    dutyStamped: 'gestempelt – bleibt stehen',
     dutiesNoRight: 'Bitte im Dienstplan entfernen (dafür fehlt hier das Recht „Dienstplan bearbeiten“).',
     removeDuties: 'Dienste entfernen',
-    keepDuties: 'Behalten',
+    removeDutiesHint: 'Entfernt die Dienste dieses Zeitraums aus dem Dienstplan, nicht an Tagen mit Stempelzeiten.',
     dutiesRemoved: (days: number) => (days === 1 ? '1 Tag im Dienstplan geleert.' : `${days} Tage im Dienstplan geleert.`),
+    dutiesKeptStamped: (days: number) => (days === 1
+      ? 'An 1 Tag wurde gestempelt: Dieser Dienst bleibt stehen. Bitte prüfen, ob „Von“ stimmt.'
+      : `An ${days} Tagen wurde gestempelt: Diese Dienste bleiben stehen. Bitte prüfen, ob „Von“ stimmt.`),
+    leaveSick: (count: number) => `${count === 1 ? '1 Tag Urlaub (bzw. Sonderurlaub, Überstundenfrei) liegt' : `${count} Tage Urlaub (bzw. Sonderurlaub, Überstundenfrei) liegen`} in diesem Zeitraum. Urlaub zählt dort nicht als genommen, solange die Arbeitsunfähigkeit ärztlich nachgewiesen ist (§ 9 BUrlG); im Dienstplan steht dort die Abwesenheit. Bei Bedarf im Dienstplan entfernen.`,
+    leaveOther: (count: number) => `${count === 1 ? '1 Tag Urlaub liegt' : `${count} Tage Urlaub liegen`} in diesem Zeitraum. In der unbezahlten Freistellung gibt es keine Arbeitstage: Er zählt nicht als genommen. Bei Bedarf im Dienstplan entfernen.`,
+    openRequests: (count: number) => (count === 1
+      ? 'Ein offener Urlaubsantrag überschneidet sich mit diesem Zeitraum – bitte entscheiden:'
+      : `${count} offene Urlaubsanträge überschneiden sich mit diesem Zeitraum – bitte entscheiden:`),
+    requestKinds: { vacation: 'Urlaub', overtime_off: 'Überstundenfrei' } as Record<'vacation' | 'overtime_off', string>,
+    stampedDays: (days: number) => `An ${days === 1 ? '1 Tag' : `${days} Tagen`} im Zeitraum wurde gestempelt. Im Stundenkonto zählt dort wie bei „Krank“ das Tagessoll, nicht die gestempelte Zeit – stimmt „Von“?`,
     dutyLine: (date: string, label: string) => `${date}: ${label}`,
     // The line below the plan.
     planLine: (count: number) => `Längere Abwesenheit: ${count === 1 ? '1 Person' : `${count} Personen`}`,
     planLineHint: 'Diese Personen stehen in dieser Zeit nicht im Dienstplan (an Tagen mit Einträgen stehen sie weiter da).',
     planAbsent: 'abwesend',
     planCellHint: 'Längere Abwesenheit (bei der Person eingetragen, kein Eintrag im Dienstplan)',
+    planLeaveHint: 'Längere Abwesenheit: Urlaub an diesem Tag zählt nicht als genommen (§ 9 BUrlG, mit ärztlichem Nachweis).',
+    // „im Plan zeigen“ (plan editors): a person taken out of the plan shown again in this view.
+    showInPlan: 'im Plan zeigen',
+    hideInPlan: 'wieder ausblenden',
+    showInPlanHint: 'Zeigt die Spalte dieser Person in diesem Monat wieder, z. B. um einen Tag zu korrigieren oder Arbeit einzuplanen.',
+    // The day overview: work left in an entered long absence (it does not count).
+    overviewKept: (names: string) => `Dienst zählt nicht (längere Abwesenheit): ${names}`,
     // „Mein Dienstplan“: the person's own days (no reason).
     myPlanLabel: 'Längere Abwesenheit',
   },
+  /** Mutterschutz (MuSchG): the section of the employee page (employees.sickness, never on the own page). */
   maternity: {
     title: 'Mutterschutz',
     intro: 'Schwangerschaft, Schutzfristen, Beschäftigungsverbot und Stillzeit (MuSchG). Gesundheitsdaten: nur für Leitung und Träger sichtbar.',

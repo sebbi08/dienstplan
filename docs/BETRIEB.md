@@ -1324,27 +1324,49 @@ Wer Wochen oder Monate fehlt, steht in dieser Zeit nicht im Dienstplan – statt
   „abwesend“). Aufeinanderfolgende Zeiträume mit gleichem sichtbarem Grund stehen in einer Zeile (wer nur „abwesend“
   sieht, erkennt nicht, wo Mutterschutz in Elternzeit übergeht). Beginnt oder endet die Abwesenheit mitten im Monat,
   bleibt die Spalte; an den Arbeitstagen der Abwesenheit ohne Eintrag steht der Grund bzw. „abwesend“. Die Person fehlt
-  nicht in „Eintrag fehlt“ und zählt nicht für Pflichtdienste, Öffnung/Schließung, „anwesend“ und den Personalschlüssel.
-  Die Person selbst sieht unter „Mein Dienstplan“ an diesen Tagen **„Längere Abwesenheit“**.
-- **Schon geplante Dienste im Zeitraum** werden nie still gelöscht: Nach dem Speichern nennt der Abschnitt sie
-  („In diesem Zeitraum sind noch 3 Dienste eingetragen …“) mit **„Dienste entfernen“** (nur mit dem Recht, den
-  Dienstplan zu bearbeiten; jede Entfernung ist eine Änderung im Plan bis zur nächsten Freigabe) oder **„Behalten“**.
-  Ein behaltener Dienst lässt die Person im Plan stehen, zählt aber nicht mit; der Tag zeigt die Warnung **„‹Name›:
-  Dienst eingetragen, obwohl längere Abwesenheit – zählt nicht mit, bitte entfernen“**. Dienste als Aushilfe in einer
-  anderen Einrichtung entfernt diese selbst.
+  nicht in „Eintrag fehlt“ und zählt nicht für Pflichtdienste, Öffnung/Schließung, „anwesend“ (auch nicht in der
+  Tagesübersicht) und den Personalschlüssel. Die Person selbst sieht unter „Mein Dienstplan“ an diesen Tagen
+  **„Längere Abwesenheit“**. Die Zeile unter dem Plan folgt der oben gewählten Gruppe (deren Mitglieder und Springer),
+  auch im Druck; dort ist die Liste aufgeklappt, den Grund zeigt sie nur, wer ihn auch am Bildschirm sieht.
+- **„im Plan zeigen“** (wer den Dienstplan bearbeiten darf): In der aufgeklappten Zeile steht bei jeder ausgeblendeten
+  Person „im Plan zeigen“. Ihre Spalte erscheint dann in diesem Monat wieder (bis „wieder ausblenden“ oder zu einem
+  anderen Monat), z. B. um einen Tag zu korrigieren, Arbeit vor der Geburt (§ 3 Abs. 1 MuSchG) oder eine
+  Wiedereingliederung einzuplanen. Was dort steht, sieht man wie immer (private Codes als „abwesend“ ohne das Recht).
+- **Was im Zeitraum noch im Dienstplan steht**, nennt der Abschnitt bei der Abwesenheit, solange es dort steht (nicht nur
+  direkt nach dem Speichern) – nichts wird still geändert oder gelöscht:
+  - **Dienste** („In diesem Zeitraum sind noch 3 Dienste eingetragen …“) mit **„Dienste entfernen“** (nur mit dem Recht,
+    den Dienstplan zu bearbeiten; jede Entfernung ist eine Änderung im Plan bis zur nächsten Freigabe). Dienste an Tagen
+    mit **Stempelzeiten** bleiben immer stehen („gestempelt – bleibt stehen“); dann bitte prüfen, ob „Von“ stimmt. Ein
+    behaltener Dienst (auch ein ganzer Büro-/VZ-Tag) lässt die Person im Plan stehen, zählt aber nicht mit; der Tag
+    zeigt die Warnung **„‹Name›: Dienst eingetragen, obwohl längere Abwesenheit – zählt nicht mit, bitte entfernen“**.
+    Dienste als Aushilfe in einer anderen Einrichtung entfernt diese selbst.
+  - **Urlaub** (auch Sonderurlaub, Überstundenfrei, auch der Urlaub einer Schließzeit, die vorher gebucht wurde) und
+    **offene Urlaubsanträge**: siehe „Urlaub“ unten. Urlaub im Zeitraum lässt die Person im Plan stehen; an diesen
+    Tagen steht neben dem Urlaub die Abwesenheit.
+  - **Stempelzeiten** im Zeitraum: Bei Langzeitkrank und Kur/Reha zählt dort – wie bei „Krank“ – das Tagessoll, nicht die
+    gestempelte Zeit.
 - **Im Hintergrund (Stunden):**
   - **Langzeitkrank:** Jeder Arbeitstag der Person im Zeitraum (nach ihren Wochenstunden und Arbeitstagen, ohne
     Feiertage) zählt wie ein Tag „Krank“: im **Stundenkonto** wird das Tagessoll gutgeschrieben (das Konto bleibt
     stehen), in den **Krankheitstagen** (Mitarbeitende → Krankheitstage und Abschnitt „Krankheitstage“, nur bis heute)
-    und beim **BEM** (mehr als 6 Wochen in 12 Monaten) zählt er als Krankheitstag – ohne Schließtage, wie bei einzeln
-    eingetragenen Krankheitstagen. Es wird nichts je Tag gespeichert: Wird die Abwesenheit kürzer, länger oder
-    gelöscht, stimmen die Zahlen sofort; einzeln eingetragene „Krank“-Tage bleiben, wie sie sind, und zählen nicht
-    doppelt. Im **Jahreskalender** stehen die Tage als „Krank“ (für alle ohne das Recht als „abwesend“).
+    und beim **BEM** (mehr als 6 Wochen in 12 Monaten) zählt er als Krankheitstag – genau wie ein ganztägiger Eintrag
+    „Krank“, also auch in Schließzeiten (eine Schließzeit bucht über „Krank“ nichts). Es wird nichts je Tag gespeichert:
+    Wird die Abwesenheit kürzer, länger oder gelöscht, stimmen die Zahlen sofort; einzeln eingetragene „Krank“-Tage
+    bleiben, wie sie sind, und zählen nicht doppelt. Im **Jahreskalender** (und in der Urlaubsplanung) stehen die Tage
+    als „Krank“ (für alle ohne das Recht als „abwesend“), auch über einem Urlaub.
+  - **Urlaub (§ 9 BUrlG):** An Tagen von Langzeitkrank und Kur/Reha wird – wie bei „Krank“ – kein Urlaub verbraucht:
+    Eine **Schließzeit** im Modus „Urlaub“ (oder „Schließtag“) bucht an diesen Tagen nichts, wie über einem Eintrag
+    „Krank“. **Schon eingetragener oder genehmigter Urlaub** im Zeitraum zählt im Urlaubskonto, in den Urlaubslisten und
+    beim Hinweis auf Resturlaub nicht als genommen (Voraussetzung ist wie immer der ärztliche Nachweis); im Dienstplan
+    steht dort neben dem Urlaub die Abwesenheit. Ein Urlaubsantrag in diesem Zeitraum zählt keine Tage. Endet die
+    Abwesenheit früher, zählt der Urlaub danach wieder; eine Schließzeit, die an diesen Tagen nichts gebucht hat, bucht
+    dann nicht von selbst nach – bitte im Dienstplan eintragen.
   - **Kur/Reha:** wie Langzeitkrank. Eine medizinische Vorsorge oder Rehabilitation wird wie eine Arbeitsunfähigkeit
     bezahlt (§ 9 EFZG); vorher hat man eine Kur meist als „Krank“ eingetragen, das bleibt so.
   - **Sonstiges (z. B. Sabbatical, unbezahlte Freistellung):** unbezahlt – keine Soll-Stunden und keine Arbeitstage (wie
-    eine volle Elternzeit), keine Krankheitstage. Der Urlaubsanspruch wird nicht von selbst gekürzt (bei Bedarf beim
-    Urlaubsanspruch des Jahres anpassen).
+    eine volle Elternzeit), keine Krankheitstage, Urlaub zählt dort nicht (keine Arbeitstage). Für eine unbezahlte
+    Freistellung entsteht in der Regel kein Urlaubsanspruch (BAG, 19.03.2019 – 9 AZR 315/17); die App kürzt ihn nicht von
+    selbst, der Abschnitt weist darauf hin (bei Bedarf beim Urlaubsanspruch des Jahres anpassen).
   - **Mutterschutz/Beschäftigungsverbot und Elternzeit:** alles bleibt, wie es ist (Stunden, Urlaub, „abwesend“).
 - **Erinnerung:** 2 Wochen vor dem ersten Arbeitstag nach einem bekannten Ende erscheint im Kasten „Erinnerungen“
   **„‹Name› kommt am ‹TT.MM.JJJJ› zurück (längere Abwesenheit) – Rückkehr planen“** mit „zur Person“ – für Leitung und

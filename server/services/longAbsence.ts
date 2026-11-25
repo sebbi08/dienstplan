@@ -1,22 +1,22 @@
-import { and, asc, desc, eq, isNull } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, lte } from 'drizzle-orm'
 import { isFullDayTimed, isWorkEntry } from '../../shared/domain/balance'
 import { cellKey } from '../../shared/domain/cells'
 import { addDays, dateRange, daysInMonth, toIsoDate } from '../../shared/domain/dates'
 import {
-  absentThroughout, checkLongAbsence, joinSpans, longAbsenceReturnState, longSickDates, overlapsRange, spanCovers, spansOfDates,
+  absentThroughout, checkLongAbsence, countsAsSick, joinSpans, longAbsenceReturnState, longSickDates, overlapsRange, spanCovers, spansOfDates,
   type AbsenceSpan, type LongAbsenceReason,
 } from '../../shared/domain/longAbsence'
 import { firstWorkingDayAfter } from '../../shared/domain/parentalLeave'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { isEmployedOn, isWorkday, type EmploymentInfo } from '../../shared/domain/targets'
-import type { IsoDate } from '../../shared/domain/types'
+import type { CodeKey, IsoDate } from '../../shared/domain/types'
 import type { LongAbsenceDay } from '../../shared/domain/warnings'
 import type {
-  ClosureDto, EmployeeLongAbsenceDto, EntryDto, LongAbsenceDto, LongAbsenceDutyDto, LongAbsenceInput, LongAbsencePlanDto,
+  ClosureDto, EmployeeLongAbsenceDto, EntryDto, LongAbsenceConflictsDto, LongAbsenceDto, LongAbsenceInput, LongAbsencePlanDto,
   LongAbsenceSaveDto, ReminderDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, entries, longAbsences } from '../db/schema'
+import { employees, entries, leaveRequests, longAbsences, timeRecords } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { seesProtectedCodes } from '../lib/protectedCodes'
 import { deleteEntry } from './entries'
@@ -103,21 +103,23 @@ export function returnDayOf(employee: EmployeeRecord, closures: ClosureDto[], sp
 }
 
 /**
- * The sick days of Langzeitkrank and Kur/Reha from `from` to `to`: the person's working days (no public holiday) that are
- * no closure day of the home facility – the days a „Krank“ entry would count on (Krankheitstage, BEM). Computed, never
- * stored; a day with a „Krank“ entry as well counts once (the callers join the days).
+ * The person's sick days from `from` to `to` for the Krankheitstage and the BEM: the days of the „Krank“ entries
+ * (`manualDates`) joined with the days of Langzeitkrank and Kur/Reha – each working day of the period (no public
+ * holiday), closure days included, exactly the days a whole-day „Krank“ entry stands on (a closure never books over
+ * „Krank“, closures.ts, nor over these days). Computed, never stored; a day in both counts once. The one helper of both
+ * paths: the callers then count working days as for „Krank“ (groupLeaveRanges, countBemSickDays).
  */
-export function longSickDays(employee: EmployeeRecord, closures: ClosureDto[], from: IsoDate, to: IsoDate): IsoDate[] {
-  if (to < from) return []
-  return longSickDates(employee.info.longAbsences, from, to, date => isWorkday(employee.info, date) && closureOn(closures, date) === null)
+export function sickDatesWithLongAbsences(employee: EmployeeRecord, manualDates: readonly IsoDate[], from: IsoDate, to: IsoDate): IsoDate[] {
+  const computed = to < from ? [] : longSickDates(employee.info.longAbsences, from, to, date => isWorkday(employee.info, date))
+  return [...new Set([...manualDates, ...computed])].sort()
 }
 
 // ---- the employee page ---------------------------------------------------------------
 
-function toDto(row: Row, returnDay: IsoDate | null): LongAbsenceDto {
+function toDto(row: Row, returnDay: IsoDate | null, conflicts: LongAbsenceConflictsDto): LongAbsenceDto {
   return {
     id: row.id, source: 'entry', reason: row.reason, start: row.start, end: row.end, returnDay, createdBy: row.createdBy,
-    createdOn: row.createdAt.slice(0, 10),
+    createdOn: row.createdAt.slice(0, 10), conflicts,
   }
 }
 
@@ -138,9 +140,9 @@ export function getEmployeeLongAbsences(
     .filter(span => span.source === 'maternity' || (span.source === 'parentalLeave' && can(viewer.permissions, 'employees.contractView')))
     .map(span => ({
       id: null, source: span.source, reason: span.reason, start: span.from, end: span.to, returnDay: returnOf(span.to),
-      createdBy: null, createdOn: null,
+      createdBy: null, createdOn: null, conflicts: null,
     }))
-  const items = [...rowsOf(db, employeeId).map(row => toDto(row, returnOf(row.end))), ...taken]
+  const items = [...rowsOf(db, employeeId).map(row => toDto(row, returnOf(row.end), conflictsIn(db, row.employeeId, row.start, row.end))), ...taken]
     .sort((a, b) => (a.start < b.start ? 1 : a.start > b.start ? -1 : 0))
   return { items, canRemoveDuties: can(viewer.permissions, 'plan.edit') }
 }
@@ -153,21 +155,54 @@ function checkedInput(db: Db, employeeId: number, input: LongAbsenceInput, excep
   return { reason: input.reason, start: input.start, end: input.end }
 }
 
-/**
- * The entries of the person in the period that are work in this facility's plan (shifts, special shifts, VZ, Büro,
- * Arzt …; not help-outs elsewhere, not absences, no closure bookings), with the breaks of their days. They stay until
- * the Leitung removes them (removeLongAbsenceDuties): nothing is deleted without asking.
- */
-function dutyRowsIn(db: Db, employeeId: number, start: IsoDate, end: IsoDate | null): { duties: EntryDto[]; breaks: EntryDto[] } {
-  const homeIds = new Set(db.select({ id: entries.id }).from(entries)
-    .where(and(eq(entries.employeeId, employeeId), isNull(entries.helpFacilityId), isNull(entries.closureId))).all().map(row => row.id))
-  const inPlan = loadEntries(db, { employeeId, from: start, ...(end === null ? {} : { to: end }) }).filter(entry => homeIds.has(entry.id))
-  const duties = inPlan.filter(entry => entry.kind !== 'break' && (isWorkEntry(entry) || isFullDayTimed(entry)))
-  const days = new Set(duties.map(entry => entry.date))
-  return { duties, breaks: inPlan.filter(entry => entry.kind === 'break' && days.has(entry.date)) }
+/** Leave entries: Urlaub, Sonderurlaub, Überstundenfrei (on days of Langzeitkrank/Kur no leave is used, isLeaveWorkday). */
+const LEAVE_KEYS: readonly CodeKey[] = ['vacation', 'special_leave', 'overtime_off']
+const isLeaveEntry = (entry: Pick<EntryDto, 'codeKey'>) => entry.codeKey !== null && LEAVE_KEYS.includes(entry.codeKey)
+/** Work planned in the cell: a duty with times or a whole Büro/VZ day. */
+const isDuty = (entry: Pick<EntryDto, 'kind' | 'creditMode' | 'start' | 'end'>) => entry.kind !== 'break' && (isWorkEntry(entry) || isFullDayTimed(entry))
+
+/** The days of the person in the period that hold time records (stamped time; never deleted with a duty). */
+function stampedDaysIn(db: Db, employeeId: number, start: IsoDate, end: IsoDate | null): Set<IsoDate> {
+  return new Set(db.select({ date: timeRecords.date }).from(timeRecords)
+    .where(and(eq(timeRecords.employeeId, employeeId), gte(timeRecords.date, start), end === null ? undefined : lte(timeRecords.date, end)))
+    .all().map(row => row.date))
 }
 
-const dutyDtos = (list: EntryDto[]): LongAbsenceDutyDto[] => list.map(entry => ({ id: entry.id, date: entry.date, label: entry.label }))
+/**
+ * The entries of the person in the period that are work in this facility's plan (shifts, special shifts, VZ, Büro,
+ * Arzt, whole Büro/VZ days; not help-outs elsewhere, not absences, no closure bookings), with the breaks of their days
+ * and the person's leave entries there. They stay until the Leitung removes the duties (removeLongAbsenceDuties):
+ * nothing is deleted without asking.
+ */
+function entriesIn(db: Db, employeeId: number, start: IsoDate, end: IsoDate | null): { duties: EntryDto[]; breaks: EntryDto[]; leave: EntryDto[] } {
+  const homeIds = new Set(db.select({ id: entries.id }).from(entries)
+    .where(and(eq(entries.employeeId, employeeId), isNull(entries.helpFacilityId))).all().map(row => row.id))
+  const inPlan = loadEntries(db, { employeeId, from: start, ...(end === null ? {} : { to: end }) }).filter(entry => homeIds.has(entry.id))
+  const duties = inPlan.filter(isDuty)
+  const days = new Set(duties.map(entry => entry.date))
+  return {
+    duties, breaks: inPlan.filter(entry => entry.kind === 'break' && days.has(entry.date)), leave: inPlan.filter(isLeaveEntry),
+  }
+}
+
+/**
+ * What the plan still holds in the period (LongAbsenceConflictsDto): the duties (stamped ones marked), the leave entries
+ * (Urlaub, Sonderurlaub, Überstundenfrei; also a closure's Urlaub), the open leave requests overlapping it and the days
+ * with time records. No private code is among them (only the code's name, never a Sonderurlaub reason).
+ */
+function conflictsIn(db: Db, employeeId: number, start: IsoDate, end: IsoDate | null): LongAbsenceConflictsDto {
+  const { duties, leave } = entriesIn(db, employeeId, start, end)
+  const stamped = stampedDaysIn(db, employeeId, start, end)
+  const requests = db.select({ from: leaveRequests.startDate, to: leaveRequests.endDate, kind: leaveRequests.kind }).from(leaveRequests)
+    .where(and(eq(leaveRequests.employeeId, employeeId), eq(leaveRequests.status, 'open'), gte(leaveRequests.endDate, start),
+      end === null ? undefined : lte(leaveRequests.startDate, end)))
+    .orderBy(asc(leaveRequests.startDate)).all()
+  return {
+    duties: duties.map(entry => ({ id: entry.id, date: entry.date, label: entry.label, stamped: stamped.has(entry.date) })),
+    leave: leave.map(entry => ({ date: entry.date, label: entry.label })),
+    openRequests: requests, stampedDays: stamped.size,
+  }
+}
 
 /** „Längere Abwesenheit eintragen“ for the facility's employee (403 long_absence_own, 404 employee_not_found; checkedInput). */
 export function createLongAbsence(
@@ -178,7 +213,7 @@ export function createLongAbsence(
   const at = now.toISOString()
   const id = db.insert(longAbsences).values({ employeeId, ...values, createdBy: actorName(db, actor), createdAt: at, updatedAt: at })
     .returning({ id: longAbsences.id }).get().id
-  return { id, duties: dutyDtos(dutyRowsIn(db, employeeId, values.start, values.end).duties) }
+  return { id, ...conflictsIn(db, employeeId, values.start, values.end) }
 }
 
 /** Changes a period, e.g. ends it or makes it shorter (404 long_absence_not_found; checkedInput); the person is back from the next day. */
@@ -188,7 +223,7 @@ export function updateLongAbsence(
   const row = loadRow(db, scope, id)
   const values = checkedInput(db, row.employeeId, input, id)
   db.update(longAbsences).set({ ...values, updatedAt: now.toISOString() }).where(eq(longAbsences.id, id)).run()
-  return { id, duties: dutyDtos(dutyRowsIn(db, row.employeeId, values.start, values.end).duties) }
+  return { id, ...conflictsIn(db, row.employeeId, values.start, values.end) }
 }
 
 /**
@@ -201,19 +236,27 @@ export function deleteLongAbsence(db: Db, scope: LongAbsenceScope, id: number): 
 }
 
 /**
- * „Dienste entfernen“: the duties still planned in the period (dutyRowsIn) with the breaks of their days leave the plan,
- * each logged like any plan edit (shown as a change until released). Needs plan.edit (403 forbidden); answers the days.
+ * „Dienste entfernen“ (on the period's row, any time): the duties still planned in the period (entriesIn) with the breaks
+ * of their days leave the plan, each logged like any plan edit (shown as a change until released). Never a duty on a
+ * day with time records: it was worked (or stamped by mistake) and stays for the Leitung to decide; `keptStamped` counts
+ * those days. Leave entries are not touched. Needs plan.edit (403 forbidden); answers the days removed.
  */
 export function removeLongAbsenceDuties(
   db: Db, actor: SessionUser, scope: LongAbsenceScope, id: number, now: Date = new Date(),
-): { removed: number } {
+): { removed: number; keptStamped: number } {
   if (!can(actor.permissions, 'plan.edit')) throw new ServiceError(403, 'forbidden')
   const row = loadRow(db, scope, id)
-  const { duties, breaks } = dutyRowsIn(db, row.employeeId, row.start, row.end)
+  const { duties, breaks } = entriesIn(db, row.employeeId, row.start, row.end)
+  const stamped = stampedDaysIn(db, row.employeeId, row.start, row.end)
+  const removable = [...duties, ...breaks].filter(entry => !stamped.has(entry.date))
   db.transaction((tx) => {
-    for (const entry of [...duties, ...breaks]) deleteEntry(tx, actor, scope.facilityId, entry.id, now)
+    for (const entry of removable) deleteEntry(tx, actor, scope.facilityId, entry.id, now)
   })
-  return { removed: new Set(duties.map(entry => entry.date)).size }
+  const dutyDays = new Set(duties.map(entry => entry.date))
+  return {
+    removed: new Set(duties.filter(entry => !stamped.has(entry.date)).map(entry => entry.date)).size,
+    keptStamped: [...dutyDays].filter(date => stamped.has(date)).length,
+  }
 }
 
 // ---- the plan --------------------------------------------------------------------------
@@ -222,9 +265,11 @@ export function removeLongAbsenceDuties(
  * Per cellKey of the staff from `from` to `to`: the day lies in an entered long absence (`stored`) or only in a
  * Mutterschutz booked in the plan or a full Elternzeit (`derived`). For the plan's warnings (dayWarnings).
  */
-export function longAbsenceDays(db: Db, staff: readonly EmployeeRecord[], from: IsoDate, to: IsoDate): Map<string, LongAbsenceDay> {
+export function longAbsenceDays(
+  db: Db, staff: readonly EmployeeRecord[], from: IsoDate, to: IsoDate, known?: Map<number, PersonSpan[]>,
+): Map<string, LongAbsenceDay> {
   const days = new Map<string, LongAbsenceDay>()
-  for (const [employeeId, spans] of absenceSpansOf(db, staff)) {
+  for (const [employeeId, spans] of known ?? absenceSpansOf(db, staff)) {
     for (const span of spans) {
       if (!overlapsRange({ start: span.from, end: span.to }, from, to)) continue
       const start = span.from > from ? span.from : from
@@ -240,8 +285,10 @@ export function longAbsenceDays(db: Db, staff: readonly EmployeeRecord[], from: 
 }
 
 /** The cells (cellKey) of entered long absences only: duties planned there do not count for coverage, staffing and attendance. */
-export function storedAbsenceCells(db: Db, staff: readonly EmployeeRecord[], from: IsoDate, to: IsoDate): Set<string> {
-  return new Set([...longAbsenceDays(db, staff, from, to)].filter(([, kind]) => kind === 'stored').map(([key]) => key))
+export function storedAbsenceCells(
+  db: Db, staff: readonly EmployeeRecord[], from: IsoDate, to: IsoDate, known?: Map<number, PersonSpan[]>,
+): Set<string> {
+  return new Set([...longAbsenceDays(db, staff, from, to, known)].filter(([, kind]) => kind === 'stored').map(([key]) => key))
 }
 
 /**
@@ -255,38 +302,53 @@ export function shownReasonFor(db: Db, viewer: Viewer, facilityId: number): (rea
 }
 
 /**
- * The long absences of a month's plan (see LongAbsencePlanDto): the staff away on every one of their working days of the
- * month with nothing planned for them to work in `shownEntries` leave the plan (a planned duty keeps them in it, so
- * nothing is hidden silently); the line below the plan names everybody with a period reaching into the month; the
- * working days of a shown person in a period without any entry are marked (not those of a full Elternzeit: the plan
- * marks them already).
+ * The long absences of a month's plan (see LongAbsencePlanDto). The staff away on every one of their working days of the
+ * month leave the plan, unless `shownEntries` hold work for them, or leave on a day of Langzeitkrank/Kur (it uses no
+ * leave there, but the Leitung should see it): nothing is hidden silently. The line below the plan names everybody with
+ * a period reaching into the month. The working days in a period are marked where no entry stands, and on a day of
+ * Langzeitkrank/Kur also beside leave entries (the absence wins over the Urlaub); not the days of a full Elternzeit (the
+ * plan marks them already). `dutyCells`: duties in an entered period (they do not count). `known`: the spans when the
+ * caller has them already.
  */
 export function longAbsencePlan(
   db: Db, viewer: Viewer, facilityId: number, staff: readonly EmployeeRecord[], shownEntries: readonly EntryDto[], year: number, month: number,
+  known?: Map<number, PersonSpan[]>,
 ): LongAbsencePlanDto {
   const from = toIsoDate(year, month, 1)
   const to = toIsoDate(year, month, daysInMonth(year, month))
   const shownReason = shownReasonFor(db, viewer, facilityId)
-  const spans = absenceSpansOf(db, staff)
-  const withEntries = new Set(shownEntries.map(entry => cellKey(entry.employeeId, entry.date)))
-  const working = new Set(shownEntries.filter(entry => isWorkEntry(entry) || isFullDayTimed(entry)).map(entry => entry.employeeId))
-  const result: LongAbsencePlanDto = { people: [], hidden: [], cells: {} }
+  const spans = known ?? absenceSpansOf(db, staff)
+  const byCell = new Map<string, EntryDto[]>()
+  for (const entry of shownEntries) {
+    const key = cellKey(entry.employeeId, entry.date)
+    byCell.set(key, [...byCell.get(key) ?? [], entry])
+  }
+  const result: LongAbsencePlanDto = { people: [], hidden: [], cells: {}, dutyCells: [] }
   for (const employee of staff) {
     const own = (spans.get(employee.id) ?? []).filter(span => overlapsRange({ start: span.from, end: span.to }, from, to))
     if (own.length === 0) continue
+    const sickOn = (date: IsoDate) => own.some(span => span.source === 'entry' && countsAsSick(span.reason) && spanCovers(span, date))
+    const storedOn = (date: IsoDate) => own.some(span => span.source === 'entry' && spanCovers(span, date))
+    const mine = shownEntries.filter(entry => entry.employeeId === employee.id)
+    const keeps = mine.some(entry => isDuty(entry) || (isLeaveEntry(entry) && sickOn(entry.date)))
     const days = dateRange(from, to).filter(date => isEmployedOn(employee.info, date) && contractWorkday(employee.info, date))
-    const hidden = absentThroughout(own, days, { from, to }, working.has(employee.id))
-    if (hidden) result.hidden.push(employee.id)
+    if (absentThroughout(own, days, { from, to }, keeps)) result.hidden.push(employee.id)
     for (const span of joinSpans(own.map(item => ({ from: item.from, to: item.to, reason: shownReason(item.reason) })))) {
-      result.people.push({ employeeId: employee.id, name: employee.name, from: span.from, to: span.to, reason: span.reason })
+      result.people.push({
+        employeeId: employee.id, name: employee.name, from: span.from, to: span.to, reason: span.reason, groupId: employee.groupId,
+      })
     }
-    if (hidden) continue
+    result.dutyCells.push(...mine.filter(entry => isDuty(entry) && storedOn(entry.date)).map(entry => cellKey(employee.id, entry.date)))
     for (const date of days) {
       const key = cellKey(employee.id, date)
       const span = own.find(item => item.reason !== 'parental_leave' && spanCovers(item, date))
-      if (span && !withEntries.has(key)) result.cells[key] = shownReason(span.reason)
+      if (!span) continue
+      const cell = byCell.get(key) ?? []
+      const onlyLeave = cell.length > 0 && cell.every(isLeaveEntry) && sickOn(date)
+      if (cell.length === 0 || onlyLeave) result.cells[key] = shownReason(span.reason)
     }
   }
+  result.dutyCells = [...new Set(result.dutyCells)]
   return result
 }
 

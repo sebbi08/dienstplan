@@ -264,7 +264,7 @@ const rows = computed(() => props.plan.days.map((day) => {
       longAbsence: longAbsence.value.get(key) ?? null,
       title: joinLines([
         sickLeave,
-        longAbsence.value.has(key) && !props.print ? de.longAbsence.planCellHint : undefined,
+        longAbsence.value.has(key) && !props.print ? (cellEntries.length ? de.longAbsence.planLeaveHint : de.longAbsence.planCellHint) : undefined,
         parentalLeave.value.get(key) === de.parentalLeave.planLabel && !props.print ? de.parentalLeave.planHint : undefined,
         busy.value.has(key) && !props.print ? de.plan.helperBusyHint : undefined,
         marker && props.editable ? de.plan.markerHint : undefined,

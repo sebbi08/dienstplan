@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { isFullDayTimed, isWorkEntry } from '#shared/domain/balance'
 import { buildDayOverview, type SlotState } from '#shared/domain/dayOverview'
 import { formatTime } from '#shared/domain/time'
 import type { MonthPlanDto } from '#shared/types/api'
@@ -8,7 +7,7 @@ import { slotClasses } from '~/utils/colors'
 import { formatDate } from '~/utils/format'
 import { shownEmployees } from '~/utils/groups'
 import { isMarker } from '~/utils/helpOuts'
-import { longAbsentOn } from '~/utils/longAbsence'
+import { dayOverviewPeople } from '~/utils/longAbsence'
 import { parentalLeaveCells } from '~/utils/parentalLeave'
 
 /**
@@ -22,17 +21,18 @@ const LEGEND: SlotState[] = ['work', 'support', 'break', 'absent', 'prep_time', 
 const names = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
 const day = computed(() => props.plan.days.find(candidate => candidate.date === props.date))
 // Helpers count with their duties here; a help-out elsewhere counts in the other facility, not here. Someone in a long
-// absence that day is not listed unless work is planned for them (it stays visible, the plan warns).
-const present = computed(() => props.plan.employees.filter(employee => !longAbsentOn(props.plan, employee.id, props.date)
-  || props.plan.entries.some(entry => entry.employeeId === employee.id && entry.date === props.date && (isWorkEntry(entry) || isFullDayTimed(entry)))))
-const people = computed(() => {
+// absence that day is not listed unless work is planned for them; work left in an entered one is named apart and does
+// not count (dayOverviewPeople).
+const inGroup = computed(() => {
   const groupId = props.groupId ?? null
-  if (groupId === null) return present.value
+  if (groupId === null) return props.plan.employees
   const shown = new Set(shownEmployees(props.plan, groupId).map(employee => employee.id))
   const helping = new Set(props.plan.entries.filter(entry => entry.date === props.date && entry.groupId === groupId)
     .map(entry => entry.employeeId))
-  return present.value.filter(employee => shown.has(employee.id) || helping.has(employee.id))
+  return props.plan.employees.filter(employee => shown.has(employee.id) || helping.has(employee.id))
 })
+const split = computed(() => dayOverviewPeople(props.plan, inGroup.value, props.date))
+const people = computed(() => split.value.counted)
 const overview = computed(() => buildDayOverview(
   people.value.map(employee => ({
     employeeId: employee.id,
@@ -74,6 +74,9 @@ const gridStyle = computed(() => ({
         <div v-for="(count, index) in overview.present" :key="`present-${index}`" class="text-center font-semibold">{{ count }}</div>
       </div>
     </div>
+    <p v-if="split.kept.length" class="mt-2 text-xs text-gray-500">
+      {{ de.longAbsence.overviewKept(split.kept.map(employee => employee.name).join(', ')) }}
+    </p>
     <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
       <span v-for="state in LEGEND" :key="state" class="flex items-center gap-1">
         <span class="inline-block h-3 w-3 rounded-sm" :class="slotClasses[state]" />

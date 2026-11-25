@@ -6,7 +6,7 @@ import {
 } from '../../shared/domain/leaveForfeit'
 import { toIsoDate } from '../../shared/domain/dates'
 import { protectedNoticeFrom } from '../../shared/domain/parentalLeave'
-import { isEmployedInRange, isWorkday } from '../../shared/domain/targets'
+import { isEmployedInRange, isLeaveWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   LeaveForfeitListDto, LeaveForfeitNoticeDto, LeaveForfeitRowDto, LeaveForfeitSettingsDto, SessionUser,
@@ -72,7 +72,7 @@ function remainingDays(db: Db, employee: EmployeeRecord, year: number, on: IsoDa
   const free = yearEntitlement(db, employee, year + 1)!.carriedOverDays
   if (on <= `${year}-12-31`) return Math.max(0, free)
   const dates = loadEntries(db, { employeeId: employee.id, from: `${year + 1}-01-01`, to: forfeitDate, codeKey: 'vacation' })
-    .map(entry => entry.date).filter(date => isWorkday(employee.info, date))
+    .map(entry => entry.date).filter(date => isLeaveWorkday(employee.info, date))
   return Math.max(0, free - countLeaveDays([...new Set(dates)], employee.halfLeaveOnEves))
 }
 

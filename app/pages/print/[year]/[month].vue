@@ -6,6 +6,7 @@ import { chipClasses } from '~/utils/colors'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDateTime, monthTitle } from '~/utils/format'
 import { shownGroup } from '~/utils/groups'
+import { planWithoutHidden } from '~/utils/longAbsence'
 
 definePageMeta({ layout: false })
 
@@ -40,8 +41,8 @@ const fileName = computed(() => `Dienstplan-${year}-${String(month).padStart(2, 
     </div>
     <p v-if="error" class="text-red-700">{{ errorText }}</p>
     <template v-if="plan">
-      <PlanGrid :plan="plan" :group-filter="group" print />
-      <PlanLongAbsences :plan="plan" print class="mt-2 print:mt-1" />
+      <PlanGrid :plan="planWithoutHidden(plan)" :group-filter="group" print />
+      <PlanLongAbsences :plan="plan" :group-filter="group" print class="mt-2 print:mt-1" />
       <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs print:mt-1 print:break-inside-avoid">
         <span class="font-semibold">{{ de.plan.legend }}:</span>
         <span v-for="template in plan.templates" :key="template.id">

@@ -1,7 +1,11 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { closures, entries, longAbsences, maternityCases, parentalLeaves } from '../../server/db/schema'
+import {
+  closures, employeeHours, entries, leaveEntitlements, leaveRequests, longAbsences, maternityCases, parentalLeaves, timeRecords,
+} from '../../server/db/schema'
+import { createClosure } from '../../server/services/closures'
+import { getLeaveAccount } from '../../server/services/leave'
 import { bemReminders, getEmployeeBem } from '../../server/services/bem'
 import { getSickYear, getStaffYearCalendar, getYearCalendar } from '../../server/services/calendar'
 import { deleteCategories } from '../../server/services/employeeDeletion'
@@ -16,7 +20,11 @@ import { releaseMonth } from '../../server/services/release'
 import { listReminders } from '../../server/services/reminders'
 import { staffingMonth } from '../../server/services/staffingReport'
 import { applyWeekTemplate, saveWeekTemplate } from '../../server/services/weekTemplates'
+import { dateRange } from '../../shared/domain/dates'
+import { isWorkday } from '../../shared/domain/targets'
 import type { LongAbsenceInput, SessionUser } from '../../shared/types/api'
+import { planWithoutHidden } from '../../app/utils/longAbsence'
+import { loadEmployee } from '../../server/services/queries'
 import { addEmployee, addFacility, addUser, asChildViewer, codeId, createTestDb, errorCode } from '../helpers/fixtures'
 
 const TODAY = '2026-11-25'
@@ -59,7 +67,7 @@ describe('entering a long absence', () => {
     const section = getEmployeeLongAbsences(db, leitung, scope, anna)
     expect(section.items).toEqual([{
       id, source: 'entry', reason: 'sick', start: '2026-11-16', end: null, returnDay: null, createdBy: 'Lea Leitung',
-      createdOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      createdOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), conflicts: { duties: [], leave: [], openRequests: [], stampedDays: 0 },
     }])
     expect(section.canRemoveDuties).toBe(true)
     // Ending it: the person works again from the next working day (Friday 11.12. → Monday 14.12.).
@@ -122,10 +130,75 @@ describe('duties already planned in the period', () => {
     expect(loadEntries(db, { employeeId: anna })).toHaveLength(6)
     const noPlan = { ...leitung, permissions: new Set([...leitung.permissions].filter(key => key !== 'plan.edit')) }
     expect(errorCode(() => removeLongAbsenceDuties(db, noPlan, scope, id))).toBe('forbidden')
-    expect(removeLongAbsenceDuties(db, leitung, scope, id)).toEqual({ removed: 2 })
+    expect(removeLongAbsenceDuties(db, leitung, scope, id)).toEqual({ removed: 2, keptStamped: 0 })
     expect(loadEntries(db, { employeeId: anna }).map(entry => entry.id).sort()).toEqual([kept, sick, before].sort())
     // Each removal is a plan change like any other (shown until released).
     expect(getMonthPlan(db, leitung, 1, 2026, 11, TODAY).admin!.pendingChanges[`${anna}|2026-11-26`]).toBeDefined()
+    // Nothing left to remove: the period's row lists no duties any more.
+    expect(getEmployeeLongAbsences(db, leitung, scope, anna).items[0]!.conflicts!.duties).toEqual([])
+  })
+
+  it('stay listed at the period until removed, and never lose a duty on a stamped day', () => {
+    const stampedDuty = shiftOn(anna, '2026-11-17')
+    shiftOn(anna, '2026-11-18')
+    db.insert(timeRecords).values({ employeeId: anna, date: '2026-11-17', start: 465, end: 960, source: 'terminal', createdAt: 'x' }).run()
+    const { id } = create({ start: '2026-11-16', end: null })
+    // Not only right after saving: the row of the period lists them any time.
+    const conflicts = getEmployeeLongAbsences(db, leitung, scope, anna).items[0]!.conflicts!
+    expect(conflicts.duties.map(duty => [duty.date, duty.stamped])).toEqual([['2026-11-17', true], ['2026-11-18', false]])
+    expect(conflicts.stampedDays).toBe(1)
+    expect(removeLongAbsenceDuties(db, leitung, scope, id)).toEqual({ removed: 1, keptStamped: 1 })
+    expect(loadEntries(db, { employeeId: anna }).map(entry => entry.id)).toEqual([stampedDuty])
+    // Another facility's scope never reaches it.
+    expect(errorCode(() => removeLongAbsenceDuties(db, leitung, { facilityId: 2, ownEmployeeId: null }, id))).toBe('long_absence_not_found')
+  })
+})
+
+describe('leave during Langzeitkrank or Kur/Reha (§ 9 BUrlG), exactly as under „Krank“', () => {
+  beforeEach(() => {
+    for (const employeeId of [anna, ben]) db.insert(leaveEntitlements).values({ employeeId, year: 2026, days: 30 }).run()
+  })
+
+  it('a closure in mode „Urlaub“ books no leave on those days, as over „Krank“ entered by hand – 0 leave days used', () => {
+    create({ start: '2026-06-01', end: null })
+    for (const date of ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07']) codeOn(ben, date, 'sick')
+    createClosure(db, leitung, 1, { startDate: '2026-08-03', endDate: '2026-08-07', label: 'Sommer', mode: 'vacation' })
+    expect(loadEntries(db, { employeeId: anna, from: '2026-08-01', to: '2026-08-31' })).toEqual([])
+    expect(loadEntries(db, { employeeId: ben, from: '2026-08-01', to: '2026-08-31' }).map(entry => entry.codeKey)).toEqual(Array(5).fill('sick'))
+    const lea = loadEntries(db, { employeeId: scope.ownEmployeeId!, from: '2026-08-03', to: '2026-08-07' }).map(entry => entry.codeKey)
+    expect(lea).toEqual(Array(5).fill('vacation'))
+    expect(getLeaveAccount(db, anna, 2026, TODAY).account).toMatchObject({ taken: 0, planned: 0, available: 30 })
+    expect(getLeaveAccount(db, ben, 2026, TODAY).account).toMatchObject({ taken: 0, available: 30 })
+    // The same in a closure in mode „Schließtag“ and in one created later while the absence runs on.
+    createClosure(db, leitung, 1, { startDate: '2026-12-24', endDate: '2026-12-31', label: 'Winter', mode: 'closure_day' })
+    expect(loadEntries(db, { employeeId: anna, from: '2026-12-01', to: '2026-12-31' })).toEqual([])
+  })
+
+  it('leave planned before the absence counts no more, is named at the period, keeps the person in the plan and shows the absence', () => {
+    for (const date of ['2026-12-14', '2026-12-15', '2026-12-16']) codeOn(anna, date, 'vacation')
+    expect(getLeaveAccount(db, anna, 2026, TODAY).account).toMatchObject({ planned: 3, available: 27 })
+    db.insert(leaveRequests).values({ employeeId: anna, startDate: '2026-12-21', endDate: '2026-12-23', createdAt: 'x' }).run()
+    const saved = create({ start: '2026-11-02', end: null })
+    expect(saved.duties).toEqual([])
+    expect(saved.leave.map(entry => entry.date)).toEqual(['2026-12-14', '2026-12-15', '2026-12-16'])
+    expect(saved.openRequests).toEqual([{ from: '2026-12-21', to: '2026-12-23', kind: 'vacation' }])
+    expect(getLeaveAccount(db, anna, 2026, TODAY).account).toMatchObject({ taken: 0, planned: 0, available: 30 })
+    const plan = getMonthPlan(db, leitung, 1, 2026, 12, TODAY)
+    expect(plan.longAbsence.hidden).toEqual([])
+    expect(plan.longAbsence.cells[`${anna}|2026-12-14`]).toBe('sick')
+    expect(getYearCalendar(db, 1, 2026).days[anna]!['2026-12-14']).toBe('sick')
+    // Ended before it: the leave counts again.
+    updateLongAbsence(db, scope, saved.id, input({ start: '2026-11-02', end: '2026-12-11' }))
+    expect(getLeaveAccount(db, anna, 2026, TODAY).account).toMatchObject({ planned: 3, available: 27 })
+  })
+
+  it('counts Kur/Reha the same, Sonstiges has no working days at all', () => {
+    codeOn(anna, '2026-12-14', 'vacation')
+    codeOn(ben, '2026-12-14', 'vacation')
+    create({ start: '2026-12-01', end: '2026-12-31', reason: 'rehab' })
+    create({ start: '2026-12-01', end: '2026-12-31', reason: 'other' }, ben)
+    expect(getLeaveAccount(db, anna, 2026, TODAY).account.planned).toBe(0)
+    expect(getLeaveAccount(db, ben, 2026, TODAY).account.planned).toBe(0)
   })
 })
 
@@ -133,11 +206,24 @@ describe('the roster', () => {
   it('takes a person away for the whole month out of the plan and names them in the line below it', () => {
     create({ start: '2026-11-02', end: null })
     const plan = getMonthPlan(db, leitung, 1, 2026, 12, TODAY)
-    expect(plan.employees.map(employee => employee.id)).not.toContain(anna)
-    expect(plan.entries.filter(entry => entry.employeeId === anna)).toEqual([])
     expect(plan.longAbsence.hidden).toEqual([anna])
-    expect(plan.longAbsence.people).toEqual([{ employeeId: anna, name: 'Anna Muster', from: '2026-11-02', to: null, reason: 'sick' }])
-    expect(plan.admin!.warnings.filter(warning => 'employeeId' in warning && warning.employeeId === anna)).toEqual([])
+    expect(plan.longAbsence.people).toEqual([
+      { employeeId: anna, name: 'Anna Muster', from: '2026-11-02', to: null, reason: 'sick', groupId: null },
+    ])
+    // The plan editor gets her column (for „im Plan zeigen“), with her days marked; the grid leaves it out.
+    expect(plan.employees.map(employee => employee.id)).toContain(anna)
+    expect(plan.longAbsence.cells[`${anna}|2026-12-01`]).toBe('sick')
+    const grid = planWithoutHidden(plan)
+    expect(grid.employees.map(employee => employee.id)).not.toContain(anna)
+    expect(grid.entries.filter(entry => entry.employeeId === anna)).toEqual([])
+    expect(grid.admin!.warnings.filter(warning => 'employeeId' in warning && warning.employeeId === anna)).toEqual([])
+    expect(planWithoutHidden(plan, new Set([anna])).employees.map(employee => employee.id)).toContain(anna)
+    // Everybody else gets nothing of her but the line (released plan of a Mitarbeiter).
+    releaseMonth(db, leitung, 1, 2026, 12)
+    const staffPlan = getMonthPlan(db, mitarbeiter, 1, 2026, 12, TODAY)
+    expect(staffPlan.employees.map(employee => employee.id)).not.toContain(anna)
+    expect(Object.keys(staffPlan.longAbsence.cells).filter(key => key.startsWith(`${anna}|`))).toEqual([])
+    expect(Object.keys(staffPlan.changes).filter(key => key.startsWith(`${anna}|`))).toEqual([])
     // Her hours account stands still: each working day counts as sick (credited like „Krank“).
     const balance = plan.admin!.balances.find(item => item.employeeId === anna)!
     expect(balance.monthEnd - balance.previousMonthEnd).toBe(0)
@@ -165,6 +251,7 @@ describe('the roster', () => {
     expect(plan.longAbsence.hidden).toEqual([])
     expect(plan.employees.map(employee => employee.id)).toContain(anna)
     expect(plan.admin!.warnings).toContainEqual({ type: 'long_absence_duty', date: '2026-12-03', employeeId: anna })
+    expect(plan.longAbsence.dutyCells).toEqual([`${anna}|2026-12-03`])
     expect(plan.admin!.warnings.filter(warning => warning.type === 'missing_entry' && warning.employeeId === anna)).toEqual([])
     // The Personalschlüssel does not count it either (without the long absence it does).
     expect(staffingMonth(db, 1, 2026, 12).total.planned.fte).toBe(0)
@@ -177,7 +264,9 @@ describe('the roster', () => {
     releaseMonth(db, leitung, 1, 2026, 12)
     const staffPlan = getMonthPlan(db, mitarbeiter, 1, 2026, 12, TODAY)
     expect(staffPlan.employees.map(employee => employee.id)).not.toContain(anna)
-    expect(staffPlan.longAbsence.people).toEqual([{ employeeId: anna, name: 'Anna Muster', from: '2026-11-02', to: null, reason: null }])
+    expect(staffPlan.longAbsence.people).toEqual([
+      { employeeId: anna, name: 'Anna Muster', from: '2026-11-02', to: null, reason: null, groupId: null },
+    ])
     expect(JSON.stringify(staffPlan)).not.toMatch(/rehab|"sick"/)
     const noHealth = { ...leitung, permissions: new Set([...leitung.permissions].filter(key => key !== 'employees.sickness')) }
     expect(getMonthPlan(db, noHealth, 1, 2026, 12, TODAY).longAbsence.people[0]!.reason).toBeNull()
@@ -199,15 +288,17 @@ describe('the roster', () => {
     }).run()
     const plan = getMonthPlan(db, leitung, 1, 2026, 12, TODAY)
     expect(plan.longAbsence.hidden).toEqual([anna])
-    expect(plan.longAbsence.people).toEqual([{ employeeId: anna, name: 'Anna Muster', from: '2026-10-05', to: '2027-01-11', reason: 'maternity' }])
-    expect(plan.admin!.warnings.filter(warning => 'employeeId' in warning && warning.employeeId === anna)).toEqual([])
+    expect(plan.longAbsence.people).toEqual([
+      { employeeId: anna, name: 'Anna Muster', from: '2026-10-05', to: '2027-01-11', reason: 'maternity', groupId: null },
+    ])
+    expect(planWithoutHidden(plan).admin!.warnings.filter(warning => 'employeeId' in warning && warning.employeeId === anna)).toEqual([])
     const january = getMonthPlan(db, leitung, 1, 2027, 1, TODAY)
     expect(january.longAbsence.hidden).toEqual([anna])
     expect(january.longAbsence.people.map(item => item.reason)).toEqual(['maternity', 'parental_leave'])
     releaseMonth(db, leitung, 1, 2027, 1)
     // Elternzeit shows as „abwesend“ to staff (the facility's switch is off): one period, the change of reason not told.
     expect(getMonthPlan(db, mitarbeiter, 1, 2027, 1, TODAY).longAbsence.people)
-      .toEqual([{ employeeId: anna, name: 'Anna Muster', from: '2026-10-05', to: '2028-01-11', reason: null }])
+      .toEqual([{ employeeId: anna, name: 'Anna Muster', from: '2026-10-05', to: '2028-01-11', reason: null, groupId: null }])
   })
 
   it('is not filled by a week template', () => {
@@ -234,7 +325,7 @@ describe('the roster', () => {
 })
 
 describe('sick days without daily entries', () => {
-  it('counts Langzeitkrank on the working days up to today in the Krankheitstage, a „Krank“ entry inside once, no closure days', () => {
+  it('counts Langzeitkrank on the working days up to today in the Krankheitstage, a „Krank“ entry inside once, closure days too', () => {
     create({ start: '2026-11-16', end: null })
     const row = () => getSickYear(db, 1, 2026, TODAY).find(item => item.employeeId === anna)!
     // Mon 16.11. – Wed 25.11.: 8 working days.
@@ -243,12 +334,41 @@ describe('sick days without daily entries', () => {
     expect(row().total).toBe(8)
     codeOn(anna, '2026-11-10', 'sick')
     expect(row().total).toBe(9)
+    // A closure day counts, as a „Krank“ entry on it does (a closure never books over „Krank“).
     db.insert(closures).values({ facilityId: 1, startDate: '2026-11-24', endDate: '2026-11-24', label: 'Teamtag', mode: 'closure_day' }).run()
-    expect(row().total).toBe(8)
+    expect(row().total).toBe(9)
     // Sonstiges is no sickness.
     const benAbsence = create({ start: '2026-11-02', end: null, reason: 'other' }, ben)
     expect(getSickYear(db, 1, 2026, TODAY).find(item => item.employeeId === ben)!.total).toBe(0)
     deleteLongAbsence(db, scope, benAbsence.id)
+  })
+
+  it('counts exactly as „Krank“ entered day by day: Krankheitstage, BEM, Stundenkonto and leave, through a closure', () => {
+    db.insert(leaveEntitlements).values([{ employeeId: anna, year: 2026, days: 30 }, { employeeId: ben, year: 2026, days: 30 }]).run()
+    createClosure(db, leitung, 1, { startDate: '2026-08-03', endDate: '2026-08-14', label: 'Sommer', mode: 'vacation' })
+    // Ben: „Krank“ by hand on each working day from 01.07. (over the closure's Urlaub, as the Leitung would); Anna: Langzeitkrank.
+    const info = loadEmployee(db, ben)!.info
+    const benDays = dateRange('2026-07-01', TODAY).filter(date => isWorkday(info, date))
+    db.delete(entries).where(eq(entries.employeeId, ben)).run()
+    for (const date of benDays) codeOn(ben, date, 'sick')
+    db.delete(entries).where(eq(entries.employeeId, anna)).run()
+    create({ start: '2026-07-01', end: null })
+    const total = (id: number) => getSickYear(db, 1, 2026, TODAY).find(item => item.employeeId === id)!.total
+    expect(total(anna)).toBe(total(ben))
+    expect(total(anna)).toBe(benDays.length)
+    const bemScope = { facilityId: 1, ownEmployeeId: lea }
+    expect(getEmployeeBem(db, bemScope, anna, TODAY).sickDays.days).toBe(getEmployeeBem(db, bemScope, ben, TODAY).sickDays.days)
+    const balances = getMonthPlan(db, leitung, 1, 2026, 8, TODAY).admin!.balances
+    const delta = (id: number) => { const b = balances.find(item => item.employeeId === id)!; return b.monthEnd - b.previousMonthEnd }
+    expect(delta(anna)).toBe(0)
+    expect(delta(anna)).toBe(delta(ben))
+    expect(getLeaveAccount(db, anna, 2026, TODAY).account.taken).toBe(getLeaveAccount(db, ben, 2026, TODAY).account.taken)
+  })
+
+  it('follows the person\'s own working days (part time Monday to Wednesday)', () => {
+    db.update(employeeHours).set({ workdays: 0b0000111 }).where(eq(employeeHours.employeeId, anna)).run()
+    create({ start: '2026-11-16', end: '2026-11-22' })
+    expect(getSickYear(db, 1, 2026, TODAY).find(item => item.employeeId === anna)!.total).toBe(3)
   })
 
   it('counts them for the BEM (more than 6 weeks within 12 months) and reminds to offer it', () => {

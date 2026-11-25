@@ -232,7 +232,10 @@ export function dayWarnings(
     if (coverageOnly || busyElsewhere) continue
     // A long absence: nothing is missing; work still planned in an entered one is named (it does not count).
     if (longAbsence) {
-      if (longAbsence === 'stored' && entries.some(isWorkEntry)) warnings.push({ type: 'long_absence_duty', date, employeeId })
+      // A duty with times or a whole Büro/VZ day.
+      if (longAbsence === 'stored' && entries.some(entry => isWorkEntry(entry) || isFullDayTimed(entry))) {
+        warnings.push({ type: 'long_absence_duty', date, employeeId })
+      }
       continue
     }
     // Days off of part-time staff (and days outside employment) need no entry.

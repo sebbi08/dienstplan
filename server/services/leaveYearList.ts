@@ -1,6 +1,6 @@
 import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { groupLeaveRanges } from '../../shared/domain/leave'
-import { isWorkday } from '../../shared/domain/targets'
+import { isLeaveWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   LeaveEntryKind, LeaveRequestDto, LeaveYearListDto, LeaveYearListFilter, LeaveYearRangeDto, SessionUser,
@@ -41,7 +41,8 @@ export function requestOfDay(requests: Pick<LeaveRequestDto, 'startDate' | 'endD
 function entryPeriods(
   employee: EmployeeRecord, rows: { date: IsoDate; key: string }[], approved: LeaveRequestDto[],
 ): LeaveYearRangeDto[] {
-  const isLeaveDay = (date: IsoDate) => isWorkday(employee.info, date)
+  // Not the days of Langzeitkrank or Kur/Reha: no leave is used there (§ 9 BUrlG, isLeaveWorkday).
+  const isLeaveDay = (date: IsoDate) => isLeaveWorkday(employee.info, date)
   return LEAVE_KINDS.flatMap((kind) => {
     const requests = approved.filter(request => request.kind === REQUEST_KIND[kind])
     const byOrigin = new Map<LeaveRequestDto | null, IsoDate[]>()

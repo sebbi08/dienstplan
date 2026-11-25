@@ -5,7 +5,7 @@ import { countLeaveDays } from '../../shared/domain/leave'
 import { daysOverLimit, leaveLoad, type LeaveDay } from '../../shared/domain/leaveLoad'
 import { can } from '../../shared/domain/permissions'
 import { STAFF_ROLES } from '../../shared/domain/roles'
-import { dailyTarget, isWorkday } from '../../shared/domain/targets'
+import { dailyTarget, isLeaveWorkday } from '../../shared/domain/targets'
 import { isTargetGapCode } from '../../shared/domain/warnings'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
@@ -76,9 +76,12 @@ export function requirePlanner(db: Db, user: SessionUser, facilityId: number): v
 
 // --- leave days and limits -------------------------------------------------------------------------------
 
-/** Working days of the employee in the range that are not inside a closure (the days a request is about). */
+/**
+ * Working days of the employee in the range that are not inside a closure (the days a request is about); not the days
+ * of Langzeitkrank or Kur/Reha (sick days, no leave is used there).
+ */
 function requestDays(employee: EmployeeRecord, from: IsoDate, to: IsoDate, closures: ReturnType<typeof loadClosures>): IsoDate[] {
-  return dateRange(from, to).filter(date => isWorkday(employee.info, date) && !closureOn(closures, date))
+  return dateRange(from, to).filter(date => isLeaveWorkday(employee.info, date) && !closureOn(closures, date))
 }
 
 /**

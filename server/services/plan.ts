@@ -10,7 +10,7 @@ import {
 import { can } from '../../shared/domain/permissions'
 import { dayCreditedMinutes } from '../../shared/domain/stamping'
 import { countsForBalance, isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
-import type { IsoDate } from '../../shared/domain/types'
+import type { CodeKey, IsoDate } from '../../shared/domain/types'
 import { dayWarnings, timeWarnings, type DayHoursContext, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
 import { plannedLawWarnings, recordedLawWarnings, usesStampedHints } from '../../shared/domain/workingTimeLaw'
 import { isMinorOn } from '../../shared/domain/youthProtection'
@@ -30,7 +30,7 @@ import { childSickWarnings } from './employeeChildren'
 import { groupNames, snapshotGroupNames } from './groups'
 import { listHelpers } from './helpOuts'
 import { facilityHolidayRules } from './holidayRules'
-import { longAbsenceDays, longAbsencePlan, ownLongAbsenceDates, storedAbsenceCells } from './longAbsence'
+import { absenceSpansOf, longAbsenceDays, longAbsencePlan, ownLongAbsenceDates, storedAbsenceCells, type PersonSpan } from './longAbsence'
 import { maternityPlanWarnings } from './maternity'
 import { loadHoursContext, withOpeningHours } from './openingHours'
 import { fullParentalLeaveDates, parentalLeavePlanCells } from './parentalLeave'
@@ -45,6 +45,9 @@ import { loadWarningAcks } from './warningAcks'
 import { weekTemplateNames, weekTemplateUsesOf } from './weekTemplates'
 import { birthYearsOf, youthPlanWarnings } from './youthProtection'
 
+/** Leave entries: beside them „Mein Dienstplan“ still shows the person's own long absence. */
+const LEAVE_KEYS: readonly CodeKey[] = ['vacation', 'special_leave', 'overtime_off']
+
 function monthBounds(year: number, month: number): { monthStart: IsoDate; monthEnd: IsoDate } {
   return { monthStart: toIsoDate(year, month, 1), monthEnd: toIsoDate(year, month, daysInMonth(year, month)) }
 }
@@ -58,7 +61,7 @@ function monthBounds(year: number, month: number): { monthStart: IsoDate; monthE
 function buildAdminData(
   db: Db, facilityId: number, staff: EmployeeRecord[], helpers: HelperDto[], closures: ClosureDto[],
   year: number, month: number, today: IsoDate, hours: DayHoursContext, showsChildSickEntitlement = true, showsMaternity = true,
-  showsBirthYearHint = true,
+  showsBirthYearHint = true, spans?: Map<number, PersonSpan[]>,
 ): Omit<MonthPlanAdminDto, 'pendingChanges' | 'releasedEmployees'> {
   const { monthStart, monthEnd } = monthBounds(year, month)
   const rangeStart = weekStart(monthStart)
@@ -117,7 +120,7 @@ function buildAdminData(
   // Birth years (personal data) only to tell the days a person is under 18; never sent.
   const birthYears = birthYearsOf(db, staffIds)
   // „Längere Abwesenheit“: such a day needs no entry; duties still planned in an entered one do not count for coverage.
-  const absenceDays = longAbsenceDays(db, staff, rangeStart < dayBefore ? rangeStart : dayBefore, rangeEnd)
+  const absenceDays = longAbsenceDays(db, staff, rangeStart < dayBefore ? rangeStart : dayBefore, rangeEnd, spans)
   const warnings: Warning[] = monthDates(year, month).flatMap((date) => {
     const staffDays: EmployeeDay[] = staff.map((employee) => {
       const dayEntries = (byEmployee.get(employee.id) ?? []).filter(entry => entry.date === date)
@@ -301,10 +304,9 @@ function dayRows(
   }))
 }
 
-/** The admin data without the hints about persons taken out of the plan (a long absence through the month). */
-function withoutHidden<T extends { warnings: Warning[] }>(data: T, isShown: (employeeId: number) => boolean): T {
-  return { ...data, warnings: data.warnings.filter(warning => !('employeeId' in warning) || isShown(warning.employeeId)) }
-}
+/** The cell keys (`employeeId|date`) of the shown persons only. */
+const cellsOfShown = <T>(cells: Record<string, T>, isShown: (employeeId: number) => boolean): Record<string, T> =>
+  Object.fromEntries(Object.entries(cells).filter(([key]) => !key.includes('|') || key.startsWith('info') || isShown(Number(key.split('|')[0]))))
 
 export function getMonthPlan(
   db: Db, viewer: SessionUser, facilityId: number, year: number, month: number, today: IsoDate,
@@ -343,31 +345,39 @@ export function getMonthPlan(
 
   const { monthStart, monthEnd } = monthBounds(year, month)
   const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
-  // „Längere Abwesenheit“, as it is now (also in a released month): who leaves the shown plan, the line below it. The
-  // hidden persons' columns, entries and hints are not sent; duties left in an entered one do not count as present.
-  const longAbsence = longAbsencePlan(db, viewer, facilityId, staff, shown.entries, year, month)
-  const hidden = new Set(longAbsence.hidden)
-  const awayCells = storedAbsenceCells(db, staff, monthStart, monthEnd)
+  // „Längere Abwesenheit“, as it is now (also in a released month): who leaves the shown plan, the line below it; duties
+  // left in an entered one do not count as present. A plan editor gets the hidden persons with their columns, entries
+  // and hints (shown again with „im Plan zeigen“, e.g. to correct a cell or plan work); for everybody else nothing of
+  // them is sent but the line below the plan.
+  const spans = absenceSpansOf(db, staff)
+  const planned = longAbsencePlan(db, viewer, facilityId, staff, shown.entries, year, month, spans)
+  const hidden = new Set(isAdmin ? [] : planned.hidden)
   const isShown = (employeeId: number) => !hidden.has(employeeId)
+  const longAbsence = isAdmin
+    ? planned
+    : { ...planned, cells: cellsOfShown(planned.cells, isShown), dutyCells: planned.dutyCells.filter(key => isShown(Number(key.split('|')[0]))) }
+  const awayCells = storedAbsenceCells(db, staff, monthStart, monthEnd, spans)
+  const shownEntries = shown.entries.filter(entry => isShown(entry.employeeId))
   let admin: MonthPlanAdminDto | null = null
   if (isAdmin) {
     const helpers = listHelpers(db, facilityId, year, month)
     admin = {
-      ...withoutHidden(buildAdminData(
+      ...buildAdminData(
         db, facilityId, staff, helpers, loadClosures(db, facilityId), year, month, today, hours,
-        can(viewer.permissions, 'employees.personal'), showsProtected, can(viewer.permissions, 'employees.personal'),
-      ), isShown),
+        can(viewer.permissions, 'employees.personal'), showsProtected, can(viewer.permissions, 'employees.personal'), spans,
+      ),
       pendingChanges,
       releasedEmployees: latest?.data.employees ?? [],
     }
   }
+  const parentalLeave = parentalLeavePlanCells(db, viewer, facilityId, staff, year, month)
 
   return {
     year,
     month,
     facilityName: facilityNameIfSeveral(db, facilityId),
     facilityId,
-    facilityNames: facilityNamesFor(db, facilityId, shown.entries),
+    facilityNames: facilityNamesFor(db, facilityId, shownEntries),
     release: {
       releasedAt: latest?.releasedAt ?? null,
       releasedBy: latest?.releasedBy ?? null,
@@ -376,19 +386,19 @@ export function getMonthPlan(
     },
     days,
     employees: shown.employees.filter(employee => isShown(employee.id)),
-    entries: shown.entries.filter(entry => isShown(entry.employeeId)),
+    entries: shownEntries,
     groups: shown.groups ?? [],
     attendance: attendanceOf(facilityId, {
       ...shown, entries: shown.entries.filter(entry => !awayCells.has(cellKey(entry.employeeId, entry.date))),
     }, year, month),
-    changes,
+    changes: cellsOfShown(changes, isShown),
     templates: loadTemplates(db, facilityId),
     codes: showsProtected ? codes : withoutPrivateCodes(codes),
     // „Krank melden“ for an editor who may not see health data (only Krank, on a day without a private code; entries.ts).
     reportSickCodeId: isAdmin && !showsProtected ? codes.find(code => code.key === 'sick')?.id ?? null : null,
     // A full Elternzeit is marked on the staff's working days without stored entries, as it is now (also in a released
     // month): „Elternzeit“ or „abwesend“ (server/services/parentalLeave.ts).
-    parentalLeave: parentalLeavePlanCells(db, viewer, facilityId, staff, year, month),
+    parentalLeave: { ...parentalLeave, cells: parentalLeave.cells.filter(key => isShown(Number(key.split('|')[0]))) },
     longAbsence,
     admin: admin && !showsProtected
       // The acknowledgements of the Mutterschutz hints name the rule, the „Im Dienst erkrankt“ markers tell a sickness:
@@ -459,7 +469,10 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
       // The day's changes from every plan it was in, e.g. a home duty given up before helping out that day.
       changes: sources.flatMap(source => source.changes[key] ?? []).sort((a, b) => a.changedAt.localeCompare(b.changedAt)),
       ...(ownLeave.has(day.date) ? { parentalLeave: true } : {}),
-      ...(ownAbsence.has(day.date) && !newest ? { longAbsence: true } : {}),
+      // Also beside leave on such a day: it uses no leave there (§ 9 BUrlG).
+      ...(ownAbsence.has(day.date) && (!newest || newest.entries.every(entry => entry.codeKey !== null && LEAVE_KEYS.includes(entry.codeKey)))
+        ? { longAbsence: true }
+        : {}),
     }
   })
   return {

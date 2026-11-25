@@ -1397,12 +1397,19 @@ export interface LongAbsencePlanDto {
    * The line „Längere Abwesenheit: N Personen“: each period reaching into the month, per person (staff order), periods
    * with the same shown reason that follow each other joined. `to` null = „bis auf Weiteres“.
    */
-  people: { employeeId: number; name: string; from: IsoDate; to: IsoDate | null; reason: LongAbsenceReason | null }[]
+  people: {
+    employeeId: number; name: string; from: IsoDate; to: IsoDate | null; reason: LongAbsenceReason | null
+    /** The person's home group (null = Springer or no groups): the line follows the group chosen above the plan. */
+    groupId: number | null
+  }[]
   /**
-   * The staff taken out of this plan (their columns, entries and hints are not sent): away on every working day of the
-   * month, nothing planned for them to work.
+   * The staff taken out of this plan: away on every working day of the month, nothing planned for them to work or as
+   * leave. A plan editor (plan.edit) still gets their columns, entries and hints, hidden until „im Plan zeigen“; for
+   * everybody else they are not sent.
    */
   hidden: number[]
+  /** Cells (cellKey) of an entered long absence holding a duty: it does not count (day overview, coverage). */
+  dutyCells: string[]
   /**
    * Shown persons' working days in a long absence without any entry, keyed by cellKey: the reason to show (null =
    * „abwesend“). Not the days of a full Elternzeit (`parentalLeave` marks them).
@@ -4150,6 +4157,20 @@ export interface LongAbsenceDto {
   /** Who entered it and when (entries only). */
   createdBy: string | null
   createdOn: IsoDate | null
+  /** What the plan still holds in the period (entries only; null for a period taken over). */
+  conflicts: LongAbsenceConflictsDto | null
+}
+
+/**
+ * What stands in the way of an entered long absence: duties still planned (removable unless stamped), leave entries
+ * (Urlaub, Sonderurlaub, Überstundenfrei – on days of Langzeitkrank/Kur they use no leave, § 9 BUrlG), open leave
+ * requests overlapping it, and the days of the period with time records (their stamped time does not count).
+ */
+export interface LongAbsenceConflictsDto {
+  duties: LongAbsenceDutyDto[]
+  leave: { date: IsoDate; label: string }[]
+  openRequests: { from: IsoDate; to: IsoDate; kind: 'vacation' | 'overtime_off' }[]
+  stampedDays: number
 }
 
 /** The section „Längere Abwesenheit“ (tab „Gesundheit“, employees.sickness). */
@@ -4171,12 +4192,13 @@ export interface LongAbsenceDutyDto {
   id: number
   date: IsoDate
   label: string
+  /** The day has time records: the duty is never removed by „Dienste entfernen“ (it stays, the Leitung decides). */
+  stamped: boolean
 }
 
-/** Saving: the id and the duties still planned in the period (they stay until removed; never deleted silently). */
-export interface LongAbsenceSaveDto {
+/** Saving: the id and what the plan still holds in the period (nothing is changed or deleted silently). */
+export interface LongAbsenceSaveDto extends LongAbsenceConflictsDto {
   id: number
-  duties: LongAbsenceDutyDto[]
 }
 
 /** Saving a case: its id and, when the plan was booked before and the period changed, what booking again did. */

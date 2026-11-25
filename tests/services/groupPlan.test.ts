@@ -231,7 +231,7 @@ describe('the plan of a facility without groups', () => {
     // parentalLeave came later with the Elternzeit (tests/services/parentalLeave.test.ts): no marked cells here; the same
     // for longAbsence (tests/services/longAbsence.test.ts).
     const { groups: shownGroups, attendance, reportSickCodeId, parentalLeave, longAbsence, ...rest } = dto
-    expect(longAbsence).toEqual({ people: [], hidden: [], cells: {} })
+    expect(longAbsence).toEqual({ people: [], hidden: [], cells: {}, dutyCells: [] })
     expect(shownGroups).toEqual([])
     expect(attendance).toEqual({})
     expect(reportSickCodeId).toBeNull()

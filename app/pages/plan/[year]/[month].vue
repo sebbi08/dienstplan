@@ -12,6 +12,7 @@ import { entryApplyMode } from '~/utils/applyMode'
 import { errorMessage } from '~/utils/errors'
 import { readGroupFilter, shownGroup, writeGroupFilter } from '~/utils/groups'
 import { busyCellKeys, type CellScope, cellScope, isMarker } from '~/utils/helpOuts'
+import { planWithoutHidden } from '~/utils/longAbsence'
 
 const route = useRoute()
 const year = computed(() => Number(route.params.year))
@@ -39,11 +40,25 @@ const breakOpen = ref(false)
 const releaseStatusKey = ref(0) // reloads the message status after a release
 const weekTemplate = reactive<{ open: boolean; mode: 'save' | 'apply'; weekStart: string }>({ open: false, mode: 'save', weekStart: '' })
 
+/**
+ * „im Plan zeigen“ in the line below the plan: persons taken out of the plan for a long absence whose columns are shown
+ * again in this view (a plan editor gets them sent); another month starts without them.
+ */
+const revealed = ref<Set<number>>(new Set())
+function toggleRevealed(employeeId: number) {
+  const next = new Set(revealed.value)
+  if (!next.delete(employeeId)) next.add(employeeId)
+  revealed.value = next
+}
+/** The plan as the grid and the day overview show it (planWithoutHidden). */
+const gridPlan = computed(() => (plan.value ? planWithoutHidden(plan.value, revealed.value) : null))
+
 watch([year, month], () => {
   selection.clear()
   cellMenu.open = false
   quickEntry.open = false
   selectedDate.value = null
+  revealed.value = new Set()
 })
 
 /**
@@ -342,14 +357,14 @@ function navigate(nextYear: number, nextMonth: number) {
             <USelect v-model="groupSelect" :items="groupItems" class="w-48" :aria-label="de.groups.filter" />
           </div>
           <PlanGrid
-            :plan="plan" :group-filter="activeGroup"
+            :plan="gridPlan ?? plan" :group-filter="activeGroup"
             :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
             @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
             @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
             @remove-helper="onRemoveHelper" @sick-leave="openSickLeave" @warnings-changed="refresh" @quick-entry="onQuickEntry"
           />
-          <PlanLongAbsences :plan="plan" />
-          <PlanDayOverviewPanel v-if="selectedDate" :plan="plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
+          <PlanLongAbsences :plan="plan" :group-filter="activeGroup" :revealed="revealed" @toggle="toggleRevealed" />
+          <PlanDayOverviewPanel v-if="selectedDate" :plan="gridPlan ?? plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
         </div>
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" :day-entries="selectedDayEntries" @submit="onEntry" />

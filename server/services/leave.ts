@@ -2,7 +2,7 @@ import { and, asc, eq, gte, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import { countLeaveDays, groupLeaveRanges, leaveAccount, type LeaveDayRule, type LeaveEntitlement } from '../../shared/domain/leave'
 import { forfeitDateOf } from '../../shared/domain/leaveForfeit'
 import { cutEntitlement, leaveCutMonths, leaveProtection, type LeaveProtection } from '../../shared/domain/parentalLeave'
-import { isEmployedInRange, isWorkday } from '../../shared/domain/targets'
+import { isEmployedInRange, isLeaveWorkday } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type { ClosureLeaveDto, LeaveAccountDto, LeaveEntryKind, LeaveEntryRange } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -30,9 +30,12 @@ function cutFor(employee: EmployeeRecord, days: number, year: number): { days: n
   return cutEntitlement(days, leaveCutMonths(employee.info.parentalLeaves, year))
 }
 
-/** Only the employee's own working days count as leave days. */
+/**
+ * Only the employee's own working days count as leave days, and not the days of Langzeitkrank or Kur/Reha (a long
+ * absence: sick days, § 9 BUrlG – an Urlaub entry there uses no leave, as if „Krank“ had replaced it).
+ */
 function leaveDayRule(employee: EmployeeRecord): LeaveDayRule {
-  return date => isWorkday(employee.info, date)
+  return date => isLeaveWorkday(employee.info, date)
 }
 
 /**
