@@ -72,8 +72,11 @@ describe('who still has to sign', () => {
       expect(page(path), path).toContain('useSignRequests(')
       expect(page(path), path).not.toContain("'/api/sign-requests'")
     }
-    // The box on „Nachweise“ is mounted only with the right.
-    expect(page('pages/admin/employees/[id].vue')).toContain(`<EmployeesSignRequestsSection v-if="can('signRequests.manage')"`)
+    // The box on „Nachweise“ is mounted only with the right and a folder of the personnel file (every request files into one).
+    expect(page('pages/admin/employees/[id].vue')).toContain(`<EmployeesSignRequestsSection v-if="can('signRequests.manage') && shows('documents')"`)
+    // The tab counts overdue requests, the list hint open ones per person: the tab says so.
+    expect(de.signRequests.tabLabel(2)).toBe('Unterschriften (2 überfällig)')
+    expect(de.signRequests.tabLabel(0)).toBe('Unterschriften')
     // The children page shows „Unfälle“ with the right to the accident reports.
     expect(page('pages/children/index.vue')).toContain("accidents: can('accidents.manage')")
   })

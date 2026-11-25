@@ -43,7 +43,7 @@ describe('former menu entries as tabs', () => {
     for (const role of ['admin', 'provider'] as const) {
       expect(staffAreaTabs(canOf(role), { signOverdue: 2 }).map(tab => [tab.label, tab.to]), role).toEqual([
         ['Mitarbeitende', '/admin/employees'], ['Bewerbungen & Hospitationen', '/admin/employees'],
-        ['Krankheitstage', '/admin/employees/sick-days'], ['Unterschriften (2)', '/admin/employees/signatures'],
+        ['Krankheitstage', '/admin/employees/sick-days'], ['Unterschriften (2 überfällig)', '/admin/employees/signatures'],
         ['Unfälle', '/admin/employees/accidents'],
       ])
     }
@@ -86,6 +86,9 @@ describe('former menu entries as tabs', () => {
     expect(page('admin/accidents.vue')).toContain("navigateTo(accidentsLocation(to, { children: can('children.ownAccount') }), { replace: true })")
     expect(pageKeys('/admin/accidents')).toEqual(pageKeys('/admin/employees/accidents'))
     expect(page('admin/accidents.vue')).not.toContain('useFetch')
+    // The tabs follow a later `?year=` (a reminder link clicked while the tab is open).
+    const yearList = readFileSync(join(process.cwd(), 'app', 'components', 'accidents', 'YearList.vue'), 'utf8')
+    expect(yearList).toContain('watch(() => route.query.year')
   })
 
   it('sends the old addresses to the tabs, keeping the query and the anchor; old and new address need the same key', () => {

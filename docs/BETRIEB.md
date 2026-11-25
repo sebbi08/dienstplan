@@ -892,7 +892,10 @@ Druck-Knöpfe.
   bis wann; Überfälliges steht rot und zuerst, ebenso die Personen mit Überfälligem. Der Name führt zum Reiter
   „Nachweise“ der Person (dort mit **Erinnern** und **Zurückziehen**).
 - Darunter die **gesendeten Anfragen** mit dem Stand je Person (siehe Abschnitt 19, *Zum Unterschreiben senden*).
-- Im Reiter und im Menü bei **Mitarbeitende** steht die Zahl der überfälligen Anfragen, z. B. „Unterschriften (1)“.
+- Im Reiter und im Menü bei **Mitarbeitende** steht die Zahl der überfälligen Anfragen, z. B. „Unterschriften (1
+  überfällig)“ und „Mitarbeitende (1)“. Gezählt wird je Anfrage (eine Anfrage, bei der drei Personen überfällig sind,
+  zählt einmal); der Hinweis „‹n› offen“ in der Liste zählt dagegen je Person alle offenen, auch die noch nicht
+  überfälligen.
 - Der Reiter war früher unter **Dokumente**; alte Lesezeichen (`/documents?tab=signatures`) führen hierher.
 - Wer sieht was: genau wie bisher – nur wer zum Unterschreiben senden darf, und nur die Anfragen, deren Fächer (und
   Vorlage) er sehen darf, aus der eigenen Einrichtung. Das gilt auch für den Hinweis in der Liste und den Kasten auf der
@@ -2169,7 +2172,7 @@ Tablet; die unterschriebene Kopie kommt in ihre Personalakte.
   gelöscht“**. **Erinnern** setzt bei offenen Personen eine Erinnerung, die sie in ihrer Liste sehen; **Zurückziehen**
   beendet die Anfrage für offene Personen; **Anfrage löschen** entfernt Anfrage und gesendetes PDF (die unterschriebenen
   Kopien und die Nachweise der Unterschriften bleiben, siehe unten). Ist das Datum „bis“ vorbei und jemand noch offen,
-  ist die Anfrage als **überfällig** markiert: oben in der Übersicht, im Reiter („Unterschriften (1)“) und im Menü bei
+  ist die Anfrage als **überfällig** markiert: oben in der Übersicht, im Reiter („Unterschriften (1 überfällig)“) und im Menü bei
   **Mitarbeitende** steht, wie viele es sind; in der Liste der Person ist sie rot hervorgehoben, ebenso im Hinweis
   „‹n› offen“ in der Liste der Mitarbeitenden und im Kasten „Noch zu unterschreiben“ auf der Seite der Person.
 - **Wer darf was**: Senden und die Übersicht gehören zum Recht **„Personalakte: zum Unterschreiben senden“** (Rechte und

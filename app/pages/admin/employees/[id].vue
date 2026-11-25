@@ -898,8 +898,9 @@ async function onTabKey(event: KeyboardEvent) {
     </div>
 
     <div v-show="tab === 'records'" v-bind="panel('records')">
-      <!-- „Noch zu unterschreiben“: the open requests to sign of the person (signRequests.manage), shown only while one is open. -->
-      <EmployeesSignRequestsSection v-if="can('signRequests.manage')" :employee-id="id" :active="tab === 'records'" />
+      <!-- „Noch zu unterschreiben“: the open requests to sign of the person (signRequests.manage), shown only while one is
+           open; not without a folder of the personnel file (every request files into one, so none could be seen). -->
+      <EmployeesSignRequestsSection v-if="can('signRequests.manage') && shows('documents')" :employee-id="id" :active="tab === 'records'" />
       <!-- Pflichtdokumente: only with a folder of the personnel file (the rows follow the folder keys), loaded once the tab is opened. -->
       <div v-if="shows('requiredDocuments')" id="employee-section-requiredDocuments" class="scroll-mt-32">
         <EmployeesRequiredDocumentsSection :employee-id="id" :employee-name="employee.name" :active="tab === 'records'" />

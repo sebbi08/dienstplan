@@ -1611,7 +1611,8 @@ export const de = {
     withdrawnOn: (when: string) => `zurückgezogen am ${when}`, remindedOn: (when: string) => `erinnert am ${when}`,
     copyModified: 'nachträglich geändert', copyModifiedTitle: 'Die Kopie in der Personalakte ist nicht mehr die Datei, die beim Unterschreiben gespeichert wurde.',
     copyDeleted: 'Kopie gelöscht',
-    tabLabel: (overdue: number) => (overdue ? `Unterschriften (${overdue})` : 'Unterschriften'),
+    // The tab of Mitarbeitende counts overdue requests (per request), not the open ones per person of the list hint.
+    tabLabel: (overdue: number) => (overdue ? `Unterschriften (${overdue} überfällig)` : 'Unterschriften'),
     // „Wer muss noch unterschreiben?“ on top of the tab: per person what is still open.
     openTitle: 'Wer muss noch unterschreiben?',
     openIntro: 'Je Person, was noch offen ist, das Überfällige zuerst. Erinnern und Zurückziehen geht unten bei der Anfrage oder auf der Seite der Person.',
@@ -3111,7 +3112,6 @@ export const de = {
     },
     overview: {
       title: 'Unfälle',
-      intro: 'Alle Unfallberichte der Kinder und Unfallanzeigen der Mitarbeitenden dieser Einrichtung im gewählten Jahr.',
       filter: { all: 'alle', child: 'Kinder', employee: 'Mitarbeitende' },
       filterLabel: 'Anzeigen',
       date: 'Datum', person: 'Person', template: 'Vorlage', doctorUnfit: 'Arztbesuch / arbeitsunfähig', reportedOn: 'gemeldet am',

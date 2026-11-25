@@ -12,7 +12,13 @@ import { errorMessage } from '~/utils/errors'
 const props = defineProps<{ subject: 'child' | 'employee' }>()
 const o = de.accidents.overview
 const route = useRoute()
-const year = ref(Number(route.query.year) || parseIsoDate(todayIso()).year)
+const yearOf = (query: unknown) => (typeof query === 'string' && /^\d{4}$/.test(query) ? Number(query) : null)
+const year = ref(yearOf(route.query.year) ?? parseIsoDate(todayIso()).year)
+// A link to the same tab with another year (e.g. a reminder clicked while the tab is open) switches to it.
+watch(() => route.query.year, (query) => {
+  const next = yearOf(query)
+  if (next !== null) year.value = next
+})
 const { data, error, status } = useFetch<AccidentListItemDto[]>('/api/accidents', { query: { year }, default: () => [] })
 const rows = computed(() => (data.value ?? []).filter(row => row.subject === props.subject))
 </script>
