@@ -127,15 +127,15 @@ export function readEmployeeDocumentFile(
 
 /**
  * Changes folder, title, date and note; the file stays as uploaded. Moving to another folder needs the right for both
- * folders (403 forbidden).
+ * folders (403 forbidden) and ends its link to a Pflichtdokument (that one's folder is the old one).
  */
 export function updateEmployeeDocument(
   db: Db, actor: DocumentActor, facilityId: number, id: number, meta: EmployeeDocumentMeta,
 ): void {
-  loadDocument(db, actor, facilityId, id)
+  const row = loadDocument(db, actor, facilityId, id)
   assertFolder(actor, meta.folder)
   const checked = checkedMeta(meta)
-  db.update(employeeDocuments).set(checked).where(eq(employeeDocuments.id, id)).run()
+  db.update(employeeDocuments).set(meta.folder === row.folder ? checked : { ...checked, requiredTypeId: null }).where(eq(employeeDocuments.id, id)).run()
 }
 
 /**

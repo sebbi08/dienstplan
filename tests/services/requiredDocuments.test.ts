@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { employeeDocuments, employees, requiredDocumentTypes, signRequestRecipients, templateCategories } from '../../server/db/schema'
-import { listEmployeeDocuments, uploadEmployeeDocument } from '../../server/services/employeeDocuments'
+import { listEmployeeDocuments, updateEmployeeDocument, uploadEmployeeDocument } from '../../server/services/employeeDocuments'
 import { listEmployeeListExtras } from '../../server/services/employeeListExtras'
 import { createFacility } from '../../server/services/facilities'
 import { uploadTemplate } from '../../server/services/printTemplates'
@@ -155,9 +155,80 @@ describe('Pflichtdokumente', () => {
     const items = getSetupChecklist(db, traeger, 1, NOW).open.filter(item => item.key === 'employee_required_document')
     expect(items.map(item => [item.label, item.count, item.names.map(named => named.name)])).toEqual([['Erste-Hilfe-Nachweis', 1, ['Anna Probe']]])
     expect(items[0]!.to).toBe(`/admin/employees/${anna}?tab=records`)
-    // The Leitung sees the item only for types in folders she may use.
+    // The Leitung (only the folder Qualifikationen by default) sees only that folder's items.
     const forLeitung = getSetupChecklist(db, leitung, 1, NOW).open.filter(item => item.key === 'employee_required_document')
-    expect(forLeitung.every(item => listRequiredTypes(db, actor(leitung), 1).some(type => type.name === item.label))).toBe(true)
+    expect(forLeitung.map(item => item.label)).toEqual(['Erste-Hilfe-Nachweis'])
+    db.update(employees).set({ leftOn: null }).where(eq(employees.id, ben)).run()
+    expect(getSetupChecklist(db, leitung, 1, NOW).open.filter(item => item.key === 'employee_required_document').map(item => [item.label, item.count]))
+      .toEqual([['Erste-Hilfe-Nachweis', 2], ['Belehrung Infektionsschutz', 1]])
+  })
+
+  it('counts a linked document only in its type\'s folder: a moved document or a moved type loses the link', () => {
+    const contract = typeId('Arbeitsvertrag')
+    const scan = uploadRequiredDocument(db, actor(traeger), 1, anna, contract, { title: '', documentDate: '2026-01-01', note: '' }, file, NOW)
+    // The document is moved to Gehalt: unlinked, so nothing of it shows for the Arbeitsvertrag (also not to someone
+    // without the key for Gehalt).
+    updateEmployeeDocument(db, actor(traeger), 1, scan, { folder: 'salary', title: 'Scan', documentDate: '2026-01-01', note: '' })
+    expect(db.select().from(employeeDocuments).where(eq(employeeDocuments.id, scan)).get()!.requiredTypeId).toBeNull()
+    expect(employeeRequiredDocuments(db, limited(['employees.docs.contract']), 1, anna, TODAY).find(row => row.typeId === contract))
+      .toMatchObject({ state: 'missing', documentId: null, date: null })
+    // Same folder, other title: the link stays.
+    const kept = uploadRequiredDocument(db, actor(traeger), 1, anna, contract, { title: '', documentDate: '2026-01-01', note: '' }, file, NOW)
+    updateEmployeeDocument(db, actor(traeger), 1, kept, { folder: 'contract', title: 'Vertrag 2026', documentDate: '2026-01-01', note: '' })
+    expect(db.select().from(employeeDocuments).where(eq(employeeDocuments.id, kept)).get()!.requiredTypeId).toBe(contract)
+    // The type is moved to Bewerbung: the documents in Vertrag lose the link; a viewer with only the new folder sees „fehlt“.
+    const firstAid = typeId('Erste-Hilfe-Nachweis')
+    uploadRequiredDocument(db, actor(traeger), 1, anna, firstAid, { title: '', documentDate: '2026-01-01', note: '' }, file, NOW)
+    updateRequiredType(db, actor(traeger), 1, firstAid, input({ name: 'Erste-Hilfe-Nachweis', folder: 'application', validityMonths: 24 }))
+    expect(employeeRequiredDocuments(db, limited(['employees.docs.application']), 1, anna, TODAY).find(row => row.typeId === firstAid))
+      .toMatchObject({ state: 'missing', documentId: null, date: null })
+    expect(db.select().from(employeeDocuments).where(eq(employeeDocuments.requiredTypeId, firstAid)).all()).toEqual([])
+    // A link written outside the service to a document of another folder counts nowhere either.
+    const stray = uploadEmployeeDocument(db, actor(traeger), 1, anna, { folder: 'salary', title: 'Gehalt', documentDate: '2026-02-01', note: '' }, file, NOW)
+    db.update(employeeDocuments).set({ requiredTypeId: contract }).where(eq(employeeDocuments.id, stray)).run()
+    expect(employeeRequiredDocuments(db, actor(traeger), 1, anna, TODAY).find(row => row.typeId === contract)).toMatchObject({ documentId: kept })
+  })
+
+  it('checks names, order and templates only against what the editor sees', () => {
+    const onlyQualifications = limited(['employees.docs.qualifications'])
+    // A hidden type's name is not given away; the visible ones stay unique.
+    expect(() => createRequiredType(db, onlyQualifications, 1, input({ name: 'Arbeitsvertrag' }))).not.toThrow()
+    expect(errorCode(() => createRequiredType(db, onlyQualifications, 1, input({ name: 'erste-hilfe-nachweis' })))).toBe('required_type_name_taken')
+    // ▼ on Belehrung swaps it with Erste-Hilfe (the hidden Datenschutz between them keeps its place).
+    moveRequiredType(db, onlyQualifications, 1, typeId('Belehrung Infektionsschutz'), 'down')
+    expect(listRequiredTypes(db, onlyQualifications, 1).map(type => type.name).slice(0, 2)).toEqual(['Erste-Hilfe-Nachweis', 'Belehrung Infektionsschutz'])
+    expect(listRequiredTypes(db, actor(traeger), 1).map(type => type.name).slice(3, 6))
+      .toEqual(['Erste-Hilfe-Nachweis', 'Verpflichtung auf den Datenschutz', 'Belehrung Infektionsschutz'])
+    // A template the viewer does not see: no „Ausfüllen“ for them.
+    db.delete(templateCategories).run()
+    const sender = { id: traeger.id, role: traeger.role, permissions: traeger.permissions, facilityId: 1 }
+    const managers = createCategory(db, sender, { name: 'Leitung', visibility: 'managers' })
+    const template = uploadTemplate(db, sender, { title: 'Belehrung', categoryId: managers, scope: 'facility' }, { data: fillablePdf(), filename: 'b.pdf' }, NOW)
+    const belehrung = typeId('Belehrung Infektionsschutz')
+    updateRequiredType(db, actor(traeger), 1, belehrung, input({ name: 'Belehrung Infektionsschutz', templateId: template }))
+    const row = (viewer: RequiredDocsActor) => employeeRequiredDocuments(db, viewer, 1, anna, TODAY).find(entry => entry.typeId === belehrung)!
+    expect(row(actor(traeger)).templateId).toBe(template)
+    expect(row({ id: traeger.id, role: 'observer', permissions: new Set<PermissionKey>(['employees.view', 'employees.docs.qualifications']) }).templateId).toBeNull()
+  })
+
+  it('refuses another facility\'s type, an inactive type and a file that is no PDF, JPEG or PNG', () => {
+    const krippe = createFacility(db, 'Krippe').id
+    const foreign = typeId('Arbeitsvertrag', krippe)
+    const scan = uploadEmployeeDocument(db, actor(traeger), 1, anna, { folder: 'contract', title: 'Vertrag', documentDate: TODAY, note: '' }, file, NOW)
+    expect(errorCode(() => linkRequiredDocument(db, actor(traeger), 1, scan, foreign))).toBe('required_type_not_found')
+    expect(errorCode(() => uploadRequiredDocument(db, actor(traeger), 1, anna, foreign, { title: '', documentDate: TODAY, note: '' }, file, NOW)))
+      .toBe('required_type_not_found')
+    const masern = typeId('Masernnachweis')
+    updateRequiredType(db, actor(traeger), 1, masern, input({ name: 'Masernnachweis', folder: 'application', active: false }))
+    expect(errorCode(() => uploadRequiredDocument(db, actor(traeger), 1, anna, masern, { title: '', documentDate: TODAY, note: '' }, file, NOW)))
+      .toBe('required_type_not_found')
+    expect(errorCode(() => uploadRequiredDocument(db, actor(traeger), 1, anna, typeId('Arbeitsvertrag'), { title: '', documentDate: TODAY, note: '' },
+      { data: Buffer.from('MZ not a document'), filename: 'x.exe' }, NOW))).toBe('document_type_invalid')
+    // „Ausfüllen“: the folder chosen must be the type's.
+    expect(errorCode(() => uploadRequiredDocument(db, actor(traeger), 1, anna, typeId('Arbeitsvertrag'), { title: '', documentDate: TODAY, note: '', folder: 'salary' }, file, NOW)))
+      .toBe('required_type_folder_mismatch')
+    expect(uploadRequiredDocument(db, actor(traeger), 1, anna, typeId('Arbeitsvertrag'), { title: 'Vertrag', documentDate: TODAY, note: '', folder: 'contract' }, file, NOW))
+      .toBeGreaterThan(0)
   })
 
   it('files the signed copy of a request sent „als Pflichtdokument“ as that type', () => {
@@ -175,5 +246,29 @@ describe('Pflichtdokumente', () => {
     const { documentId } = signMyRequest(db, { employeeId: anna, userId: null }, recipient.id, Buffer.concat([fillablePdf(), Buffer.from('% signed\n')]), NOW)
     expect(db.select().from(employeeDocuments).where(eq(employeeDocuments.id, documentId)).get()).toMatchObject({ folder: 'contract', requiredTypeId: privacy })
     expect(employeeRequiredDocuments(db, actor(traeger), 1, anna, TODAY).find(row => row.typeId === privacy)).toMatchObject({ state: 'present', documentId })
+    // Another facility's type is refused when sending.
+    const krippe = createFacility(db, 'Krippe').id
+    expect(errorCode(() => request('contract', typeId('Verpflichtung auf den Datenschutz', krippe)))).toBe('required_type_not_found')
+  })
+
+  it('files the signed copy without the link when the type moved to another folder or was deleted before signing', () => {
+    db.delete(templateCategories).run()
+    const sender = { id: traeger.id, role: traeger.role, permissions: traeger.permissions, facilityId: 1 }
+    const categoryId = createCategory(db, sender, { name: 'Personal', visibility: 'all' })
+    const template = uploadTemplate(db, sender, { title: 'Datenschutz', categoryId, scope: 'facility' }, { data: fillablePdf(), filename: 'd.pdf' }, NOW)
+    const privacy = typeId('Verpflichtung auf den Datenschutz')
+    const silence = typeId('Schweigepflichterklärung')
+    for (const [employeeId, requiredTypeId] of [[anna, privacy], [ben, silence]] as const) {
+      createSignRequest(db, sender, {
+        title: 'Datenschutz', sourceKind: 'template', sourceId: template, recipientIds: [employeeId], folder: 'contract', dueDate: null, note: '', requiredTypeId,
+      }, null, NOW)
+    }
+    updateRequiredType(db, actor(traeger), 1, privacy, input({ name: 'Verpflichtung auf den Datenschutz', folder: 'correspondence' }))
+    deleteRequiredType(db, actor(traeger), 1, silence)
+    for (const employeeId of [anna, ben]) {
+      const recipient = db.select().from(signRequestRecipients).where(eq(signRequestRecipients.employeeId, employeeId)).get()!
+      const { documentId } = signMyRequest(db, { employeeId, userId: null }, recipient.id, Buffer.concat([fillablePdf(), Buffer.from('% signed\n')]), NOW)
+      expect(db.select().from(employeeDocuments).where(eq(employeeDocuments.id, documentId)).get()).toMatchObject({ folder: 'contract', requiredTypeId: null })
+    }
   })
 })

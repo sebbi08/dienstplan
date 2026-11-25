@@ -6,6 +6,7 @@ import type { EmployeeListItemDto, RequiredDocumentTypeDto } from '#shared/types
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { searchTargets, usableFolders } from '~/utils/pdfFill'
+import { keptRequiredType } from '~/utils/requiredDocuments'
 
 /**
  * „Zum Unterschreiben senden“ (signRequests.manage): a template of „Vorlagen“ to employees of the facility, or a PDF of a
@@ -28,14 +29,15 @@ const toast = useToast()
 const { can } = useCan()
 
 const form = reactive({ title: '', recipientIds: [] as number[], folder: 'correspondence' as EmployeeDocumentFolder, dueDate: '', note: '', requiredTypeId: 0 })
-// „Als Pflichtdokument ablegen“: the active Pflichtdokumente of the chosen folder (loaded when the dialog opens).
-const requiredTypes = ref<RequiredDocumentTypeDto[]>([])
+// „Als Pflichtdokument ablegen“: the active Pflichtdokumente of the chosen folder (loaded when the dialog opens; null
+// until then, so the preset from the box is not dropped before they are there).
+const requiredTypes = ref<RequiredDocumentTypeDto[] | null>(null)
 const requiredItems = computed(() => [
   { label: t.requiredTypeNone, value: 0 },
-  ...requiredTypes.value.filter(type => type.active && type.folder === form.folder).map(type => ({ label: type.name, value: type.id })),
+  ...(requiredTypes.value ?? []).filter(type => type.active && type.folder === form.folder).map(type => ({ label: type.name, value: type.id })),
 ])
 watch(() => form.folder, () => {
-  if (!requiredItems.value.some(item => item.value === form.requiredTypeId)) form.requiredTypeId = 0
+  form.requiredTypeId = keptRequiredType(requiredTypes.value, form.folder, form.requiredTypeId)
 })
 const staff = ref<EmployeeListItemDto[] | null>(null)
 const loadError = ref<string | null>(null)
@@ -64,6 +66,7 @@ async function loadStaff() {
 
 watch(open, (isOpen) => {
   if (!isOpen) return
+  requiredTypes.value = null
   Object.assign(form, {
     title: props.source.title.slice(0, SIGN_REQUEST_TITLE_MAX), recipientIds: props.recipient ? [props.recipient.id] : [],
     folder: props.requiredType && folders.value.includes(props.requiredType.folder)
@@ -72,7 +75,10 @@ watch(open, (isOpen) => {
     dueDate: '', note: '', requiredTypeId: props.requiredType?.id ?? 0,
   })
   query.value = ''
-  void $fetch<RequiredDocumentTypeDto[]>('/api/required-document-types').then((types) => { requiredTypes.value = types }).catch(() => { requiredTypes.value = [] })
+  void $fetch<RequiredDocumentTypeDto[]>('/api/required-document-types').catch(() => [] as RequiredDocumentTypeDto[]).then((types) => {
+    requiredTypes.value = types
+    form.requiredTypeId = keptRequiredType(types, form.folder, form.requiredTypeId)
+  })
   if (!props.recipient) void loadStaff()
 }, { immediate: true })
 

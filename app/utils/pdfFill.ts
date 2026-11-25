@@ -17,6 +17,12 @@ export interface FillTarget {
   kind: FillKind
   id: number
   name: string
+  /**
+   * A personnel file: the folder the save starts with and the Pflichtdokument („Ausfüllen“ in its box) the copy is linked
+   * to in the same request – only while it is saved into that folder.
+   */
+  folder?: EmployeeDocumentFolder
+  requiredTypeId?: number
 }
 
 /** The PDF the fill view opens: a template, or a document saved before („Bearbeiten“). */
@@ -31,7 +37,7 @@ export interface FillSource {
  */
 export type FillSave =
   | { mode: 'new-child'; childId: number; meta: ChildDocumentMeta }
-  | { mode: 'new-employee'; employeeId: number; meta: EmployeeDocumentMeta }
+  | { mode: 'new-employee'; employeeId: number; meta: EmployeeDocumentMeta; requiredTypeId?: number }
   | { mode: 'new-visit'; kind: 'infoVisit' | 'applicant'; visitId: number; title: string }
   | { mode: 'replace'; kind: FillKind; documentId: number }
 
@@ -51,6 +57,7 @@ export function fillSaveRequest(save: FillSave, file: Blob): { url: string; meth
     body.append('title', save.meta.title)
     body.append('documentDate', save.meta.documentDate)
     body.append('note', save.meta.note)
+    if (save.requiredTypeId !== undefined) body.append('requiredTypeId', String(save.requiredTypeId))
     return { url: `/api/employees/${save.employeeId}/documents`, method: 'POST', body }
   }
   if (save.mode === 'new-visit') {

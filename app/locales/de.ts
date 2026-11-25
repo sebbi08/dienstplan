@@ -1103,7 +1103,7 @@ export const de = {
     // The box under Nachweise.
     boxHint: 'Nur die Pflichtdokumente in Fächern, die du sehen darfst.',
     boxNone: 'Für diese Person gibt es keine Pflichtdokumente (oder keine in Fächern, die du sehen darfst).',
-    states: { missing: 'fehlt', present: 'vorhanden', expiring: 'läuft ab', expired: 'abgelaufen' },
+    states: { missing: 'fehlt' },
     presentOn: (date: string) => `vorhanden (${date})`,
     expiresOn: (date: string) => `läuft ab am ${date}`,
     expiredOn: (date: string) => `abgelaufen am ${date}`,
@@ -1111,12 +1111,15 @@ export const de = {
     uploadTitle: (name: string) => `${name} hochladen`, linkTitle: (name: string) => `${name}: vorhandenes Dokument zuordnen`,
     documentDate: 'Datum des Dokuments', file: 'Datei (PDF, JPEG oder PNG)', note: 'Notiz',
     linkNone: 'In diesem Fach liegt noch kein Dokument dieser Person.',
-    linkedTo: (name: string) => `ist „${name}“`,
+    linkedTo: (name: string) => `zugeordnet: ${name}`, otherType: 'anderes Pflichtdokument',
+    relinkConfirm: (other: string, name: string) => `Dieses Dokument ist „${other}“ zugeordnet. Ein Dokument zählt nur für ein Pflichtdokument: `
+      + `stattdessen „${name}“ zuordnen? „${other}“ fehlt dann, bis ein anderes Dokument zugeordnet ist.`,
+    fillNotLinked: 'Gespeichert, aber nicht als Pflichtdokument zugeordnet, weil ein anderes Fach gewählt wurde.',
     linked: 'Zugeordnet', uploaded: 'Hochgeladen',
     // The employee list.
     column: 'Pflichtdokumente', ok: '✓', okLabel: 'Alle Pflichtdokumente vorhanden',
     badge: (count: number) => (count === 1 ? '1 fehlt' : `${count} fehlen`),
-    tooltip: (names: string[]) => names.join(', '),
+    tooltip: (names: string[]) => names.join(', '), expiredName: (name: string) => `${name} (abgelaufen)`,
     filter: 'Nur mit fehlenden Pflichtdokumenten',
   },
   requirements: {
@@ -2595,10 +2598,10 @@ export const de = {
       group_documentation: (count: number) => count === 1
         ? '1 Gruppe ohne Erinnerung an die Entwicklungsdoku'
         : `${count} Gruppen ohne Erinnerung an die Entwicklungsdoku`,
-      employee_required_document: (count: number) => (count === 1 ? '1 Person ohne Pflichtdokument' : `${count} Mitarbeitende ohne Pflichtdokument`),
+      employee_required_document: (count: number) => (count === 1 ? '1 Person ohne gültiges Pflichtdokument' : `${count} Mitarbeitende ohne gültiges Pflichtdokument`),
     },
     /** One line per Pflichtdokument (missing or expired). */
-    requiredDocument: (count: number, name: string) => (count === 1 ? `1 Person ohne ${name}` : `${count} Mitarbeitende ohne ${name}`),
+    requiredDocument: (count: number, name: string) => (count === 1 ? `1 Person ohne gültiges Dokument „${name}“` : `${count} Mitarbeitende ohne gültiges Dokument „${name}“`),
     more: (count: number) => `und ${count} weitere`,
     hide: 'Brauchen wir nicht',
     hideLabel: (text: string) => `${text}: brauchen wir nicht`,

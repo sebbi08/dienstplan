@@ -600,6 +600,23 @@ describe('API route permissions', () => {
     }
   })
 
+  it('keeps the Pflichtdokumente to the facility of the request and the folder keys (checked in the service)', () => {
+    const touching = routes.filter(route => source(route).includes('services/requiredDocuments\''))
+    const settings = ['required-document-types.post.ts', 'required-document-types/[id].delete.ts', 'required-document-types/[id].put.ts',
+      'required-document-types/[id]/move.post.ts']
+    expect(touching).toEqual(['employee-documents/[id]/required-type.put.ts', 'employees/[id]/documents.post.ts',
+      'employees/[id]/required-documents.get.ts', 'employees/[id]/required-documents/[typeId].post.ts', 'required-document-types.get.ts', ...settings])
+    for (const route of touching) {
+      const editor = settings.includes(route)
+      expect(permissionCalls(route), route).toEqual([{ key: editor ? 'settings.facility' : 'employees.view', options: '' }])
+      // The service gets the session user (folder keys) and the facility of the request.
+      expect(source(route), route).toMatch(editor ? /\(useDb\(\), editor, editor\.facilityId/ : /\(useDb\(\), (actor|viewer), (actor|viewer)\.facilityId/)
+    }
+    for (const route of ['employees/[id]/required-documents/[typeId].post.ts', 'employees/[id]/documents.post.ts']) {
+      expect(source(route), route).toContain("assertUploadLength(getRequestHeader(event, 'content-length'))")
+    }
+  })
+
   it('lets managers of the active facility delete a left employee for good', () => {
     const touching = routes.filter(route => source(route).includes('services/employeeDeletion\''))
     expect(touching).toEqual(['employees/[id].delete.ts'])

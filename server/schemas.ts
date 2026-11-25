@@ -623,6 +623,10 @@ export const employeeDocumentSchema = z.object({
   documentDate: isoDate,
   note: z.string().max(1000).default(''),
 })
+/** An upload into the personnel file; „Ausfüllen“ of a Pflichtdokument links it in the same request ('' = none). */
+export const employeeDocumentUploadSchema = employeeDocumentSchema.extend({
+  requiredTypeId: z.union([z.literal(''), z.coerce.number().int().positive()]).default('').transform(value => (value === '' ? null : value)),
+})
 // „Gilt für“ of Vorlagen and „Wissen“ (shared/domain/documentTargets.ts): the facilities chosen and the groups per
 // facility; the service checks that they exist and fit together.
 const targetFacilityIds = z.array(z.number().int().positive()).max(500)

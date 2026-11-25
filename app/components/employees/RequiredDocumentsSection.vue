@@ -11,14 +11,16 @@ import { pickedFile, uploadSizeError } from '~/utils/uploads'
  * Nachweise → „Pflichtdokumente“ of a person: each Pflichtdokument of the facility that applies to them, in a folder the
  * viewer may see (others are not shown at all), with its status – „vorhanden“ (the newest linked document, to open),
  * „fehlt“, „läuft ab am …“ (within 2 months of the end of validity), „abgelaufen“. „Hochladen“ files a new document into
- * the type's folder and links it; „Vorhandenes Dokument zuordnen“ links one of that folder; „Ausfüllen“ fills the type's
- * template (the saved copy in the folder is linked afterwards); „Zum Unterschreiben senden“ sends the template to the
+ * the type's folder and links it; „Vorhandenes Dokument zuordnen“ links one of that folder (asking first if it is another
+ * type's); „Ausfüllen“ fills the type's template, saved into its folder and linked in the same request; „Zum
+ * Unterschreiben senden“ sends the template to the
  * person (signRequests.manage), its signed copy linked by itself. Loaded once the tab is opened.
  */
 const props = defineProps<{ employeeId: number; employeeName: string; active: boolean }>()
 const t = de.requiredDocuments
 const { can } = useCan()
 const toast = useToast()
+const confirm = useConfirm()
 
 const { data: rows, refresh, execute } = useFetch<EmployeeRequiredDocumentDto[]>(() => `/api/employees/${props.employeeId}/required-documents`, {
   immediate: false, watch: false, default: () => [],
@@ -78,36 +80,36 @@ async function openLink(row: EmployeeRequiredDocumentDto) {
   candidates.value = documents[row.folder] ?? []
   chosenDocument.value = candidates.value.find(document => document.requiredTypeId === null)?.id ?? candidates.value[0]?.id ?? 0
 }
+/** The Pflichtdokument a document is linked to: its name if it is one of the box, else „einem anderen“. */
+const typeName = (typeId: number) => rows.value?.find(other => other.typeId === typeId)?.name ?? t.otherType
 const linkItems = computed(() => (candidates.value ?? []).map(document => ({
   value: document.id,
-  label: [document.title || de.personnel.documents.untitled, formatDate(document.documentDate), document.requiredTypeId === null ? '' : t.linked].filter(Boolean).join(' · '),
+  label: [
+    document.title || de.personnel.documents.untitled, formatDate(document.documentDate),
+    document.requiredTypeId === null ? '' : t.linkedTo(typeName(document.requiredTypeId)),
+  ].filter(Boolean).join(' · '),
 })))
 async function saveLink() {
   const row = linking.value
   if (!row || !chosenDocument.value) return
+  // One document counts for one Pflichtdokument: taking it from another type asks first.
+  const other = candidates.value?.find(document => document.id === chosenDocument.value)?.requiredTypeId ?? null
+  if (other !== null && other !== row.typeId && !await confirm(t.relinkConfirm(typeName(other), row.name))) return
   const ok = await run(() => $fetch<{ ok: boolean }>(`/api/employee-documents/${chosenDocument.value}/required-type`, { method: 'PUT', body: { typeId: row.typeId } }), t.linked)
   if (ok) linkOpen.value = false
 }
 
-// „Ausfüllen“: the template in the fill view, saved into the personnel file; the copy saved into the type's folder since
-// opening is linked to the type afterwards (another folder chosen there: nothing is linked).
+// „Ausfüllen“: the template in the fill view, saved into the type's folder (preset) and linked in the same request;
+// saved into another folder there, it is not linked (said so).
 const filling = ref<EmployeeRequiredDocumentDto | null>(null)
 const fillOpen = ref(false)
-let fillStarted = ''
 function openFill(row: EmployeeRequiredDocumentDto) {
   filling.value = row
-  fillStarted = new Date().toISOString()
   fillOpen.value = true
 }
-async function afterFill() {
-  const row = filling.value
-  if (!row) return
-  await run(async () => {
-    const documents = await $fetch<EmployeeDocumentsDto>(`/api/employees/${props.employeeId}/documents`)
-    const saved = (documents[row.folder] ?? []).filter(document => document.requiredTypeId === null && document.uploadedAt >= fillStarted)
-      .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
-    if (saved) await $fetch<{ ok: boolean }>(`/api/employee-documents/${saved.id}/required-type`, { method: 'PUT', body: { typeId: row.typeId } })
-  })
+function afterFill(result: { id: number | null; linked: boolean }) {
+  if (!result.linked) toast.add({ title: t.fillNotLinked, color: 'warning' })
+  void refresh()
 }
 
 // „Zum Unterschreiben senden“: the type's template to this person, the signed copy filed as the type.
@@ -185,7 +187,8 @@ function openSend(row: EmployeeRequiredDocumentDto) {
 
     <PdfFillDialog
       v-if="filling && filling.templateId !== null && fillOpen" v-model:open="fillOpen"
-      :source="{ url: templateUrl(filling.templateId), title: filling.name }" :target="{ kind: 'employee', id: employeeId, name: employeeName }"
+      :source="{ url: templateUrl(filling.templateId), title: filling.name }"
+      :target="{ kind: 'employee', id: employeeId, name: employeeName, folder: filling.folder, requiredTypeId: filling.typeId }"
       @saved="afterFill"
     />
     <SignRequestsSendDialog

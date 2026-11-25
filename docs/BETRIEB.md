@@ -1078,27 +1078,33 @@ und was bald abläuft.
   Einrichtung“). Je Pflichtdokument: **Name**, das **Fach** der Personalakte, in das es gehört, **gilt für** (alle oder nur
   bestimmte Qualifikationen; wer keine Qualifikation eingetragen hat, braucht nur die für alle), freiwillig **gültig für**
   (Monate, z. B. 60 beim Führungszeugnis; leer = unbegrenzt), freiwillig eine **Vorlage** zum Ausfüllen oder Unterschreiben
-  und **aktiv** (ein inaktives wird nirgends verlangt). ▲/▼ ändert die Reihenfolge. Löschen fragt nach; die schon
-  abgelegten Dokumente bleiben in der Akte, nur nicht mehr als Pflichtdokument zugeordnet. Namen sind je Einrichtung
-  eindeutig.
+  und **aktiv** (ein inaktives wird nirgends verlangt). ▲/▼ ändert die Reihenfolge (unter den Pflichtdokumenten, die du
+  siehst). Löschen fragt nach; die schon abgelegten Dokumente bleiben in der Akte, nur nicht mehr als Pflichtdokument
+  zugeordnet. Namen sind eindeutig (unter den Pflichtdokumenten, die du siehst). Bekommt ein Pflichtdokument ein anderes
+  Fach, verlieren die schon zugeordneten Dokumente im alten Fach die Zuordnung (sie bleiben in der Akte).
 - **Beispiele:** Jede Einrichtung – auch jede neu angelegte – startet mit sieben aktiven Beispielen, die du ändern oder
   löschen kannst: Arbeitsvertrag, Verpflichtung auf den Datenschutz und Schweigepflichterklärung (Fach Vertrag),
   Erweitertes Führungszeugnis (Fach Bewerbung, 60 Monate) und Masernnachweis (Fach Bewerbung), Belehrung
   Infektionsschutz und Erste-Hilfe-Nachweis (Fach Qualifikationen, 24 Monate).
 - **Bei der Person:** Reiter **Nachweise**, Kasten **Pflichtdokumente**: je Pflichtdokument, das für sie gilt, der Stand –
   **vorhanden** (mit Datum und **Öffnen**), **fehlt**, **läuft ab am …** (in den letzten zwei Monaten der Gültigkeit) oder
-  **abgelaufen am …**. Es zählt das neueste zugeordnete Dokument (sein Datum, sonst der Tag des Hochladens).
+  **abgelaufen am …**. Es zählt das neueste zugeordnete Dokument im Fach des Pflichtdokuments (sein Datum, sonst der
+  Tag des Hochladens). Wird ein Dokument in ein anderes Fach verschoben, ist es danach keinem Pflichtdokument mehr
+  zugeordnet. Ein Dokument zählt nur für **ein** Pflichtdokument.
   - **Hochladen** legt eine neue Datei im Fach des Pflichtdokuments ab und ordnet sie zu (ohne Titel heißt sie wie das
     Pflichtdokument).
-  - **Vorhandenes Dokument zuordnen** wählt ein Dokument, das schon im richtigen Fach liegt.
-  - **Ausfüllen** (nur mit Vorlage) öffnet die Vorlage in der Ausfüll-Ansicht; die gespeicherte Kopie im Fach des
-    Pflichtdokuments wird danach zugeordnet.
+  - **Vorhandenes Dokument zuordnen** wählt ein Dokument, das schon im richtigen Fach liegt. Ist es schon einem anderen
+    Pflichtdokument zugeordnet, steht das dabei, und die App fragt nach, bevor sie es umhängt (das andere fehlt dann).
+  - **Ausfüllen** (nur mit einer Vorlage, die du sehen darfst) öffnet die Vorlage in der Ausfüll-Ansicht. Beim Speichern
+    ist das Fach des Pflichtdokuments vorgewählt; die Kopie wird beim Speichern zugeordnet. Wählst du ein anderes Fach,
+    wird sie nicht zugeordnet (die App sagt es).
   - **Zum Unterschreiben senden** (nur mit Vorlage und dem Recht dazu) schickt die Vorlage an die Person; die
     unterschriebene Kopie wird von selbst zugeordnet (siehe *Zum Unterschreiben senden*).
 - **Mitarbeiterliste:** Spalte **Pflichtdokumente** mit der Zahl der fehlenden oder abgelaufenen (die Namen beim
   Darüberfahren, am Handy darunter) und der Filter **Nur mit fehlenden Pflichtdokumenten**. Es zählen nur Mitarbeitende,
   die noch nicht ausgeschieden sind.
-- **Was noch fehlt:** je Pflichtdokument ein Punkt „‹n› Mitarbeitende ohne ‹Pflichtdokument›“ (fehlt oder abgelaufen),
+- **Was noch fehlt:** je Pflichtdokument ein Punkt „‹n› Mitarbeitende ohne gültiges Dokument „‹Pflichtdokument›““ (fehlt
+  oder abgelaufen),
   mit den Namen und dem Link auf den Reiter Nachweise der Person.
 - **Rechte:** Es gelten die Rechte der Fächer („Dokumente: …“). Ein Pflichtdokument in einem Fach, das du nicht sehen
   darfst, erscheint für dich nirgends – nicht in den Einstellungen, nicht bei der Person, nicht in der Liste und nicht
@@ -2688,7 +2694,7 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Öffnungszeiten, kein Tablet-Konto, Gruppen ohne Gruppenart (nur wenn das Bundesland Gruppenarten kennt), Mitarbeiter
   ohne PIN (nur mit Zeiterfassung), PINs, die erst entsperrt werden müssen, ohne Qualifikation, ohne Geburtstag oder ohne
   Zugang, Kinder mit Vertrag ohne Betreuungsart und Gruppen ohne Erinnerung an die Entwicklungsdoku. Unter Mitarbeiter
-  steht außerdem je Pflichtdokument „‹n› Mitarbeitende ohne ‹Pflichtdokument›“ (nur Fächer, die du sehen darfst; siehe
+  steht außerdem je Pflichtdokument „‹n› Mitarbeitende ohne gültiges Dokument „‹Pflichtdokument›““ (nur Fächer, die du sehen darfst; siehe
   *Pflichtdokumente*). Die Höchstzahl Kinder der Einrichtung
   sieht nur der Träger, weil nur er sie einträgt. „PIN fehlt“ und „PIN gesperrt“ sehen nur Leitung und Träger (nur sie
   setzen PINs), nicht ein Mitarbeiter, dem der Träger „Einstellungen der Einrichtung“ gegeben hat.

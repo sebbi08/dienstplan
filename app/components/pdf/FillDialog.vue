@@ -54,7 +54,8 @@ const props = defineProps<{
 }>()
 const open = defineModel<boolean>('open', { default: false })
 /** `loadFailed`: the PDF could not be loaded (the caller may react to the error, e.g. the tablet's sign unlock is over). */
-const emit = defineEmits<{ saved: []; loadFailed: [error: unknown] }>()
+// saved: the new document's id (null when replaced) and whether it was linked to target.requiredTypeId.
+const emit = defineEmits<{ saved: [result: { id: number | null; linked: boolean }]; loadFailed: [error: unknown] }>()
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -804,6 +805,9 @@ async function startSave() {
     const type = defaultDocumentType(typeList.value, props.source.title)
     Object.assign(sheet, { typeId: type?.id ?? 0, confidential: type?.confidentialDefault ?? false })
   }
+  else if (target.folder && folders.value.includes(target.folder)) {
+    sheet.folder = target.folder
+  }
   else {
     if (!folders.value.includes(sheet.folder)) sheet.folder = folders.value[0] ?? 'correspondence'
   }
@@ -827,7 +831,9 @@ function saveFromSheet() {
     void persist({ mode: 'new-visit', kind: target.kind, visitId: target.id, title })
   }
   else {
-    void persist({ mode: 'new-employee', employeeId: target.id, meta: { folder: sheet.folder, title, documentDate: sheet.documentDate, note: '' } })
+    // A Pflichtdokument is linked only while its copy goes into the type's folder.
+    const requiredTypeId = target.requiredTypeId !== undefined && sheet.folder === target.folder ? target.requiredTypeId : undefined
+    void persist({ mode: 'new-employee', employeeId: target.id, meta: { folder: sheet.folder, title, documentDate: sheet.documentDate, note: '' }, requiredTypeId })
   }
 }
 
@@ -881,12 +887,12 @@ async function persist(save: FillSave) {
     // The server checks the size and the file again.
     if (bytes.length > MAX_DOCUMENT_BYTES) return void toast.add({ title: t.tooLarge, color: 'error' })
     const request = fillSaveRequest(save, new Blob([bytes], { type: 'application/pdf' }))
-    await $fetch<unknown>(request.url, { method: request.method, body: request.body })
+    const result = await $fetch<{ id?: number } | null>(request.url, { method: request.method, body: request.body })
     touched.value = false
     sheetOpen.value = false
     toast.add({ title: de.common.saved, color: 'success' })
     open.value = false
-    emit('saved')
+    emit('saved', { id: result?.id ?? null, linked: save.mode === 'new-employee' && save.requiredTypeId !== undefined })
   }
   catch (error) {
     toast.add({ title: errorMessage(error), color: 'error' })

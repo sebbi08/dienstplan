@@ -2,8 +2,23 @@ import { describe, expect, it } from 'vitest'
 import {
   REQUIRED_DOCUMENT_EXAMPLES, appliesToEmployee, parseAppliesTo, requiredDocumentStatus, serializeAppliesTo,
 } from '../../shared/domain/requiredDocuments'
+import type { RequiredDocumentTypeDto } from '../../shared/types/api'
+import { keptRequiredType } from '../../app/utils/requiredDocuments'
 
 describe('Pflichtdokumente (shared rules)', () => {
+  it('keeps the preset type of „Zum Unterschreiben senden“ until the types are loaded, then only an active one of the folder', () => {
+    const type = (id: number, folder: RequiredDocumentTypeDto['folder'], active = true): RequiredDocumentTypeDto => ({
+      id, name: `T${id}`, folder, appliesTo: 'all', validityMonths: null, templateId: null, templateTitle: null, active,
+    })
+    // Opened from the box: the folder is set before the types arrive – the preset stays.
+    expect(keptRequiredType(null, 'contract', 5)).toBe(5)
+    const types = [type(5, 'contract'), type(6, 'salary'), type(7, 'contract', false)]
+    expect(keptRequiredType(types, 'contract', 5)).toBe(5)
+    expect(keptRequiredType(types, 'salary', 5)).toBe(0)
+    expect(keptRequiredType(types, 'contract', 7)).toBe(0)
+    expect(keptRequiredType([], 'contract', 5)).toBe(0)
+  })
+
   it('has the agreed examples, each in a folder, the Führungszeugnis for 5 years and Erste Hilfe for 2', () => {
     expect(REQUIRED_DOCUMENT_EXAMPLES.map(example => [example.name, example.folder, example.validityMonths])).toEqual([
       ['Arbeitsvertrag', 'contract', null],

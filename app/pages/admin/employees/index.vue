@@ -88,6 +88,8 @@ const recordsLink = (employee: EmployeeListItemDto) => ({ path: `/admin/employee
 // with the filter „Nur mit fehlenden Pflichtdokumenten“ (rows hidden, so the order buttons keep working).
 const seesRequiredDocs = computed(() => (extras.value ?? []).some(row => row.requiredDocuments !== undefined))
 const missingDocsOf = (id: number) => extrasOf.value.get(id)?.requiredDocuments ?? []
+/** The names for the tooltip, the expired ones marked. */
+const missingDocNames = (id: number) => missingDocsOf(id).map(row => (row.state === 'expired' ? de.requiredDocuments.expiredName(row.name) : row.name))
 const onlyMissingDocs = ref(false)
 const shownRow = (id: number) => !onlyMissingDocs.value || missingDocsOf(id).length > 0
 
@@ -336,7 +338,7 @@ const td = 'px-3 py-2'
             <NuxtLink v-if="extrasOf.get(employee.id)" :to="recordsLink(employee)" class="hover:opacity-80">
               <UBadge
                 v-if="missingDocsOf(employee.id).length" size="sm" variant="soft" color="error" :label="de.requiredDocuments.badge(missingDocsOf(employee.id).length)"
-                :title="de.requiredDocuments.tooltip(missingDocsOf(employee.id).map(row => row.name))"
+                :title="de.requiredDocuments.tooltip(missingDocNames(employee.id))"
               />
               <span v-else class="font-medium text-green-700" :title="de.requiredDocuments.okLabel">
                 <span aria-hidden="true">{{ de.requiredDocuments.ok }}</span><span class="sr-only">{{ de.requiredDocuments.okLabel }}</span>
@@ -417,7 +419,7 @@ const td = 'px-3 py-2'
         >
           <span class="text-gray-600">{{ de.requiredDocuments.column }}:</span>
           <UBadge size="sm" variant="soft" color="error" :label="de.requiredDocuments.badge(missingDocsOf(employee.id).length)" />
-          <span class="text-xs text-gray-600">{{ de.requiredDocuments.tooltip(missingDocsOf(employee.id).map(row => row.name)) }}</span>
+          <span class="text-xs text-gray-600">{{ de.requiredDocuments.tooltip(missingDocNames(employee.id)) }}</span>
         </NuxtLink>
         <div v-if="badgesOf.get(employee.id)?.length" class="mt-1.5 flex flex-wrap gap-1">
           <UBadge v-for="badge in badgesOf.get(employee.id)" :key="badge" size="sm" variant="soft" :color="BADGE_COLOR[badge]" :label="de.employees.badges[badge]" />

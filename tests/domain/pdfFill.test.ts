@@ -33,6 +33,12 @@ describe('filling PDF forms: helpers of the fill view', () => {
     expect(Object.fromEntries([...request.body.entries()].filter(([key]) => key !== 'file'))).toEqual({
       folder: 'correspondence', title: 'Belehrung', documentDate: '2026-11-20', note: '',
     })
+    // „Ausfüllen“ of a Pflichtdokument: linked in the same request.
+    const linked = fillSaveRequest({
+      mode: 'new-employee', employeeId: 4, meta: { folder: 'contract', title: 'Datenschutz', documentDate: '2026-11-20', note: '' }, requiredTypeId: 7,
+    }, file)
+    expect(linked.body.get('requiredTypeId')).toBe('7')
+    expect(request.body.get('requiredTypeId')).toBeNull()
     expect(fillSaveRequest({ mode: 'replace', kind: 'child', documentId: 9 }, file)).toMatchObject({ url: '/api/child-documents/9/file', method: 'PUT' })
     const replace = fillSaveRequest({ mode: 'replace', kind: 'employee', documentId: 5 }, file)
     expect(replace).toMatchObject({ url: '/api/employee-documents/5/file', method: 'PUT' })

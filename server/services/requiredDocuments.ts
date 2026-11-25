@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, ne } from 'drizzle-orm'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION, type EmployeeDocumentFolder } from '../../shared/domain/personnel'
 import {
@@ -68,15 +68,15 @@ function assertEditor(actor: Pick<RequiredDocsActor, 'permissions'>): void {
 const folded = (value: string) => value.trim().toLocaleLowerCase('de')
 
 /**
- * The checked input: a name (1–100 characters, unique in the facility regardless of case: 409
- * required_type_name_taken), a folder the actor may use (403), the qualifications of the catalog, a validity of 1–240
+ * The checked input: a name (1–100 characters, unique regardless of case among the facility's types the actor sees: 409
+ * required_type_name_taken – a type in a folder they may not use is not given away), a folder the actor may use (403), the qualifications of the catalog, a validity of 1–240
  * months or none, and a template the actor sees in the facility (400 required_type_template_invalid). Anything else
  * malformed is 400 required_type_invalid.
  */
 function checkedInput(db: Db, actor: RequiredDocsActor, facilityId: number, input: RequiredDocumentTypeInput, exceptId: number | null) {
   const name = input.name.trim()
   if (name === '' || name.length > REQUIRED_DOCUMENT_LIMITS.name) throw new ServiceError(400, 'required_type_name_required')
-  if (typesOf(db, facilityId).some(row => row.id !== exceptId && folded(row.name) === folded(name))) {
+  if (typesOf(db, facilityId).some(row => row.id !== exceptId && mayUse(actor, row.folder) && folded(row.name) === folded(name))) {
     throw new ServiceError(409, 'required_type_name_taken')
   }
   if (!(EMPLOYEE_DOCUMENT_FOLDERS as readonly string[]).includes(input.folder)) throw new ServiceError(400, 'required_type_invalid')
@@ -116,11 +116,19 @@ export function createRequiredType(db: Db, actor: RequiredDocsActor, facilityId:
     .returning({ id: requiredDocumentTypes.id }).get().id
 }
 
-/** Changes a type; documents linked to it stay linked (also when its folder changes: they keep theirs). */
+/**
+ * Changes a type. A type moved to another folder keeps only the links of documents in that folder (the others stay in
+ * the personnel file, unlinked): a document counts only in its type's folder, so no status of another folder shows.
+ */
 export function updateRequiredType(db: Db, actor: RequiredDocsActor, facilityId: number, id: number, input: RequiredDocumentTypeInput): void {
   assertEditor(actor)
   loadType(db, actor, facilityId, id)
-  db.update(requiredDocumentTypes).set(checkedInput(db, actor, facilityId, input, id)).where(eq(requiredDocumentTypes.id, id)).run()
+  const values = checkedInput(db, actor, facilityId, input, id)
+  db.transaction((tx) => {
+    tx.update(requiredDocumentTypes).set(values).where(eq(requiredDocumentTypes.id, id)).run()
+    tx.update(employeeDocuments).set({ requiredTypeId: null })
+      .where(and(eq(employeeDocuments.requiredTypeId, id), ne(employeeDocuments.folder, values.folder))).run()
+  })
 }
 
 /** Deletes a type; its documents stay in the personnel files, without the link (and sign requests lose it too). */
@@ -130,14 +138,20 @@ export function deleteRequiredType(db: Db, actor: RequiredDocsActor, facilityId:
   db.delete(requiredDocumentTypes).where(eq(requiredDocumentTypes.id, id)).run()
 }
 
-/** ▲/▼: swaps the type with its neighbour in the facility's list (at an end nothing changes); the list is numbered afresh. */
+/**
+ * ▲/▼: swaps the type with its neighbour among the types the actor sees (those in other folders keep their places; at
+ * an end nothing changes); the list is numbered afresh.
+ */
 export function moveRequiredType(db: Db, actor: RequiredDocsActor, facilityId: number, id: number, direction: 'up' | 'down'): void {
   assertEditor(actor)
   loadType(db, actor, facilityId, id)
   const all = typesOf(db, facilityId)
+  const visible = all.filter(row => mayUse(actor, row.folder))
+  const index = visible.findIndex(row => row.id === id)
+  const neighbour = visible[direction === 'up' ? index - 1 : index + 1]
+  if (!neighbour) return
   const at = all.findIndex(row => row.id === id)
-  const other = direction === 'up' ? at - 1 : at + 1
-  if (other < 0 || other >= all.length) return
+  const other = all.indexOf(neighbour)
   const order = [...all]
   ;[order[at], order[other]] = [order[other]!, order[at]!]
   db.transaction((tx) => {
@@ -147,15 +161,20 @@ export function moveRequiredType(db: Db, actor: RequiredDocsActor, facilityId: n
   })
 }
 
-/** The newest linked document per employee and type (by its date, then id). */
-function newestLinked(db: Db, employeeIds: readonly number[]): Map<string, { id: number; date: IsoDate }> {
+/**
+ * The newest linked document per employee and type (by its date, then id), of the given types only, and only if it lies
+ * in its type's folder (a link from before a move counts nowhere, so no other folder's status shows).
+ */
+function newestLinked(db: Db, employeeIds: readonly number[], types: readonly TypeRow[]): Map<string, { id: number; date: IsoDate }> {
   const newest = new Map<string, { id: number; date: IsoDate }>()
-  if (employeeIds.length === 0) return newest
+  if (employeeIds.length === 0 || types.length === 0) return newest
+  const folderOf = new Map(types.map(type => [type.id, type.folder]))
   const rows = db.select({
-    id: employeeDocuments.id, employeeId: employeeDocuments.employeeId, typeId: employeeDocuments.requiredTypeId,
+    id: employeeDocuments.id, employeeId: employeeDocuments.employeeId, typeId: employeeDocuments.requiredTypeId, folder: employeeDocuments.folder,
     documentDate: employeeDocuments.documentDate, uploadedAt: employeeDocuments.uploadedAt,
   }).from(employeeDocuments).where(and(inArray(employeeDocuments.employeeId, [...employeeIds]), isNotNull(employeeDocuments.requiredTypeId))).all()
   for (const row of rows) {
+    if (folderOf.get(row.typeId!) !== row.folder) continue
     const key = `${row.employeeId}:${row.typeId}`
     const date = dayOf(row)
     const known = newest.get(key)
@@ -171,19 +190,24 @@ const applicableTypes = (types: readonly TypeRow[], actor: Pick<RequiredDocsActo
 /**
  * „Pflichtdokumente“ of an employee of the facility (404 employee_not_found): every active type that applies to their
  * qualification, in folders the actor may use (others are left out, not even named), with the status from the newest
- * linked document.
+ * linked document in the type's folder; the template only if the actor sees it (else no „Ausfüllen“ / „Senden“).
  */
 export function employeeRequiredDocuments(
   db: Db, actor: RequiredDocsActor, facilityId: number, employeeId: number, today: IsoDate,
 ): EmployeeRequiredDocumentDto[] {
   assertEmployee(db, facilityId, employeeId)
   const { qualification } = db.select({ qualification: employees.qualification }).from(employees).where(eq(employees.id, employeeId)).get()!
-  const newest = newestLinked(db, [employeeId])
-  return applicableTypes(typesOf(db, facilityId), actor, qualification).map((type) => {
+  const types = applicableTypes(typesOf(db, facilityId), actor, qualification)
+  const newest = newestLinked(db, [employeeId], types)
+  const templates = types.some(type => type.templateId !== null)
+    ? new Set(listTemplates(db, { ...actor, facilityId }).map(template => template.id))
+    : new Set<number>()
+  return types.map((type) => {
     const linked = newest.get(`${employeeId}:${type.id}`) ?? null
     const status = requiredDocumentStatus(type.validityMonths, linked?.date ?? null, today)
     return {
-      typeId: type.id, name: type.name, folder: type.folder, validityMonths: type.validityMonths, templateId: type.templateId,
+      typeId: type.id, name: type.name, folder: type.folder, validityMonths: type.validityMonths,
+      templateId: type.templateId !== null && templates.has(type.templateId) ? type.templateId : null,
       state: status.state, date: status.date, expiresOn: status.expiresOn, documentId: linked?.id ?? null,
     }
   })
@@ -192,14 +216,17 @@ export function employeeRequiredDocuments(
 /**
  * „Hochladen“ in the box: a new document of the employee in the type's folder (the folder's key, the file checks of the
  * personnel file), titled as given or after the type, linked to the type (an active type of the facility, 404
- * required_type_not_found). Returns the document's id.
+ * required_type_not_found). A folder given (the fill view's save of „Ausfüllen“) must be the type's (400
+ * required_type_folder_mismatch). Returns the document's id.
  */
 export function uploadRequiredDocument(
   db: Db, actor: RequiredDocsActor, facilityId: number, employeeId: number, typeId: number,
-  meta: { title: string; documentDate: IsoDate; note: string }, file: { data: Buffer; filename: string }, now: Date = new Date(),
+  meta: { title: string; documentDate: IsoDate; note: string; folder?: EmployeeDocumentFolder }, file: { data: Buffer; filename: string },
+  now: Date = new Date(),
 ): number {
   const type = loadType(db, actor, facilityId, typeId)
   if (!type.active) throw new ServiceError(404, 'required_type_not_found')
+  if (meta.folder !== undefined && meta.folder !== type.folder) throw new ServiceError(400, 'required_type_folder_mismatch')
   return db.transaction((tx) => {
     const id = uploadEmployeeDocument(tx, actor, facilityId, employeeId, {
       folder: type.folder, title: meta.title.trim() || type.name, documentDate: meta.documentDate, note: meta.note,
@@ -249,7 +276,7 @@ export function missingRequiredDocuments(
   if (types.length === 0) return missing
   const staff = db.select({ id: employees.id, qualification: employees.qualification, leftOn: employees.leftOn }).from(employees)
     .where(eq(employees.facilityId, facilityId)).all().filter(person => person.leftOn === null || person.leftOn >= today)
-  const newest = newestLinked(db, staff.map(person => person.id))
+  const newest = newestLinked(db, staff.map(person => person.id), types)
   for (const person of staff) {
     const rows = applicableTypes(types, viewer, person.qualification).flatMap((type) => {
       const state = requiredDocumentStatus(type.validityMonths, newest.get(`${person.id}:${type.id}`)?.date ?? null, today).state
