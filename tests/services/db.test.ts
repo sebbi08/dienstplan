@@ -1426,7 +1426,8 @@ describe('upgrading a filled database through migrateDb', () => {
 
     expect(tables().filter(name => !before.includes(name))).toEqual(expect.arrayContaining(['form_editors', 'form_starter_seeds']))
     expect(count(sqlite, 'form_editors')).toBe(0)
-    expect(sqlite.prepare('SELECT facility_id, starter_key FROM form_starter_seeds ORDER BY facility_id, starter_key').all())
+    // (The marker of the example form categories, added by 0128 for every facility, is tested there.)
+    expect(sqlite.prepare(`SELECT facility_id, starter_key FROM form_starter_seeds WHERE starter_key <> 'categories' ORDER BY facility_id, starter_key`).all())
       .toEqual([{ facility_id: 1, starter_key: 'staff_assessment' }, { facility_id: 1, starter_key: 'staff_self_assessment' }])
     // The existing form keeps everything and gets empty child fields.
     expect(sqlite.prepare(`SELECT title, child_id, parent_meeting_id, form_date, form_start, form_participants FROM forms`).all())
