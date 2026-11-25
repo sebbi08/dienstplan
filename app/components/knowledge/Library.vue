@@ -6,9 +6,10 @@ import { targetHints } from '~/utils/documentTargets'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
 import {
-  chosenKnowledgeTab, knowledgeFileUrl, knowledgePlace, knowledgeTabs, linkHost, movableEntries, readKnowledgeTabMemory, searchKnowledge,
+  chosenKnowledgeTab, knowledgeFileUrl, knowledgePlace, knowledgeTabs, linkHost, readKnowledgeTabMemory, searchKnowledge,
   writeKnowledgeTabMemory,
 } from '~/utils/knowledge'
+import { moveInList } from '~/utils/consentSettings'
 import { focusOrderArrow, orderArrowId } from '~/utils/orderArrows'
 import { berlinDay } from '~/utils/printTemplates'
 import { itemGroups, searchGroups, subcategoryChip, type ItemGroup } from '~/utils/subcategories'
@@ -155,14 +156,16 @@ async function remove(entry: KnowledgeEntryDto) {
     run(() => $fetch<{ ok: boolean }>(`/api/knowledge/${entry.id}`, { method: 'DELETE' }), de.common.deleted)
   }
 }
-/** ▲/▼ among the facility's own entries of each list shown (a subcategory, or directly in the category); none in the search. */
-const movable = computed(() => new Map(sectionsShown.value.map(section => [section.key, section.group ? movableEntries(section.items) : []])))
-const movableIn = (section: EntrySection) => movable.value.get(section.key) ?? []
-async function move(entry: KnowledgeEntryDto, direction: -1 | 1) {
-  const body = { direction: direction < 0 ? 'up' : 'down' }
-  if (await run(() => $fetch<{ ok: boolean }>(`/api/knowledge/${entry.id}/move`, { method: 'POST', body }))) {
-    focusOrderArrow(`knowledge-${entry.id}`, direction)
-  }
+/**
+ * ▲/▼ within each list shown (a subcategory, the entries directly in the category, or „Vom Träger“), the Träger's entries
+ * as well (this facility's order); none in the search. The server takes the list's whole order as the editor sees it.
+ */
+async function move(section: EntrySection, index: number, direction: -1 | 1) {
+  const id = section.items[index]?.id
+  const ids = moveInList(section.items.map(entry => entry.id), index, direction)
+  if (!section.group || id === undefined || !ids) return
+  const body = { categoryId: section.group.groupId, ids }
+  if (await run(() => $fetch<{ ok: boolean }>('/api/knowledge/order', { method: 'POST', body }))) focusOrderArrow(`knowledge-${id}`, direction)
 }
 const presetCategoryId = computed(() => current.value?.category?.id ?? null)
 const presetSubcategoryId = computed(() => current.value?.subcategories.find(sub => subcategoryChip(sub.id) === chip.value)?.id ?? null)
@@ -285,17 +288,17 @@ const presetSubcategoryId = computed(() => current.value?.subcategories.find(sub
                       <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :label="de.common.edit" :disabled="busy" @click="openDialog(entry)" />
                       <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.common.delete" :disabled="busy" @click="remove(entry)" />
                     </template>
-                    <!-- ▲/▼ last, so they stay in the same place in every row; 40 px for a finger. Only the facility's own entries. -->
-                    <span v-if="entry.canEdit && movableIn(section).includes(entry)" role="group" :aria-label="`${t.order}: ${entry.title}`" class="flex items-center gap-1">
+                    <!-- ▲/▼ last, so they stay in the same place in every row; 40 px for a finger. Every entry of the list. -->
+                    <span v-if="section.group" role="group" :aria-label="`${t.order}: ${entry.title}`" class="flex items-center gap-1">
                       <UButton
                         :id="orderArrowId(`knowledge-${entry.id}`, -1)" color="neutral" variant="ghost" icon="i-lucide-arrow-up"
                         class="min-h-10 min-w-10 justify-center" :aria-label="`${t.moveUp}: ${entry.title}`" :title="t.moveUp"
-                        :disabled="busy || movableIn(section).indexOf(entry) === 0" @click="move(entry, -1)"
+                        :disabled="busy || section.items.indexOf(entry) === 0" @click="move(section, section.items.indexOf(entry), -1)"
                       />
                       <UButton
                         :id="orderArrowId(`knowledge-${entry.id}`, 1)" color="neutral" variant="ghost" icon="i-lucide-arrow-down"
                         class="min-h-10 min-w-10 justify-center" :aria-label="`${t.moveDown}: ${entry.title}`" :title="t.moveDown"
-                        :disabled="busy || movableIn(section).indexOf(entry) === movableIn(section).length - 1" @click="move(entry, 1)"
+                        :disabled="busy || section.items.indexOf(entry) === section.items.length - 1" @click="move(section, section.items.indexOf(entry), 1)"
                       />
                     </span>
                   </div>

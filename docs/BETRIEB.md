@@ -3114,10 +3114,15 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
 - Dazu: **Titel** (bis 120 Zeichen), **Beschreibung** (freiwillig, bis 500 Zeichen) und **„Stand vom“** (freiwillig; steht
   als Hinweis am Eintrag).
 - Das **Suchfeld** sucht in Titel, Beschreibung und Text aller Kategorien.
-- **Reihenfolge**: Die Einträge der Einrichtung lassen sich in ihrer Kategorie (bzw. Unterkategorie, oder unter
-  „Allgemein“) mit den Pfeilen **Nach oben / Nach unten** schieben; Einträge des Trägers für alle Einrichtungen stehen
-  danach, nach Titel. Unter **Alle** schieben die Pfeile innerhalb der jeweiligen Gruppe. Ein Eintrag, der in eine andere
-  Kategorie oder Unterkategorie kommt, steht dort am Ende.
+- **Reihenfolge**: Wer Wissen pflegen darf, schiebt jeden Eintrag in seiner Kategorie (bzw. Unterkategorie, unter
+  „Allgemein“ oder unter „Vom Träger“) mit den Pfeilen **Nach oben / Nach unten** – auch die Einträge des Trägers für
+  mehrere oder alle Einrichtungen. Die Reihenfolge gilt für die **oben gewählte Einrichtung** (jede Einrichtung hat ihre
+  eigene) und für alle, die dort lesen (Mitarbeiter und Tablet sehen dieselbe Reihenfolge, aber keine Pfeile). Unter
+  **Alle** schieben die Pfeile innerhalb der jeweiligen Gruppe. Ein **neuer** Eintrag kommt ans **Ende** seiner Liste (einer
+  des Trägers in jeder Einrichtung, in der er erscheint), ebenso einer, der in eine andere Kategorie oder Unterkategorie
+  kommt; nur Titel, Text oder Datei zu ändern lässt den Platz, wie er ist. Einträge, die jemand nicht sieht (z. B. „nur
+  Träger“), behalten beim Schieben ihren Platz. Beim Update auf diese Version behalten die eigenen Einträge ihre
+  Reihenfolge; die Einträge des Trägers stehen wie bisher danach nach Titel, bis jemand sie verschiebt.
 - **Für alle Einrichtungen** (nur der Träger): wie bei den Vorlagen mit einem **Kategorie-Namen**, freiwillig einem
   **Unterkategorie-Namen**, und eigenem „Wer sieht ihn?“. Jede Einrichtung zeigt den Eintrag in ihrer Unterkategorie mit
   diesem Namen, sonst direkt in der Kategorie mit diesem Namen (unter „Allgemein“), sonst unter **„Vom Träger“**; die

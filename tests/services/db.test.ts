@@ -2427,6 +2427,31 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('SELECT facility_id, template_id FROM print_template_order').all()).toEqual([{ facility_id: 1, template_id: 2 }])
   })
 
+  it('knowledge_entry_order adds the order of „Wissen“ per facility, starting with the own entries\' ▲/▼ order, gone with facility or entry', () => {
+    const { db, sqlite } = databaseAt('0123')
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      DELETE FROM knowledge_entries;
+      INSERT INTO knowledge_categories (id, facility_id, name) VALUES (901, 1, 'Eigenes'), (902, 2, 'Eigenes');
+      INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, sort_order, version_at, created_at, updated_at) VALUES
+        (1, 1, 901, 'link', 'B', 0, 'a', 'a', 'a'), (2, 1, 901, 'link', 'A', 1, 'a', 'a', 'a'), (3, 2, 902, 'link', 'K', 4, 'a', 'a', 'a');
+      INSERT INTO knowledge_entries (id, facility_id, category_name, kind, title, sort_order, version_at, created_at, updated_at) VALUES
+        (4, NULL, 'Eigenes', 'link', 'Träger', 0, 'a', 'a', 'a');
+    `)
+    migrateDb(db, MIGRATIONS)
+    // The own entries keep their places; the Träger's have none yet (they follow by title, as before).
+    expect(sqlite.prepare('SELECT facility_id, entry_id, sort_order FROM knowledge_entry_order ORDER BY entry_id').all()).toEqual([
+      { facility_id: 1, entry_id: 1, sort_order: 0 }, { facility_id: 1, entry_id: 2, sort_order: 1 }, { facility_id: 2, entry_id: 3, sort_order: 4 },
+    ])
+    expect(() => sqlite.exec('INSERT INTO knowledge_entry_order (facility_id, entry_id, sort_order) VALUES (1, 1, 5)')).toThrow(/UNIQUE|PRIMARY/)
+    expect(() => sqlite.exec('INSERT INTO knowledge_entry_order (facility_id, entry_id, sort_order) VALUES (1, 99, 5)')).toThrow(/FOREIGN KEY/)
+    sqlite.exec('INSERT INTO knowledge_entry_order (facility_id, entry_id, sort_order) VALUES (1, 4, 2), (2, 4, 0)')
+    sqlite.exec('DELETE FROM knowledge_entries WHERE id = 1')
+    sqlite.exec('DELETE FROM facilities WHERE id = 2')
+    expect(sqlite.prepare('SELECT facility_id, entry_id FROM knowledge_entry_order ORDER BY entry_id').all())
+      .toEqual([{ facility_id: 1, entry_id: 2 }, { facility_id: 1, entry_id: 4 }])
+  })
+
   it('0114 adds „Wissen“: categories per facility, entries, confirmations per person and the starter record, gone with their owners', () => {
     const { db, sqlite } = databaseAt('0113')
     sqlite.exec(`
@@ -2484,7 +2509,8 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     const { db, sqlite } = databaseAt('0114')
     const starter = (key: string) => KNOWLEDGE_STARTER_LINKS.find(link => link.key === key)!
     const law = (id: number, facilityId: number, categoryId: number, key: string, change: Partial<{ title: string; url: string }> = {}) => {
-      const link = { ...starter(key), ...change }
+      // The address the starter had when 0115 ran (the KiTaG link moved to the portal's permalink later).
+      const link = { ...starter(key), url: starter(key).formerUrls?.[0] ?? starter(key).url, ...change }
       sqlite.prepare(`INSERT INTO knowledge_entries (id, facility_id, category_id, kind, title, description, url, starter_key, sort_order, version_at, created_at, updated_at)
         VALUES (?, ?, ?, 'link', ?, ?, ?, ?, ?, 'a', 'a', 'a')`).run(id, facilityId, categoryId, link.title, link.description, link.url, key, id)
     }

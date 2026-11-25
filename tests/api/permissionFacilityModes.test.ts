@@ -27,7 +27,7 @@ const ACTIVE = [
   'contact-categories/[id]/move.post.ts',
   // „Wissen“ (like the address book): read and confirmed by every account and the tablet, maintained in the active facility.
   'knowledge/index.get.ts', 'knowledge/index.post.ts', 'knowledge/[id].put.ts', 'knowledge/[id].delete.ts', 'knowledge/[id]/file.get.ts',
-  'knowledge/[id]/move.post.ts', 'knowledge/[id]/confirm.post.ts', 'knowledge/[id]/confirmations.get.ts', 'knowledge/open-count.get.ts',
+  'knowledge/order.post.ts', 'knowledge/[id]/confirm.post.ts', 'knowledge/[id]/confirmations.get.ts', 'knowledge/open-count.get.ts',
   'knowledge/targets.get.ts',
   'knowledge-categories/index.post.ts', 'knowledge-categories/[id].put.ts', 'knowledge-categories/[id].delete.ts',
   'knowledge-categories/[id]/move.post.ts',

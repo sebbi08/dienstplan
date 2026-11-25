@@ -55,9 +55,6 @@ export function searchKnowledge(entries: readonly KnowledgeEntryDto[], query: st
   return entries.filter(entry => knowledgeMatches(entry, query))
 }
 
-/** The facility's own entries of a list (a subcategory, or directly in the category), which ▲/▼ moves (the Träger's follow them by title). */
-export const movableEntries = (entries: readonly KnowledgeEntryDto[]): KnowledgeEntryDto[] => entries.filter(entry => !entry.global)
-
 /** Where the PDF of a file entry is served (shown in the browser). */
 export const knowledgeFileUrl = (id: number): string => `/api/knowledge/${id}/file`
 

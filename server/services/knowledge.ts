@@ -19,7 +19,9 @@ import type {
   KnowledgeConfirmResultDto, KnowledgeDto, KnowledgeEntryDto, KnowledgeEntryInput, Role, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, entries, facilities, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeStarterSeeds, users } from '../db/schema'
+import {
+  employees, entries, facilities, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeEntryOrder, knowledgeStarterSeeds, users,
+} from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
@@ -186,12 +188,14 @@ const ofFacility = (facilityId: number) => or(eq(knowledgeEntries.facilityId, fa
 
 /**
  * Where an entry shows in the facility: its category and subcategory there (category null = „Vom Träger“), the name to
- * show („Kategorie › Unterkategorie“; for „Vom Träger“ the names the Träger chose), the visibilities that apply and its
- * „Gilt für“ (for the groups).
+ * show („Kategorie › Unterkategorie“; for „Vom Träger“ the names the Träger chose), the visibilities that apply, its
+ * „Gilt für“ (for the groups) and the list it is ordered in (`groupId`: the subcategory, else the category, null for „Vom
+ * Träger“).
  */
 interface Placement {
   facilityId: number
   spot: CategorySpot<CategoryRow>
+  groupId: number | null
   name: string
   subName: string
   visibility: TemplateVisibility[]
@@ -222,7 +226,10 @@ function placer(
     if (!spot) return null
     const name = spot.category?.name ?? row.categoryName ?? ''
     const subName = spot.subcategory?.name ?? (spot.category ? '' : row.subcategoryName ?? '')
-    return { facilityId, spot, name, subName, visibility: [...spotVisibilities(spot), row.visibility], targets: itemTargets }
+    return {
+      facilityId, spot, groupId: spot.subcategory?.id ?? spot.category?.id ?? null, name, subName,
+      visibility: [...spotVisibilities(spot), row.visibility], targets: itemTargets,
+    }
   }
 }
 
@@ -237,31 +244,87 @@ const audienceOf = (viewer: { role: Role; homeGroupId?: number | null }): Audien
 const mayEdit = (viewer: Pick<SessionUser, 'permissions'>, row: Pick<EntryRow, 'facilityId'>) =>
   row.facilityId === null ? can(viewer.permissions, 'knowledge.global') : manages(viewer)
 
-type Placed = { row: EntryRow; placement: Placement }
+/** An entry placed in one of the facility's lists, with its place there (knowledge_entry_order; none = not ordered yet). */
+type Placed = { row: EntryRow; placement: Placement; order: number | undefined }
 
 /**
  * By category (in the facility's order, „Vom Träger“ last; within a category the entries directly in it first, then by
- * subcategory), the facility's own entries first (▲/▼), then by title.
+ * subcategory); within a list the entries ordered with ▲/▼ (or filed there since) by their place, then those without a
+ * place alphabetical („Vom Träger“ by the category name the Träger chose first), as they were listed before.
  */
 function compareEntries(a: Placed, b: Placed): number {
-  const own = (entry: Placed) => (entry.row.facilityId === null ? 1 : 0)
   return compareSpots(a.placement.spot, b.placement.spot)
+    || Number(a.order === undefined) - Number(b.order === undefined) || (a.order ?? 0) - (b.order ?? 0)
     || (a.placement.spot.category === null
       ? a.placement.name.localeCompare(b.placement.name, 'de') || a.placement.subName.localeCompare(b.placement.subName, 'de')
       : 0)
-    || own(a) - own(b) || (own(a) === 0 ? a.row.sortOrder - b.row.sortOrder : 0)
     || a.row.title.localeCompare(b.row.title, 'de') || a.row.id - b.row.id
+}
+
+/**
+ * Every entry for the facility in its list and order, also those a viewer may not see (the caller filters with
+ * seesPlacement); with `orphans` also the Träger's entries without facilities (under „Vom Träger“).
+ */
+function placedEntries(db: Db, facilityId: number, categories: readonly CategoryRow[], orphans: boolean): Placed[] {
+  const orders = new Map(db.select({ entryId: knowledgeEntryOrder.entryId, sortOrder: knowledgeEntryOrder.sortOrder })
+    .from(knowledgeEntryOrder).where(eq(knowledgeEntryOrder.facilityId, facilityId)).all()
+    .map(row => [row.entryId, row.sortOrder]))
+  const rows = db.select(ENTRY_COLUMNS).from(knowledgeEntries).where(ofFacility(facilityId)).all()
+  const place = placer(facilityId, categories, loadTargets(db, 'knowledge', rows), orphans)
+  return rows
+    .map(row => ({ row, placement: place(row), order: orders.get(row.id) }))
+    .filter((entry): entry is Placed => entry.placement !== null)
+    .sort(compareEntries)
 }
 
 /** The entries for the facility the viewer sees, placed and in order. */
 function visibleEntries(db: Db, viewer: Pick<KnowledgeViewer, 'role' | 'permissions' | 'facilityId' | 'homeGroupId'>, categories: readonly CategoryRow[]): Placed[] {
-  const rows = db.select(ENTRY_COLUMNS).from(knowledgeEntries).where(ofFacility(viewer.facilityId)).all()
-  const place = placer(viewer.facilityId, categories, loadTargets(db, 'knowledge', rows), can(viewer.permissions, 'knowledge.global'))
   const audience = audienceOf(viewer)
-  return rows
-    .map(row => ({ row, placement: place(row) }))
-    .filter((entry): entry is Placed => seesPlacement(audience, entry.placement))
-    .sort(compareEntries)
+  return placedEntries(db, viewer.facilityId, categories, can(viewer.permissions, 'knowledge.global'))
+    .filter(entry => seesPlacement(audience, entry.placement))
+}
+
+/** Numbers the facility's list afresh in the given order (0, 1, …). */
+function writeOrder(db: Db, facilityId: number, ids: readonly number[]): void {
+  ids.forEach((entryId, sortOrder) => {
+    db.insert(knowledgeEntryOrder).values({ facilityId, entryId, sortOrder })
+      .onConflictDoUpdate({ target: [knowledgeEntryOrder.facilityId, knowledgeEntryOrder.entryId], set: { sortOrder } }).run()
+  })
+}
+
+/**
+ * Puts the entry at the end of its list in the facility (new, filed elsewhere, or newly for this facility). The others
+ * keep the order they show in, so those without a place get one (else they would sort after the new one).
+ */
+function appendToList(db: Db, facilityId: number, entryId: number): void {
+  const placed = placedEntries(db, facilityId, facilityKnowledgeCategories(db, facilityId), true)
+  const self = placed.find(entry => entry.row.id === entryId)
+  if (!self) return
+  const others = placed.filter(entry => entry.row.id !== entryId && entry.placement.groupId === self.placement.groupId)
+  writeOrder(db, facilityId, [...others.map(entry => entry.row.id), entryId])
+}
+
+/** Where the entry shows in each facility it is for: facility → its list there (undefined = nowhere). */
+function listsOf(db: Db, row: PlacedRow & { allFacilities: boolean }): Map<number, number | null | undefined> {
+  const targets = targetsOf(db, 'knowledge', row)
+  const all = new Map([[row.id, targets]])
+  return new Map(facilitiesInScope(db, row, targets)
+    .map(facilityId => [facilityId, placer(facilityId, facilityKnowledgeCategories(db, facilityId), all)(row)?.groupId]))
+}
+
+/**
+ * After saving an entry: at the end of its list in every facility where it lands in another list or shows newly; a
+ * facility it no longer shows in forgets its place.
+ */
+function reorderAfterFiling(db: Db, before: ReadonlyMap<number, number | null | undefined>, row: PlacedRow & { allFacilities: boolean }): void {
+  const after = listsOf(db, row)
+  for (const [facilityId, list] of after) {
+    if (list !== undefined && (!before.has(facilityId) || before.get(facilityId) !== list)) appendToList(db, facilityId, row.id)
+  }
+  const losing = [...before.keys()].filter(facilityId => after.get(facilityId) === undefined)
+  if (losing.length > 0) {
+    db.delete(knowledgeEntryOrder).where(and(eq(knowledgeEntryOrder.entryId, row.id), inArray(knowledgeEntryOrder.facilityId, losing))).run()
+  }
 }
 
 /** The person who confirms with this account: its linked employee (null without one, and at the tablet). */
@@ -461,17 +524,10 @@ function fileColumns(kind: KnowledgeEntryInput['kind'], file: { data: Buffer } |
   return { fileData: file.data, fileMime: checkedPdf(file.data), fileSize: file.data.length }
 }
 
-/** The next place at the end of the facility's own entries in the category or subcategory (not counting its subcategories). */
-function nextSortOrder(db: Db, categoryId: number | null): number {
-  if (categoryId === null) return 0
-  const rows = db.select({ sortOrder: knowledgeEntries.sortOrder }).from(knowledgeEntries).where(eq(knowledgeEntries.categoryId, categoryId)).all()
-  return rows.reduce((max, row) => Math.max(max, row.sortOrder + 1), 0)
-}
-
 /**
  * A new entry: of the actor's facility (knowledge.manage), or of the Träger for all or the chosen facilities (scope
  * 'all' / 'selected', knowledge.global); with „Gilt für“ (groups; for the Träger also facilities) and who sees it. A
- * file entry needs its PDF. Returns its id.
+ * file entry needs its PDF. It goes to the end of its list in every facility it shows in. Returns its id.
  */
 export function createKnowledgeEntry(
   db: Db, actor: KnowledgeActor, input: KnowledgeEntryInput, file: { data: Buffer } | null, now: Date = new Date(),
@@ -490,11 +546,12 @@ export function createKnowledgeEntry(
   return db.transaction((tx) => {
     const id = tx.insert(knowledgeEntries).values({
       ...fields, ...filed, ...files, visibility, allFacilities: targets.allFacilities, facilityId: own ? actor.facilityId : null,
-      sortOrder: nextSortOrder(tx, filed.categoryId), version: 1, versionAt: at, createdAt: at, createdBy: actor.id, updatedAt: at,
+      version: 1, versionAt: at, createdAt: at, createdBy: actor.id, updatedAt: at,
       updatedBy: actor.id,
     }).returning({ id: knowledgeEntries.id }).get().id
     writeTargets(tx, 'knowledge', id, targets)
     if (input.createCategories && !own) adoptCategories(tx, actor, { id, facilityId: null, allFacilities: targets.allFacilities }, filed)
+    reorderAfterFiling(tx, new Map(), { id, facilityId: own ? actor.facilityId : null, ...filed, visibility, allFacilities: targets.allFacilities })
     return id
   })
 }
@@ -513,7 +570,8 @@ function loadEditable(db: Db, actor: KnowledgeActor, id: number): EntryRow {
  * asked again; title, description, „Stand vom“, the category, who sees it and „Gilt für“ do not (confirmations stay).
  * „Gilt für“: a facility's entry keeps its facility (its groups may change, Leitung too); the Träger may turn it into
  * one for all or the chosen facilities (filed by name) and back into the active facility's own; without `scope` it
- * stays as it is. Filed in another category or subcategory, the facility's entry goes to the end there.
+ * stays as it is. Where it lands in another list (category or subcategory) or newly shows in a facility, it goes to the
+ * end there; a facility it no longer shows in forgets its place.
  */
 export function updateKnowledgeEntry(
   db: Db, actor: KnowledgeActor, id: number, input: KnowledgeEntryInput, file: { data: Buffer } | null, now: Date = new Date(),
@@ -534,16 +592,16 @@ export function updateKnowledgeEntry(
   const keepsFile = input.kind === 'file' && row.kind === 'file' && file === null
   const files = keepsFile ? {} : fileColumns(input.kind, file)
   const changed = fields.kind !== row.kind || file !== null || fields.url !== row.url || fields.body !== row.body
-  const moved = filed.categoryId !== row.categoryId
+  const before = listsOf(db, row)
   db.transaction((tx) => {
     tx.update(knowledgeEntries).set({
       ...fields, ...filed, ...files, facilityId, visibility, allFacilities: targets.allFacilities,
-      ...(moved ? { sortOrder: nextSortOrder(tx, filed.categoryId) } : {}),
       ...(changed ? { version: row.version + 1, versionAt: now.toISOString() } : {}),
       updatedAt: now.toISOString(), updatedBy: actor.id,
     }).where(eq(knowledgeEntries.id, id)).run()
     writeTargets(tx, 'knowledge', id, targets)
     if (input.createCategories && !own) adoptCategories(tx, actor, { id, facilityId: null, allFacilities: targets.allFacilities }, filed)
+    reorderAfterFiling(tx, before, { id, facilityId, ...filed, visibility, allFacilities: targets.allFacilities })
   })
 }
 
@@ -554,27 +612,30 @@ export function deleteKnowledgeEntry(db: Db, actor: KnowledgeActor, id: number):
 }
 
 /**
- * ▲/▼: swaps a facility's own entry with its neighbour among the facility's own entries of the same category or
- * subcategory (the Träger's entries for all facilities follow them, by title); at an end nothing changes. Its own entries
- * are numbered afresh.
+ * ▲/▼: the new order of a list of the actor's facility – a subcategory, the entries directly in a category (by the
+ * category's id), or null for „Vom Träger“ – of a category they see, as the editor sees it: exactly the entries of the
+ * list the actor sees, each once (else 400 invalid_order), the facility's own and the Träger's alike. Entries the actor
+ * does not see keep their places in between. For an entry of the Träger this is the order of this facility alone; the
+ * Leitung may order them too (knowledge.manage of the facility, else 403).
  */
-export function moveKnowledgeEntry(db: Db, actor: KnowledgeActor, id: number, direction: 'up' | 'down'): void {
-  const row = loadEditable(db, actor, id)
-  if (row.facilityId === null || row.categoryId === null) throw new ServiceError(400, 'knowledge_entry_not_movable')
-  const own = db.select({ id: knowledgeEntries.id, sortOrder: knowledgeEntries.sortOrder, title: knowledgeEntries.title })
-    .from(knowledgeEntries).where(eq(knowledgeEntries.categoryId, row.categoryId)).all()
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, 'de') || a.id - b.id)
-  const at = own.findIndex(entry => entry.id === id)
-  const other = direction === 'up' ? at - 1 : at + 1
-  if (other < 0 || other >= own.length) return
-  const swapped = [...own]
-  swapped[at] = own[other]!
-  swapped[other] = own[at]!
-  db.transaction((tx) => {
-    swapped.forEach((entry, index) => {
-      if (entry.sortOrder !== index) tx.update(knowledgeEntries).set({ sortOrder: index }).where(eq(knowledgeEntries.id, entry.id)).run()
-    })
-  })
+export function orderKnowledgeEntries(db: Db, actor: KnowledgeActor, categoryId: number | null, ids: readonly number[]): void {
+  assertManager(actor)
+  const all = facilityKnowledgeCategories(db, actor.facilityId)
+  if (categoryId !== null) {
+    const category = all.find(row => row.id === categoryId)
+    if (!category || !seesCategoryNode(actor.role, category, all)) throw new ServiceError(404, 'knowledge_category_not_found')
+  }
+  const audience = audienceOf(actor)
+  const list = placedEntries(db, actor.facilityId, all, can(actor.permissions, 'knowledge.global'))
+    .filter(entry => entry.placement.groupId === categoryId)
+  const visible = new Set(list.filter(entry => seesPlacement(audience, entry.placement)).map(entry => entry.row.id))
+  if (ids.length !== visible.size || new Set(ids).size !== ids.length || !ids.every(id => visible.has(id))) {
+    throw new ServiceError(400, 'invalid_order')
+  }
+  // The visible ones take the visible places in the new order, the hidden ones stay put.
+  let next = 0
+  const order = list.map(entry => (visible.has(entry.row.id) ? ids[next++]! : entry.row.id))
+  db.transaction(tx => writeOrder(tx, actor.facilityId, order))
 }
 
 // ---- „Gelesen und verstanden“ ----------------------------------------------
@@ -768,10 +829,12 @@ export function seedKnowledgeStarters(db: Db, facilityId: number, now: Date = ne
     if (target && inState(link.states)) {
       const entryId = db.insert(knowledgeEntries).values({
         facilityId, categoryId: target.id, kind: 'link', title: link.title, description: link.description, url: link.url,
-        starterKey: link.key, sortOrder: nextSortOrder(db, target.id), versionAt: at, createdAt: at, updatedAt: at,
+        starterKey: link.key, versionAt: at, createdAt: at, updatedAt: at,
       }).returning({ id: knowledgeEntries.id }).get().id
       // „Gilt für“: the facility, all groups.
       writeTargets(db, 'knowledge', entryId, { scope: 'facility', allFacilities: false, rows: [{ facilityId, allGroups: true }], groupIds: [] })
+      // At the end of its list, so the starters keep the order they are listed in here.
+      appendToList(db, facilityId, entryId)
     }
     record(link.key)
   }

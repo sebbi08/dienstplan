@@ -3744,7 +3744,6 @@ export const de = {
     document_targets_no_group: 'Bitte unter „Gilt für“ mindestens eine Gruppe wählen (oder „alle Gruppen“).',
     document_targets_invalid: 'Die Auswahl bei „Gilt für“ passt nicht: Bitte wähle mindestens eine Einrichtung und bei eingeschränkten Einrichtungen mindestens eine ihrer Gruppen.',
     knowledge_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung, nicht zu einer anderen Unterkategorie.',
-    knowledge_entry_not_movable: 'Einträge des Trägers für alle Einrichtungen stehen nach den eigenen, nach Titel.',
     knowledge_no_employee: 'Bestätigen geht nur mit einem Zugang, der mit einem Mitarbeiter verknüpft ist – oder am Tablet mit deiner PIN.',
     knowledge_confirmation_not_needed: 'Für diesen Eintrag ist keine Bestätigung nötig.',
     knowledge_entry_changed: 'Der Eintrag wurde inzwischen geändert. Bitte lies ihn noch einmal und bestätige dann.',

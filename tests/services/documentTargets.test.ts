@@ -415,7 +415,7 @@ describe('„Gilt für“: facilities and groups of Vorlagen and „Wissen“', 
         'print-templates/index.get.ts', 'print-templates/[id]/file.get.ts', 'print-templates/[id].put.ts', 'print-templates/[id].delete.ts',
         'print-templates/[id]/file.put.ts', 'print-templates/order.post.ts', 'template-categories/index.get.ts', 'knowledge/index.get.ts',
         'knowledge/open-count.get.ts', 'knowledge/[id]/file.get.ts', 'knowledge/[id]/confirm.post.ts', 'knowledge/[id]/confirmations.get.ts',
-        'knowledge/[id]/move.post.ts', 'knowledge/[id].put.ts', 'knowledge/[id].delete.ts',
+        'knowledge/order.post.ts', 'knowledge/[id].put.ts', 'knowledge/[id].delete.ts',
         'contacts/index.get.ts', 'contacts/staff-count.get.ts',
       ]
       for (const route of routes) {

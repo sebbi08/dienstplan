@@ -2160,6 +2160,19 @@ export const knowledgeStarterSeeds = sqliteTable('knowledge_starter_seeds', {
 }, table => [primaryKey({ columns: [table.facilityId, table.starterKey] })])
 
 /**
+ * The order of the entries of „Wissen“ per facility (▲/▼), like print_template_order: an entry of the Träger can sit
+ * differently in each facility it shows in. Within a list (a subcategory, the entries directly in a category, or „Vom
+ * Träger“) the entries with a row come first by `sortOrder`, then those without one by title. Rows are written when
+ * someone orders a list or an entry is filed there anew; they go with the facility or the entry. (The entries' own
+ * `sort_order` column is no longer read; the migration copied it here.)
+ */
+export const knowledgeEntryOrder = sqliteTable('knowledge_entry_order', {
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  entryId: integer('entry_id').notNull().references(() => knowledgeEntries.id, { onDelete: 'cascade' }),
+  sortOrder: integer('sort_order').notNull(),
+}, table => [primaryKey({ columns: [table.facilityId, table.entryId] }), index('knowledge_entry_order_entry').on(table.entryId)])
+
+/**
  * Schulbezirke: a street list that says which primary school district a house number belongs to. One own list per
  * facility (`facilityId`), plus at most one list of the Träger for all facilities (`facilityId` null); a facility's own
  * list wins over the Träger's. The lists hold no personal data; children are matched on read

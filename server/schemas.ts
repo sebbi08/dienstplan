@@ -1005,6 +1005,11 @@ export const knowledgeCategoryUpdateSchema = z.object({
   name: z.string().max(KNOWLEDGE_LIMITS.categoryName), visibility: z.enum(TEMPLATE_VISIBILITIES),
 }).strict()
 export const knowledgeCategorySchema = knowledgeCategoryUpdateSchema.extend({ parentId: z.number().int().positive().nullish() })
+/** ▲/▼ in „Wissen“: the new order of one list – a subcategory, a category's own entries (its id), or null for „Vom Träger“. */
+export const knowledgeOrderSchema = z.object({
+  categoryId: z.number().int().positive().nullable(),
+  ids: z.array(z.number().int().positive()).max(500),
+})
 /**
  * „Gelesen und verstanden“: the version the reader was shown, and at the tablet the person and their PIN (an own account
  * confirms for its linked employee).

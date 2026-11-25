@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chosenKnowledgeTab, knowledgePlace, knowledgeTabs, linkHost, movableEntries, needsMyConfirmation, peopleByState, searchKnowledge,
+  chosenKnowledgeTab, knowledgePlace, knowledgeTabs, linkHost, needsMyConfirmation, peopleByState, searchKnowledge,
 } from '../../app/utils/knowledge'
 import {
   KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES, checkedAsOf, checkedKnowledgeUrl, confirmState, knowledgeMatches,
@@ -81,7 +81,6 @@ describe('the page „Wissen“', () => {
     const entries = [entry(1, 2), entry(2, 1), entry(3, 2, { global: true })]
     const tabs = knowledgeTabs(categories, entries)
     expect(tabs.map(tab => [tab.key, tab.entries.map(item => item.id)])).toEqual([['category-1', [2]], ['category-2', [1, 3]]])
-    expect(movableEntries(tabs[1]!.entries).map(item => item.id)).toEqual([1])
     const withProvider = knowledgeTabs(categories, [...entries, entry(4, null)])
     expect(withProvider.at(-1)).toMatchObject({ key: 'provider', category: null })
     expect(chosenKnowledgeTab(tabs, 'category-2')).toBe('category-2')

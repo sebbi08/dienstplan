@@ -1,12 +1,14 @@
 import { and, eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employees, entries, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeStarterSeeds } from '../../server/db/schema'
+import {
+  employees, entries, knowledgeCategories, knowledgeConfirmations, knowledgeEntries, knowledgeEntryOrder, knowledgeStarterSeeds,
+} from '../../server/db/schema'
 import { deleteAssessmentData, deleteImmediateData } from '../../server/services/employeeDeletion'
 import { createFacility } from '../../server/services/facilities'
 import {
   confirmAtTablet, confirmKnowledge, confirmWithAccount, createKnowledgeCategory, createKnowledgeEntry, deleteKnowledgeCategory, deleteKnowledgeEntry,
-  globalKnowledgeCategoryNames, confirmationOverview as overview, listKnowledge, moveKnowledgeCategory, moveKnowledgeEntry,
+  globalKnowledgeCategoryNames, confirmationOverview as overview, listKnowledge, moveKnowledgeCategory, orderKnowledgeEntries,
   correctKnowledgeStarterUrls, openKnowledgeCount, readKnowledgeFile, seedPendingKnowledgeStarters, updateKnowledgeCategory, updateKnowledgeEntry,
 } from '../../server/services/knowledge'
 import { setPin } from '../../server/services/terminal'
@@ -229,21 +231,52 @@ describe('„Wissen“ (knowledge library)', () => {
       expect(errorCode(() => createKnowledgeEntry(db, leitung, text(`<p>${'<b></b>'.repeat(6000)}x</p>`), null, NOW))).toBe('knowledge_body_too_long')
     })
 
-    it('orders the facility\'s own entries with ▲/▼, the Träger\'s entries after them by title', () => {
+    it('orders every entry of a list with ▲/▼, the Träger\'s too, per facility; new ones go to the end', () => {
+      const krippe = addFacility(db, 'Krippe')
+      db.delete(knowledgeEntries).run()
       const hygiene = categoryId('Hygiene & Gesundheit')
       const a = createKnowledgeEntry(db, leitung, link(hygiene, { title: 'A' }), null, NOW)
       const b = createKnowledgeEntry(db, leitung, link(hygiene, { title: 'B' }), null, NOW)
-      const c = createKnowledgeEntry(db, leitung, link(hygiene, { title: 'C' }), null, NOW)
       const global = createKnowledgeEntry(db, provider, link(undefined, { scope: 'all', categoryName: 'Hygiene & Gesundheit', title: '0 Träger' }), null, NOW)
-      moveKnowledgeEntry(db, leitung, c, 'up')
-      moveKnowledgeEntry(db, leitung, a, 'up')
-      expect(titles(staff)).toEqual(['A', 'C', 'B', '0 Träger'])
-      moveKnowledgeEntry(db, leitung, b, 'down')
-      expect(titles(staff)).toEqual(['A', 'C', 'B', '0 Träger'])
-      expect(errorCode(() => moveKnowledgeEntry(db, provider, global, 'up'))).toBe('knowledge_entry_not_movable')
-      // A new entry goes to the end of the facility's own ones.
-      createKnowledgeEntry(db, leitung, link(hygiene, { title: 'D' }), null, NOW)
-      expect(titles(staff)).toEqual(['A', 'C', 'B', 'D', '0 Träger'])
+      const ids = () => listKnowledge(db, leitung).entries.map(entry => entry.id)
+      // A new entry, the Träger's as well, goes to the end of its list in every facility it shows in.
+      expect(ids()).toEqual([a, b, global])
+      orderKnowledgeEntries(db, leitung, hygiene, [global, b, a])
+      expect(titles(staff)).toEqual(['0 Träger', 'B', 'A'])
+      // The Träger's entry keeps its own place in the other facility (this order is the facility's alone).
+      const krippeOwn = createKnowledgeEntry(db, as('admin', krippe), link(categoryId('Hygiene & Gesundheit', krippe), { title: 'K' }), null, NOW)
+      expect(listKnowledge(db, as('admin', krippe)).entries.map(entry => entry.id)).toEqual([global, krippeOwn])
+      orderKnowledgeEntries(db, as('admin', krippe), categoryId('Hygiene & Gesundheit', krippe), [krippeOwn, global])
+      expect(titles(staff)).toEqual(['0 Träger', 'B', 'A'])
+      const d = createKnowledgeEntry(db, leitung, link(hygiene, { title: 'D' }), null, NOW)
+      expect(ids()).toEqual([global, b, a, d])
+      // Exactly the list's entries the editor sees, each once.
+      for (const wrong of [[global, b, a], [global, b, a, d, d], [global, b, a, krippeOwn], [global, b, a, d, 999]]) {
+        expect(errorCode(() => orderKnowledgeEntries(db, leitung, hygiene, wrong)), JSON.stringify(wrong)).toBe('invalid_order')
+      }
+      // Another facility's category and a Mitarbeiter are refused; the order is the facility's (rows per facility).
+      expect(errorCode(() => orderKnowledgeEntries(db, leitung, categoryId('Hygiene & Gesundheit', krippe), [krippeOwn, global]))).toBe('knowledge_category_not_found')
+      expect(errorCode(() => orderKnowledgeEntries(db, staff, hygiene, [global, b, a, d]))).toBe('forbidden')
+      expect(db.select().from(knowledgeEntryOrder).where(eq(knowledgeEntryOrder.entryId, global)).all().map(row => [row.facilityId, row.sortOrder]).sort())
+        .toEqual([[1, 0], [krippe, 1]])
+    })
+
+    it('keeps hidden entries in place when the Leitung orders a list, and orders „Vom Träger“', () => {
+      db.delete(knowledgeEntries).run()
+      const hygiene = categoryId('Hygiene & Gesundheit')
+      const a = createKnowledgeEntry(db, leitung, link(hygiene, { title: 'A' }), null, NOW)
+      const hidden = createKnowledgeEntry(db, provider, link(undefined, { scope: 'all', categoryName: 'Hygiene & Gesundheit', title: 'Nur Träger', visibility: 'provider' }), null, NOW)
+      const b = createKnowledgeEntry(db, leitung, link(hygiene, { title: 'B' }), null, NOW)
+      expect(listKnowledge(db, provider).entries.map(entry => entry.id)).toEqual([a, hidden, b])
+      // The Leitung does not see the Träger's own entry: ordering her two leaves it on its place.
+      expect(errorCode(() => orderKnowledgeEntries(db, leitung, hygiene, [b, hidden, a]))).toBe('invalid_order')
+      orderKnowledgeEntries(db, leitung, hygiene, [b, a])
+      expect(listKnowledge(db, provider).entries.map(entry => entry.id)).toEqual([b, hidden, a])
+      // „Vom Träger“ (null): entries of the Träger without a category of their name here.
+      const x = createKnowledgeEntry(db, provider, link(undefined, { scope: 'all', categoryName: 'Qualität', title: 'X' }), null, NOW)
+      const y = createKnowledgeEntry(db, provider, link(undefined, { scope: 'all', categoryName: 'Qualität', title: 'Y' }), null, NOW)
+      orderKnowledgeEntries(db, leitung, null, [y, x])
+      expect(titles(staff).slice(-2)).toEqual(['Y', 'X'])
     })
 
     it('deletes a category only while the facility has no entry in it; the Träger\'s entries move to „Vom Träger“', () => {
@@ -549,11 +582,10 @@ describe('„Wissen“ (knowledge library)', () => {
       createKnowledgeEntry(db, leitung, link(bund, { title: 'B' }), null, NOW)
       createKnowledgeEntry(db, leitung, link(bw, { title: 'Land' }), null, NOW)
       createKnowledgeEntry(db, leitung, link(categoryId('Gesetze & Vorgaben'), { title: 'Direkt' }), null, NOW)
-      moveKnowledgeEntry(db, leitung, a, 'down')
+      orderKnowledgeEntries(db, leitung, bund, [listKnowledge(db, leitung).entries.find(entry => entry.title === 'B')!.id, a])
       expect(titles(leitung)).toEqual(['Direkt', 'B', 'A', 'Land'])
-      // At the end of its subcategory nothing changes (the next list is another one).
-      moveKnowledgeEntry(db, leitung, a, 'down')
-      expect(titles(leitung)).toEqual(['Direkt', 'B', 'A', 'Land'])
+      // A list is one subcategory: the entries directly in the category or in another subcategory do not belong to it.
+      expect(errorCode(() => orderKnowledgeEntries(db, leitung, bund, [a]))).toBe('invalid_order')
       updateKnowledgeEntry(db, leitung, a, link(bw, { title: 'A' }), null, NOW)
       expect(titles(leitung)).toEqual(['Direkt', 'B', 'Land', 'A'])
       expect(listKnowledge(db, leitung).entries.find(entry => entry.id === a)).toMatchObject({ categoryId: categoryId('Gesetze & Vorgaben'), subcategoryId: bw })
