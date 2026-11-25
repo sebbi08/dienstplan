@@ -7,7 +7,7 @@ import { createFacility } from '../../server/services/facilities'
 import {
   confirmAtTablet, confirmKnowledge, confirmWithAccount, createKnowledgeCategory, createKnowledgeEntry, deleteKnowledgeCategory, deleteKnowledgeEntry,
   globalKnowledgeCategoryNames, confirmationOverview as overview, listKnowledge, moveKnowledgeCategory, moveKnowledgeEntry,
-  openKnowledgeCount, readKnowledgeFile, seedPendingKnowledgeStarters, updateKnowledgeCategory, updateKnowledgeEntry,
+  correctKnowledgeStarterUrls, openKnowledgeCount, readKnowledgeFile, seedPendingKnowledgeStarters, updateKnowledgeCategory, updateKnowledgeEntry,
 } from '../../server/services/knowledge'
 import { setPin } from '../../server/services/terminal'
 import { KNOWLEDGE_STARTER_CATEGORIES, KNOWLEDGE_STARTER_LINKS, KNOWLEDGE_STARTER_SUBCATEGORIES } from '../../shared/domain/knowledge'
@@ -84,6 +84,30 @@ describe('„Wissen“ (knowledge library)', () => {
       seedPendingKnowledgeStarters(db, NOW)
       expect(titles(leitung).some(title => title.startsWith('§ 832'))).toBe(false)
       expect(seedPendingKnowledgeStarters(db, NOW)).toBe(0)
+    })
+
+    it('points a starter link still on its former address to the current one, leaving edited links and copies alone', () => {
+      const kitag = KNOWLEDGE_STARTER_LINKS.find(link => link.key === 'link:kitag-bw')!
+      const former = kitag.formerUrls![0]!
+      expect(kitag.url).toBe('https://www.landesrecht-bw.de/perma?a=KiTaG_BW')
+      const krippe = addFacility(db, 'Krippe')
+      const kitagOf = (facilityId: number) => db.select().from(knowledgeEntries)
+        .where(and(eq(knowledgeEntries.facilityId, facilityId), eq(knowledgeEntries.starterKey, 'link:kitag-bw'))).get()!
+      // As an earlier version seeded them: facility 1 unchanged, the Krippe's link edited by hand.
+      db.update(knowledgeEntries).set({ url: former }).where(eq(knowledgeEntries.id, kitagOf(1).id)).run()
+      db.update(knowledgeEntries).set({ url: 'https://www.example.de/kitag' }).where(eq(knowledgeEntries.id, kitagOf(krippe).id)).run()
+      // A copy of the old address without the starter key (typed in by hand) is not a starter.
+      const copy = createKnowledgeEntry(db, leitung, link(categoryId('Kinderschutz'), { url: former }), null, NOW)
+      const before = kitagOf(1)
+      expect(correctKnowledgeStarterUrls(db)).toBe(1)
+      expect(kitagOf(1)).toEqual({ ...before, url: kitag.url })
+      expect(kitagOf(krippe).url).toBe('https://www.example.de/kitag')
+      expect(db.select({ url: knowledgeEntries.url }).from(knowledgeEntries).where(eq(knowledgeEntries.id, copy)).get()!.url).toBe(former)
+      // Run again (at every start) it changes nothing; the startup step runs it.
+      expect(correctKnowledgeStarterUrls(db)).toBe(0)
+      db.update(knowledgeEntries).set({ url: former }).where(eq(knowledgeEntries.id, kitagOf(1).id)).run()
+      seedPendingKnowledgeStarters(db, NOW)
+      expect(kitagOf(1).url).toBe(kitag.url)
     })
   })
 

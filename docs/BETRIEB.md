@@ -3081,7 +3081,10 @@ Leitung und Träger sehen, wer bestätigt hat und wer noch nicht.
   lässt sich ändern oder löschen; **Gelöschtes kommt nicht wieder** (die App merkt sich je Einrichtung, was sie schon
   bekommen hat). Maßgeblich ist das Bundesland der Einrichtung beim ersten Start bzw. beim Anlegen: Wechselt es später,
   bleiben die Links, wie sie sind (von Hand löschen oder ergänzen). Die Links wurden beim Einbau am 23.11.2026 geprüft; Behörden ändern ihre Adressen manchmal – führt ein
-  Link ins Leere, bitte die neue Adresse eintragen.
+  Link ins Leere, bitte die neue Adresse eintragen. Zieht die App selbst eine Startadresse um (z. B. am 25.11.2026 das
+  KiTaG auf den dauerhaften Link https://www.landesrecht-bw.de/perma?a=KiTaG_BW, weil die alte Adresse im Landesrecht-Portal
+  nicht mehr lädt), ändert sie beim nächsten Start nur Einträge, deren Link noch genau die alte Startadresse ist; von Hand
+  geänderte Links bleiben, wie sie sind. Eine neue Fassung („Gelesen und verstanden“ erneut) entsteht dabei nicht.
 - **Kategorien verwalten**: anlegen, umbenennen, „Wer sieht sie?“ ändern, mit den Pfeilen verschieben. Löschen geht nur,
   solange keine Einträge der Einrichtung und keine Unterkategorien darin liegen. Ein Name kommt in einer Einrichtung nur
   einmal vor.

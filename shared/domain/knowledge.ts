@@ -93,6 +93,11 @@ export interface KnowledgeStarterLink {
   title: string
   description: string
   url: string
+  /**
+   * Addresses this starter had before (a portal moved): an entry of it still carrying one of them unchanged is set to
+   * `url` at the next start (correctKnowledgeStarterUrls); an entry changed by hand is left alone.
+   */
+  formerUrls?: readonly string[]
   /** Only facilities in these states get it (state law); all facilities without. */
   states?: readonly GermanState[]
 }
@@ -171,6 +176,8 @@ export const KNOWLEDGE_STARTER_LINKS: readonly KnowledgeStarterLink[] = [
     key: 'link:kitag-bw', category: 'Gesetze & Vorgaben', subcategory: 'Baden-Württemberg', states: ['BW'],
     title: 'Kindertagesbetreuungsgesetz Baden-Württemberg (KiTaG)',
     description: 'Das Landesgesetz über die Betreuung und Förderung von Kindern in Kindertageseinrichtungen (Landesrecht BW).',
-    url: 'https://www.landesrecht-bw.de/bsbw/document/jlr-KiTaGBWrahmen',
+    // The permalink of the portal; the document address used first no longer loads there (since 2026-11).
+    url: 'https://www.landesrecht-bw.de/perma?a=KiTaG_BW',
+    formerUrls: ['https://www.landesrecht-bw.de/bsbw/document/jlr-KiTaGBWrahmen'],
   },
 ]

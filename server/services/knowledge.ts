@@ -777,8 +777,28 @@ export function seedKnowledgeStarters(db: Db, facilityId: number, now: Date = ne
   }
 }
 
-/** Startup step: seeds the missing starters of every facility that lacks one; returns how many facilities. */
+/**
+ * Startup step: points the starter links that still carry an address the starter had before (`formerUrls`, unchanged)
+ * to its current one, in every facility. Only the link itself changes – no new version (the same document, its address
+ * moved), no „zuletzt geändert“; an entry whose link was changed by hand, or a copy without the starter key, stays as it
+ * is. Returns how many entries were corrected; run again it corrects nothing.
+ */
+export function correctKnowledgeStarterUrls(db: Db): number {
+  let corrected = 0
+  for (const link of KNOWLEDGE_STARTER_LINKS) {
+    if (!link.formerUrls?.length) continue
+    corrected += db.update(knowledgeEntries).set({ url: link.url })
+      .where(and(eq(knowledgeEntries.starterKey, link.key), inArray(knowledgeEntries.url, [...link.formerUrls]))).run().changes
+  }
+  return corrected
+}
+
+/**
+ * Startup step: corrects moved starter links (correctKnowledgeStarterUrls), then seeds the missing starters of every
+ * facility that lacks one; returns how many facilities were seeded.
+ */
 export function seedPendingKnowledgeStarters(db: Db, now: Date = new Date()): number {
+  correctKnowledgeStarterUrls(db)
   const pending = db.select({ id: facilities.id }).from(facilities).all()
     .filter((facility) => {
       const seeded = seededKeys(db, facility.id)
