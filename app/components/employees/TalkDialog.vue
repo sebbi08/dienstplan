@@ -21,7 +21,7 @@ const STARTERS = ['staff_self_assessment', 'staff_assessment']
 const form = reactive({ date: '', start: '', participants: '', period: '', templateIds: [] as number[] })
 const active = computed(() => props.templates.filter(template => !template.archived))
 /** The active templates grouped by „Kategorie › Unterkategorie“, in the categories' order. */
-const activeGroups = computed(() => groupTemplateChoices(active.value))
+const activeGroups = computed(() => groupTemplateChoices(active.value, de.forms.categories.none))
 
 watch(open, (isOpen) => {
   if (!isOpen) return

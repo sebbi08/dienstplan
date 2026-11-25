@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { exampleKindOf } from '#shared/domain/formCategories'
 import { FORM_KINDS, FORM_LIMITS, type FormKind, type FormSubject } from '#shared/domain/forms'
 import { matchesSearch } from '#shared/domain/search'
 import type { FormTemplateCategoryDto, FormTemplateDto } from '#shared/types/api'
@@ -123,8 +124,9 @@ const moving = ref<FormTemplateDto | null>(null)
 const subjectItems = (['child', 'employee'] as const).map(value => ({ label: t.subjects[value], value }))
 const kindItems = FORM_KINDS.map(value => ({ label: t.forKinds[value], value }))
 const categoryItems = computed(() => [{ label: c.categoryNone, value: 0 }, ...topCategories(props.categories).map(category => ({ label: category.name, value: category.id }))])
-const draft = reactive<{ name: string; kind: FormKind; selfAssessment: boolean; subject: FormSubject; categoryId: number; subcategoryId: number }>({
-  name: '', kind: 'child', selfAssessment: false, subject: 'child', categoryId: 0, subcategoryId: 0,
+/** `kind` undefined until picked: preset only in an example category (Unfälle → für Unfälle …), see exampleKindOf. */
+const draft = reactive<{ name: string; kind: FormKind | undefined; selfAssessment: boolean; subject: FormSubject; categoryId: number; subcategoryId: number }>({
+  name: '', kind: undefined, selfAssessment: false, subject: 'child', categoryId: 0, subcategoryId: 0,
 })
 const subItems = computed(() => subcategoryItems(props.categories, draft.categoryId || undefined, c.subNone))
 watch(() => draft.categoryId, () => {
@@ -138,7 +140,7 @@ function placeOfTab(): { categoryId: number; subcategoryId: number } {
 }
 function startNew() {
   moving.value = null
-  Object.assign(draft, { name: '', kind: 'child', selfAssessment: false, subject: 'child', ...placeOfTab() })
+  Object.assign(draft, { name: '', kind: exampleKindOf(current.value?.category?.name) ?? undefined, selfAssessment: false, subject: 'child', ...placeOfTab() })
   dialogOpen.value = true
 }
 function startMove(template: FormTemplateDto) {
@@ -150,6 +152,7 @@ const saving = ref(false)
 async function saveDialog() {
   if (saving.value) return
   if (!moving.value && !draft.name.trim()) return void toast.add({ title: t.nameFirst, color: 'warning' })
+  if (!moving.value && !draft.kind) return void toast.add({ title: t.kindFirst, color: 'warning' })
   const categoryId = filedCategoryId(draft.categoryId || undefined, draft.subcategoryId) ?? null
   saving.value = true
   try {
@@ -292,6 +295,7 @@ async function saveDialog() {
             <li v-for="template in archivedInTab" :key="template.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
               <div class="min-w-0 flex-1 basis-48 break-words text-gray-600">
                 {{ template.name }} <span v-if="template.subcategoryId" class="text-xs">· {{ template.category }}</span>
+                <UBadge color="neutral" variant="outline" size="sm" class="ml-1" :label="t.forKinds[template.kind]" />
               </div>
               <div class="flex flex-wrap gap-1">
                 <UButton size="sm" color="neutral" variant="outline" icon="i-lucide-archive-restore" :label="t.unarchive" @click="setArchived(template, false)" />
@@ -316,8 +320,8 @@ async function saveDialog() {
             <UFormField :label="t.name" required>
               <UInput v-model="draft.name" :maxlength="FORM_LIMITS.templateName" class="w-full" required autofocus />
             </UFormField>
-            <UFormField :label="t.kindPick" :help="t.kindPickHint" required>
-              <USelect v-model="draft.kind" :items="kindItems" class="w-full" />
+            <UFormField :label="t.kindPick" :help="draft.kind ? `${t.kindHints[draft.kind]} ${t.kindPickHint}` : t.kindPickHint" required>
+              <USelect v-model="draft.kind" :items="kindItems" :placeholder="t.kindPlaceholder" class="w-full" />
             </UFormField>
             <UCheckbox v-if="draft.kind === 'staff'" v-model="draft.selfAssessment" :label="t.selfAssessment" :description="t.selfAssessmentHint" />
             <UFormField v-if="draft.kind === 'accident'" :label="t.subjectPick">

@@ -2760,8 +2760,8 @@ export const de = {
     search: 'Bögen-Vorlagen suchen', searchPlaceholder: 'Name der Vorlage', archivedBadge: 'archiviert',
     searchResults: (count: number) => (count === 1 ? '1 Treffer' : `${count} Treffer`),
     noMatch: 'Keine Vorlage passt zur Suche.',
-    templatesHint: 'Aus diesen Vorlagen legst du Bögen an, für Mitarbeitergespräche, für die Beobachtungen der Kinder und für Teamsitzungen. Änderungen an einer Vorlage gelten nur für neue Bögen – schon angelegte Bögen bleiben, wie sie sind.',
-    kindGroups: { staff: 'Fachkräfte', child: 'Kinder', team: 'Team', accident: 'Unfälle', info: 'Infogespräche', applicant: 'Hospitationen' },
+    templatesHint: 'Aus diesen Vorlagen legst du Bögen an: für Kinder, Mitarbeitergespräche, Teamsitzungen, Unfälle, Infogespräche und Hospitationen („Wofür“ an jeder Vorlage). Änderungen an einer Vorlage gelten nur für neue Bögen – schon angelegte Bögen bleiben, wie sie sind.',
+    // Where the forms of each kind are filled in (the help of „Wofür?“ in „Neue Vorlage“).
     kindHints: {
       child: 'Beobachtungen und Entwicklungsgespräche – ausgefüllt in der Kinderakte.',
       staff: 'Mitarbeitergespräche: Selbstbeurteilung und Beurteilung – unter Mitarbeiter → Gespräche.',
@@ -2775,7 +2775,7 @@ export const de = {
       child: 'für Kinder', staff: 'für Mitarbeitergespräche', team: 'für Teamsitzungen', accident: 'für Unfälle',
       info: 'für Infogespräche', applicant: 'für Hospitationen',
     },
-    kindPick: 'Wofür?',
+    kindPick: 'Wofür?', kindPlaceholder: 'Bitte wählen …', kindFirst: 'Bitte wähle, wofür die Vorlage ist.',
     kindPickHint: 'Bestimmt, wo die Vorlage zur Auswahl steht (Kinderakte, Mitarbeitergespräch, Teamsitzung …). Lässt sich später nicht ändern.',
     newTemplate: 'Neue Vorlage', moveTo: 'Verschieben', moveTitle: (name: string) => `„${name}“ verschieben`, moved: 'Verschoben',
     /** The facility's own categories of the templates (one level of subcategories). */
@@ -2801,10 +2801,7 @@ export const de = {
     subjectPick: 'Für wen ist die Vorlage?',
     prefillBadge: 'wird vorausgefüllt',
     prefillHint: 'Dieser Punkt wird beim Anlegen eines Bogens aus den gespeicherten Daten vorausgefüllt (danach frei änderbar).',
-    noTemplates: 'Noch keine Vorlagen dieser Art. Namen unten eintragen und auf „Vorlage anlegen“ tippen.',
-    // Only stopped (archived) templates of the kind: they are listed below, folded.
-    noActiveTemplates: 'Keine aktive Vorlage dieser Art. Namen unten eintragen und auf „Vorlage anlegen“ tippen – oder unten eine stillgelegte wieder aktivieren.',
-    newTemplateName: 'Name der neuen Vorlage', nameFirst: 'Bitte zuerst oben einen Namen für die neue Vorlage eingeben.',
+    nameFirst: 'Bitte zuerst einen Namen für die neue Vorlage eingeben.',
     createTemplate: 'Vorlage anlegen',
     name: 'Name',
     order: 'Reihenfolge', moveUp: 'Nach oben', moveDown: 'Nach unten',
@@ -2972,7 +2969,7 @@ export const de = {
     none: 'Noch keine Unfälle eingetragen.', loading: 'Bogen wird geladen …',
     createChild: 'Unfallbericht ausfüllen', createEmployee: 'Unfallanzeige ausfüllen', created: 'Bogen angelegt',
     template: 'Vorlage', templatePick: 'Vorlage wählen',
-    noTemplates: 'Es gibt keine aktive Unfall-Vorlage dafür (Dokumente → Bögen → Unfälle).',
+    noTemplates: 'Es gibt keine aktive Vorlage „für Unfälle“ dafür. Die Leitung legt sie unter Dokumente → Bögen an.',
     date: 'Datum', start: 'Uhrzeit', startHint: 'optional',
     doctor: 'Arztbesuch', unfit: 'arbeitsunfähig', reportedOn: 'an Unfallkasse gemeldet am', reportedOnHint: 'leer = noch nicht gemeldet',
     yes: 'ja', no: 'nein',

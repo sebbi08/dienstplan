@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { formTemplateCategories } from '../../server/db/schema'
@@ -111,6 +111,21 @@ describe('form template categories', () => {
     expect(listChildForms(db, asChildViewer(leitung), child, now).templates.map(template => template.id))
       .toEqual(choices.map(choice => choice.id))
     expect([late, sub, inTeam].every(id => choices.some(choice => choice.id === id))).toBe(true)
-    orderTemplates(db, 1, krippe, [sub])
+    // A category's own list („Allgemein“) and its subcategory's are separate lists for ▲/▼.
+    const own = make('Eigen', 'child', kinder)
+    const kinderList = listTemplates(db, 1).filter(template => !template.archived && template.categoryId === kinder && template.subcategoryId === null)
+      .map(template => template.id)
+    expect(errorCode(() => orderTemplates(db, 1, kinder, [...kinderList, sub]))).toBe('invalid_order')
+    expect(errorCode(() => orderTemplates(db, 1, krippe, [sub, own]))).toBe('invalid_order')
+    orderTemplates(db, 1, kinder, [...kinderList].reverse())
+    expect(listTemplates(db, 1).filter(template => !template.archived && template.categoryId === kinder && template.subcategoryId === null)
+      .map(template => template.id)).toEqual([...kinderList].reverse())
+  })
+
+  it('answers a clash of the unique index (two requests at once) as 409 form_category_name_taken', () => {
+    // As if another request had stored the name between the check and the write: the index refuses it.
+    db.run(sql`CREATE TRIGGER clash BEFORE INSERT ON form_template_categories WHEN NEW.name = 'Doppelt'
+      BEGIN SELECT RAISE(ABORT, 'UNIQUE constraint failed: form_template_categories.facility_id'); END`)
+    expect(errorCode(() => createFormCategory(db, 1, { name: 'Doppelt' }))).toBe('form_category_name_taken')
   })
 })

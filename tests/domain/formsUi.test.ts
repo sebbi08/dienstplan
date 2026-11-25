@@ -22,13 +22,13 @@ const section: FormSection = {
 }
 
 describe('templatePickerItems', () => {
-  it('groups the choices under their „Kategorie › Unterkategorie“ heading, those without a category last without one', () => {
+  it('groups the choices under their „Kategorie › Unterkategorie“ heading, those without a category last under „Ohne Kategorie“', () => {
     expect(templatePickerItems([
       { id: 1, name: 'A', category: 'Kinder' }, { id: 2, name: 'B', category: 'Kinder › Krippe' }, { id: 3, name: 'C', category: null },
     ])).toEqual([
       [{ type: 'label', label: 'Kinder', value: 0 }, { label: 'A', value: 1 }],
       [{ type: 'label', label: 'Kinder › Krippe', value: 0 }, { label: 'B', value: 2 }],
-      [{ label: 'C', value: 3 }],
+      [{ type: 'label', label: 'Ohne Kategorie', value: 0 }, { label: 'C', value: 3 }],
     ])
     expect(templatePickerItems([{ id: 4, name: 'D', category: null }])).toEqual([[{ label: 'D', value: 4 }]])
     expect(templatePickerItems([])).toEqual([])

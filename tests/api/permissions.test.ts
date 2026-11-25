@@ -548,9 +548,13 @@ describe('API route permissions', () => {
     }
   })
 
-  it('opens the form templates to managers of the active facility only (staff and tablet 403)', () => {
-    const touching = routes.filter(route => /^form-templates\//.test(route) || source(route).includes('services/formTemplates\''))
-    expect(touching).toEqual(['form-templates/[id].delete.ts', 'form-templates/[id].put.ts', 'form-templates/[id]/copy.post.ts',
+  it('opens the form templates and their categories to managers of the active facility only (staff and tablet 403)', () => {
+    const touching = routes.filter(route => /^form-template(s|-categories)\//.test(route)
+      || source(route).includes('services/formTemplates\'') || source(route).includes('services/formTemplateCategories\''))
+    expect(touching).toEqual([
+      'form-template-categories/[id].delete.ts', 'form-template-categories/[id].put.ts', 'form-template-categories/[id]/move.post.ts',
+      'form-template-categories/index.get.ts', 'form-template-categories/index.post.ts',
+      'form-templates/[id].delete.ts', 'form-templates/[id].put.ts', 'form-templates/[id]/copy.post.ts',
       'form-templates/index.get.ts', 'form-templates/index.post.ts', 'form-templates/order.post.ts'])
     for (const route of touching) {
       const code = source(route)

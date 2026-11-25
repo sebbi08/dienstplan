@@ -2798,7 +2798,9 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   Mit dem Update (Migration 0128) bekam jede Einrichtung die Beispielkategorien **Kinder, Fachkräfte, Team, Unfälle,
   Infogespräche, Hospitationen** (alle sechs, auch leere – nicht gebrauchte einfach löschen), jede Vorlage liegt in der
   Kategorie ihrer Art, die Reihenfolge blieb. Neue Einrichtungen bekommen dieselben Beispielkategorien; eine gelöschte
-  kommt nicht wieder. Mit dem **Drucker-Zeichen** bei einer Vorlage druckst du
+  kommt nicht wieder. Bringt ein späteres Update eine neue Startvorlage, legt die App sie in die Beispielkategorie ihrer
+  Art – erkannt am Namen (z. B. „Unfälle“). Ist diese Kategorie umbenannt oder gelöscht, steht die neue Startvorlage
+  unter **Ohne Kategorie**; von dort verschiebst du sie. Mit dem **Drucker-Zeichen** bei einer Vorlage druckst du
   sie **leer** (A4 hochkant) – zum Ausfüllen von Hand, mit leeren Kopffeldern, Kästchen, Schreiblinien und Unterschriftszeilen. Die Einrichtungen von vor dem Update haben die Startvorlagen **Selbstbeurteilung** und **Beurteilungsbogen pädagogische
   Fachkräfte**. Du kannst Vorlagen anlegen, **kopieren**, **stilllegen** (steht dann eingeklappt unten, schon angelegte
   Bögen bleiben lesbar) und löschen – Löschen geht nur, solange noch kein Bogen damit angelegt wurde.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  EXAMPLE_FORM_CATEGORIES, foldFormCategoryName, formCategoriesInTreeOrder, formCategoryRanks, formCategorySpot, groupTemplateChoices,
+  EXAMPLE_FORM_CATEGORIES, exampleKindOf, foldFormCategoryName, formCategoriesInTreeOrder, formCategoryRanks, formCategorySpot, groupTemplateChoices,
 } from '../../shared/domain/formCategories'
 import { FORM_KINDS } from '../../shared/domain/forms'
 
@@ -45,5 +45,18 @@ describe('form template categories', () => {
       { heading: 'Kinder › Krippe', choices: [{ id: 2, name: 'B', category: 'Kinder › Krippe' }] },
       { heading: null, choices: [{ id: 4, name: 'D', category: null }] },
     ])
+    // With a heading for those without a category, once another group has one; alone they stay without a heading.
+    expect(groupTemplateChoices([{ id: 1, name: 'A', category: 'Kinder' }, { id: 4, name: 'D', category: null }], 'Ohne Kategorie')
+      .map(group => group.heading)).toEqual(['Kinder', 'Ohne Kategorie'])
+    expect(groupTemplateChoices([{ id: 4, name: 'D', category: null }], 'Ohne Kategorie').map(group => group.heading)).toEqual([null])
+  })
+
+  it('starts a new template in an example category with that category\'s kind, in any other without one', () => {
+    expect(exampleKindOf('Unfälle')).toBe('accident')
+    expect(exampleKindOf(' fachkräfte ')).toBe('staff')
+    expect(exampleKindOf('Hospitationen')).toBe('applicant')
+    expect(EXAMPLE_FORM_CATEGORIES.every(entry => exampleKindOf(entry.name) === entry.kind)).toBe(true)
+    expect(exampleKindOf('Elternarbeit')).toBeNull()
+    expect(exampleKindOf(null)).toBeNull()
   })
 })

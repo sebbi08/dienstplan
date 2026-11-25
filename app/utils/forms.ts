@@ -367,10 +367,10 @@ export interface TemplatePickerItem { label: string; value: number; type?: 'labe
 /**
  * The items of a template picker (child forms, staff talks, team meetings, accidents, visits): the templates grouped by
  * „Kategorie › Unterkategorie“ in the categories' order (as the server sends them), each group headed by its path; those
- * without a category last, without a heading. Without any category one group without a heading. Empty without templates.
+ * without a category last, headed „Ohne Kategorie“ (without any category: one group without a heading). Empty without templates.
  */
 export function templatePickerItems(templates: readonly TemplateChoice[]): TemplatePickerItem[][] {
-  return groupTemplateChoices(templates).map(group => [
+  return groupTemplateChoices(templates, de.forms.categories.none).map(group => [
     ...(group.heading === null ? [] : [{ type: 'label' as const, label: group.heading, value: 0 }]),
     ...group.choices.map(choice => ({ label: choice.name, value: choice.id })),
   ])

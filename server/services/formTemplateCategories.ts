@@ -58,6 +58,20 @@ function checkedName(all: readonly FormCategoryRow[], name: string, parentId: nu
 }
 
 /**
+ * Runs a write that may hit the unique index on (facility, parent, lower(name)): when two requests pass the name check at
+ * the same time, the second one's clash is 409 form_category_name_taken as well (not a 500).
+ */
+function uniqueName<T>(write: () => T): T {
+  try {
+    return write()
+  }
+  catch (error) {
+    if (String((error as Error).message).includes('UNIQUE')) throw new ServiceError(409, 'form_category_name_taken')
+    throw error
+  }
+}
+
+/**
  * A new category at the end of the facility's list, or with `parentId` a new subcategory at the end of that category's
  * (a category of the facility, not itself a subcategory: else 400 form_category_parent_invalid); returns its id.
  */
@@ -70,14 +84,15 @@ export function createFormCategory(db: Db, facilityId: number, input: FormTempla
   }
   const name = checkedName(all, input.name, parentId, null)
   const last = all.filter(row => row.parentId === parentId).at(-1)
-  return db.insert(formTemplateCategories).values({ facilityId, parentId, name, sortOrder: last ? last.sortOrder + 1 : 0 })
-    .returning({ id: formTemplateCategories.id }).get().id
+  return uniqueName(() => db.insert(formTemplateCategories).values({ facilityId, parentId, name, sortOrder: last ? last.sortOrder + 1 : 0 })
+    .returning({ id: formTemplateCategories.id }).get().id)
 }
 
 /** Renames the category; where it sits (category or subcategory) stays. */
 export function renameFormCategory(db: Db, facilityId: number, id: number, input: Pick<FormTemplateCategoryInput, 'name'>): void {
   const { row, all } = loadCategory(db, facilityId, id)
-  db.update(formTemplateCategories).set({ name: checkedName(all, input.name, row.parentId, row) }).where(eq(formTemplateCategories.id, id)).run()
+  const name = checkedName(all, input.name, row.parentId, row)
+  uniqueName(() => db.update(formTemplateCategories).set({ name }).where(eq(formTemplateCategories.id, id)).run())
 }
 
 /** Swaps the category with its neighbour among its siblings; at an end nothing changes. The siblings are numbered afresh. */
