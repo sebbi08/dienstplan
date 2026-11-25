@@ -1,6 +1,7 @@
 /**
  * The areas of the children page and their sub-tabs: „Heute“ (attendance, weekly overview), „Kinder“ (list, overview,
- * birthdays, documents, open confirmations) and „Planung“ (planned children, occupancy, Personalschlüssel, § 34 IfSG, archive).
+ * birthdays, documents, open confirmations) and „Planung“ (planned children, „Infogespräche“ with families before a
+ * Vormerkung, occupancy, Personalschlüssel, § 34 IfSG, archive).
  * Without manager rights the planned children are the last sub-tab of „Kinder“ instead (shown only as the tablet's
  * switches allow), and „Planung“ is never there. Each sub-tab keeps its own visibility; an area without a visible
  * sub-tab is not shown. The page opens with Heute → Anwesenheit unless the device remembers another visible sub-tab or
@@ -8,7 +9,7 @@
  */
 
 export const CHILDREN_TABS = [
-  'attendance', 'week', 'list', 'overview', 'planned', 'birthdays', 'documents', 'open', 'occupancy', 'staffing', 'ifsg', 'archive',
+  'attendance', 'week', 'list', 'overview', 'planned', 'infoVisits', 'birthdays', 'documents', 'open', 'occupancy', 'staffing', 'ifsg', 'archive',
 ] as const
 export type ChildrenTab = typeof CHILDREN_TABS[number]
 
@@ -19,7 +20,7 @@ export type ChildrenArea = typeof CHILDREN_AREAS[number]
 export const AREA_TABS: Record<ChildrenArea, readonly ChildrenTab[]> = {
   today: ['attendance', 'week'],
   children: ['list', 'overview', 'birthdays', 'documents', 'open'],
-  planning: ['planned', 'occupancy', 'staffing', 'ifsg', 'archive'],
+  planning: ['planned', 'infoVisits', 'occupancy', 'staffing', 'ifsg', 'archive'],
 }
 
 /** For everybody else the planned children follow „Offen“ in „Kinder“; „Planung“ keeps only manager tabs. */
@@ -38,6 +39,8 @@ export interface ChildrenViewer {
   onTablet: boolean
   /** The planned children may be shown (waitlist or future contracts); always for the managers. */
   showPlanned: boolean
+  /** May keep the info visits with families (visits.manage); left out = no. */
+  infoVisits?: boolean
 }
 
 /** The sub-tabs of an area for this viewer (visible or not), in their order on the page. */
@@ -57,6 +60,8 @@ export function childrenTabVisible(tab: ChildrenTab, viewer: ChildrenViewer): bo
     case 'archive':
     case 'ifsg': return viewer.isManager
     case 'staffing': return viewer.isManager && !viewer.onTablet
+    // „Infogespräche“ (visits.manage): never at the tablet (its routes are for signed-in accounts).
+    case 'infoVisits': return !!viewer.infoVisits && !viewer.onTablet
     default: return true
   }
 }

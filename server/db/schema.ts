@@ -6,7 +6,11 @@ import { EMPLOYEE_DOCUMENT_FOLDERS } from '../../shared/domain/personnel'
 import type { GermanState } from '../../shared/domain/states'
 import { QUALIFICATIONS } from '../../shared/domain/staffing/types'
 import { TEMPLATE_VISIBILITIES } from '../../shared/domain/templateCategories'
+import { APPLICANT_KINDS, APPLICANT_STATUSES, INFO_VISIT_STATUSES } from '../../shared/domain/visits'
 import { MEETING_KINDS } from '../../shared/types/api'
+
+/** The kinds of form templates and forms (shared/domain/forms.ts FORM_KINDS, kept literal here). */
+const FORM_KIND_VALUES = ['staff', 'child', 'team', 'accident', 'info', 'applicant'] as const
 
 /**
  * Reminder of the development documentation (see shared/domain/reminders.ts DocSettings): off, every
@@ -1619,7 +1623,7 @@ export const cashLog = sqliteTable('cash_log', {
 export const formTemplates = sqliteTable('form_templates', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
-  kind: text('kind', { enum: ['staff', 'child', 'team', 'accident'] }).notNull(),
+  kind: text('kind', { enum: FORM_KIND_VALUES }).notNull(),
   subject: text('subject', { enum: ['child', 'employee'] }),
   name: text('name').notNull(),
   starterKey: text('starter_key'),
@@ -1644,7 +1648,7 @@ export const forms = sqliteTable('forms', {
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
   // Deleting a template with forms is refused by the service (409 form_template_in_use).
   templateId: integer('template_id').references(() => formTemplates.id, { onDelete: 'set null' }),
-  kind: text('kind', { enum: ['staff', 'child', 'team', 'accident'] }).notNull(),
+  kind: text('kind', { enum: FORM_KIND_VALUES }).notNull(),
   title: text('title').notNull(),
   content: text('content').notNull(),
   answers: text('answers').notNull().default('{}'),
@@ -1685,12 +1689,20 @@ export const forms = sqliteTable('forms', {
    */
   sourceFormId: integer('source_form_id').references((): AnySQLiteColumn => forms.id, { onDelete: 'set null' }),
   sourceTalkDate: text('source_talk_date'),
+  /**
+   * Forms of an info visit (kind `info`) or an applicant (kind `applicant`, „Infogespräche & Hospitationen“): the record
+   * they belong to until it is taken over; then the form moves to the child (`childId`) or the employee (`employeeId`).
+   */
+  infoVisitId: integer('info_visit_id').references((): AnySQLiteColumn => infoVisits.id, { onDelete: 'cascade' }),
+  applicantVisitId: integer('applicant_visit_id').references((): AnySQLiteColumn => applicantVisits.id, { onDelete: 'cascade' }),
 }, table => [
   index('forms_facility').on(table.facilityId),
   index('forms_source').on(table.sourceFormId),
   index('forms_template').on(table.templateId),
   index('forms_child').on(table.childId),
   index('forms_employee').on(table.employeeId),
+  index('forms_info_visit').on(table.infoVisitId),
+  index('forms_applicant_visit').on(table.applicantVisitId),
   uniqueIndex('forms_parent_meeting').on(table.parentMeetingId).where(sql`parent_meeting_id IS NOT NULL`),
 ])
 
@@ -1991,6 +2003,10 @@ export const retentionSettings = sqliteTable('retention_settings', {
    * deleted the day after leaving; no = kept 6 years after the end of the leaving year (§ 41 EStG, § 147 AO).
    */
   payrollOffice: integer('payroll_office', { mode: 'boolean' }).notNull().default(true),
+  /** Info visits not taken over may be deleted this many months after the visit day (1–60). */
+  infoVisitMonths: integer('info_visit_months').notNull().default(12),
+  /** Declined applicants may be deleted this many months after the refusal (1–24; § 15 Abs. 4 AGG, § 61b ArbGG). */
+  applicantMonths: integer('applicant_months').notNull().default(6),
 })
 
 /**
@@ -2299,3 +2315,94 @@ export const signUnlocks = sqliteTable('sign_unlocks', {
   createdAt: text('created_at').notNull(),
   lastActiveAt: text('last_active_at').notNull(),
 })
+
+/**
+ * „Infogespräche & Hospitationen“ (server/services/visits.ts): an info visit of a family before a Vormerkung, with the
+ * visit day (and time in minutes after midnight, null = none), the contact, the child, who guided it (an employee, else
+ * free text) and plain notes. „Als Vormerkung übernehmen“ creates the waitlist child (`childId`, status `waitlisted`) and
+ * moves documents and forms there; the visit then goes with the child. Not taken over, it may be deleted by hand under
+ * Löschfristen (retention_settings.info_visit_months after the visit day). Who changed it: accounts, null once deleted.
+ */
+export const infoVisits = sqliteTable('info_visits', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  visitDate: text('visit_date').notNull(),
+  visitStart: integer('visit_start'),
+  familyName: text('family_name').notNull(),
+  phone: text('phone').notNull().default(''),
+  email: text('email').notNull().default(''),
+  childFirstName: text('child_first_name').notNull().default(''),
+  childLastName: text('child_last_name').notNull().default(''),
+  childBirthDate: text('child_birth_date'),
+  desiredStart: text('desired_start'),
+  guidedByEmployeeId: integer('guided_by_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  guidedByName: text('guided_by_name').notNull().default(''),
+  notes: text('notes').notNull().default(''),
+  status: text('status', { enum: INFO_VISIT_STATUSES }).notNull().default('open'),
+  childId: integer('child_id').references(() => children.id, { onDelete: 'cascade' }),
+  createdAt: text('created_at').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
+}, table => [
+  index('info_visits_facility').on(table.facilityId),
+  index('info_visits_child').on(table.childId),
+])
+
+/**
+ * An applicant's visit (Bewerbung, Hospitation, Praktikum) with notes/assessment and a mentor; its days in
+ * applicant_visit_days. „Einstellen“ creates the employee (`employeeId`, status `hired`) and moves documents and forms
+ * into the personnel file; the record then goes with the employee's „Beurteilungen und Zeugnisse“. A declined one
+ * (`declinedAt`, ISO date) may be deleted by hand under Löschfristen (retention_settings.applicant_months after it).
+ */
+export const applicantVisits = sqliteTable('applicant_visits', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  phone: text('phone').notNull().default(''),
+  email: text('email').notNull().default(''),
+  kind: text('kind', { enum: APPLICANT_KINDS }).notNull(),
+  status: text('status', { enum: APPLICANT_STATUSES }).notNull().default('open'),
+  declinedAt: text('declined_at'),
+  notes: text('notes').notNull().default(''),
+  mentorEmployeeId: integer('mentor_employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'set null' }),
+  createdAt: text('created_at').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
+}, table => [
+  index('applicant_visits_facility').on(table.facilityId),
+  index('applicant_visits_employee').on(table.employeeId),
+])
+
+/** A day of an applicant's visit („Termine“), times in minutes after midnight (null = not given). */
+export const applicantVisitDays = sqliteTable('applicant_visit_days', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  visitId: integer('visit_id').notNull().references(() => applicantVisits.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  from: integer('from'),
+  to: integer('to'),
+}, table => [uniqueIndex('applicant_visit_days_visit_date').on(table.visitId, table.date)])
+
+/**
+ * A document (PDF, JPEG or PNG) of an info visit or an applicant (exactly one of the two, the service sees to it),
+ * stored like the child documents (in the database, the type judged by the first bytes, the same size limit). Goes with
+ * its record; taken over, it becomes a child document or a personnel document.
+ */
+export const visitDocuments = sqliteTable('visit_documents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  infoVisitId: integer('info_visit_id').references(() => infoVisits.id, { onDelete: 'cascade' }),
+  applicantVisitId: integer('applicant_visit_id').references(() => applicantVisits.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default(''),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+  data: blob('data', { mode: 'buffer' }).notNull(),
+  /** A PDF form with fields (server/lib/pdfForm.ts), judged when the file is stored. */
+  fillable: integer('fillable', { mode: 'boolean' }),
+  uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  uploadedAt: text('uploaded_at').notNull(),
+}, table => [
+  index('visit_documents_info_visit').on(table.infoVisitId),
+  index('visit_documents_applicant_visit').on(table.applicantVisitId),
+])

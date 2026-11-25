@@ -40,6 +40,8 @@ const SPEC_TABLE: Record<BundleId, PermissionKey[]> = {
   formsFill: ['childForms.edit'],
   formsManage: ['childForms.manage', 'formTemplates.manage'],
   accidentsManage: ['accidents.manage'],
+  visitsManage: ['visits.manage'],
+  visitsApplicantsView: ['visits.applicants.view'],
   teamMeetingsWrite: ['teamMeetings.write'],
   teamMeetingsRelease: ['teamMeetings.manage'],
   notesWrite: ['notes.write'],
@@ -137,7 +139,7 @@ describe('bundle requirements', () => {
       }
     }
     expect(BUNDLES.filter(def => def.includes.length > 0).map(def => [def.id, def.includes]))
-      .toEqual([['planRelease', ['planEdit']], ['teamMeetingsRelease', ['teamMeetingsWrite']]])
+      .toEqual([['planRelease', ['planEdit']], ['visitsManage', ['visitsApplicantsView']], ['teamMeetingsRelease', ['teamMeetingsWrite']]])
     expect(byId.get('planRelease')!.requires).toEqual([])
     expect(byId.get('planEdit')!.requires).toEqual(['planView'])
     expect(byId.get('leavePlan')!.requires).toEqual(['employeesView'])

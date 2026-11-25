@@ -28,6 +28,10 @@ export interface RetentionSettings {
    * after the end of the leaving year (§ 41 EStG Lohnkonto, § 147 AO).
    */
   payrollOffice: boolean
+  /** „Infogespräche“ not taken over as a Vormerkung: whole months after the visit day (1–60, default 12). */
+  infoVisitMonths: number
+  /** Declined applicants (Bewerbung, Hospitation, Praktikum): whole months after the refusal (1–24, default 6). */
+  applicantMonths: number
 }
 
 /** Without a Lohnbüro: „Lohn und Steuer“ are kept 6 years after the end of the leaving year (§ 41 EStG, § 147 AO). */
@@ -43,9 +47,17 @@ export const RETENTION_DEFAULTS: RetentionSettings = {
   maternityYears: 2,
   employeeDelete: 'managers',
   payrollOffice: true,
+  infoVisitMonths: 12,
+  applicantMonths: 6,
 }
 
 export const RETENTION_YEARS_RANGE = { min: 1, max: 40 } as const
+export const INFO_VISIT_MONTHS_RANGE = { min: 1, max: 60 } as const
+/**
+ * Declined applicants: at least 1 month, at most 24. The default 6 covers the two months for a claim under § 15 Abs. 4
+ * AGG, the three months for the lawsuit (§ 61b ArbGG) and the time the post takes.
+ */
+export const APPLICANT_MONTHS_RANGE = { min: 1, max: 24 } as const
 /**
  * „Ausgezahlte Überstunden, Verträge, Gehalt“ are kept at least this long: Buchungsbelege 8 years (§ 147 Abs. 3 AO,
  * § 257 Abs. 4 HGB); it also covers the 5 years of the accident reports in it (DGUV Vorschrift 1 § 24 Abs. 6).
@@ -107,7 +119,8 @@ function years(value: unknown, min: number, max: number): number {
 }
 
 /**
- * Whole years 1–40 (cash 1–30) and a delete mode, otherwise retention_settings_invalid. „Ausgezahlte Überstunden,
+ * Whole years 1–40 (cash 1–30), whole months for the info visits (1–60) and the declined applicants (1–24) and a delete
+ * mode, otherwise retention_settings_invalid. „Ausgezahlte Überstunden,
  * Verträge, Gehalt“ at least PAID_OVERTIME_MIN_YEARS (retention_paid_overtime_too_short); a lower value stored before
  * (`storedPaidOvertimeYears`, kept unchanged) is still accepted – it counts as 8 anyway (retentionDueDates).
  */
@@ -132,5 +145,7 @@ export function checkRetentionSettings(input: unknown, storedPaidOvertimeYears?:
     maternityYears: years(raw.maternityYears, min, max),
     employeeDelete: mode as EmployeeDeleteMode,
     payrollOffice: raw.payrollOffice,
+    infoVisitMonths: years(raw.infoVisitMonths, INFO_VISIT_MONTHS_RANGE.min, INFO_VISIT_MONTHS_RANGE.max),
+    applicantMonths: years(raw.applicantMonths, APPLICANT_MONTHS_RANGE.min, APPLICANT_MONTHS_RANGE.max),
   }
 }

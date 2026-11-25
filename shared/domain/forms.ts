@@ -2,9 +2,12 @@ import { isValidIsoDate } from './dates'
 import { isRichText, richTextLength, sanitizeRichText } from './richText'
 import type { IsoDate } from './types'
 
-/** Form kinds: „Mitarbeitergespräch“, „Kind“, „Teamsitzung“, „Unfall“ (an accident report about a child or an employee). */
-export type FormKind = 'staff' | 'child' | 'team' | 'accident'
-export const FORM_KINDS: readonly FormKind[] = ['staff', 'child', 'team', 'accident']
+/**
+ * Form kinds: „Mitarbeitergespräch“, „Kind“, „Teamsitzung“, „Unfall“ (an accident report about a child or an employee),
+ * „Infogespräch“ and „Hospitation“ (the forms of an info visit or an applicant, server/services/visits.ts).
+ */
+export type FormKind = 'staff' | 'child' | 'team' | 'accident' | 'info' | 'applicant'
+export const FORM_KINDS: readonly FormKind[] = ['staff', 'child', 'team', 'accident', 'info', 'applicant']
 
 /** Whom an accident template (and the forms made from it) is about; null on the templates of the other kinds. */
 export type FormSubject = 'child' | 'employee'

@@ -13,7 +13,7 @@ import { PERMISSIONS, resolvePermissions, type PermissionKey } from './permissio
 
 /** The areas of the rights page, in the order it lists them. */
 export const BUNDLE_AREAS = [
-  'plan', 'leave', 'time', 'employees', 'personnelFile', 'children', 'forms', 'teamMeetings', 'notes', 'contacts', 'knowledge',
+  'plan', 'leave', 'time', 'employees', 'personnelFile', 'children', 'forms', 'visits', 'teamMeetings', 'notes', 'contacts', 'knowledge',
   'cash', 'calendar', 'templates', 'administration',
 ] as const
 export type BundleArea = typeof BUNDLE_AREAS[number]
@@ -26,6 +26,7 @@ export const BUNDLE_AREA_LABELS: Record<BundleArea, string> = {
   personnelFile: 'Personalakte',
   children: 'Kinder',
   forms: 'Bögen',
+  visits: 'Infogespräche & Hospitationen',
   teamMeetings: 'Teamsitzungen',
   notes: 'Notizen',
   contacts: 'Kontakte',
@@ -44,6 +45,7 @@ export const BUNDLE_IDS = [
   'personal', 'payrollSensitive', 'docsQualifications', 'docsOther', 'signRequests',
   'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
   'formsGroup', 'formsFill', 'formsManage', 'accidentsManage',
+  'visitsManage', 'visitsApplicantsView',
   'teamMeetingsWrite', 'teamMeetingsRelease',
   'notesWrite',
   'contactsManage',
@@ -132,6 +134,9 @@ const SPECS: readonly Spec[] = [
   bundle('formsFill', 'forms', 'alle anlegen und ausfüllen', ['childForms.edit']),
   bundle('formsManage', 'forms', 'verwalten (Vorlagen, Freigaben)', ['childForms.manage', 'formTemplates.manage']),
   bundle('accidentsManage', 'forms', 'Unfälle verwalten (Übersicht, Unfallanzeigen der Mitarbeiter)', ['accidents.manage']),
+
+  bundle('visitsManage', 'visits', 'führen (anlegen, Dokumente, Bögen, übernehmen, einstellen, absagen)', ['visits.manage']),
+  bundle('visitsApplicantsView', 'visits', 'Hospitationen und Bewerbungen ansehen', ['visits.applicants.view']),
 
   bundle('teamMeetingsWrite', 'teamMeetings', 'mitschreiben', ['teamMeetings.write']),
   bundle('teamMeetingsRelease', 'teamMeetings', 'freigeben', ['teamMeetings.manage']),
@@ -251,6 +256,9 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
     'signRequests',
     'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
     'formsGroup', 'formsFill', 'formsManage', 'accidentsManage',
+    // Since 2026-11-25: „Infogespräche & Hospitationen“ (the applicants' view comes with it). A role whose settings were
+    // stored before has no row for the switch, so it takes this default (no migration).
+    'visitsManage', 'visitsApplicantsView',
     'teamMeetingsWrite', 'teamMeetingsRelease', 'notesWrite',
     'contactsManage',
     'knowledgeManage',

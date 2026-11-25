@@ -114,6 +114,9 @@ export function navMenu(viewer: NavViewer): NavMenu {
   // „Kontakte“, the facility's address book: whoever maintains it, everyone else once there are contacts for the staff.
   const contactsEntry = entry(de.contacts.title, '/contacts')
   const contacts = shown([[can('contacts.manage') || !!viewer.staffContacts, contactsEntry]])
+  // „Bewerbungen & Hospitationen“ without the staff list (e.g. a Gruppenleitung with the applicants' view); with it they
+  // are a tab of „Mitarbeiter“, and the info visits a tab of Kinder → Planung.
+  const applicants = shown([[!can('employees.view') && can('visits.applicants.view'), entry(de.visits.tabs.applicants, '/admin/employees/applicants')]])
   const officeMore = shown([
     [can('closures.manage'), entry(de.nav.closures, '/admin/closures')],
     [can('employees.sickness'), entry(de.nav.sickDays, '/admin/sick-days')],
@@ -131,7 +134,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
 
   // The print templates alone make no office account: Mitarbeiter read them as well (the form templates do).
   if (office.length > 0 || officeMore.length > 0 || adminMore.length > 0 || formsManager || can('calendar.edit')) {
-    const more = [...officeMore, ...documents, ...contacts, ...adminMore]
+    const more = [...officeMore, ...documents, ...contacts, ...applicants, ...adminMore]
     // With office pages (Leitung, Träger): the everyday ones in the row, the rest under "Mehr"; linked to an employee
     // also the own pages under "Meins" (stamping on "Mein Dienstplan", leave requests, own appointments).
     // "Urlaubsplanung": the planners with their open requests; whoever sees the leave overview too, for the notice on
@@ -158,7 +161,7 @@ export function navMenu(viewer: NavViewer): NavMenu {
     // managers' ones; "Mein Dienstplan" (with the unread count) stays in the row.
     main: [myPlan, ...plans, calendar, ...teamPages],
     // The templates are the facility's: a staff account without an employee belongs to none.
-    mine: [...mySign, myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? [...documents, ...contacts] : [])],
+    mine: [...mySign, myLeave, myRequirements, myTalks, ...myAccidents, ...(viewer.employeeId !== null ? [...documents, ...contacts] : []), ...applicants],
     more: [],
     mineCount: signOpen,
     moreCount: 0,

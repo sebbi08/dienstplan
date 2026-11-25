@@ -65,7 +65,7 @@ describe('checkRetentionSettings', () => {
   it('has the agreed defaults', () => {
     expect(RETENTION_DEFAULTS).toEqual({
       timeYears: 2, assessmentYears: 3, paidOvertimeYears: 8, pensionYears: 30, cashYears: 10, bemYears: 3, maternityYears: 2, employeeDelete: 'managers',
-      payrollOffice: true,
+      payrollOffice: true, infoVisitMonths: 12, applicantMonths: 6,
     })
   })
 
@@ -81,6 +81,8 @@ describe('checkRetentionSettings', () => {
   it('accepts the range limits', () => {
     expect(checkRetentionSettings({ ...RETENTION_DEFAULTS, timeYears: 1, assessmentYears: 40, cashYears: 30 }).cashYears).toBe(30)
     expect(checkRetentionSettings({ ...RETENTION_DEFAULTS, cashYears: 1, employeeDelete: 'provider' }).employeeDelete).toBe('provider')
+    expect(checkRetentionSettings({ ...RETENTION_DEFAULTS, infoVisitMonths: 60, applicantMonths: 24 })).toMatchObject({ infoVisitMonths: 60, applicantMonths: 24 })
+    expect(checkRetentionSettings({ ...RETENTION_DEFAULTS, infoVisitMonths: 1, applicantMonths: 1 })).toMatchObject({ infoVisitMonths: 1, applicantMonths: 1 })
   })
 
   const invalid: [string, unknown][] = [
@@ -101,6 +103,10 @@ describe('checkRetentionSettings', () => {
     ['unknown delete mode', { ...RETENTION_DEFAULTS, employeeDelete: 'everyone' }],
     ['payroll office as text', { ...RETENTION_DEFAULTS, payrollOffice: 'ja' }],
     ['payroll office missing', { ...RETENTION_DEFAULTS, payrollOffice: undefined }],
+    ['info visit months below 1', { ...RETENTION_DEFAULTS, infoVisitMonths: 0 }],
+    ['info visit months above 60', { ...RETENTION_DEFAULTS, infoVisitMonths: 61 }],
+    ['applicant months above 24', { ...RETENTION_DEFAULTS, applicantMonths: 25 }],
+    ['applicant months missing', { ...RETENTION_DEFAULTS, applicantMonths: undefined }],
   ]
   it.each(invalid)('rejects %s with retention_settings_invalid', (_name, input) => {
     expect(() => checkRetentionSettings(input)).toThrow(RetentionSettingsError)

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
 import { EMPLOYEE_DOCUMENT_FOLDERS, type EmployeeDocumentFolder } from '#shared/domain/personnel'
-import type { EmployeeDocumentDto, EmployeeDocumentMeta, EmployeeDocumentsDto, PrintTemplateDto } from '#shared/types/api'
+import type { ApplicationFormDto, EmployeeDocumentDto, EmployeeDocumentMeta, EmployeeDocumentsDto, PrintTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES, formatSize } from '~/utils/children'
 import { pickedFile, uploadSizeError } from '~/utils/uploads'
@@ -93,6 +93,14 @@ watch(() => props.active && mayFill.value && folders.value.length > 0, (wanted) 
   if (wanted && templateStatus.value === 'idle') void loadTemplates()
 }, { immediate: true })
 const fillTemplates = computed(() => templateList.value ?? [])
+// The forms of the application (moved here at „Einstellen“): for the folder „Bewerbung“ or visits.manage, as the server decides.
+const seesApplicationForms = computed(() => can('visits.manage') || can('employees.docs.application'))
+const { data: applicationForms, execute: loadApplicationForms, status: applicationStatus, refresh: refreshApplicationForms } = useFetch<ApplicationFormDto[]>(
+  () => `/api/employees/${props.employeeId}/application-forms`, { key: `application-forms-${props.employeeId}`, server: false, immediate: false, default: () => [] },
+)
+watch(() => props.active && seesApplicationForms.value, (wanted) => {
+  if (wanted && applicationStatus.value === 'idle') void loadApplicationForms()
+}, { immediate: true })
 const fillTarget = computed<FillTarget>(() => ({ kind: 'employee', id: props.employeeId, name: props.employeeName }))
 const fromTemplateOpen = ref(false)
 const refilling = ref<EmployeeDocumentDto | null>(null)
@@ -173,6 +181,18 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
       </ul>
     </section>
   </template>
+
+  <!-- The forms of the application, moved here at „Einstellen“ (Bewerbungen & Hospitationen), read only. -->
+  <section v-if="applicationForms?.length" class="space-y-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
+    <h3 class="font-semibold">{{ de.visits.applicationForms }}</h3>
+    <p class="text-xs text-gray-500">{{ de.visits.applicationFormsHint }}</p>
+    <details v-for="form in applicationForms" :key="form.id" class="rounded-md ring-1 ring-gray-100">
+      <summary class="cursor-pointer px-3 py-2 text-sm font-medium">{{ form.title }}</summary>
+      <div class="px-3 pb-3">
+        <FormsFormPanel :form="form" :editable="false" :refresh="refreshApplicationForms" />
+      </div>
+    </details>
+  </section>
 
   <PdfFillStart v-if="folders.length" v-model:open="fromTemplateOpen" :target="fillTarget" :templates="fillTemplates" @saved="afterFill" />
   <PdfFillDialog

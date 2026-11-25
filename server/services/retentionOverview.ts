@@ -1,11 +1,14 @@
-import { and, eq, inArray, isNotNull, lt } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, lt, ne } from 'drizzle-orm'
 import { childPurgeDate, childStatus, purgeDate } from '../../shared/domain/children'
 import { can } from '../../shared/domain/permissions'
 import { retentionDueDates, type RetentionSettings } from '../../shared/domain/retention'
 import type { IsoDate } from '../../shared/domain/types'
+import {
+  addMonths, applicantDeletableFrom, applicantLastActivity, infoVisitDeletableFrom, OPEN_APPLICANT_MONTHS,
+} from '../../shared/domain/visits'
 import type { RetentionDeleteResult, RetentionItemCategory, RetentionItemDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { cashBoxes, children, employees, facilities } from '../db/schema'
+import { applicantVisitDays, applicantVisits, cashBoxes, children, employees, facilities, infoVisits } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
 import { bemDeletableDates, deleteDueBemProcesses, employeesWithBem } from './bem'
@@ -22,20 +25,24 @@ import { getRetentionSettings } from './retentionSettings'
 import { finishedSignRequests, removeSignRequest, type SignRequestRetentionRow } from './signRequestRecords'
 
 const ITEM_CATEGORIES: readonly RetentionItemCategory[] = [...RETENTION_CATEGORIES, 'record']
-const KIND_ORDER: Record<RetentionItemDto['kind'], number> = { employee: 0, child: 1, cash: 2, signRequest: 3 }
+const KIND_ORDER: Record<RetentionItemDto['kind'], number> = { employee: 0, child: 1, cash: 2, signRequest: 3, infoVisit: 4, applicant: 5 }
 
+type PlainKind = 'child' | 'cash' | 'signRequest' | 'infoVisit' | 'applicant'
 type ItemKey =
   | { kind: 'employee'; id: number; category: RetentionItemCategory }
-  | { kind: 'child' | 'cash' | 'signRequest'; id: number }
+  | { kind: PlainKind; id: number }
 
-const KEY_PATTERN = /^(?:employee:([1-9]\d{0,15}):([A-Za-z]+)|(child|cash|signRequest):([1-9]\d{0,15}))$/
+const KEY_PATTERN = /^(?:employee:([1-9]\d{0,15}):([A-Za-z]+)|(child|cash|signRequest|infoVisit|applicant):([1-9]\d{0,15}))$/
 
-/** `employee:<id>:<category>`, `child:<id>`, `cash:<id>` or `signRequest:<id>`; anything else is 400 retention_key_invalid. */
+/**
+ * `employee:<id>:<category>`, `child:<id>`, `cash:<id>`, `signRequest:<id>`, `infoVisit:<id>` or `applicant:<id>`;
+ * anything else is 400 retention_key_invalid.
+ */
 function parseKey(key: string): ItemKey {
   const match = KEY_PATTERN.exec(key)
   const id = Number(match?.[1] ?? match?.[4])
   if (!match || !Number.isSafeInteger(id)) throw new ServiceError(400, 'retention_key_invalid')
-  if (match[3]) return { kind: match[3] as 'child' | 'cash' | 'signRequest', id }
+  if (match[3]) return { kind: match[3] as PlainKind, id }
   const category = match[2] as RetentionItemCategory
   if (!ITEM_CATEGORIES.includes(category)) throw new ServiceError(400, 'retention_key_invalid')
   return { kind: 'employee', id, category }
@@ -199,6 +206,54 @@ function signRequestItem(row: SignRequestRetentionRow, ctx: Context): RetentionI
   }
 }
 
+type InfoVisitRow = { id: number; facilityId: number; familyName: string; visitDate: IsoDate; status: string }
+
+/** An info visit not taken over as a Vormerkung (open or declined), deletable the Träger's months after the visit day. */
+function infoVisitItem(row: InfoVisitRow, ctx: Context): RetentionItemDto {
+  const deletableFrom = infoVisitDeletableFrom(row.visitDate, ctx.settings(row.facilityId).infoVisitMonths)
+  return {
+    key: `infoVisit:${row.id}`, kind: 'infoVisit', category: null, facilityId: row.facilityId, facilityName: ctx.facilityName(row.facilityId),
+    name: row.familyName, deletableFrom, due: deletableFrom <= ctx.today,
+  }
+}
+
+type ApplicantRow = { id: number; facilityId: number; name: string; status: string; declinedAt: IsoDate | null; updatedAt: string }
+
+/**
+ * An applicant not hired: declined, deletable the Träger's months after the refusal; open without any activity
+ * (applicantLastActivity: last change or last day) for OPEN_APPLICANT_MONTHS, due from then on („ohne Abschluss“; not
+ * listed before). null for a hired one (it goes with the personnel file) and an open one with recent activity.
+ */
+function applicantItem(db: Db, row: ApplicantRow, ctx: Context): RetentionItemDto | null {
+  let deletableFrom: IsoDate
+  let applicantState: 'declined' | 'open'
+  if (row.status === 'declined' && row.declinedAt !== null) {
+    deletableFrom = applicantDeletableFrom(row.declinedAt, ctx.settings(row.facilityId).applicantMonths)
+    applicantState = 'declined'
+  }
+  else if (row.status === 'open') {
+    const days = db.select({ date: applicantVisitDays.date }).from(applicantVisitDays).where(eq(applicantVisitDays.visitId, row.id)).all()
+    deletableFrom = addMonths(applicantLastActivity(row.updatedAt, days.map(day => day.date)), OPEN_APPLICANT_MONTHS)
+    if (deletableFrom > ctx.today) return null
+    applicantState = 'open'
+  }
+  else {
+    return null
+  }
+  return {
+    key: `applicant:${row.id}`, kind: 'applicant', category: null, facilityId: row.facilityId, facilityName: ctx.facilityName(row.facilityId),
+    name: row.name, deletableFrom, applicantState, due: deletableFrom <= ctx.today,
+  }
+}
+
+const INFO_VISIT_COLUMNS = {
+  id: infoVisits.id, facilityId: infoVisits.facilityId, familyName: infoVisits.familyName, visitDate: infoVisits.visitDate, status: infoVisits.status,
+}
+const APPLICANT_COLUMNS = {
+  id: applicantVisits.id, facilityId: applicantVisits.facilityId, name: applicantVisits.name, status: applicantVisits.status,
+  declinedAt: applicantVisits.declinedAt, updatedAt: applicantVisits.updatedAt,
+}
+
 /** Due first (by facility, then name), then the later ones by date, the records without a date last. */
 function compareItems(a: RetentionItemDto, b: RetentionItemDto): number {
   if (a.due !== b.due) return a.due ? -1 : 1
@@ -241,6 +296,9 @@ export function retentionOverview(db: Db, today: IsoDate): RetentionItemDto[] {
     ...archivedChildren.map(child => childItem(child, childAccidents.get(child.id) ?? null, ctx)),
     ...boxes.map(box => cashItem(db, box, ctx)),
     ...finishedSignRequests(db).map(row => signRequestItem(row, ctx)),
+    ...db.select(INFO_VISIT_COLUMNS).from(infoVisits).where(ne(infoVisits.status, 'waitlisted')).all().map(row => infoVisitItem(row, ctx)),
+    ...db.select(APPLICANT_COLUMNS).from(applicantVisits).where(ne(applicantVisits.status, 'hired')).all()
+      .flatMap(row => applicantItem(db, row, ctx) ?? []),
   ].sort(compareItems)
 }
 
@@ -277,6 +335,17 @@ function findItem(db: Db, key: ItemKey, ctx: Context): RetentionItemDto {
     const row = finishedSignRequests(db).find(candidate => candidate.id === key.id)
     if (!row) throw missing()
     return signRequestItem(row, ctx)
+  }
+  if (key.kind === 'infoVisit') {
+    const row = db.select(INFO_VISIT_COLUMNS).from(infoVisits).where(eq(infoVisits.id, key.id)).get()
+    if (!row || row.status === 'waitlisted') throw missing()
+    return infoVisitItem(row, ctx)
+  }
+  if (key.kind === 'applicant') {
+    const row = db.select(APPLICANT_COLUMNS).from(applicantVisits).where(eq(applicantVisits.id, key.id)).get()
+    const item = row ? applicantItem(db, row, ctx) : null
+    if (!item) throw missing()
+    return item
   }
   const box = db.select().from(cashBoxes).where(eq(cashBoxes.id, key.id)).get()
   if (!box || !box.archived) throw missing()
@@ -332,6 +401,11 @@ function removeItem(db: Db, actor: SessionUser, key: ItemKey, ctx: Context, now:
     })
   }
   if (key.kind === 'signRequest') return checkedTransaction(db, tx => removeSignRequest(tx, key.id, now))
+  // The record with its documents, forms (and days): they go with it (foreign keys).
+  if (key.kind === 'infoVisit') return checkedTransaction(db, tx => tx.delete(infoVisits).where(eq(infoVisits.id, key.id)).run().changes)
+  if (key.kind === 'applicant') {
+    return checkedTransaction(db, tx => tx.delete(applicantVisits).where(eq(applicantVisits.id, key.id)).run().changes)
+  }
   const box = db.select().from(cashBoxes).where(eq(cashBoxes.id, key.id)).get()!
   try {
     return removeArchivedBox(db, actor, box, now).rows

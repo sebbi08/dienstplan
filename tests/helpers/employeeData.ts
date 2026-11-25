@@ -4,7 +4,7 @@ import {
   balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
   employeeTrainings, formAttachments, formEditors, formReads, forms, groupBookChanges, knowledgeConfirmations, knowledgeEntries, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, maternityCases, notifications, offlineStamps, parentalLeaveBirths, parentalLeaves,
-  signRequestRecipients, signRequests, signUnlocks, teamMeetingParticipants,
+  signRequestRecipients, signRequests, signUnlocks, teamMeetingParticipants, infoVisits, applicantVisits,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
 import { applyToCells } from '../../server/services/entries'
@@ -189,6 +189,11 @@ export function fillEmployeeData(
     db.insert(groupBookChanges).values({
       groupId: group, field: 'day', date: '2026-10-02', before: '', after: 'Wald', changedAt: at, changedByEmployeeId: id, changedByName: 'am Tablet',
     }).run()
+    // „Infogespräche & Hospitationen“: an info visit the person guided, an applicant they mentored, and the application
+    // the person was hired from.
+    db.insert(infoVisits).values({ facilityId: 1, visitDate: '2026-10-01', familyName: 'Familie', guidedByEmployeeId: id, status: 'waitlisted', createdAt: at, updatedAt: at }).run()
+    db.insert(applicantVisits).values({ facilityId: 1, name: 'Gast', kind: 'hospitation', mentorEmployeeId: id, createdAt: at, updatedAt: at }).run()
+    db.insert(applicantVisits).values({ facilityId: 1, name: `Bewerbung ${id}`, kind: 'bewerbung', status: 'hired', employeeId: id, createdAt: at, updatedAt: at }).run()
   }
   // Everyone took part in a team meeting (stored directly: some may have left already).
   const meetingId = createTeamMeeting(db, teamMember(db, leitung), {

@@ -32,6 +32,7 @@ import type { TemplateVisibility } from '../domain/templateCategories'
 import type { MarkSummary } from '../domain/timeMarks'
 import type { JobKey, StoredPayGroup } from '../domain/tvoed'
 import type { CodeKey, CreditMode, DomainEntry, EntryKind, IsoDate, Minutes } from '../domain/types'
+import type { ApplicantKind, ApplicantStatus, InfoVisitStatus } from '../domain/visits'
 import type { CoverageRule, DayHoursContext, Warning } from '../domain/warnings'
 
 export const COLOR_KEYS = ['neutral', 'gray', 'green', 'yellow', 'blue', 'red', 'violet', 'orange'] as const
@@ -1010,7 +1011,7 @@ export type RetentionItemCategory = 'immediate' | 'payroll' | 'time' | 'assessme
  */
 export interface RetentionItemDto {
   key: string
-  kind: 'employee' | 'child' | 'cash' | 'signRequest'
+  kind: 'employee' | 'child' | 'cash' | 'signRequest' | 'infoVisit' | 'applicant'
   /** Only for an employee; null for a child record, a cash box and a request to sign. */
   category: RetentionItemCategory | null
   facilityId: number
@@ -1027,6 +1028,11 @@ export interface RetentionItemDto {
   maternity?: { endedOn: IsoDate; employed: boolean }
   /** Only for a child record kept longer for an accident report (5 years after the accident, DGUV Vorschrift 1 § 24 Abs. 6). */
   accidentHold?: true
+  /**
+   * Only for an applicant: 'declined' (counted from the refusal) or 'open' („ohne Abschluss“: no activity for
+   * OPEN_APPLICANT_MONTHS, listed as due from then on). Info visits and applicants name the family or person.
+   */
+  applicantState?: 'declined' | 'open'
   /** May be deleted today. */
   due: boolean
 }
@@ -3528,6 +3534,8 @@ export interface ChildFormListItemDto {
   right: ChildFormAccess
   /** Leitung/Träger: may unlock employees for the form and delete it. */
   canManage: boolean
+  /** A form of the info visit the child was taken over from (kind `info`): read only in the record. */
+  infoVisit?: true
 }
 
 /**
@@ -4524,4 +4532,169 @@ export interface MySignRequestsDto {
   /** The signing person's name (for the line „Elektronisch unterschrieben von …“). */
   employeeName: string
   requests: MySignRequestDto[]
+}
+
+// ---- „Infogespräche & Hospitationen“ (server/services/visits.ts) ----------------------------------------------
+
+/** An info visit as the form sends it (status: only open or declined; „waitlisted“ comes with the take-over). */
+export interface InfoVisitInput {
+  visitDate: IsoDate
+  visitStart: Minutes | null
+  familyName: string
+  phone: string
+  email: string
+  childFirstName: string
+  childLastName: string
+  childBirthDate: IsoDate | null
+  desiredStart: IsoDate | null
+  guidedByEmployeeId: number | null
+  guidedByName: string
+  notes: string
+  status?: 'open' | 'declined'
+}
+
+/** A document of a visit (never the file itself). */
+export interface VisitDocumentDto {
+  id: number
+  title: string
+  mimeType: string
+  size: number
+  fillable: boolean
+  /** The uploader's user name; null when the account was deleted. */
+  uploadedBy: string | null
+  uploadedAt: string
+}
+
+/** A form of a visit in its list. */
+export interface VisitFormListItemDto {
+  id: number
+  title: string
+  templateId: number | null
+  updatedAt: string
+  updatedBy: string
+}
+
+/** A form of a visit with its content and answers; `editable` for visits.manage while the record is not taken over. */
+export interface VisitFormDto extends VisitFormListItemDto {
+  kind: 'info' | 'applicant'
+  content: FormContent
+  answers: FormAnswers
+  editable: boolean
+}
+
+export interface InfoVisitListItemDto {
+  id: number
+  visitDate: IsoDate
+  visitStart: Minutes | null
+  familyName: string
+  childFirstName: string
+  childLastName: string
+  status: InfoVisitStatus
+  /** The waitlist child it was taken over as (null otherwise, or once that record is gone). */
+  childId: number | null
+  /** The employee's name, else the free text. */
+  guidedBy: string
+  phone: string
+  email: string
+  documentCount: number
+  formCount: number
+  updatedAt: string
+}
+
+/** A person of the facility to choose as guide or mentor. */
+export interface VisitStaffDto {
+  id: number
+  name: string
+}
+
+export interface InfoVisitDto extends InfoVisitListItemDto {
+  childBirthDate: IsoDate | null
+  desiredStart: IsoDate | null
+  guidedByEmployeeId: number | null
+  guidedByName: string
+  notes: string
+  createdAt: string
+  createdBy: string | null
+  updatedBy: string | null
+  documents: VisitDocumentDto[]
+  forms: VisitFormListItemDto[]
+  /** The facility's active templates of the kind „Infogespräch“. */
+  templates: { id: number; name: string }[]
+  staff: VisitStaffDto[]
+}
+
+/** „Als Vormerkung übernehmen“: the birth date (the record needs one) and the type the documents get in the child's record. */
+export interface InfoVisitTakeOverInput {
+  birthDate: IsoDate
+  documentTypeId: number | null
+}
+
+export interface ApplicantDayDto {
+  date: IsoDate
+  from: Minutes | null
+  to: Minutes | null
+}
+
+export interface ApplicantVisitInput {
+  name: string
+  phone: string
+  email: string
+  kind: ApplicantKind
+  notes: string
+  mentorEmployeeId: number | null
+  days: ApplicantDayDto[]
+  status?: 'open' | 'declined'
+}
+
+export interface ApplicantVisitListItemDto {
+  id: number
+  name: string
+  kind: ApplicantKind
+  status: ApplicantStatus
+  declinedAt: IsoDate | null
+  /** The employee it was hired as (null otherwise, or once that record is gone). */
+  employeeId: number | null
+  firstDay: IsoDate | null
+  lastDay: IsoDate | null
+  dayCount: number
+  mentorName: string | null
+  phone: string
+  email: string
+  documentCount: number
+  formCount: number
+  updatedAt: string
+}
+
+export interface ApplicantVisitDto extends ApplicantVisitListItemDto {
+  notes: string
+  mentorEmployeeId: number | null
+  days: ApplicantDayDto[]
+  createdAt: string
+  createdBy: string | null
+  updatedBy: string | null
+  documents: VisitDocumentDto[]
+  forms: VisitFormListItemDto[]
+  templates: { id: number; name: string }[]
+  staff: VisitStaffDto[]
+  /** visits.manage: may change it (else read only, e.g. visits.applicants.view). */
+  canManage: boolean
+}
+
+/** „Einstellen“: the employee's first data (the Träger completes the contract) and the folder for the documents. */
+export interface ApplicantHireInput {
+  shortName: string
+  validFrom: IsoDate
+  weeklyMinutes: number
+  groupId: number | null
+  folder: EmployeeDocumentFolder | null
+}
+
+/** A form of the application, moved into the personnel file at „Einstellen“ (read only there). */
+export interface ApplicationFormDto {
+  id: number
+  title: string
+  content: FormContent
+  answers: FormAnswers
+  updatedAt: string
+  updatedBy: string
 }

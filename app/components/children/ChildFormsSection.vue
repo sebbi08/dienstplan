@@ -166,6 +166,7 @@ async function remove(form: ChildFormListItemDto) {
           <div class="min-w-0 flex-1 basis-56 space-y-0.5">
             <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span class="font-medium break-words">{{ titleLine(form) }} · {{ form.title }}</span>
+              <span v-if="form.infoVisit" class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">{{ de.visits.infoVisitBadge }}</span>
               <span v-if="form.parentMeetingId !== null" class="rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-800">{{ c.fromMeeting }}</span>
               <span v-if="form.right === 'read'" class="rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">{{ c.readOnlyBadge }}</span>
             </div>

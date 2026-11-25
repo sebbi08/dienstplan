@@ -7,7 +7,7 @@ import { CHILD_SORTS } from '../shared/domain/childSort'
 import { CONTACT_LIMITS } from '../shared/domain/contacts'
 import { isValidIsoDate } from '../shared/domain/dates'
 import { DOCUMENT_SCOPES } from '../shared/domain/documentTargets'
-import { FORM_LIMITS } from '../shared/domain/forms'
+import { FORM_KINDS, FORM_LIMITS } from '../shared/domain/forms'
 import { KNOWLEDGE_KINDS, KNOWLEDGE_LIMITS } from '../shared/domain/knowledge'
 import { LEAVE_FORFEIT_TEXT_MAX } from '../shared/domain/leaveForfeit'
 import { EMPLOYMENT_BAN_KINDS, MATERNITY_NOTE_MAX } from '../shared/domain/maternity'
@@ -825,7 +825,7 @@ export const cashCsvQuery = yearQuery.extend({ month: z.coerce.number().int().mi
 
 // Form templates („Bögen“): name (1–80, unique per kind) and content are checked by the service
 // (form_template_name_too_long, form_content_invalid …), so the answers are in German.
-const formKind = z.enum(['staff', 'child', 'team', 'accident'])
+const formKind = z.enum(FORM_KINDS as ['staff', 'child', 'team', 'accident', 'info', 'applicant'])
 export const formTemplateQuery = z.object({ kind: formKind.optional() })
 /** The new order of the active templates of one kind. */
 export const formTemplateOrderSchema = z.object({ kind: formKind, ids: z.array(z.number().int().positive()).max(500) })
@@ -1064,3 +1064,33 @@ export const signRequestFields = z.object({
 export const signRequestRecipientSchema = z.object({ recipientId: z.number().int().positive().nullable().default(null) })
 /** „Nicht unterschreiben“ with a reason (the service checks 1 to DECLINE_REASON_MAX characters after trimming). */
 export const signDeclineSchema = z.object({ reason: z.string().max(DECLINE_REASON_MAX + 100) })
+
+// „Infogespräche & Hospitationen“: the shapes; lengths, dates and e-mail are checked by the service (shared/domain/visits.ts,
+// German messages), so the limits here only keep oversized bodies out.
+const visitText = z.string().max(3000)
+const visitMinutes = z.number().int().nullable()
+/** An info visit; `status` only open or declined. */
+export const infoVisitSchema = z.object({
+  visitDate: z.string().max(20), visitStart: visitMinutes, familyName: visitText, phone: visitText, email: visitText,
+  childFirstName: visitText, childLastName: visitText, childBirthDate: z.string().max(20).nullable(), desiredStart: z.string().max(20).nullable(),
+  guidedByEmployeeId: z.number().int().positive().nullable(), guidedByName: visitText, notes: visitText,
+  status: z.enum(['open', 'declined']).optional(),
+})
+/** An applicant with its days (at most 30, checked by the service). */
+export const applicantVisitSchema = z.object({
+  name: visitText, phone: visitText, email: visitText, kind: z.string().max(20), notes: visitText,
+  mentorEmployeeId: z.number().int().positive().nullable(),
+  days: z.array(z.object({ date: z.string().max(20), from: visitMinutes, to: visitMinutes })).max(100),
+  status: z.enum(['open', 'declined']).optional(),
+})
+/** „Als Vormerkung übernehmen“: the child's birth date and the document type for the documents. */
+export const infoVisitTakeOverSchema = z.object({ birthDate: isoDate, documentTypeId: z.number().int().positive().nullable() })
+/** „Einstellen“: short name, start, weekly hours, group and the folder for the documents. */
+export const applicantHireSchema = z.object({
+  shortName: z.string().max(10), validFrom: isoDate, weeklyMinutes, groupId: groupIdSchema,
+  folder: z.enum(EMPLOYEE_DOCUMENT_FOLDERS).nullable(),
+})
+/** A new form of a visit from a template. */
+export const visitFormCreateSchema = z.object({ templateId: z.number().int().positive() })
+/** The form field of a document upload of a visit (left out: the file's name). */
+export const visitDocumentFields = z.object({ title: z.string().max(400).optional() })

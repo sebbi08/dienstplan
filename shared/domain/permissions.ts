@@ -10,7 +10,7 @@
 
 /** The areas of the catalog, in the order the rights page lists them. */
 export const PERMISSION_AREAS = [
-  'plan', 'leave', 'time', 'employees', 'children', 'forms', 'teamMeetings', 'notes', 'contacts', 'knowledge', 'cash', 'calendar',
+  'plan', 'leave', 'time', 'employees', 'children', 'forms', 'visits', 'teamMeetings', 'notes', 'contacts', 'knowledge', 'cash', 'calendar',
   'settings', 'users',
   'facilities',
 ] as const
@@ -23,6 +23,7 @@ export const AREA_LABELS: Record<PermissionArea, string> = {
   employees: 'Mitarbeiter',
   children: 'Kinder',
   forms: 'Bögen, Vorlagen und Gespräche',
+  visits: 'Infogespräche und Hospitationen',
   teamMeetings: 'Teamsitzungen',
   notes: 'Notizen',
   contacts: 'Kontakte',
@@ -48,6 +49,7 @@ export const PERMISSION_KEYS = [
   'children.schoolSettings', 'children.deleteArchived', 'children.moveFacility',
   'childForms.group', 'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view',
   'printTemplates.edit', 'printTemplates.global', 'talks.manage', 'talks.own', 'accidents.manage',
+  'visits.manage', 'visits.applicants.view',
   'teamMeetings.write', 'teamMeetings.manage',
   'notes.view', 'notes.write',
   'contacts.view', 'contacts.manage', 'contacts.global',
@@ -171,6 +173,14 @@ export const PERMISSIONS: readonly PermissionDef[] = [
     'Unfälle: Übersicht, Unfallanzeigen der Mitarbeiter, Unfallberichte der Kinder ändern und löschen, Erinnerung zur Meldung',
     { requires: ['employees.view', 'children.view'] }),
 
+  // „Infogespräche & Hospitationen“ (Mehr): the records with documents and forms. Taking an info visit over as a
+  // Vormerkung also needs children.edit (with children.ownAccount), hiring an applicant employees.edit; both are checked
+  // by the service. The view of the applicants alone (e.g. for a Gruppenleitung) is off by default.
+  def('visits.manage', 'visits',
+    'Infogespräche und Hospitationen führen (anlegen, Dokumente, Bögen, als Vormerkung übernehmen, einstellen, absagen, löschen)',
+    { implies: ['visits.applicants.view'] }),
+  def('visits.applicants.view', 'visits', 'Hospitationen und Bewerbungen ansehen (Termine, Notizen, Dokumente, Bögen lesen)'),
+
   def('teamMeetings.write', 'teamMeetings', 'Sitzungen anlegen und mitschreiben'),
   def('teamMeetings.manage', 'teamMeetings', 'Protokoll freigeben, wieder öffnen, löschen',
     { implies: ['teamMeetings.write'] }),
@@ -237,6 +247,7 @@ export const ROLE_DEFAULTS: Record<'admin' | 'observer', PermissionKey[]> = {
     'children.manage',
     'childForms.group', 'childForms.edit', 'childForms.manage', 'formTemplates.manage', 'printTemplates.view',
     'printTemplates.edit', 'talks.manage', 'talks.own', 'accidents.manage',
+    'visits.manage', 'visits.applicants.view',
     'teamMeetings.write', 'teamMeetings.manage',
     'notes.view', 'notes.write',
     'contacts.view', 'contacts.manage',

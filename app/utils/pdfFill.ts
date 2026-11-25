@@ -9,8 +9,8 @@ import { formatDate } from '~/utils/format'
  * and the requests that save it. The fill view itself (pdf.js) is app/components/pdf/FillDialog.vue.
  */
 
-/** A child's record or a person's personnel file. */
-export type FillKind = 'child' | 'employee'
+/** A child's record, a person's personnel file, or an info visit / applicant (Infogespräche & Hospitationen). */
+export type FillKind = 'child' | 'employee' | 'infoVisit' | 'applicant'
 
 /** Whom a form is filled for. */
 export interface FillTarget {
@@ -32,6 +32,7 @@ export interface FillSource {
 export type FillSave =
   | { mode: 'new-child'; childId: number; meta: ChildDocumentMeta }
   | { mode: 'new-employee'; employeeId: number; meta: EmployeeDocumentMeta }
+  | { mode: 'new-visit'; kind: 'infoVisit' | 'applicant'; visitId: number; title: string }
   | { mode: 'replace'; kind: FillKind; documentId: number }
 
 /** The request that saves the filled PDF (multipart, the file as „file“). */
@@ -52,7 +53,11 @@ export function fillSaveRequest(save: FillSave, file: Blob): { url: string; meth
     body.append('note', save.meta.note)
     return { url: `/api/employees/${save.employeeId}/documents`, method: 'POST', body }
   }
-  const base = save.kind === 'child' ? '/api/child-documents' : '/api/employee-documents'
+  if (save.mode === 'new-visit') {
+    body.append('title', save.title)
+    return { url: `/api/${save.kind === 'infoVisit' ? 'info-visits' : 'applicant-visits'}/${save.visitId}/documents`, method: 'POST', body }
+  }
+  const base = save.kind === 'child' ? '/api/child-documents' : save.kind === 'employee' ? '/api/employee-documents' : '/api/visit-documents'
   return { url: `${base}/${save.documentId}/file`, method: 'PUT', body }
 }
 
@@ -87,6 +92,8 @@ export function fillKinds(input: { onTablet: boolean; tabletMayEdit: boolean; ca
   const child = input.onTablet ? input.tabletMayEdit : input.can('children.ownAccount') && input.can('children.edit')
   if (child) kinds.push('child')
   if (!input.onTablet && input.can('employees.view') && usableFolders(input.can).length > 0) kinds.push('employee')
+  // Infogespräche & Hospitationen: the records themselves (visits.manage), never at the tablet.
+  if (!input.onTablet && input.can('visits.manage')) kinds.push('infoVisit', 'applicant')
   return kinds
 }
 

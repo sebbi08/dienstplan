@@ -783,6 +783,8 @@ const typeItems = computed(() => typeList.value.map(type => ({ label: type.name,
 const folders = computed(() => usableFolders(can))
 const folderItems = computed(() => folders.value.map(folder => ({ label: de.personnel.folders[folder], value: folder })))
 const sheet = reactive({ typeId: 0, folder: 'correspondence' as EmployeeDocumentFolder, title: '', documentDate: todayIso(), confidential: false })
+/** A new copy for an info visit or an applicant: only its title is asked. */
+const visitTarget = computed(() => props.target?.kind === 'infoVisit' || props.target?.kind === 'applicant')
 
 async function startSave() {
   if (busy.value || !pdf) return
@@ -820,6 +822,9 @@ function saveFromSheet() {
   const title = sheet.title.trim()
   if (target.kind === 'child') {
     void persist({ mode: 'new-child', childId: target.id, meta: { typeId: sheet.typeId, title, documentDate: sheet.documentDate, confidential: sheet.confidential } })
+  }
+  else if (target.kind === 'infoVisit' || target.kind === 'applicant') {
+    void persist({ mode: 'new-visit', kind: target.kind, visitId: target.id, title })
   }
   else {
     void persist({ mode: 'new-employee', employeeId: target.id, meta: { folder: sheet.folder, title, documentDate: sheet.documentDate, note: '' } })
@@ -976,7 +981,7 @@ const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '
           <UButton color="neutral" variant="ghost" icon="i-lucide-zoom-in" :aria-label="t.zoomIn" :title="t.zoomIn" :disabled="zoom >= ZOOMS[ZOOMS.length - 1]! - 0.001" @click="zoomBy(1)" />
         </div>
 
-        <UAlert v-if="replace && status === 'ready'" class="rounded-none" color="info" variant="soft" :title="t.replaceHint[replace.kind]" />
+        <UAlert v-if="replace && status === 'ready'" class="rounded-none" color="info" variant="soft" :title="replace.kind === 'child' || replace.kind === 'employee' ? t.replaceHint[replace.kind] : t.replaceHint.visit" />
         <UAlert v-if="hint && status === 'ready'" class="rounded-none" color="info" variant="soft" :title="hint" />
         <UAlert v-if="status === 'ready' && editorsUnavailable" class="rounded-none" color="warning" variant="soft" :title="t.toolsUnavailable" />
         <UAlert v-else-if="status === 'ready' && !hasFields && !hint" class="rounded-none" color="info" variant="soft" :title="t.noFields" />
@@ -1003,7 +1008,7 @@ const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '
             @dragover.prevent.stop @drop.prevent.stop
           >
             <p class="text-sm text-gray-600 sm:col-span-2">
-              {{ target?.kind === 'child' ? t.saveToChild(target.name) : t.saveToEmployee(target?.name ?? '') }}
+              {{ target?.kind === 'child' ? t.saveToChild(target.name) : visitTarget ? t.saveToVisit(target?.name ?? '') : t.saveToEmployee(target?.name ?? '') }}
             </p>
             <template v-if="target?.kind === 'child'">
               <p v-if="!typeList.length" class="text-sm text-gray-600 sm:col-span-2">{{ de.childDocuments.noTypes }}</p>
@@ -1011,10 +1016,10 @@ const toolHint = computed(() => (tool.value === 'fields' && !hasFields.value ? '
                 <USelect :model-value="sheet.typeId" :items="typeItems" class="w-full" @update:model-value="onType(Number($event))" />
               </UFormField>
             </template>
-            <UFormField v-else :label="t.folder" required>
+            <UFormField v-else-if="!visitTarget" :label="t.folder" required>
               <USelect v-model="sheet.folder" :items="folderItems" class="w-full" />
             </UFormField>
-            <UFormField :label="de.childDocuments.date" required>
+            <UFormField v-if="!visitTarget" :label="de.childDocuments.date" required>
               <DateTextInput v-model="sheet.documentDate" :label="de.childDocuments.date" class="w-full" required />
             </UFormField>
             <UFormField :label="de.childDocuments.title" class="sm:col-span-2" required>

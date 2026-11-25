@@ -26,6 +26,7 @@ const IMMEDIATE = [
   'child_notes.educator_employee_id', 'child_notes.created_by_employee_id', 'forms.created_by_employee_id',
   'form_attachments.uploaded_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
+  'info_visits.guided_by_employee_id', 'applicant_visits.mentor_employee_id',
   'employee_children.employee_id',
 ]
 /** „Lohn und Steuer“: a category of its own (due with the personal data while a Lohnbüro keeps the payroll records). */
@@ -39,7 +40,7 @@ const TIME = [
 ]
 const ASSESSMENT = [
   'staff_talks.employee_id', 'employee_trainings.employee_id', 'employee_requirements.employee_id', 'knowledge_confirmations.employee_id',
-  'sign_request_recipients.employee_id',
+  'sign_request_recipients.employee_id', 'applicant_visits.employee_id',
 ]
 /** BEM-Unterlagen: the processes (their steps go along). */
 const BEM = 'bem_processes.employee_id'

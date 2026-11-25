@@ -3284,3 +3284,49 @@ Bezirk mit Anzahl).
 Die Straßenlisten enthalten keine personenbezogenen Daten. Der Bezirk eines Kindes wird nur auf dem Server und nur für
 Kinder berechnet, die die Person ohnehin sehen darf, und nirgends gespeichert. Die eigene Liste gehört zur Einrichtung
 und würde mit ihr gelöscht; eine Schule, die aus den Kontakten gelöscht wird, verschwindet aus der Zuordnung des Bezirks.
+
+## 30. Infogespräche, Bewerbungen und Hospitationen
+
+**Wo:** Die **Infogespräche** mit Familien stehen unter **Kinder → Planung → Infogespräche** (neben den Vormerkungen),
+die **Bewerbungen, Hospitationen und Praktika** unter **Mitarbeiter → Bewerbungen & Hospitationen** (neben der
+Mitarbeiterliste). Beides gibt es nicht am Tablet.
+
+**Recht:** „Infogespräche & Hospitationen: führen“ (Rechte und Rollen, voreingestellt für Leitung; der Träger darf es
+immer). Es schließt „Hospitationen und Bewerbungen ansehen“ ein. Dieses Recht allein (voreingestellt aus) kann z. B. eine
+Gruppenleitung bekommen: Sie sieht dann die Bewerbungen und Hospitationen mit Terminen, Notizen, Dokumenten und Bögen,
+ändert aber nichts (Menüpunkt „Bewerbungen & Hospitationen“). Rollen, deren Rechte schon gespeichert waren, bekommen die
+Voreinstellung ohne Umstellung. Jede Einrichtung sieht nur ihre eigenen Einträge.
+
+**Infogespräch:** Datum (und Uhrzeit), Familie, Telefon, E-Mail (wird geprüft), Kind (Vor- und Nachname, Geburtsdatum),
+gewünschter Beginn, geführt von (jemand aus dem Team oder ein Name), Notizen (nur Text, höchstens 2000 Zeichen; bitte
+nur Sachliches). Dazu **Dokumente** (PDF, JPG, PNG bis 30 MB, die Art wird an den ersten Bytes erkannt; „Aus Vorlage
+ausfüllen“ und „Bearbeiten“ wie in der Kinderakte) und **Bögen** aus den Vorlagen der neuen Art „Infogespräche“
+(Dokumente → Bögen). Stand: offen, abgesagt oder als Vormerkung übernommen.
+
+**Als Vormerkung übernehmen** (braucht zusätzlich das Recht, Kinder anzulegen, mit eigenem Zugang): Das Kind wird als
+Vormerkung angelegt (Name, Geburtsdatum – im Dialog bestätigt –, gewünschter Beginn als geplanter Eintritt, Datum des
+Infogesprächs, Notizen als Notiz der Akte), die Familie als Bezugsperson (Telefon, E-Mail in der Notiz). Die Dokumente
+kommen mit der gewählten Dokumentart (voreingestellt „Sonstiges“) in die Kinderakte, die Bögen in die Bögen der
+Kinderakte (dort nur zum Lesen, mit dem Hinweis „aus dem Infogespräch“). Der Eintrag bleibt als „übernommen“ mit einem
+Link zur Akte stehen, lässt sich nicht mehr ändern und wird mit der Kinderakte gelöscht.
+
+**Bewerbung, Hospitation, Praktikum:** Name, Telefon, E-Mail, Art, begleitet von (Mentor), Notizen und Einschätzung,
+**Termine** (bis zu 30 Tage mit Uhrzeit von–bis), Dokumente und Bögen aus Vorlagen der Art „Hospitationen“. **Absagen**
+merkt den Tag der Absage, „Wieder öffnen“ nimmt sie zurück. **Einstellen** (braucht zusätzlich das Recht, Mitarbeiter
+anzulegen) legt die Person als Mitarbeiter an (Name, Kürzel, Beginn, Wochenstunden, Gruppe; Telefon und E-Mail als
+Anschrift und Kontakt) – die Vertragsangaben ergänzt der Träger. Die Dokumente kommen in ein gewähltes Fach der
+Personalakte, für das man das Recht hat (voreingestellt „Bewerbung“, sonst das erste erlaubte), die Bögen erscheinen in
+der Personalakte unter Nachweise → Dokumente als „Bögen aus der Bewerbung“ (nur lesen; sichtbar mit dem Fach „Bewerbung“
+oder dem Recht „Infogespräche & Hospitationen führen“). Der Eintrag bleibt als „eingestellt“ stehen und gehört dann zu
+den „Beurteilungen und Zeugnissen“ der Person (gelöscht mit dieser Frist, zusammen mit den übernommenen Bögen).
+
+**Löschfristen:** Die App löscht nichts von selbst. Unter Mehr → Löschfristen (Träger) erscheinen
+- Infogespräche, die **nicht** übernommen wurden (offen oder abgesagt): löschbar **12 Monate nach dem Gesprächstag**
+  (einstellbar 1–60 Monate unter Einstellungen → Personal → Löschfristen);
+- abgesagte Bewerbungen, Hospitationen und Praktika: löschbar **6 Monate nach der Absage** (einstellbar 1–24 Monate).
+  Hintergrund: Ansprüche nach § 15 Abs. 4 AGG sind binnen 2 Monaten schriftlich geltend zu machen, die Klage binnen
+  3 weiterer Monate (§ 61b ArbGG); 6 Monate lassen Zeit für den Postweg. Bitte im Zweifel mit dem Datenschutz klären;
+- offene Einträge **ohne Abschluss**, die 12 Monate lang nicht geändert wurden (letzte Änderung oder letzter Termin;
+  neue Dokumente und Bögen zählen als Änderung): sofort löschbar, damit sie nicht vergessen werden.
+Löschen entfernt den Eintrag mit Terminen, Dokumenten und Bögen; die Datenbank schreibt die Löschung sofort fest (wie bei
+den anderen Dokumenten). Auch die Leitung kann einen Eintrag jederzeit selbst löschen („Eintrag löschen“).

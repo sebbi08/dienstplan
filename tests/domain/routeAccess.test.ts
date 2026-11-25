@@ -41,7 +41,8 @@ const CHILDREN = [
 ]
 /** The office pages: Leitung and Träger only. */
 const OFFICE = [
-  '/admin/accidents', '/admin/calendar', '/admin/closures', '/admin/employees', '/admin/employees/1', '/admin/forms',
+  '/admin/accidents', '/admin/calendar', '/admin/closures', '/admin/employees', '/admin/employees/1', '/admin/employees/applicants',
+  '/admin/employees/applicants/1', '/children/info-visits/1', '/admin/forms',
   '/admin/leave-planning', '/admin/print/accidents/2026', '/admin/print/bem-invitation/1', '/admin/print/calendar/2026', '/admin/print/cash/1/2026/10', '/admin/print/early-closures/2026',
   '/admin/print/leave-forfeit/2026', '/admin/print/leave-list/2026/1',
   '/admin/print/emergency-contacts', '/admin/print/form-templates/1', '/admin/print/forms/1', '/admin/print/forms/compare/1/1',
@@ -124,6 +125,12 @@ describe('route access per role (unchanged by the permissions)', () => {
     expect(accountRedirect(DOCUMENTS, { mustChangePassword: false, can: key => key === 'signRequests.manage' })).toBeUndefined()
     expect(pageKeys(DOCUMENTS)).toEqual(['printTemplates.view', 'formTemplates.manage', 'knowledge.view', 'signRequests.manage'])
     expect(pageKeys('/notes')).toEqual(['notes.view'])
+    // Infogespräche (Kinder → Planung) and Bewerbungen & Hospitationen (Mitarbeiter): their own keys, never the tablet.
+    expect(pageKeys('/children/info-visits/1')).toEqual(['visits.manage'])
+    expect(pageKeys('/admin/employees/applicants')).toEqual(['visits.applicants.view'])
+    expect(pageKeys('/admin/employees/applicants/1')).toEqual(['visits.applicants.view'])
+    expect(isChildPagePath('/children/info-visits/1')).toBe(false)
+    expect(tabletMayOpen('/children/info-visits/1')).toBe(false)
     expect(pageKeys('/')).toEqual([])
   })
 

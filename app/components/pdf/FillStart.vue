@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import type { ChildDocumentTargetDto, EmployeeListItemDto, PrintTemplateDto } from '#shared/types/api'
+import type {
+  ApplicantVisitListItemDto, ChildDocumentTargetDto, EmployeeListItemDto, InfoVisitListItemDto, PrintTemplateDto,
+} from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
+import { formatDate } from '~/utils/format'
 import { fillKinds, searchTargets, type FillKind, type FillTarget } from '~/utils/pdfFill'
 import { templateFileUrl, templatePath } from '~/utils/printTemplates'
 
@@ -63,6 +66,16 @@ async function loadPeople(next: FillKind) {
       people.value = list.map(child => ({
         id: child.id, name: `${child.firstName} ${child.lastName}`, note: [child.groupName, child.planned ? t.planned : null].filter(Boolean).join(' · ') || null,
       }))
+    }
+    else if (next === 'infoVisit') {
+      // Only the records not taken over (their documents still belong to them).
+      const list = await $fetch<InfoVisitListItemDto[]>('/api/info-visits')
+      people.value = list.filter(visit => visit.status !== 'waitlisted')
+        .map(visit => ({ id: visit.id, name: visit.familyName, note: [visit.childFirstName, formatDate(visit.visitDate)].filter(Boolean).join(' · ') }))
+    }
+    else if (next === 'applicant') {
+      const list = await $fetch<ApplicantVisitListItemDto[]>('/api/applicant-visits')
+      people.value = list.filter(visit => visit.status !== 'hired').map(visit => ({ id: visit.id, name: visit.name, note: de.visits.kinds[visit.kind] }))
     }
     else {
       const list = await $fetch<EmployeeListItemDto[]>('/api/employees')

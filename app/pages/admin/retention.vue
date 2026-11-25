@@ -42,6 +42,7 @@ const later = computed(() => shown.value.filter(item => !item.due))
 
 /** „‹Name› – ‹Datenart›“; BEM and Mutterschutz records also say when the BEM ended and whether the person is still employed. */
 const whatOf = (item: RetentionItemDto) => {
+  if (item.applicantState === 'open') return t.itemLabel(item.name, `${t.kinds.applicant} (${t.openApplicant})`)
   const what = t.itemLabel(item.name, item.kind === 'employee' ? t.categories[item.category ?? 'record'] : t.categories[item.kind])
   if (item.bem) return `${what} (${t.bemDetail(formatDate(item.bem.endedOn), item.bem.employed)})`
   if (item.accidentHold) return `${what} (${t.accidentHold})`
@@ -101,7 +102,7 @@ const CHUNK = 1000
 async function deleteAll() {
   const items = due.value
   if (!items.length || busy.value) return
-  const counts = (['employee', 'child', 'cash', 'signRequest'] as const)
+  const counts = (['employee', 'child', 'cash', 'signRequest', 'infoVisit', 'applicant'] as const)
     .map(kind => ({ kind, count: items.filter(item => item.kind === kind).length }))
     .filter(entry => entry.count > 0)
     .map(entry => t.countOf(entry.count, t.kinds[entry.kind]))

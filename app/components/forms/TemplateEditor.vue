@@ -25,9 +25,10 @@ const confirm = useConfirm()
 const toast = useToast()
 
 /** The boxes of the list, in this order; each with an icon. */
-const LIST_ORDER: readonly FormKind[] = ['child', 'staff', 'team', 'accident']
+const LIST_ORDER: readonly FormKind[] = ['child', 'staff', 'team', 'accident', 'info', 'applicant']
 const KIND_ICONS: Record<FormKind, string> = {
   child: 'i-lucide-baby', staff: 'i-lucide-user-round', team: 'i-lucide-users-round', accident: 'i-lucide-bandage',
+  info: 'i-lucide-messages-square', applicant: 'i-lucide-user-round-search',
 }
 /** „Neue Vorlage“ in the box „Unfälle“ asks whom the reports are about. */
 const subjectItems = (['child', 'employee'] as const).map(value => ({ label: de.forms.subjects[value], value }))
@@ -48,7 +49,7 @@ const found = computed(() => LIST_ORDER
 const foundCount = computed(() => found.value.reduce((sum, group) => sum + group.templates.length, 0))
 
 // ---- list ---------------------------------------------------------------
-const newName = reactive<Record<FormKind, string>>({ staff: '', child: '', team: '', accident: '' })
+const newName = reactive<Record<FormKind, string>>({ staff: '', child: '', team: '', accident: '', info: '', applicant: '' })
 const newSelf = ref(false)
 const newSubject = ref<FormSubject>('child')
 async function create(kind: FormKind) {

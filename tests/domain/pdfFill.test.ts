@@ -61,6 +61,18 @@ describe('filling PDF forms: helpers of the fill view', () => {
     expect(fillKinds({ onTablet: true, tabletMayEdit: true, can: office })).toEqual(['child'])
     expect(fillKinds({ onTablet: true, tabletMayEdit: false, can: office })).toEqual([])
     expect(usableFolders(office)).toEqual(['correspondence'])
+    // Infogespräche & Hospitationen: with visits.manage, never at the tablet.
+    expect(fillKinds({ onTablet: false, tabletMayEdit: false, can: allowing('visits.manage') })).toEqual(['infoVisit', 'applicant'])
+    expect(fillKinds({ onTablet: true, tabletMayEdit: false, can: allowing('visits.manage') })).toEqual([])
+  })
+
+  it('builds the save requests of a visit\'s document (new and „Bearbeiten“)', () => {
+    const file = new Blob(['%PDF'])
+    const info = fillSaveRequest({ mode: 'new-visit', kind: 'infoVisit', visitId: 3, title: 'Anmeldung' }, file)
+    expect(info).toMatchObject({ url: '/api/info-visits/3/documents', method: 'POST' })
+    expect(info.body.get('title')).toBe('Anmeldung')
+    expect(fillSaveRequest({ mode: 'new-visit', kind: 'applicant', visitId: 4, title: 'X' }, file)).toMatchObject({ url: '/api/applicant-visits/4/documents' })
+    expect(fillSaveRequest({ mode: 'replace', kind: 'applicant', documentId: 8 }, file)).toMatchObject({ url: '/api/visit-documents/8/file', method: 'PUT' })
   })
 
   it('searches the targets by every word, regardless of case', () => {

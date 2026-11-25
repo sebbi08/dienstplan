@@ -15,7 +15,7 @@ import {
   groupBookChanges, helpOuts, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
   formReads, releaseSnapshots,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
-  weekTemplateEntries,
+  weekTemplateEntries, applicantVisits, infoVisits,
 } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { dropOrphanSignRequests, dropSourceSnapshots } from './signRequestRecords'
@@ -224,6 +224,9 @@ const IMMEDIATE_CLEARED: readonly EmployeeRows[] = [
   { table: formAttachments, column: formAttachments.uploadedByEmployeeId },
   { table: childAttendanceChanges, column: childAttendanceChanges.changedByEmployeeId },
   { table: groupBookChanges, column: groupBookChanges.changedByEmployeeId },
+  // Who guided an info visit or mentored an applicant: the record stays without the person.
+  { table: infoVisits, column: infoVisits.guidedByEmployeeId },
+  { table: applicantVisits, column: applicantVisits.mentorEmployeeId },
 ]
 /** The linked account: deleted, a Träger account only unlinked. */
 const ACCOUNT: EmployeeRows = { table: users, column: users.employeeId }
@@ -326,6 +329,10 @@ const ASSESSMENT_ROWS: readonly EmployeeRows[] = [
   // The record of a signature in the app (Zum Unterschreiben senden: when, the file's SHA-256, a reason for not
   // signing); the signed copies themselves are documents of their folder and follow its period.
   { table: signRequestRecipients, column: signRequestRecipients.employeeId },
+  // The application the employee was hired from („Infogespräche & Hospitationen“): the record (with its days) and its
+  // forms, moved here at „Einstellen“ – application data like the folder „Bewerbung“.
+  { table: applicantVisits, column: applicantVisits.employeeId },
+  { table: forms, column: forms.employeeId, also: eq(forms.kind, 'applicant') },
   documentsOf('assessment'),
 ]
 
@@ -353,7 +360,7 @@ export function deleteAssessmentData(tx: Db, employeeId: number): number {
 const PAID_OVERTIME_ROWS: readonly EmployeeRows[] = [
   { table: balanceAdjustments, column: balanceAdjustments.employeeId, also: eq(balanceAdjustments.paidOut, true) },
   documentsOf('paidOvertime'),
-  { table: forms, column: forms.employeeId },
+  { table: forms, column: forms.employeeId, also: eq(forms.kind, 'accident') },
 ]
 
 /** „Ausgezahlte Überstunden, Verträge, Gehalt“: paid-out balance adjustments, contract and salary documents, accident reports. */

@@ -299,6 +299,14 @@ export function blankSheet(
       ],
       signatures: [employee ? de.accidents.signatureEmployee : de.accidents.signatureStaff, de.accidents.signatureLead],
     },
+    info: {
+      header: [[de.visits.print.family, ''], [de.visits.print.child, ''], [de.visits.print.date, ''], [de.visits.print.guidedBy, '']],
+      signatures: [],
+    },
+    applicant: {
+      header: [[de.visits.print.name, ''], [de.visits.print.kind, ''], [de.visits.print.date, ''], [de.visits.print.mentor, '']],
+      signatures: [],
+    },
   } satisfies Record<FormTemplateDto['kind'], { header: [string, string][]; signatures: string[] }>
   return {
     title: template.name, content: template.content, answers: {}, updatedAt: '', updatedBy: '',

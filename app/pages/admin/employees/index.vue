@@ -27,6 +27,11 @@ import { workdaysText } from '~/utils/workdays'
 const today = parseIsoDate(todayIso())
 const { user } = useUserSession()
 const { can } = useCan()
+// The tab „Bewerbungen & Hospitationen“ (?tab=applicants), for whoever may see the applicants.
+const route = useRoute()
+const seesApplicants = computed(() => can('visits.applicants.view'))
+const tab = computed(() => (seesApplicants.value && route.query.tab === 'applicants' ? 'applicants' : 'staff'))
+const setTab = (value: 'staff' | 'applicants') => navigateTo({ query: { ...route.query, tab: value === 'staff' ? undefined : value } }, { replace: true })
 const year = ref(today.year)
 const month = ref(today.month)
 
@@ -249,6 +254,18 @@ const td = 'px-3 py-2'
       </div>
     </div>
 
+    <!-- „Bewerbungen & Hospitationen“ next to the staff list (visits.applicants.view, which visits.manage includes). -->
+    <div v-if="seesApplicants" class="flex gap-1 border-b border-gray-200" role="tablist" :aria-label="de.visits.tabsLabel">
+      <button
+        v-for="entry in (['staff', 'applicants'] as const)" :key="entry" type="button" role="tab" :aria-selected="tab === entry"
+        class="-mb-px min-h-11 border-b-2 px-3 text-sm" :class="tab === entry ? 'border-sky-600 font-semibold text-sky-800' : 'border-transparent text-gray-600 hover:text-gray-900'"
+        @click="setTab(entry)"
+      >
+        {{ entry === 'staff' ? de.employees.title : de.visits.tabs.applicants }}
+      </button>
+    </div>
+    <VisitsApplicantList v-if="tab === 'applicants'" />
+    <template v-else>
     <!-- From sm on a table, on a phone one compact card per person. -->
     <table class="hidden w-full overflow-hidden rounded-lg bg-white text-sm shadow-sm ring-1 ring-gray-200 sm:table">
       <thead class="bg-gray-50 text-left text-xs text-gray-500">
@@ -412,6 +429,7 @@ const td = 'px-3 py-2'
         </li>
       </ul>
     </details>
+    </template>
 
     <UModal
       :open="deleting !== null" :title="deleting ? de.employees.deleteTitle(deleting.name) : ''"

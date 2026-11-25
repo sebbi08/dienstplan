@@ -26,6 +26,12 @@ describe('visibleChildrenAreas', () => {
     ])
   })
 
+  it('shows „Infogespräche“ after the planned children for whoever keeps them, never at the tablet', () => {
+    expect(areas({ ...providerInOffice, infoVisits: true }).at(-1)).toEqual(['planning', ['planned', 'infoVisits', 'occupancy', 'staffing', 'ifsg', 'archive']])
+    expect(areas({ ...leaderAtTablet, infoVisits: true }).at(-1)).toEqual(['planning', ['planned', 'occupancy', 'ifsg', 'archive']])
+    expect(areas(providerInOffice).at(-1)![1]).not.toContain('infoVisits')
+  })
+
   it('adds the Planung for the Leitung at the tablet, without the Personalschlüssel', () => {
     expect(areas(leaderAtTablet)).toEqual([
       ['today', ['attendance', 'week']],

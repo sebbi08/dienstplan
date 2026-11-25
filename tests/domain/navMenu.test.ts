@@ -106,6 +106,13 @@ describe('navMenu', () => {
     expect(loose.mineCount).toBe(0)
   })
 
+  it('gives „Bewerbungen & Hospitationen“ its own entry only without the staff list (where it is a tab)', () => {
+    const lead = navMenu({ ...base, role: 'group_lead', can: key => key === 'visits.applicants.view', employeeId: 9 })
+    expect(lead.mine.at(-1)).toEqual({ label: 'Bewerbungen & Hospitationen', to: '/admin/employees/applicants', match: '/admin/employees/applicants' })
+    const manager = navMenu({ ...base, role: 'admin', can: key => key === 'visits.applicants.view' || key === 'employees.view', employeeId: 3 })
+    expect([...manager.main, ...manager.mine, ...manager.more].map(entry => entry.to)).not.toContain('/admin/employees/applicants')
+  })
+
   it('shows „Dokumente“ for „Wissen“ alone, with the entries still to confirm', () => {
     const menu = navMenu({ ...base, role: 'observer', can: key => key === 'knowledge.view', employeeId: 9, knowledgeOpen: 2 })
     expect(menu.mine.at(-1)).toEqual({ label: 'Dokumente (2)', to: '/documents', match: '/documents' })

@@ -2,7 +2,9 @@
 import type { PermissionKey } from '../../shared/domain/permissions'
 
 /** The child pages (list, record, new child …); the tablet shows them only while a person has unlocked it. */
-export const isChildPagePath = (path: string): boolean => path === '/children' || path.startsWith('/children/')
+// The info visits (/children/info-visits/…) are no child records: never at the tablet (their routes are for accounts).
+export const isChildPagePath = (path: string): boolean =>
+  (path === '/children' || path.startsWith('/children/')) && !path.startsWith('/children/info-visits')
 
 /**
  * The pages the shared tablet opens without an unlock: stamping, the general plan and its printout
@@ -30,10 +32,15 @@ const within = (path: string, prefix: string) => (prefix.startsWith('=') ? path 
 const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly PermissionKey[]][] = [
   // Mitarbeiter see the children only at the facility's tablet, the printouts of them nowhere (the tablet never gets
   // to /print).
+  // „Infogespräche“ (Kinder → Planung): an info visit's page, for whoever keeps them.
+  ['/children/info-visits', 'visits.manage'],
   ['/children', 'children.ownAccount'],
   ['/print/children', 'children.ownAccount'],
   ['/admin/time', 'time.manage'],
   ['/admin/print/time', 'time.manage'],
+  // „Bewerbungen & Hospitationen“ (visits.applicants.view, which visits.manage includes): the list on its own and an
+  // applicant's page; with the staff list they are the tab of Mitarbeiter.
+  ['/admin/employees/applicants', 'visits.applicants.view'],
   ['/admin/employees', 'employees.view'],
   ['/admin/print/emergency-contacts', 'employees.view'],
   ['/admin/sick-days', 'employees.sickness'],

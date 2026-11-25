@@ -1491,7 +1491,7 @@ describe('upgrading a filled database through migrateDb', () => {
     expect(() => sqlite.exec(insert)).toThrow(/UNIQUE|PRIMARY/)
     expect(sqlite.prepare('SELECT * FROM retention_settings').all()).toEqual([{
       facility_id: 2, time_years: 2, assessment_years: 3, paid_overtime_years: 8, pension_years: 30, cash_years: 10,
-      employee_delete: 'managers', bem_years: 3, maternity_years: 2, payroll_office: 1,
+      employee_delete: 'managers', bem_years: 3, maternity_years: 2, payroll_office: 1, info_visit_months: 12, applicant_months: 6,
     }])
     sqlite.exec(`INSERT INTO balance_adjustments (employee_id, date, minutes, reason) VALUES (1, '2026-10-01', 60, 'Neu')`)
     expect(sqlite.prepare(`SELECT paid_out FROM balance_adjustments WHERE reason = 'Neu'`).get()).toEqual({ paid_out: 0 })
@@ -2684,6 +2684,44 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
       VALUES (1, 'staff', 'X', '{"sections":[]}', 'c', 'z', 99)`)).toThrow(/FOREIGN KEY/)
     sqlite.exec('DELETE FROM forms WHERE id = 1')
     expect(sqlite.prepare('SELECT source_form_id, source_talk_date FROM forms WHERE id = 4').get()).toEqual({ source_form_id: null, source_talk_date: '2025-11-03' })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('0126 adds info visits, applicants with their days and documents, forms of a visit and the retention months; all gone with their record', () => {
+    const { db, sqlite } = databaseAt('0125')
+    sqlite.exec(`
+      INSERT INTO employees (id, name, short_name, facility_id) VALUES (1, 'Anna', 'An', 1);
+      INSERT INTO children (id, facility_id, last_name, first_name, birth_date, created_at) VALUES (1, 1, 'Kurz', 'Lena', '2024-05-02', 'x');
+      INSERT INTO retention_settings (facility_id) VALUES (1);
+    `)
+    migrateThrough(db, '0126')
+    expect(sqlite.prepare('SELECT info_visit_months, applicant_months FROM retention_settings').get()).toEqual({ info_visit_months: 12, applicant_months: 6 })
+    sqlite.exec(`
+      INSERT INTO info_visits (id, facility_id, visit_date, family_name, guided_by_employee_id, created_at, updated_at) VALUES
+        (1, 1, '2026-11-20', 'Kurz', 1, 'c', 'u'), (2, 1, '2026-11-21', 'Berg', NULL, 'c', 'u');
+      INSERT INTO applicant_visits (id, facility_id, name, kind, mentor_employee_id, created_at, updated_at) VALUES (1, 1, 'Mara', 'hospitation', 1, 'c', 'u');
+      INSERT INTO applicant_visit_days (visit_id, date, "from", "to") VALUES (1, '2026-12-02', 480, 720);
+      INSERT INTO visit_documents (info_visit_id, mime_type, size, data, uploaded_at) VALUES (1, 'application/pdf', 4, x'25504446', 'x');
+      INSERT INTO visit_documents (applicant_visit_id, mime_type, size, data, uploaded_at) VALUES (1, 'application/pdf', 4, x'25504446', 'x');
+      INSERT INTO forms (facility_id, kind, title, content, created_at, updated_at, info_visit_id) VALUES (1, 'info', 'Info', '{"sections":[]}', 'c', 'u', 1);
+      INSERT INTO forms (facility_id, kind, title, content, created_at, updated_at, applicant_visit_id) VALUES (1, 'applicant', 'Hosp', '{"sections":[]}', 'c', 'u', 1);
+    `)
+    expect(sqlite.prepare('SELECT phone, email, child_first_name, child_birth_date, desired_start, guided_by_name, notes, status, child_id FROM info_visits WHERE id = 2').get())
+      .toEqual({ phone: '', email: '', child_first_name: '', child_birth_date: null, desired_start: null, guided_by_name: '', notes: '', status: 'open', child_id: null })
+    expect(sqlite.prepare('SELECT status, declined_at, employee_id, notes FROM applicant_visits').get())
+      .toEqual({ status: 'open', declined_at: null, employee_id: null, notes: '' })
+    expect(() => sqlite.exec(`INSERT INTO applicant_visit_days (visit_id, date) VALUES (1, '2026-12-02')`)).toThrow(/UNIQUE/)
+    expect(() => sqlite.exec(`INSERT INTO visit_documents (info_visit_id, mime_type, size, data, uploaded_at) VALUES (99, 'x', 1, x'25', 'x')`)).toThrow(/FOREIGN KEY/)
+    // The employee goes: guide and mentor are cleared, the records stay.
+    sqlite.exec('DELETE FROM employees WHERE id = 1')
+    expect(sqlite.prepare('SELECT guided_by_employee_id FROM info_visits WHERE id = 1').get()).toEqual({ guided_by_employee_id: null })
+    expect(sqlite.prepare('SELECT mentor_employee_id FROM applicant_visits').get()).toEqual({ mentor_employee_id: null })
+    // A record goes with its documents and forms; a taken-over visit goes with its child.
+    sqlite.exec('DELETE FROM info_visits WHERE id = 1; DELETE FROM applicant_visits WHERE id = 1')
+    for (const table of ['visit_documents', 'forms', 'applicant_visit_days']) expect(count(sqlite, table), table).toBe(0)
+    sqlite.exec(`UPDATE info_visits SET status = 'waitlisted', child_id = 1 WHERE id = 2`)
+    sqlite.exec('DELETE FROM children WHERE id = 1')
+    expect(count(sqlite, 'info_visits')).toBe(0)
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 

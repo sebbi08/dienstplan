@@ -49,7 +49,10 @@ await lookups.ready
 // The areas Heute, Kinder and Planung with their sub-tabs (app/utils/childrenAreas.ts): the Planung is for Leitung
 // and Träger only (the server answers 403 to everybody else), the Personalschlüssel never at the tablet; without manager
 // rights the planned children follow „Offen“ in Kinder, as far as the tablet's switches allow.
-const viewer = computed<ChildrenViewer>(() => ({ isManager: isLeader.value, onTablet: onTablet.value, showPlanned: showPlanned.value }))
+// „Infogespräche“ in Planung: whoever keeps them (visits.manage), never at the tablet.
+const viewer = computed<ChildrenViewer>(() => ({
+  isManager: isLeader.value, onTablet: onTablet.value, showPlanned: showPlanned.value, infoVisits: can('visits.manage'),
+}))
 const areas = computed(() => visibleChildrenAreas(viewer.value))
 const shown = (key: ChildrenTab) => childrenTabVisible(key, viewer.value)
 
@@ -93,7 +96,7 @@ watch(viewer, (current) => {
 
 const TAB_LABELS: Record<ChildrenTab, string> = {
   attendance: de.attendance.tab, week: de.groupBook.tab, list: de.children.tabs.list, overview: de.children.tabs.overview,
-  planned: de.children.tabs.planned, birthdays: de.children.tabs.birthdays, documents: de.children.tabs.documents,
+  planned: de.children.tabs.planned, infoVisits: de.visits.tabs.info, birthdays: de.children.tabs.birthdays, documents: de.children.tabs.documents,
   open: de.groupChange.openTab, occupancy: de.occupancy.tab, staffing: de.staffing.tab, ifsg: de.ifsg.tab, archive: de.children.tabs.archive,
 }
 const AREA_ICONS: Record<ChildrenArea, string> = { today: 'i-lucide-sun', children: 'i-lucide-users', planning: 'i-lucide-calendar-range' }
@@ -276,6 +279,7 @@ const td = 'px-3 py-2'
 
           <ChildrenOverviewTab v-else-if="tab === 'overview'" />
           <ChildrenPlannedTab v-else-if="tab === 'planned' && shown('planned')" />
+          <VisitsInfoList v-else-if="tab === 'infoVisits' && shown('infoVisits')" />
 
           <template v-else-if="tab === 'birthdays'">
             <div class="flex flex-wrap items-center gap-3">

@@ -23,6 +23,11 @@ import { itemChangesOf, lastOpened, markOpened, recordRevision } from './formRev
 import { listTemplates, loadTemplate, withFormErrors } from './formTemplates'
 
 export const CHILD_FORM_LIMITS = { participants: 300 } as const
+/**
+ * The forms of a child's record: its observation forms (kind `child`) and, read only, those of the info visit it was
+ * taken over from (kind `info`, server/services/visits.ts).
+ */
+const CHILD_RECORD_KINDS: ('child' | 'info')[] = ['child', 'info']
 
 type FormRow = typeof forms.$inferSelect
 type ChildForm = FormRow & { childId: number }
@@ -82,7 +87,7 @@ function loadVisibleChild(db: Db, viewer: ChildViewer, childId: number, now: Dat
 /** A child form of the viewer's facility (404 form_not_found otherwise) with its child as the viewer sees it. */
 function loadForm(db: Db, viewer: ChildViewer, formId: number, now: Date, settle = false): { form: ChildForm; child: VisibleChild } {
   const form = db.select().from(forms)
-    .where(and(eq(forms.id, formId), eq(forms.facilityId, viewer.facilityId), eq(forms.kind, 'child'))).get()
+    .where(and(eq(forms.id, formId), eq(forms.facilityId, viewer.facilityId), inArray(forms.kind, CHILD_RECORD_KINDS))).get()
   if (!form || form.childId === null) throw new ServiceError(404, 'form_not_found')
   return { form: form as ChildForm, child: loadVisibleChild(db, viewer, form.childId, now, settle) }
 }
@@ -110,11 +115,16 @@ function rightOn(viewer: ChildViewer, child: VisibleChild, formId: number, edito
   return right === 'edit' && child.archived ? 'read' : right
 }
 
-/** The viewer's right, refusing a viewer without one (404 child_not_found: they must not learn of the child). */
-function access(viewer: ChildViewer, child: VisibleChild, formId: number, editors: ReadonlySet<number>): 'read' | 'edit' {
-  const right = rightOn(viewer, child, formId, editors)
+/**
+ * The viewer's right, refusing a viewer without one (404 child_not_found: they must not learn of the child). A form of
+ * the info visit the child was taken over from (kind `info`) is only read.
+ */
+function access(
+  viewer: ChildViewer, child: VisibleChild, form: { id: number; kind: string }, editors: ReadonlySet<number>,
+): 'read' | 'edit' {
+  const right = rightOn(viewer, child, form.id, editors)
   if (right === 'none') throw new ServiceError(404, 'child_not_found')
-  return right
+  return form.kind === 'info' ? 'read' : right
 }
 
 /** A child form the viewer may read, with their right on it (404 exactly as when opening it, see `getChildForm`). */
@@ -122,7 +132,7 @@ export function readableChildForm(
   db: Db, viewer: ChildViewer, formId: number, now: Date = new Date(),
 ): { form: ChildForm; right: 'read' | 'edit' } {
   const { form, child } = loadForm(db, viewer, formId, now)
-  return { form, right: access(viewer, child, form.id, editorsOf(db, [form.id]).get(form.id)!) }
+  return { form, right: access(viewer, child, form, editorsOf(db, [form.id]).get(form.id)!) }
 }
 
 /** `canManage` is off on an archived record: unlocking and deleting are refused there (409 child_archived). */
@@ -131,13 +141,14 @@ function toListItem(form: ChildForm, right: 'read' | 'edit', viewer: ChildViewer
     id: form.id, childId: form.childId, templateId: form.templateId, title: form.title, date: form.formDate ?? '',
     start: form.formStart, participants: form.formParticipants, parentMeetingId: form.parentMeetingId,
     updatedAt: form.updatedAt, updatedBy: form.updatedBy, right, canManage: canManageChildForms(viewer) && !child.archived,
+    ...(form.kind === 'info' ? { infoVisit: true as const } : {}),
   }
 }
 
 /** The child's forms, newest first (by date, then time), each with the viewer's right; and whether they may start one. */
 export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now: Date = new Date()): ChildFormsDto {
   const child = loadVisibleChild(db, viewer, childId, now)
-  const rows = db.select().from(forms).where(and(eq(forms.childId, childId), eq(forms.kind, 'child')))
+  const rows = db.select().from(forms).where(and(eq(forms.childId, childId), inArray(forms.kind, CHILD_RECORD_KINDS)))
     .orderBy(desc(forms.formDate), desc(forms.formStart), desc(forms.id)).all() as ChildForm[]
   const editors = editorsOf(db, rows.map(row => row.id))
   const canCreate = !child.archived && canCreateChildForm(asRightViewer(viewer, child), { keyEducatorId: child.row.keyEducatorId })
@@ -147,7 +158,7 @@ export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now
         .map(template => ({ id: template.id, name: template.name }))
     : []
   return {
-    forms: rows.map(row => toListItem(row, access(viewer, child, row.id, editors.get(row.id)!), viewer, child)),
+    forms: rows.map(row => toListItem(row, access(viewer, child, row, editors.get(row.id)!), viewer, child)),
     canCreate,
     templates,
   }
@@ -160,7 +171,7 @@ export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now
  */
 export function getChildForm(db: Db, viewer: ChildViewer, formId: number, now: Date = new Date()): ChildFormDto {
   const { form, child } = loadForm(db, viewer, formId, now)
-  const right = access(viewer, child, form.id, editorsOf(db, [form.id]).get(form.id)!)
+  const right = access(viewer, child, form, editorsOf(db, [form.id]).get(form.id)!)
   const groupName = child.row.groupId === null ? null
     : db.select({ name: groups.name }).from(groups).where(eq(groups.id, child.row.groupId)).get()?.name ?? null
   const facilityName = db.select({ name: facilities.name }).from(facilities).where(eq(facilities.id, form.facilityId)).get()?.name ?? ''
@@ -258,7 +269,7 @@ export function saveChildForm(
 ): ChildFormSavedDto {
   const { form, child } = loadForm(db, viewer, formId, now, true)
   assertNotArchived(child)
-  if (access(viewer, child, form.id, editorsOf(db, [form.id]).get(form.id)!) !== 'edit') {
+  if (access(viewer, child, form, editorsOf(db, [form.id]).get(form.id)!) !== 'edit') {
     throw new ServiceError(403, 'forbidden')
   }
   if (form.updatedAt !== input.expectedUpdatedAt) throw new ServiceError(409, 'form_changed')
