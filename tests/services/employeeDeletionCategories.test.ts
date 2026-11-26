@@ -56,7 +56,7 @@ const ACCIDENTS = 'forms.employee_id'
 const PARTICIPANTS = 'team_meeting_participants.employee_id'
 /** A request to sign sent from the person's file: it goes with the category of the folder it came from (here „Vertrag“). */
 const SENT_FROM = 'sign_requests.source_employee_id'
-const ALL_FOLDERS = ['application', 'contract', 'correspondence', 'measures', 'qualifications', 'salary']
+const ALL_FOLDERS = ['application', 'contract', 'correspondence', 'measures', 'qualifications', 'required', 'salary']
 /** The personnel file fields of the employee row, all set (beforeEach) and cleared with the immediate data. */
 const PERSONNEL_FIELDS = {
   birthYear: 1985, street: 'Hauptstraße 1', postalCode: '80331', city: 'München', phone: '089 123456', email: 'tina@example.de',
@@ -278,9 +278,9 @@ describe('the deletion categories of a left employee', () => {
     expect(remove(['payroll'], hanna).payroll).toBe(1)
     expect(db.select().from(employeePayroll).where(eq(employeePayroll.employeeId, hanna)).all()).toEqual([])
     expect(categoryHasData(db, hanna)).toEqual(NONE)
-    // Documents: application, qualifications, correspondence and measures with the assessments, contract and salary
+    // Documents: application, required, qualifications, correspondence and measures with the assessments, contract and salary
     // with the paid overtime.
-    for (const folder of ['application', 'qualifications', 'correspondence', 'measures'] as const) {
+    for (const folder of ['application', 'required', 'qualifications', 'correspondence', 'measures'] as const) {
       addEmployeeDocument(db, hanna, folder)
       expect(categoryHasData(db, hanna), folder).toEqual({ ...NONE, assessment: true })
       expect(remove(['paidOvertime'], hanna).paidOvertime, folder).toBe(0)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION, type EmployeeDocumentFolder } from '#shared/domain/personnel'
-import { REQUIRED_DOCUMENT_LIMITS } from '#shared/domain/requiredDocuments'
+import { REQUIRED_DOCUMENT_LIMITS, defaultRequiredFolder } from '#shared/domain/requiredDocuments'
 import { QUALIFICATIONS, type Qualification } from '#shared/domain/staffing/types'
 import type { PrintTemplateDto, RequiredDocumentTypeDto, RequiredDocumentTypeInput } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -31,7 +31,7 @@ const templateItems = computed(() => [{ label: t.noTemplate, value: 0 }, ...temp
 interface Form { name: string; folder: EmployeeDocumentFolder; applies: 'all' | 'chosen'; qualifications: Qualification[]; validity: string; templateId: number; active: boolean }
 const editing = ref<RequiredDocumentTypeDto | null>(null)
 const open = ref(false)
-const form = reactive<Form>({ name: '', folder: 'contract', applies: 'all', qualifications: [], validity: '', templateId: 0, active: true })
+const form = reactive<Form>({ name: '', folder: 'required', applies: 'all', qualifications: [], validity: '', templateId: 0, active: true })
 
 async function openDialog(type: RequiredDocumentTypeDto | null) {
   editing.value = type
@@ -41,7 +41,7 @@ async function openDialog(type: RequiredDocumentTypeDto | null) {
         qualifications: type.appliesTo === 'all' ? [] : [...type.appliesTo], validity: type.validityMonths === null ? '' : String(type.validityMonths),
         templateId: type.templateId ?? 0, active: type.active,
       }
-    : { name: '', folder: folders.value[0] ?? 'contract', applies: 'all', qualifications: [], validity: '', templateId: 0, active: true })
+    : { name: '', folder: defaultRequiredFolder(folders.value) ?? 'required', applies: 'all', qualifications: [], validity: '', templateId: 0, active: true })
   open.value = true
   templates.value = await $fetch<PrintTemplateDto[]>('/api/print-templates').catch(() => [])
 }

@@ -50,7 +50,7 @@ export function documentFolders(db: Db, employeeId: number): string[] {
 }
 
 /** The documents of `fillEmployeeData`: one in each folder of the assessment category (3 years). */
-export const ASSESSMENT_FOLDERS: EmployeeDocumentFolder[] = ['application', 'correspondence', 'measures', 'qualifications']
+export const ASSESSMENT_FOLDERS: EmployeeDocumentFolder[] = ['application', 'correspondence', 'measures', 'qualifications', 'required']
 
 /**
  * The same kinds of data for each of `employeeIds` in facility 1 (all of them participants of one team meeting), a row

@@ -11,14 +11,21 @@ export type PersonnelError =
   | 'iban_invalid' | 'tax_id_invalid' | 'sv_number_invalid' | 'tax_class_invalid' | 'email_invalid' | 'postal_code_invalid'
   | 'disability_degree_invalid' | 'birth_year_invalid'
 
-/** The folders of the „Dokumente“ tab, in the order the page shows them. */
-export const EMPLOYEE_DOCUMENT_FOLDERS = ['contract', 'application', 'qualifications', 'correspondence', 'measures', 'salary'] as const
+/**
+ * The folders of the „Dokumente“ tab, in the order the page shows them. „required“ (Pflichtdokumente, since 2026-11-26)
+ * holds the Pflichtdokumente apart from the Arbeitsvertrag (shared/domain/requiredDocuments.ts).
+ */
+export const EMPLOYEE_DOCUMENT_FOLDERS = ['contract', 'application', 'required', 'qualifications', 'correspondence', 'measures', 'salary'] as const
 export type EmployeeDocumentFolder = typeof EMPLOYEE_DOCUMENT_FOLDERS[number]
 
-/** The key that lets a person see, upload and delete the documents of a folder. */
+/**
+ * The key that lets a person see, upload and delete the documents of a folder. „Pflichtdokumente“ has the key of
+ * „Bewerbung“: exactly the same people see and file both (by default the Träger; the Leitung only if given the right).
+ */
 export const FOLDER_PERMISSION: Record<EmployeeDocumentFolder, PermissionKey> = {
   contract: 'employees.docs.contract',
   application: 'employees.docs.application',
+  required: 'employees.docs.application',
   qualifications: 'employees.docs.qualifications',
   correspondence: 'employees.docs.correspondence',
   measures: 'employees.docs.measures',
@@ -32,6 +39,7 @@ export const FOLDER_PERMISSION: Record<EmployeeDocumentFolder, PermissionKey> = 
 export const FOLDER_RETENTION: Record<EmployeeDocumentFolder, 'assessment' | 'paidOvertime'> = {
   contract: 'paidOvertime',
   application: 'assessment',
+  required: 'assessment',
   qualifications: 'assessment',
   correspondence: 'assessment',
   measures: 'assessment',

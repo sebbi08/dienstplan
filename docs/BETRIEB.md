@@ -993,7 +993,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 |---|---|
 | am Tag nach „ausgeschieden am“ („Persönliche Daten“) | Geburtstag, PIN, Benutzerkonto (Leitung/Mitarbeiter gelöscht, ein Träger-Konto nur gelöst; gesperrt ist das Konto einer Leitung oder eines Mitarbeiters schon ab diesem Tag, siehe unten), Qualifikation, Vertragsdaten (mit „befristet bis“ und „Probezeit bis“), Notfallkontakte, Urlaubsanträge, Benachrichtigungen, Freischaltungen für Bögen; aus der Personalakte Geburtsjahr, Anschrift, Telefon, E-Mail, Staatsangehörigkeit, Schwerbehinderung und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt (voreingestellt) – alles aus „Lohn und Steuer“; die Kinder der Person mit „alleinerziehend“; die Begründungen für Sonderurlaub (die Sonderurlaubstage selbst bleiben bei den Zeitdaten); als Bezugserzieher wird die Person bei Kindern entfernt |
 | „Sonstige Überstunden- und Zeitdaten“ (voreingestellt 2 Jahre) | Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden-Verläufe, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „Im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, längere Abwesenheiten (Langzeitkrank, Kur/Reha, Sonstiges), Urlaubsansprüche mit den Zusatztagen nur für ein Jahr, Elternzeiten |
-| „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz) als Nachweis, dass die Pflichten erfüllt wurden, Lesebestätigungen aus „Wissen“, die Nachweise der Unterschriften in der App („Zum Unterschreiben senden“: Zeitpunkt, Prüfsumme, Grund einer Ablehnung); Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
+| „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz) als Nachweis, dass die Pflichten erfüllt wurden, Lesebestätigungen aus „Wissen“, die Nachweise der Unterschriften in der App („Zum Unterschreiben senden“: Zeitpunkt, Prüfsumme, Grund einer Ablehnung); Dokumente der Personalakte in den Fächern Bewerbung, Pflichtdokumente, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Unter „Jetzt löschbar“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Seite *Mitarbeitende* beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
 | „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
@@ -1197,7 +1197,7 @@ Voreingestellt gilt:
 | „befristet bis“, „Probezeit bis“ | Reiter **Vertrag & Lohn**, Vertragsangaben | bearbeiten | wie unter *Rechte und Rollen* eingestellt (Grundeinstellung: nein; „Vertragsangaben ansehen“ = nur lesen, „Vertragsangaben bearbeiten“ = auch ändern) | nein |
 | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, IBAN, Kontoinhaber, Konfession (Kirchensteuer) | Reiter **Vertrag & Lohn**, Abschnitt „Lohn und Steuer“ | ja | nein | nein |
 | Dokumente im Fach „Qualifikationen und Fortbildungen“ | Reiter **Nachweise**, Abschnitt „Personalakte“ | ja | ja | nein |
-| Dokumente in den Fächern „Vertrag und Nachträge, Stellenbeschreibung“, „Bewerbung“, „Korrespondenz“, „Arbeitsrechtliche Maßnahmen“, „Gehalt“ | Reiter **Nachweise**, Abschnitt „Personalakte“ | ja | nein | nein |
+| Dokumente in den Fächern „Vertrag und Nachträge, Stellenbeschreibung“, „Bewerbung“, „Pflichtdokumente“, „Korrespondenz“, „Arbeitsrechtliche Maßnahmen“, „Gehalt“ | Reiter **Nachweise**, Abschnitt „Personalakte“ | ja | nein | nein |
 
 Mitarbeiter sehen nichts davon – auch nicht ihre eigene Akte; am Tablet und auf den „Mein …“-Seiten steht nichts davon.
 Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
@@ -1219,12 +1219,13 @@ Am Tablet bleibt der Geburtstag **ohne Jahr** als Erinnerung.
   löscht es nach einer Rückfrage. Gelöschte Dateien sind sofort aus der Datenbank entfernt (ältere Sicherungen enthalten
   sie noch, siehe Abschnitt 8).
 - **Rechte:** Jeder Teil hat ein eigenes Recht („Anschrift, Kontakt und Geburtsdatum“, „Staatsangehörigkeit und
-  Schwerbehinderung“, „Lohn und Steuer“ und je Fach „Dokumente: …“). Die Übersicht der Rechte unter *Benutzer* zeigt,
-  wer was voreingestellt darf.
+  Schwerbehinderung“, „Lohn und Steuer“ und je Fach „Dokumente: …“). Die Fächer „Bewerbung“ und „Pflichtdokumente“
+  teilen sich ein Recht („Dokumente: Bewerbung und Pflichtdokumente“): Wer das eine sieht, sieht auch das andere. Die
+  Übersicht der Rechte unter *Benutzer* zeigt, wer was voreingestellt darf.
 - **Löschfristen:** Nach dem Ausscheiden gehören Geburtsjahr, Anschrift, Kontakt, Staatsangehörigkeit,
   Schwerbehinderung, „befristet bis“, „Probezeit bis“ und – solange ein Lohnbüro die Lohnunterlagen aufbewahrt
   (voreingestellt) – alles aus „Lohn und Steuer“ zu den **„Persönlichen Daten“** (löschbar ab dem Tag nach dem
-  Ausscheiden; ohne Lohnbüro bleibt „Lohn und Steuer“ 6 Jahre, siehe *Löschfristen*). Die Dokumente in den Fächern Bewerbung, Qualifikationen, Korrespondenz und Maßnahmen gehen
+  Ausscheiden; ohne Lohnbüro bleibt „Lohn und Steuer“ 6 Jahre, siehe *Löschfristen*). Die Dokumente in den Fächern Bewerbung, Pflichtdokumente, Qualifikationen, Korrespondenz und Maßnahmen gehen
   mit den **„Beurteilungen“** (3 Jahre), die in den Fächern Vertrag und Gehalt mit den **„ausgezahlten Überstunden“**
   (voreingestellt 8 Jahre; unter „Jetzt löschbar“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“). Gelöscht wird
   wie immer von Hand durch den Träger unter **Mehr → Datenschutz & Löschen** (siehe oben).
@@ -1236,17 +1237,35 @@ Masernnachweis), legt die Einrichtung als **Pflichtdokumente** fest. Die App zei
 und was bald abläuft.
 
 - **Einstellen:** *Einstellungen → Mitarbeitende → Pflichtdokumente* (Leitung und Träger, Recht „Einstellungen der
-  Einrichtung“). Je Pflichtdokument: **Name**, das **Fach** der Personalakte, in das es gehört, **gilt für** (alle oder nur
+  Einrichtung“). Je Pflichtdokument: **Name**, das **Fach** der Personalakte, in das es gehört (bei einem neuen ist
+  „Pflichtdokumente“ vorgewählt, wenn du dieses Fach sehen darfst; ein anderes Fach lässt sich wählen), **gilt für** (alle oder nur
   bestimmte Qualifikationen; wer keine Qualifikation eingetragen hat, braucht nur die für alle), freiwillig **gültig für**
   (Monate, z. B. 60 beim Führungszeugnis; leer = unbegrenzt), freiwillig eine **Vorlage** zum Ausfüllen oder Unterschreiben
   und **aktiv** (ein inaktives wird nirgends verlangt). Nach **Reihenfolge ändern** ändert ▲/▼ die Reihenfolge (unter den Pflichtdokumenten, die du
   siehst). Löschen fragt nach; die schon abgelegten Dokumente bleiben in der Akte, nur nicht mehr als Pflichtdokument
   zugeordnet. Namen sind eindeutig (unter den Pflichtdokumenten, die du siehst). Bekommt ein Pflichtdokument ein anderes
   Fach, verlieren die schon zugeordneten Dokumente im alten Fach die Zuordnung (sie bleiben in der Akte).
+- **Fach „Pflichtdokumente“:** Jede Personalakte hat dafür ein eigenes Fach. Sehen und befüllen dürfen es genau die, die
+  auch das Fach „Bewerbung“ dürfen (ein gemeinsames Recht; voreingestellt nur der Träger – die Leitung nicht, siehe
+  *Personalakte*). Nur der **Arbeitsvertrag** bleibt im Fach „Vertrag und Nachträge, Stellenbeschreibung“, weil er
+  Gehaltsangaben enthält.
 - **Beispiele:** Jede Einrichtung – auch jede neu angelegte – startet mit sieben aktiven Beispielen, die du ändern oder
-  löschen kannst: Arbeitsvertrag, Verpflichtung auf den Datenschutz und Schweigepflichterklärung (Fach Vertrag),
-  Erweitertes Führungszeugnis (Fach Bewerbung, 60 Monate) und Masernnachweis (Fach Bewerbung), Belehrung
-  Infektionsschutz und Erste-Hilfe-Nachweis (Fach Qualifikationen, 24 Monate).
+  löschen kannst: Arbeitsvertrag (Fach Vertrag), Erweitertes Führungszeugnis (60 Monate), Masernnachweis, Belehrung
+  Infektionsschutz, Verpflichtung auf den Datenschutz, Erste-Hilfe-Nachweis (24 Monate) und Schweigepflichterklärung
+  (alle im Fach Pflichtdokumente).
+- **Umstellung am 26.11.2026:** Beim Update kamen die vorhandenen Pflichtdokumente ins Fach „Pflichtdokumente“ – samt
+  den ihnen zugeordneten Dokumenten, damit nichts auf „fehlt“ springt. Umgezogen sind alle aus den Fächern Bewerbung,
+  Qualifikationen und Korrespondenz sowie aus dem Fach Vertrag die beiden Beispiele „Verpflichtung auf den Datenschutz“
+  und „Schweigepflichterklärung“ (ohne Gehaltsangaben; Vertrag und Bewerbung hängen am selben Schalter „alle übrigen
+  Dokumente“, es sieht also niemand mehr als vorher). Geblieben sind ein Pflichtdokument namens „Arbeitsvertrag“ (egal
+  in welchem Fach) und selbst angelegte Pflichtdokumente in den Fächern Vertrag, Gehalt und Arbeitsrechtliche
+  Maßnahmen (ihr Inhalt ist unbekannt). Nicht zugeordnete Dokumente blieben, wo sie waren. Offene Anfragen „Zum
+  Unterschreiben senden“ eines umgezogenen Pflichtdokuments legen die unterschriebene Kopie ebenfalls im neuen Fach ab.
+  Folgen: Belehrung Infektionsschutz und Erste-Hilfe-Nachweis (bisher im Fach Qualifikationen) sieht die Leitung in der
+  Grundeinstellung nicht mehr – soll sie sie sehen, stellt der Träger das Pflichtdokument wieder auf das Fach
+  Qualifikationen (die schon zugeordneten Dokumente verlieren dabei die Zuordnung) oder gibt ihr das Recht für die
+  übrigen Dokumente. Die Dokumente zu Datenschutz und Schweigepflicht gehen nach dem Ausscheiden jetzt mit den
+  „Beurteilungen“ (3 Jahre) statt mit den „ausgezahlten Überstunden“.
 - **Bei der Person:** Reiter **Nachweise**, Kasten **Pflichtdokumente**: je Pflichtdokument, das für sie gilt, der Stand –
   **vorhanden** (mit Datum und **Öffnen**), **fehlt**, **läuft ab am …** (in den letzten zwei Monaten der Gültigkeit) oder
   **abgelaufen am …**. Es zählt das neueste zugeordnete Dokument im Fach des Pflichtdokuments (sein Datum, sonst der

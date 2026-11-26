@@ -86,7 +86,7 @@ describe('employee documents (Personalakte, Reiter Dokumente)', () => {
         Record<EmployeeDocumentFolder, number>
       const list = listEmployeeDocuments(db, leitung, 1, anna)
       expect(Object.keys(list)).toEqual(['qualifications'])
-      expect(JSON.stringify(list)).not.toMatch(/"(contract|application|correspondence|measures|salary)"/)
+      expect(JSON.stringify(list)).not.toMatch(/"(contract|application|required|correspondence|measures|salary)"/)
       expect(readEmployeeDocumentFile(db, leitung, 1, ids.qualifications).mimeType).toBe('application/pdf')
       const own = upload(leitung, { folder: 'qualifications' })
       updateEmployeeDocument(db, leitung, 1, own, meta({ title: 'Neu' }))
@@ -98,9 +98,9 @@ describe('employee documents (Personalakte, Reiter Dokumente)', () => {
         // Moving into a folder needs the right for that folder as well.
         expect(errorCode(() => updateEmployeeDocument(db, leitung, 1, own, meta({ folder }))), folder).toBe('forbidden')
       }
-      expect(rowCount()).toBe(7)
+      expect(rowCount()).toBe(EMPLOYEE_DOCUMENT_FOLDERS.length + 1)
       deleteEmployeeDocument(db, leitung, 1, own)
-      expect(rowCount()).toBe(6)
+      expect(rowCount()).toBe(EMPLOYEE_DOCUMENT_FOLDERS.length)
     })
 
     it('gives a Mitarbeiter nothing at all', () => {

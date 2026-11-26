@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  REQUIRED_DOCUMENT_EXAMPLES, appliesToEmployee, parseAppliesTo, requiredDocumentStatus, serializeAppliesTo,
+  REQUIRED_DOCUMENT_EXAMPLES, REQUIRED_DOCUMENT_FOLDER, appliesToEmployee, defaultRequiredFolder, parseAppliesTo, requiredDocumentStatus,
+  serializeAppliesTo,
 } from '../../shared/domain/requiredDocuments'
 import type { RequiredDocumentTypeDto } from '../../shared/types/api'
 import { keptRequiredType } from '../../app/utils/requiredDocuments'
@@ -19,16 +20,23 @@ describe('Pflichtdokumente (shared rules)', () => {
     expect(keptRequiredType([], 'contract', 5)).toBe(0)
   })
 
-  it('has the agreed examples, each in a folder, the Führungszeugnis for 5 years and Erste Hilfe for 2', () => {
+  it('has the agreed examples, all in „Pflichtdokumente“ but the Arbeitsvertrag, the Führungszeugnis for 5 years and Erste Hilfe for 2', () => {
     expect(REQUIRED_DOCUMENT_EXAMPLES.map(example => [example.name, example.folder, example.validityMonths])).toEqual([
       ['Arbeitsvertrag', 'contract', null],
-      ['Erweitertes Führungszeugnis', 'application', 60],
-      ['Masernnachweis', 'application', null],
-      ['Belehrung Infektionsschutz', 'qualifications', null],
-      ['Verpflichtung auf den Datenschutz', 'contract', null],
-      ['Erste-Hilfe-Nachweis', 'qualifications', 24],
-      ['Schweigepflichterklärung', 'contract', null],
+      ['Erweitertes Führungszeugnis', 'required', 60],
+      ['Masernnachweis', 'required', null],
+      ['Belehrung Infektionsschutz', 'required', null],
+      ['Verpflichtung auf den Datenschutz', 'required', null],
+      ['Erste-Hilfe-Nachweis', 'required', 24],
+      ['Schweigepflichterklärung', 'required', null],
     ])
+  })
+
+  it('presets a new type to „Pflichtdokumente“ if the editor may use it, else to their first folder', () => {
+    expect(REQUIRED_DOCUMENT_FOLDER).toBe('required')
+    expect(defaultRequiredFolder(['contract', 'application', 'required', 'qualifications'])).toBe('required')
+    expect(defaultRequiredFolder(['qualifications', 'salary'])).toBe('qualifications')
+    expect(defaultRequiredFolder([])).toBeNull()
   })
 
   it('applies a type to everyone or to the chosen qualifications (none entered: only the types for everyone)', () => {

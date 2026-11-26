@@ -944,8 +944,8 @@ export const de = {
   /** The personnel file (Personalakte): document folders and format errors. */
   personnel: {
     folders: {
-      contract: 'Vertrag und Nachträge, Stellenbeschreibung', application: 'Bewerbung', qualifications: 'Qualifikationen und Fortbildungen',
-      correspondence: 'Korrespondenz', measures: 'Arbeitsrechtliche Maßnahmen', salary: 'Gehalt',
+      contract: 'Vertrag und Nachträge, Stellenbeschreibung', application: 'Bewerbung', required: 'Pflichtdokumente',
+      qualifications: 'Qualifikationen und Fortbildungen', correspondence: 'Korrespondenz', measures: 'Arbeitsrechtliche Maßnahmen', salary: 'Gehalt',
     },
     invalid: personnelInvalid,
     // Tab „Stammdaten“: personal data (employees.personal) and the sensitive block (employees.sensitive).
@@ -983,7 +983,8 @@ export const de = {
       uploadedBy: (by: string, at: string) => `hochgeladen von ${by} am ${at}`, unknownUploader: 'gelöschtes Konto',
       loading: 'Wird geladen …',
       folderHints: {
-        contract: 'Arbeitsvertrag, Nachträge, Stellenbeschreibung', application: 'Lebenslauf, Zeugnisse, Führungszeugnis',
+        contract: 'Arbeitsvertrag, Nachträge, Stellenbeschreibung', application: 'Lebenslauf, Anschreiben, Zeugnisse',
+        required: 'Führungszeugnis, Masernnachweis, Belehrungen, Erste Hilfe, Datenschutz, Schweigepflicht',
         qualifications: 'Abschlüsse, Fortbildungsnachweise', correspondence: 'z. B. Elternzeit, Teilzeit',
         measures: 'Abmahnung, Ermahnung', salary: 'Gehaltsentwicklung, Vorschüsse',
       },
@@ -1907,7 +1908,7 @@ export const de = {
     // The full list of each period, behind „Mehr erfahren“ under the field (MoreHint).
     periodHelpMore: {
       timeYears: 'Dienstplan-Einträge mit Änderungsprotokoll, Wochenstunden, Aushilfen, Stempelzeiten, Notizen der Zeiterfassung, „im Dienst erkrankt“, Stundenkonto-Buchungen ohne „ausgezahlt“, Krankheitstage, Urlaubsansprüche mit Zusatztagen. Wochenstunden und Aushilfen bleiben so lange, damit Dienstplan und Stundenkonto der Person lesbar bleiben.',
-      assessmentYears: 'Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung), Fortbildungsnachweise, die Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz), die Lesebestätigungen aus „Wissen“ und die Dokumente der Personalakte in den Fächern Bewerbung, Qualifikationen und Fortbildungen, Korrespondenz und Arbeitsrechtliche Maßnahmen.',
+      assessmentYears: 'Mitarbeitergespräche mit allen Bögen (Beurteilung, Selbstbeurteilung), Fortbildungsnachweise, die Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz), die Lesebestätigungen aus „Wissen“ und die Dokumente der Personalakte in den Fächern Bewerbung, Pflichtdokumente, Qualifikationen und Fortbildungen, Korrespondenz und Arbeitsrechtliche Maßnahmen.',
       paidOvertimeYears: 'Stundenkonto-Buchungen mit dem Häkchen „ausgezahlt“, die Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt sowie die Unfallanzeigen mit ihren Anhängen. Mindestens und voreingestellt 8 Jahre: So lange sind Buchungsbelege seit 2025 aufzubewahren (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB). Das Lohnkonto (§ 41 EStG) sowie Geschäftsbriefe und sonstige Unterlagen sind 6 Jahre aufzubewahren, Bücher und Jahresabschlüsse 10 Jahre – diese führt die App nicht.',
       bemYears: 'Ein BEM (Betriebliches Eingliederungsmanagement) mit Gesprächen, Maßnahmen und Notizen darf so viele Jahre nach seinem Ende (abgeschlossen, abgelehnt oder keine Antwort) gelöscht werden – auch bei Mitarbeitenden, die noch da sind. Ein laufendes BEM zählt ab dem Austritt. Die Frist steht auch in der Einladung.',
       maternityYears: 'Ein Eintrag zum Mutterschutz (Schwangerschaft, Schutzfristen, Beschäftigungsverbot, Stillzeit) darf so viele Jahre nach seinem Ende gelöscht werden (Ende der Schutzfrist nach der Entbindung bzw. der Stillzeit oder „Beendet am“) – auch bei Mitarbeiterinnen, die noch da sind. Ein laufender Mutterschutz zählt ab dem Austritt. § 27 Abs. 5 MuSchG verlangt 2 Jahre Aufbewahrung.',

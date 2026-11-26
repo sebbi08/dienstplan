@@ -130,7 +130,7 @@ describe('document folders', () => {
   }
 
   it('shows the Träger every folder, the Leitung only qualifications, a Mitarbeiter none', () => {
-    expect(visibleFolders(canOf('provider'))).toEqual(['contract', 'application', 'qualifications', 'correspondence', 'measures', 'salary'])
+    expect(visibleFolders(canOf('provider'))).toEqual(['contract', 'application', 'required', 'qualifications', 'correspondence', 'measures', 'salary'])
     expect(visibleFolders(canOf('admin'))).toEqual(['qualifications'])
     expect(visibleFolders(canOf('observer'))).toEqual([])
   })

@@ -163,7 +163,7 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
             <p v-if="document.note" class="whitespace-pre-line break-words text-gray-700">{{ document.note }}</p>
             <p class="text-xs text-gray-500">{{ t.uploadedBy(document.uploadedBy ?? t.unknownUploader, formatDateTime(document.uploadedAt)) }}</p>
           </div>
-          <div class="flex items-center">
+          <div class="flex flex-wrap items-center">
             <a :href="employeeDocumentUrl(document.id)" target="_blank" rel="noopener" :class="iconLink" :aria-label="t.open" :title="t.open"><UIcon name="i-lucide-external-link" class="size-4" /></a>
             <a :href="employeeDocumentUrl(document.id, true)" :class="iconLink" :aria-label="t.download" :title="t.download"><UIcon name="i-lucide-download" class="size-4" /></a>
             <UButton

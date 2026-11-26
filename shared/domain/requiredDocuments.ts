@@ -12,16 +12,31 @@ import type { IsoDate } from './types'
 /** Who a type applies to: everyone, or the employees of the chosen qualifications. */
 export type RequiredAppliesTo = 'all' | Qualification[]
 
-/** The examples every facility starts with (active, changeable and deletable). */
+/** The folder a Pflichtdokument goes into unless chosen otherwise (the Arbeitsvertrag stays in „contract“). */
+export const REQUIRED_DOCUMENT_FOLDER: EmployeeDocumentFolder = 'required'
+
+/**
+ * The examples every facility starts with (active, changeable and deletable): all in the folder „Pflichtdokumente“
+ * except the Arbeitsvertrag, which stays in „Vertrag“ with its rights (since 2026-11-26; the migration
+ * *_required_documents_folder moved the existing ones).
+ */
 export const REQUIRED_DOCUMENT_EXAMPLES: readonly { name: string; folder: EmployeeDocumentFolder; validityMonths: number | null }[] = [
   { name: 'Arbeitsvertrag', folder: 'contract', validityMonths: null },
-  { name: 'Erweitertes Führungszeugnis', folder: 'application', validityMonths: 60 },
-  { name: 'Masernnachweis', folder: 'application', validityMonths: null },
-  { name: 'Belehrung Infektionsschutz', folder: 'qualifications', validityMonths: null },
-  { name: 'Verpflichtung auf den Datenschutz', folder: 'contract', validityMonths: null },
-  { name: 'Erste-Hilfe-Nachweis', folder: 'qualifications', validityMonths: 24 },
-  { name: 'Schweigepflichterklärung', folder: 'contract', validityMonths: null },
+  { name: 'Erweitertes Führungszeugnis', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: 60 },
+  { name: 'Masernnachweis', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null },
+  { name: 'Belehrung Infektionsschutz', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null },
+  { name: 'Verpflichtung auf den Datenschutz', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null },
+  { name: 'Erste-Hilfe-Nachweis', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: 24 },
+  { name: 'Schweigepflichterklärung', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null },
 ]
+
+/**
+ * The folder preset for a new type in the settings form: „Pflichtdokumente“ if the editor may use it, else the first
+ * folder they may use (null: none – then there is nothing to add).
+ */
+export function defaultRequiredFolder(usable: readonly EmployeeDocumentFolder[]): EmployeeDocumentFolder | null {
+  return usable.includes(REQUIRED_DOCUMENT_FOLDER) ? REQUIRED_DOCUMENT_FOLDER : usable[0] ?? null
+}
 
 /** Limits of a type as entered. */
 export const REQUIRED_DOCUMENT_LIMITS = { name: 100, validityMonths: 240 } as const
