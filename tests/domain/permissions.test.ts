@@ -27,7 +27,7 @@ const LEITUNG_PERSONNEL: PermissionKey[] = ['employees.personal', 'employees.doc
 const PERSONNEL_TRAEGER_ONLY = PERSONNEL_KEYS.filter(key => !LEITUNG_PERSONNEL.includes(key))
 
 describe('permission catalog', () => {
-  it('has the 75 keys of the inventory, the personnel file, the notes, the accidents, the contacts, the own group\'s forms, „Wissen“, „Zum Unterschreiben senden“ and „Infogespräche & Hospitationen“ and the folder „Pflichtdokumente“, each once and in catalog order', () => {
+  it('has the 79 keys: those of the inventory, the personnel file, the notes, the accidents, the contacts, the own group\'s forms, „Wissen“, „Zum Unterschreiben senden“ and „Infogespräche & Hospitationen“ and the folder „Pflichtdokumente“, each once and in catalog order', () => {
     expect(PERMISSIONS).toHaveLength(79)
     expect(PERMISSIONS.map(def => def.key)).toEqual([...PERMISSION_KEYS])
     expect(new Set(PERMISSION_KEYS).size).toBe(PERMISSION_KEYS.length)

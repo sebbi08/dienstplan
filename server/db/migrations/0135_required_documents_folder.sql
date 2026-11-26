@@ -1,18 +1,24 @@
--- The folder „Pflichtdokumente“ (`required`, with the key of „Bewerbung“: shared/domain/personnel.ts). Every
--- Pflichtdokument type moves there with its linked documents, so none flips to „fehlt“ – except:
---   * a type named „Arbeitsvertrag“ (any case): it stays where it is (salary data, the rights of „Vertrag“);
---   * a type in „Vertrag“, „Gehalt“ or „Arbeitsrechtliche Maßnahmen“ stays (unknown content), apart from the two examples
---     „Verpflichtung auf den Datenschutz“ and „Schweigepflichterklärung“ in „Vertrag“ (no salary data; „Vertrag“ and
---     „Bewerbung“ come with the same switch „alle übrigen Dokumente“, so nobody sees more than before).
--- Moved are the types in „Bewerbung“, „Qualifikationen und Fortbildungen“ and „Korrespondenz“ (and those two examples).
+-- The folder „Pflichtdokumente“ (`required`, its own key employees.docs.required since 0136: shared/domain/personnel.ts).
+-- Moved there, each with its linked documents so none flips to „fehlt“, are only types whose content is known:
+--   * every type in „Qualifikationen und Fortbildungen“ (whoever saw that folder gets the new one, 0136);
+--   * from „Bewerbung“ and „Korrespondenz“ only the examples „Erweitertes Führungszeugnis“ and „Masernnachweis“;
+--   * from „Vertrag“ only the examples „Verpflichtung auf den Datenschutz“ and „Schweigepflichterklärung“ (no salary data).
+-- Everything else stays where it is – own types in Bewerbung, Korrespondenz, Vertrag, Gehalt and Arbeitsrechtliche
+-- Maßnahmen (unknown content: the new folder's readers are not theirs) and a type named „Arbeitsvertrag“ anywhere.
+-- Names are compared as the app compares them (trimmed, regardless of case, umlauts included).
 -- A linked document moves only if it lies in its type's folder (a stale link from another folder counted nowhere and
 -- stays where it is); a sign request of a moved type files its signed copies into the new folder, and a request whose
 -- source is a moved document keeps following that document's folder. Documents without a link stay where they are.
 CREATE TEMP TABLE `moved_required_types` AS
-SELECT `id`, `folder` FROM `required_document_types`
-WHERE lower(trim(`name`)) <> 'arbeitsvertrag'
-  AND (`folder` IN ('application', 'qualifications', 'correspondence')
-    OR (`folder` = 'contract' AND lower(trim(`name`)) IN ('verpflichtung auf den datenschutz', 'schweigepflichterklärung', 'schweigepflichterklÄrung')));
+SELECT `id`, `folder` FROM (
+  SELECT `id`, `folder`,
+    replace(replace(replace(lower(trim(`name`, ' ' || char(9, 10, 13, 160))), 'Ä', 'ä'), 'Ö', 'ö'), 'Ü', 'ü') AS folded
+  FROM `required_document_types`
+)
+WHERE folded <> 'arbeitsvertrag'
+  AND (`folder` = 'qualifications'
+    OR (`folder` IN ('application', 'correspondence') AND folded IN ('erweitertes führungszeugnis', 'masernnachweis'))
+    OR (`folder` = 'contract' AND folded IN ('verpflichtung auf den datenschutz', 'schweigepflichterklärung')));
 --> statement-breakpoint
 UPDATE `sign_requests` SET `source_folder` = 'required'
 WHERE `source_document_id` IN (

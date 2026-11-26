@@ -322,7 +322,7 @@ const documentsOf = (category: 'assessment' | 'paidOvertime'): EmployeeRows => (
 
 /**
  * „Beurteilungen und Zeugnisse“: staff talks (their forms go along, deleteAssessmentData), trainings, and the documents
- * in the folders application, qualifications, correspondence and measures.
+ * in the folders of the assessment category (application, required, qualifications, correspondence, measures).
  */
 const ASSESSMENT_ROWS: readonly EmployeeRows[] = [
   { table: staffTalks, column: staffTalks.employeeId },

@@ -1254,11 +1254,16 @@ und was bald abläuft.
   Infektionsschutz, Verpflichtung auf den Datenschutz, Erste-Hilfe-Nachweis (24 Monate) und Schweigepflichterklärung
   (alle im Fach Pflichtdokumente).
 - **Umstellung am 26.11.2026:** Beim Update kamen die vorhandenen Pflichtdokumente ins Fach „Pflichtdokumente“ – samt
-  den ihnen zugeordneten Dokumenten, damit nichts auf „fehlt“ springt. Umgezogen sind alle aus den Fächern Bewerbung,
-  Qualifikationen und Korrespondenz sowie aus dem Fach Vertrag die beiden Beispiele „Verpflichtung auf den Datenschutz“
-  und „Schweigepflichterklärung“ (ohne Gehaltsangaben). Geblieben sind ein Pflichtdokument namens „Arbeitsvertrag“ (egal
-  in welchem Fach) und selbst angelegte Pflichtdokumente in den Fächern Vertrag, Gehalt und Arbeitsrechtliche
-  Maßnahmen (ihr Inhalt ist unbekannt). Nicht zugeordnete Dokumente blieben, wo sie waren. Offene Anfragen „Zum
+  den ihnen zugeordneten Dokumenten, damit nichts auf „fehlt“ springt. Umgezogen sind nur Pflichtdokumente mit
+  bekanntem Inhalt: alle aus dem Fach Qualifikationen, aus den Fächern Bewerbung und Korrespondenz nur die Beispiele
+  „Erweitertes Führungszeugnis“ und „Masernnachweis“, aus dem Fach Vertrag nur die Beispiele „Verpflichtung auf den
+  Datenschutz“ und „Schweigepflichterklärung“ (ohne Gehaltsangaben). Erkannt wurden die Beispiele am Namen, verglichen
+  wie in der App (ohne Rücksicht auf Groß- und Kleinschreibung und Leerzeichen am Rand); ein umbenanntes Beispiel blieb in
+  seinem Fach und zählt dort wie bisher. Geblieben sind ein Pflichtdokument namens „Arbeitsvertrag“ (egal in welchem
+  Fach) und selbst angelegte Pflichtdokumente in den Fächern Bewerbung, Korrespondenz, Vertrag, Gehalt und
+  Arbeitsrechtliche Maßnahmen – samt ihren Dokumenten und Anfragen (ihr Inhalt ist unbekannt; sie sieht weiter nur, wer
+  das Fach sieht, voreingestellt der Träger). Wer sie ins neue Fach legen will, ändert das Fach beim Pflichtdokument
+  (die schon zugeordneten Dokumente verlieren dabei die Zuordnung). Nicht zugeordnete Dokumente blieben, wo sie waren. Offene Anfragen „Zum
   Unterschreiben senden“ eines umgezogenen Pflichtdokuments legen die unterschriebene Kopie ebenfalls im neuen Fach ab.
   Rechte: Den neuen Schalter „Dokumente Pflichtdokumente“ bekam jede Rolle und jede Person, die vorher „Dokumente
   Qualifikationen“ oder „alle übrigen Dokumente“ hatte (auch mit einer gespeicherten Einstellung oder einer Ausnahme

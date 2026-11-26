@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest'
 import { createDb, migrateDb, type Db } from '../../server/db/client'
 import { accountRights } from '../../server/services/permissions'
 import type { Role } from '../../shared/types/api'
-import { addUser } from '../helpers/fixtures'
 
 const MIGRATIONS = 'server/db/migrations'
 const journal = JSON.parse(readFileSync(join(MIGRATIONS, 'meta', '_journal.json'), 'utf8')) as { entries: { tag: string }[] }
@@ -25,6 +24,14 @@ function databaseBefore() {
   return { db, sqlite }
 }
 
+/**
+ * An account as the old version stored it – plain SQL, since the app's code may already read columns of later
+ * migrations.
+ */
+function addAccount(sqlite: ReturnType<typeof createDb>['sqlite'], username: string, role: Role): number {
+  return Number(sqlite.prepare(`INSERT INTO users (username, password_hash, role, facility_id) VALUES (?, 'x', ?, 1)`).run(username, role).lastInsertRowid)
+}
+
 /** Afterwards everyone sees the folder „Pflichtdokumente“ exactly if they saw Qualifikationen or Bewerbung. */
 function expectNobodyLosesOrGains(db: Db, people: { id: number; role: Role }[]) {
   for (const person of people) {
@@ -38,7 +45,7 @@ describe(TAG, () => {
   it('without stored settings: the Leitung gets the switch by default; exceptions follow Qualifikationen or Bewerbung', () => {
     const { db, sqlite } = databaseBefore()
     const person = (name: string, role: Role, overrides: [string, 'grant' | 'revoke'][] = []) => {
-      const { id } = addUser(db, name, role, null, 1)
+      const id = addAccount(sqlite, name, role)
       for (const [bundle, effect] of overrides) {
         sqlite.prepare('INSERT INTO user_bundle_overrides (user_id, bundle, effect) VALUES (?, ?, ?)').run(id, bundle, effect)
       }
@@ -73,8 +80,8 @@ describe(TAG, () => {
     const { db, sqlite } = databaseBefore()
     sqlite.exec(`INSERT INTO role_bundles (role, bundle, enabled) VALUES
       ('admin', 'docsQualifications', 0), ('group_lead', 'docsQualifications', 1), ('observer', 'docsOther', 1), ('observer', 'docsQualifications', 0)`)
-    const people = (['admin', 'group_lead', 'observer'] as const).map(role => ({ id: addUser(db, `u-${role}`, role, null, 1).id, role }))
-    const { id } = addUser(db, 'leitung-quali', 'admin', null, 1)
+    const people = (['admin', 'group_lead', 'observer'] as const).map(role => ({ id: addAccount(sqlite, `u-${role}`, role), role }))
+    const id = addAccount(sqlite, 'leitung-quali', 'admin')
     sqlite.prepare(`INSERT INTO user_bundle_overrides (user_id, bundle, effect) VALUES (?, 'docsQualifications', 'grant')`).run(id)
     migrateDb(db, MIGRATIONS)
     expect(sqlite.prepare(`SELECT role, enabled FROM role_bundles WHERE bundle = 'docsRequired' ORDER BY role`).all()).toEqual([
