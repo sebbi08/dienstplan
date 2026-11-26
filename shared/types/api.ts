@@ -1946,6 +1946,8 @@ export interface TabletPlanEditDto {
   seesPersonal: boolean
   /** employees.sickness: the health codes as they are and „Im Dienst erkrankt“. */
   seesSickness: boolean
+  /** While editing: when it ends at the latest, however much it is used (ISO, PLAN_EDIT_MAX_MINUTES after the start). */
+  endsAt: string | null
 }
 
 /** A stretch without the automatic lock as ISO moments (`until` excluded). */

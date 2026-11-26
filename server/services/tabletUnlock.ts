@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { effectiveRights, isRightsRole, type BundleScope } from '../../shared/domain/permissionBundles'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
-import { berlinDate, unlockLockMinutes, type NoLockPeriod } from '../../shared/domain/tablet'
+import { berlinDate, planEditEndsAt, unlockLockMinutes, type NoLockPeriod } from '../../shared/domain/tablet'
 import type {
   ChildRightsDto, GroupAccess, SessionUser, TabletPlanEditDto, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto,
 } from '../../shared/types/api'
@@ -133,6 +133,8 @@ function planEditorFor(db: Db, terminal: Terminal, viewer: ChildViewer): Session
  * dropped, and so is a person editing the plan whose account may no longer (planEditorFor; the tablet locks: editing
  * rights are never kept). While the plan is edited, the facility's windows without the automatic lock do not apply and
  * the lock time is at most PLAN_EDIT_MAX_LOCK_MINUTES: an unattended tablet must not keep an account's plan rights open.
+ * PLAN_EDIT_MAX_MINUTES after editing started the unlock ends however much it is used (dropped: deleted on the next
+ * request that may write, or by the clean-up).
  */
 function resolveUnlock(db: Db, terminal: Terminal, token: string | undefined, now: Date): Resolved {
   const row = token ? db.select().from(terminalUnlocks).where(eq(terminalUnlocks.id, token)).get() : undefined
@@ -144,6 +146,8 @@ function resolveUnlock(db: Db, terminal: Terminal, token: string | undefined, no
   const periods = editing ? [] : noLockPeriodsOn(db, terminal.facilityId, settings.noLockWindows,
     [berlinDate(Date.parse(row.lastActiveAt)), berlinDate(now.getTime())])
   if (now.getTime() > validUntil(row.lastActiveAt, lockMinutes, periods)) return { unlocked: false }
+  // However much it was used: PLAN_EDIT_MAX_MINUTES after the start, editing ends with the unlock (new PIN needed).
+  if (row.planEditSince && now.getTime() > planEditEndsAt(row.planEditSince)) return { unlocked: false, dropped: row }
   const person = terminalStatus(db, terminal.facilityId, now).find(candidate => candidate.employeeId === row.employeeId)
   if (!person) return { unlocked: false, dropped: row }
   const viewer = viewerFor(db, terminal, row.employeeId, settings)
@@ -160,6 +164,7 @@ function planEditOf(row: UnlockRow, editor: SessionUser | null): TabletPlanEditD
     canRelease: can(editor.permissions, 'plan.release'),
     seesPersonal: can(editor.permissions, 'employees.personal'),
     seesSickness: can(editor.permissions, 'employees.sickness'),
+    endsAt: row.planEditSince ? new Date(planEditEndsAt(row.planEditSince)).toISOString() : null,
   }
 }
 

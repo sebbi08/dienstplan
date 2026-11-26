@@ -26,10 +26,10 @@ function findEmployee(db: Db, facilityId: number, employeeId: number) {
   return employee
 }
 
-/** Sets the PIN (exactly six digits, pin_format otherwise); a new PIN also ends every lock. */
 /**
- * A new PIN ends the person's running unlocks at every tablet (child records, „Dienstplan bearbeiten“, signing): a PIN
- * changed because someone saw it must not leave a session open that was opened with the old one.
+ * Sets the PIN (exactly six digits, pin_format otherwise); a new PIN also ends every PIN lock and the person's running
+ * unlocks at every tablet (child records, „Dienstplan bearbeiten“, signing): a PIN changed because someone saw it must
+ * not leave a session open that was opened with the old one.
  */
 export function setPin(db: Db, facilityId: number, employeeId: number, pin: string): void {
   findEmployee(db, facilityId, employeeId)

@@ -12,6 +12,17 @@ export const MAX_TABLET_LOCK_MINUTES = 30
 export const PLAN_EDIT_MAX_LOCK_MINUTES = 5
 
 /**
+ * However much it is used, editing the plan at the tablet ends this long after it started: the person unlocks with the
+ * PIN again and taps „Dienstplan bearbeiten“ once more. Bounds an editing unlock someone else keeps using.
+ */
+export const PLAN_EDIT_MAX_MINUTES = 60
+
+/** The moment (ms) an editing session started at `planEditSince` (ISO) ends at the latest (PLAN_EDIT_MAX_MINUTES). */
+export function planEditEndsAt(planEditSince: string): number {
+  return Date.parse(planEditSince) + PLAN_EDIT_MAX_MINUTES * 60_000
+}
+
+/**
  * The query flag (`?editor=1`) with which the plan editor's view at the tablet asks for the month plan as the editing
  * person; without it the tablet always reads the released plan (server/utils/auth.ts planReader).
  */

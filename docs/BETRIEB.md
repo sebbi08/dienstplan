@@ -315,10 +315,17 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
 - **Ohne Netz gesperrt:** Erreicht „Sperren“ den Server nicht, steht auf der Startseite „Sperren…“, und das Tablet
   schickt die Sperre immer wieder, bis der Server sie bestätigt. Die Kachel „Dienstplan“ zeigt auch in dieser Zeit
   (und auch nach dem Neuladen) nur den freigegebenen Plan – den Entwurf und die Bearbeitung gibt es nur über den Knopf
-  „Dienstplan bearbeiten“.
+  „Dienstplan bearbeiten“. Startseite und Kachel schicken die Sperre bei jedem Aufruf erneut.
+  Was dann noch bleibt: Bestätigt der Server die Sperre nie, bevor das Tablet die Wiederholung verliert (z. B. beim
+  Neuladen), bleibt das Bearbeiten auf dem Server offen, bis die Sperrzeit abläuft. Wer in dieser Zeit die Adresse des
+  Bearbeitens von Hand aufruft, kann weiter bearbeiten (Ändern geht dann auch ohne diese Adresse), und jede Bedienung
+  verlängert die Sperrzeit – längstens aber bis 60 Minuten nach dem Start (siehe unten).
 - Die Zeitfenster **„Keine automatische Sperre“** gelten beim Bearbeiten des Dienstplans **nicht**, und die Sperrzeit
   ist dabei **höchstens 5 Minuten** (auch wenn für das Tablet mehr eingestellt ist), damit ein liegen gelassenes Tablet
   nicht lange mit den Rechten der Leitung offen bleibt.
+- **Spätestens 60 Minuten** nach „Dienstplan bearbeiten“ endet das Bearbeiten, auch wenn ständig weitergearbeitet wird:
+  Das Tablet sperrt sich mit einem kurzen Hinweis. Zum Weiterarbeiten mit der PIN neu aufschließen und wieder
+  „Dienstplan bearbeiten“ antippen. Was schon gespeichert ist, bleibt (jede Änderung wird sofort gespeichert).
 - Jede Änderung im Dienstplan wird sofort gespeichert. Was beim Sperren nur in einem offenen Fenster eingetippt, aber
   noch nicht übernommen war, geht verloren.
 - „Im Dienst erkrankt“ bietet der Dienstplan nur an, wer die Krankheitstage sehen darf (im Büro wie am Tablet).

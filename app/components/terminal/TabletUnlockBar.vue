@@ -43,7 +43,12 @@ const locking = ref(false)
 const lockMs = () => (status.value?.lockMinutes ?? 0) * 60_000
 /** The facility's windows without the automatic lock (from the last status): the lock waits for their end. */
 const periods = computed(() => toNoLockPeriods(status.value?.noLockPeriods ?? []))
-const deadline = () => unlockDeadline(lastUse, lockMs(), periods.value)
+/** While the plan is edited: the end of the editing session however much it is used (PLAN_EDIT_MAX_MINUTES). */
+const planEditEnd = () => {
+  const endsAt = status.value?.planEdit?.endsAt
+  return endsAt ? Date.parse(endsAt) : Number.POSITIVE_INFINITY
+}
+const deadline = () => Math.min(unlockDeadline(lastUse, lockMs(), periods.value), planEditEnd())
 /** How long before the lock the notice about unsaved changes comes: a minute, at most half the lock time. */
 const warnMs = () => Math.min(60_000, lockMs() / 2)
 

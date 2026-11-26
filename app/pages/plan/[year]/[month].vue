@@ -55,8 +55,17 @@ const seesSickness = computed(() => (onTablet.value ? planEdit.value?.seesSickne
  * to the server when it was made).
  */
 const lockedOut = ref(false)
+/** When the editing session ends however much it is used (from the last status while editing). */
+let editEndsAt: number | null = null
+watch(() => planEdit.value?.endsAt, (endsAt) => {
+  if (endsAt) editEndsAt = Date.parse(endsAt)
+}, { immediate: true })
 watch(editingPlan, (now, before) => {
   if (!onTablet.value || now || !before || !isPlanEditorView(route.path, route.query)) return
+  // Ended by the time limit (not by „Sperren“ or the lock time): say so, the start page follows.
+  if (editEndsAt !== null && Date.now() >= editEndsAt - 2_000) {
+    toast.add({ title: de.plan.tabletEditTimeUp, color: 'warning', icon: 'i-lucide-clock', duration: 15_000 })
+  }
   lockedOut.value = true
   plan.value = undefined
   void navigateTo('/terminal')

@@ -211,6 +211,30 @@ describe('„Dienstplan bearbeiten“ at the tablet', () => {
     expect(tabletPlanReader(db, tablet, undefined, NOW)).toBeNull()
   })
 
+  it('ends an editing session 60 minutes after its start, however much it is used', () => {
+    const token = unlock(lena, '111111')
+    expect(startPlanEdit(db, tablet, token, NOW)).toMatchObject({
+      planEdit: { active: true, endsAt: after(60 * 60).toISOString() },
+    })
+    // Used every two minutes: the lock time never runs out, starting once more does not move the start.
+    for (let seconds = 120; seconds <= 60 * 60; seconds += 120) {
+      expect(tabletPlanEditor(db, tablet, token, after(seconds)).id, String(seconds)).toBe(leitung.id)
+    }
+    expect(startPlanEdit(db, tablet, token, after(60 * 60))).toMatchObject({ planEdit: { endsAt: after(60 * 60).toISOString() } })
+    expect(tabletUnlockStatus(db, tablet, token, after(60 * 60 + 1))).toEqual({ unlocked: false })
+    expect(tabletPlanReader(db, tablet, token, after(60 * 60 + 1))).toBeNull()
+    // The tablet locks: a new PIN is needed (the child records end with it).
+    expect(rows()).toEqual([])
+    expect(errorCode(() => tabletChildViewer(db, tablet, token, after(60 * 60 + 2)))).toBe('tablet_locked')
+
+    // The clean-up removes such a session too, even while it is in use.
+    const again = unlock(lena, '111111', after(2 * 60 * 60))
+    startPlanEdit(db, tablet, again, after(2 * 60 * 60))
+    db.update(terminalUnlocks).set({ lastActiveAt: after(3 * 60 * 60).toISOString() }).run()
+    expect(deleteExpiredUnlocks(db, after(3 * 60 * 60))).toBe(0)
+    expect(deleteExpiredUnlocks(db, after(3 * 60 * 60 + 1))).toBe(1)
+  })
+
   it('ends the person\'s unlocks with a new PIN', () => {
     const token = unlock(lena, '111111')
     startPlanEdit(db, tablet, token, NOW)

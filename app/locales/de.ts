@@ -409,6 +409,8 @@ export const de = {
     addHelper: 'Aushilfe hinzufügen', removeHelper: 'Aushilfe entfernen',
     removeHelperConfirm: (name: string) => `${name} als Aushilfe aus diesem Monat entfernen?`,
     removeHelperAction: 'Entfernen', helperRemoved: 'Aushilfe entfernt',
+    // „Dienstplan bearbeiten“ at the tablet ends 60 minutes after it started, however much it is used.
+    tabletEditTimeUp: 'Das Bearbeiten am Tablet endet nach 60 Minuten. Zum Weiterarbeiten bitte mit der PIN neu aufschließen und „Dienstplan bearbeiten“ antippen.',
   },
   groups: {
     title: 'Gruppen', none: 'Noch keine Gruppen. Ohne Gruppen sieht der Dienstplan aus wie bisher.',

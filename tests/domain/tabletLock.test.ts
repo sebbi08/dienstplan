@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { lockNeedsRetry } from '../../app/utils/tabletLock'
 import { isPlanEditorView } from '../../app/utils/routeAccess'
-import { PLAN_EDIT_MAX_LOCK_MINUTES, unlockLockMinutes } from '../../shared/domain/tablet'
+import {
+  PLAN_EDIT_MAX_LOCK_MINUTES, PLAN_EDIT_MAX_MINUTES, planEditEndsAt, unlockLockMinutes,
+} from '../../shared/domain/tablet'
 
 describe('the tablet\'s lock until the server confirms it', () => {
   it('sends it again without an answer, after a server error or „too many requests“, not after a refusal', () => {
@@ -27,5 +29,10 @@ describe('the plan editor\'s view at the tablet', () => {
     expect(unlockLockMinutes(30, false)).toBe(30)
     expect(unlockLockMinutes(30, true)).toBe(5)
     expect(unlockLockMinutes(2, true)).toBe(2)
+  })
+
+  it('ends an editing session 60 minutes after its start at the latest', () => {
+    expect(PLAN_EDIT_MAX_MINUTES).toBe(60)
+    expect(new Date(planEditEndsAt('2026-11-26T08:00:00.000Z')).toISOString()).toBe('2026-11-26T09:00:00.000Z')
   })
 })
