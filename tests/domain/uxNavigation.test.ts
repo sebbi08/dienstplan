@@ -130,7 +130,8 @@ describe('„Offen für dich“', () => {
 
   it('sits on „Mein Dienstplan“ and on the Leitung\'s plan', () => {
     expect(page('my/plan/[year]/[month].vue')).toContain('<OpenItemsCard />')
-    expect(page('plan/[year]/[month].vue')).toContain('<OpenItemsCard v-if="isAdmin" />')
+    // Not in the plan editor at the tablet: the to-dos belong to the person's own account, not the shared screen.
+    expect(page('plan/[year]/[month].vue')).toContain('<OpenItemsCard v-if="isAdmin && !onTablet" />')
   })
 })
 
