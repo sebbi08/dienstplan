@@ -137,9 +137,10 @@ describe('Pflichtdokumente', () => {
 
   it('leaves a type out wherever the viewer may not use its folder: settings, the box, the list, „Was noch fehlt“', () => {
     const onlyQualifications = limited(['employees.docs.qualifications'])
-    // The examples: the Arbeitsvertrag in Vertrag, the rest in „Pflichtdokumente“ (the key of Bewerbung).
+    // The examples: the Arbeitsvertrag in Vertrag, the rest in „Pflichtdokumente“ (its own key, not the one of Bewerbung).
     expect(listRequiredTypes(db, onlyQualifications, 1)).toEqual([])
-    expect(listRequiredTypes(db, limited(['employees.docs.application']), 1).map(type => type.name)).toEqual([
+    expect(listRequiredTypes(db, limited(['employees.docs.application']), 1)).toEqual([])
+    expect(listRequiredTypes(db, limited(['employees.docs.required']), 1).map(type => type.name)).toEqual([
       'Erweitertes Führungszeugnis', 'Masernnachweis', 'Belehrung Infektionsschutz', 'Verpflichtung auf den Datenschutz', 'Erste-Hilfe-Nachweis',
       'Schweigepflichterklärung',
     ])
@@ -170,12 +171,15 @@ describe('Pflichtdokumente', () => {
     const items = getSetupChecklist(db, traeger, 1, NOW).open.filter(item => item.key === 'employee_required_document')
     expect(items.map(item => [item.label, item.count, item.names.map(named => named.name)])).toEqual([['Erste-Hilfe-Nachweis', 1, ['Anna Probe']]])
     expect(items[0]!.to).toBe(`/admin/employees/${anna}?tab=records`)
-    // The Leitung (only the folder Qualifikationen by default) sees only that folder's items.
+    // The Leitung (the folders Qualifikationen and Pflichtdokumente by default) sees every item but the Arbeitsvertrag.
     const forLeitung = getSetupChecklist(db, leitung, 1, NOW).open.filter(item => item.key === 'employee_required_document')
     expect(forLeitung.map(item => item.label)).toEqual(['Erste-Hilfe-Nachweis'])
     db.update(employees).set({ leftOn: null }).where(eq(employees.id, ben)).run()
-    expect(getSetupChecklist(db, leitung, 1, NOW).open.filter(item => item.key === 'employee_required_document').map(item => [item.label, item.count]))
-      .toEqual([['Erste-Hilfe-Nachweis', 2], ['Belehrung Infektionsschutz', 1]])
+    const open = (viewer: SessionUser) => getSetupChecklist(db, viewer, 1, NOW).open.filter(item => item.key === 'employee_required_document')
+      .map(item => [item.label, item.count])
+    expect(open(traeger)).toContainEqual(['Arbeitsvertrag', 1])
+    expect(open(traeger)).toContainEqual(['Erste-Hilfe-Nachweis', 2])
+    expect(open(leitung)).toEqual(open(traeger).filter(([label]) => label !== 'Arbeitsvertrag'))
   })
 
   it('counts a linked document only in its type\'s folder: a moved document or a moved type loses the link', () => {

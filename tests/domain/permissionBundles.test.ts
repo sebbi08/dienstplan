@@ -28,6 +28,7 @@ const SPEC_TABLE: Record<BundleId, PermissionKey[]> = {
   personal: ['employees.personal'],
   payrollSensitive: ['employees.payroll', 'employees.sensitive'],
   docsQualifications: ['employees.docs.qualifications'],
+  docsRequired: ['employees.docs.required'],
   docsOther: ['employees.docs.contract', 'employees.docs.application', 'employees.docs.correspondence',
     'employees.docs.measures', 'employees.docs.salary'],
   signRequests: ['signRequests.manage'],

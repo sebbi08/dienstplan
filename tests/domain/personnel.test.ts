@@ -139,10 +139,10 @@ describe('the other fields', () => {
 })
 
 describe('document folders', () => {
-  it('has the seven folders, each with a grantable key (Pflichtdokumente the one of Bewerbung) and retention category', () => {
+  it('has the seven folders, each with its own grantable key and retention category', () => {
     expect([...EMPLOYEE_DOCUMENT_FOLDERS]).toEqual(['contract', 'application', 'required', 'qualifications', 'correspondence', 'measures', 'salary'])
     for (const folder of EMPLOYEE_DOCUMENT_FOLDERS) {
-      expect(FOLDER_PERMISSION[folder]).toBe(folder === 'required' ? 'employees.docs.application' : `employees.docs.${folder}`)
+      expect(FOLDER_PERMISSION[folder]).toBe(`employees.docs.${folder}`)
       expect(PERMISSION_KEYS).toContain(FOLDER_PERMISSION[folder])
       expect(de.personnel.folders[folder].length, folder).toBeGreaterThan(3)
     }

@@ -81,16 +81,17 @@ describe('employee documents (Personalakte, Reiter Dokumente)', () => {
       expect(list.contract![0]).not.toHaveProperty('data')
     })
 
-    it('shows the Leitung only the qualifications folder; the other folders are 403', () => {
+    it('shows the Leitung only the folders Pflichtdokumente and Qualifikationen; the other folders are 403', () => {
       const ids = Object.fromEntries(EMPLOYEE_DOCUMENT_FOLDERS.map(folder => [folder, upload(traeger, { folder, title: folder })])) as
         Record<EmployeeDocumentFolder, number>
       const list = listEmployeeDocuments(db, leitung, 1, anna)
-      expect(Object.keys(list)).toEqual(['qualifications'])
-      expect(JSON.stringify(list)).not.toMatch(/"(contract|application|required|correspondence|measures|salary)"/)
+      expect(Object.keys(list)).toEqual(['required', 'qualifications'])
+      expect(JSON.stringify(list)).not.toMatch(/"(contract|application|correspondence|measures|salary)"/)
       expect(readEmployeeDocumentFile(db, leitung, 1, ids.qualifications).mimeType).toBe('application/pdf')
+      expect(readEmployeeDocumentFile(db, leitung, 1, ids.required).mimeType).toBe('application/pdf')
       const own = upload(leitung, { folder: 'qualifications' })
       updateEmployeeDocument(db, leitung, 1, own, meta({ title: 'Neu' }))
-      for (const folder of EMPLOYEE_DOCUMENT_FOLDERS.filter(name => name !== 'qualifications')) {
+      for (const folder of EMPLOYEE_DOCUMENT_FOLDERS.filter(name => name !== 'qualifications' && name !== 'required')) {
         expect(errorCode(() => upload(leitung, { folder })), folder).toBe('forbidden')
         expect(errorCode(() => readEmployeeDocumentFile(db, leitung, 1, ids[folder])), folder).toBe('forbidden')
         expect(errorCode(() => updateEmployeeDocument(db, leitung, 1, ids[folder], meta())), folder).toBe('forbidden')

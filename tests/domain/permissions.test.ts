@@ -21,13 +21,14 @@ function sorted(keys: Iterable<PermissionKey>): PermissionKey[] {
 const byKey = new Map(PERMISSIONS.map(def => [def.key, def]))
 /** The keys of the personnel file (spec Personalakte §6); the Leitung gets the first and the qualifications by default. */
 const PERSONNEL_KEYS: PermissionKey[] = ['employees.personal', 'employees.sensitive', 'employees.payroll',
-  'employees.docs.qualifications', 'employees.docs.contract', 'employees.docs.application', 'employees.docs.correspondence',
-  'employees.docs.measures', 'employees.docs.salary']
-const PERSONNEL_TRAEGER_ONLY = PERSONNEL_KEYS.filter(key => key !== 'employees.personal' && key !== 'employees.docs.qualifications')
+  'employees.docs.qualifications', 'employees.docs.required', 'employees.docs.contract', 'employees.docs.application',
+  'employees.docs.correspondence', 'employees.docs.measures', 'employees.docs.salary']
+const LEITUNG_PERSONNEL: PermissionKey[] = ['employees.personal', 'employees.docs.qualifications', 'employees.docs.required']
+const PERSONNEL_TRAEGER_ONLY = PERSONNEL_KEYS.filter(key => !LEITUNG_PERSONNEL.includes(key))
 
 describe('permission catalog', () => {
-  it('has the 75 keys of the inventory, the personnel file, the notes, the accidents, the contacts, the own group\'s forms, „Wissen“, „Zum Unterschreiben senden“ and „Infogespräche & Hospitationen“, each once and in catalog order', () => {
-    expect(PERMISSIONS).toHaveLength(78)
+  it('has the 75 keys of the inventory, the personnel file, the notes, the accidents, the contacts, the own group\'s forms, „Wissen“, „Zum Unterschreiben senden“ and „Infogespräche & Hospitationen“ and the folder „Pflichtdokumente“, each once and in catalog order', () => {
+    expect(PERMISSIONS).toHaveLength(79)
     expect(PERMISSIONS.map(def => def.key)).toEqual([...PERMISSION_KEYS])
     expect(new Set(PERMISSION_KEYS).size).toBe(PERMISSION_KEYS.length)
   })
@@ -123,6 +124,7 @@ describe('permission catalog', () => {
       'employees.sensitive requires employees.view',
       'employees.payroll requires employees.view',
       'employees.docs.qualifications requires employees.view',
+      'employees.docs.required requires employees.view',
       'employees.docs.contract requires employees.view',
       'employees.docs.application requires employees.view',
       'employees.docs.correspondence requires employees.view',
@@ -186,7 +188,7 @@ describe('role defaults', () => {
       'settings.staffing', 'employees.contractView', 'leave.plan', ...PERSONNEL_TRAEGER_ONLY]
     const expected = PERMISSIONS.filter(def => !def.providerOnly && !notDefault.includes(def.key)).map(def => def.key)
     expect(sorted(ROLE_DEFAULTS.admin)).toEqual(sorted(expected))
-    expect(ROLE_DEFAULTS.admin).toHaveLength(48)
+    expect(ROLE_DEFAULTS.admin).toHaveLength(49)
   })
 
   it('gives the Mitarbeiter the own data, the released plan, team meetings, the child keys of the tablet, the print templates to read and the own group\'s forms', () => {
@@ -245,7 +247,8 @@ describe('catalog edges', () => {
       'employees.contractView requires employees.view', 'employees.contractEdit requires employees.contractView',
       'employees.delete requires employees.edit', 'employees.personal requires employees.view',
       'employees.sensitive requires employees.view', 'employees.payroll requires employees.view',
-      'employees.docs.qualifications requires employees.view', 'employees.docs.contract requires employees.view',
+      'employees.docs.qualifications requires employees.view', 'employees.docs.required requires employees.view',
+      'employees.docs.contract requires employees.view',
       'employees.docs.application requires employees.view', 'employees.docs.correspondence requires employees.view',
       'employees.docs.measures requires employees.view', 'employees.docs.salary requires employees.view',
       'signRequests.manage requires employees.view',
@@ -301,7 +304,7 @@ describe('notes rights', () => {
 describe('effectivePermissions with the old flags moved into bundles', () => {
   it('gives the Träger every key, whatever the flags', () => {
     expect(sorted(rights({ role: 'provider' }))).toEqual(sorted(PERMISSION_KEYS))
-    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(78)
+    expect(rights({ role: 'provider', canEditChildren: true, isLeavePlanner: true }).size).toBe(79)
   })
 
   it('gives the tablet role nothing, whatever the flags', () => {
@@ -341,9 +344,9 @@ describe('effectivePermissions with the old flags moved into bundles', () => {
       .toBe(false)
   })
 
-  it('gives the Leitung address, contact, birth date and the qualifications folder of the personnel file, nothing else of it', () => {
+  it('gives the Leitung address, contact, birth date and the folders Qualifikationen and Pflichtdokumente, nothing else of the personnel file', () => {
     const leitung = rights({ role: 'admin', contractVisibleToAdmins: true })
-    expect(PERSONNEL_KEYS.filter(key => can(leitung, key))).toEqual(['employees.personal', 'employees.docs.qualifications'])
+    expect(PERSONNEL_KEYS.filter(key => can(leitung, key))).toEqual(LEITUNG_PERSONNEL)
     expect(PERSONNEL_KEYS.filter(key => can(rights({ role: 'observer', canEditChildren: true }), key)))
       .toEqual([])
     expect(PERSONNEL_KEYS.filter(key => can(rights({ role: 'provider' }), key))).toEqual(PERSONNEL_KEYS)

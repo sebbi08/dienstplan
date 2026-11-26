@@ -101,7 +101,7 @@ describe(TAG, () => {
     expect(sqlite.prepare(`SELECT name FROM sqlite_temp_master WHERE name = 'moved_required_types'`).all()).toEqual([])
 
     // Nothing flipped to „fehlt“: the moved documents still count for their types.
-    const traeger = { id: 1, role: 'provider' as const, permissions: new Set<PermissionKey>(['employees.view', 'employees.docs.contract', 'employees.docs.application']) }
+    const traeger = { id: 1, role: 'provider' as const, permissions: new Set<PermissionKey>(['employees.view', 'employees.docs.contract', 'employees.docs.required']) }
     const states = Object.fromEntries(employeeRequiredDocuments(db, traeger, 1, 1, '2026-11-26').map(row => [row.name, row.state]))
     expect(states).toMatchObject({
       'Arbeitsvertrag': 'present', 'Erweitertes Führungszeugnis': 'present', 'Erste-Hilfe-Nachweis': 'present',

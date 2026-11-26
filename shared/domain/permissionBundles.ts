@@ -42,7 +42,7 @@ export const BUNDLE_IDS = [
   'leaveRequest', 'leavePlan',
   'timeOwn', 'timeManage',
   'employeesView', 'employeesEdit', 'contractView', 'contractEdit', 'employeesDelete', 'talksManage',
-  'personal', 'payrollSensitive', 'docsQualifications', 'docsOther', 'signRequests',
+  'personal', 'payrollSensitive', 'docsQualifications', 'docsRequired', 'docsOther', 'signRequests',
   'childrenView', 'childrenAttendance', 'childrenEdit', 'childrenManage', 'childrenOwnAccount',
   'formsGroup', 'formsFill', 'formsManage', 'accidentsManage',
   'visitsManage', 'visitsApplicantsView',
@@ -117,6 +117,7 @@ const SPECS: readonly Spec[] = [
   bundle('payrollSensitive', 'personnelFile', 'Lohn, Steuer und sensible Daten',
     ['employees.payroll', 'employees.sensitive']),
   bundle('docsQualifications', 'personnelFile', 'Dokumente Qualifikationen', ['employees.docs.qualifications']),
+  bundle('docsRequired', 'personnelFile', 'Dokumente Pflichtdokumente', ['employees.docs.required']),
   bundle('docsOther', 'personnelFile', 'alle übrigen Dokumente', [
     'employees.docs.contract', 'employees.docs.application', 'employees.docs.correspondence',
     'employees.docs.measures', 'employees.docs.salary',
@@ -251,6 +252,9 @@ export const BUNDLE_DEFAULTS: Record<RightsRole, readonly BundleId[]> = {
     'timeOwn', 'timeManage',
     'employeesView', 'employeesEdit', 'employeesDelete', 'talksManage',
     'personal', 'docsQualifications',
+    // Since 2026-11-26: the folder „Pflichtdokumente“. The migration *_required_documents_rights gave a role or person
+    // with a stored setting the switch exactly where the qualifications or the other documents were on.
+    'docsRequired',
     // Since 2026-11-24: „Zum Unterschreiben senden“. A role whose settings were stored before has no row for the switch,
     // so it takes this default (no migration).
     'signRequests',

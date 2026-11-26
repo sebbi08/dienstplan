@@ -19,13 +19,13 @@ export const EMPLOYEE_DOCUMENT_FOLDERS = ['contract', 'application', 'required',
 export type EmployeeDocumentFolder = typeof EMPLOYEE_DOCUMENT_FOLDERS[number]
 
 /**
- * The key that lets a person see, upload and delete the documents of a folder. „Pflichtdokumente“ has the key of
- * „Bewerbung“: exactly the same people see and file both (by default the Träger; the Leitung only if given the right).
+ * The key that lets a person see, upload and delete the documents of a folder (by default Pflichtdokumente and
+ * Qualifikationen for Leitung and Träger, the other folders for the Träger only).
  */
 export const FOLDER_PERMISSION: Record<EmployeeDocumentFolder, PermissionKey> = {
   contract: 'employees.docs.contract',
   application: 'employees.docs.application',
-  required: 'employees.docs.application',
+  required: 'employees.docs.required',
   qualifications: 'employees.docs.qualifications',
   correspondence: 'employees.docs.correspondence',
   measures: 'employees.docs.measures',

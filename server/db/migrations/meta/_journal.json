@@ -953,6 +953,13 @@
       "when": 1795700047600,
       "tag": "0135_required_documents_folder",
       "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "6",
+      "when": 1795709133526,
+      "tag": "0136_required_documents_rights",
+      "breakpoints": true
     }
   ]
 }

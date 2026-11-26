@@ -129,9 +129,9 @@ describe('document folders', () => {
     return (key: PermissionKey) => permissions.has(key)
   }
 
-  it('shows the Träger every folder, the Leitung only qualifications, a Mitarbeiter none', () => {
+  it('shows the Träger every folder, the Leitung Pflichtdokumente and Qualifikationen, a Mitarbeiter none', () => {
     expect(visibleFolders(canOf('provider'))).toEqual(['contract', 'application', 'required', 'qualifications', 'correspondence', 'measures', 'salary'])
-    expect(visibleFolders(canOf('admin'))).toEqual(['qualifications'])
+    expect(visibleFolders(canOf('admin'))).toEqual(['required', 'qualifications'])
     expect(visibleFolders(canOf('observer'))).toEqual([])
   })
 
