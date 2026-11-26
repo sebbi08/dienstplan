@@ -1,6 +1,6 @@
-// Imported relative (no Nuxt aliases) so a test can load this file.
+// The permission type imported relative; shared values through `#shared` (the tests resolve it as Nuxt does).
 import type { PermissionKey } from '../../shared/domain/permissions'
-import { PLAN_EDITOR_QUERY } from '../../shared/domain/tablet'
+import { PLAN_EDITOR_QUERY } from '#shared/domain/tablet'
 
 /** The child pages (list, record, new child …); the tablet shows them only while a person has unlocked it. */
 // The info visits (/children/info-visits/…) are no child records: never at the tablet (their routes are for accounts).
