@@ -1,5 +1,5 @@
 import { errorCode } from '~/utils/errors'
-import { isChildPagePath, isPlanPagePath } from '~/utils/routeAccess'
+import { isChildPagePath, isPlanEditorView } from '~/utils/routeAccess'
 
 /**
  * At the tablet, any answer 403 `tablet_locked` (the lock time ran out on the server, or another person unlocked)
@@ -23,8 +23,8 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (errorCode({ data: body }) === 'tablet_locked') {
         const editingPlan = unlock.value?.unlocked === true && unlock.value.planEdit?.active === true
         unlock.value = { unlocked: false }
-        const path = router.currentRoute.value.path
-        if (isChildPagePath(path) || (editingPlan && isPlanPagePath(path))) nuxtApp.runWithContext(() => navigateTo('/terminal'))
+        const { path, query } = router.currentRoute.value
+        if (isChildPagePath(path) || (editingPlan && isPlanEditorView(path, query))) nuxtApp.runWithContext(() => navigateTo('/terminal'))
       }
     }
     return response

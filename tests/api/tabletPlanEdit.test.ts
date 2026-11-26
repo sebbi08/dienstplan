@@ -2,11 +2,12 @@ import type { H3Event } from 'h3'
 import { eq } from 'drizzle-orm'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { entries, monthPlans } from '../../server/db/schema'
+import { entries, monthPlans, terminalUnlocks } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { saveBundleOverride } from '../../server/services/permissions'
 import { lockChildren, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
+import { PLAN_EDITOR_QUERY } from '../../shared/domain/tablet'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addUser, createTestDb, templateId } from '../helpers/fixtures'
 
@@ -24,6 +25,7 @@ vi.stubGlobal('setUserSession', async () => {})
 vi.stubGlobal('getHeader', (event: FakeEvent, name: string) => event.headers[name.toLowerCase()])
 vi.stubGlobal('getValidatedRouterParams', async (event: FakeEvent, parse: (value: unknown) => unknown) => parse(event.params))
 vi.stubGlobal('getValidatedQuery', async (event: FakeEvent, parse: (value: unknown) => unknown) => parse(event.query))
+vi.stubGlobal('getQuery', (event: FakeEvent) => event.query)
 vi.stubGlobal('readValidatedBody', async (event: FakeEvent, parse: (value: unknown) => unknown) => parse(event.body))
 vi.stubGlobal('createError', (input: { statusCode: number; statusMessage: string; data: { code: string } }) =>
   Object.assign(new Error(input.statusMessage), input))
@@ -53,12 +55,15 @@ beforeAll(async () => {
 })
 
 /** A request of the user (at the tablet with the unlock token in its session) to the route. */
-function call(name: string, user: SessionUser, request: { token?: string; params?: Record<string, number>; body?: unknown } = {}) {
+function call(
+  name: string, user: SessionUser,
+  request: { token?: string; params?: Record<string, number>; query?: Record<string, string>; body?: unknown } = {},
+) {
   const event: FakeEvent = {
     headers: {}, context: {},
     session: { user: { id: user.id }, loggedInAt: new Date().toISOString(), secure: request.token ? { childUnlock: request.token } : undefined },
     params: Object.fromEntries(Object.entries(request.params ?? {}).map(([key, value]) => [key, String(value)])),
-    query: {}, body: request.body,
+    query: request.query ?? {}, body: request.body,
   }
   return routes[name]!(event as unknown as H3Event)
 }
@@ -83,6 +88,8 @@ describe('the plan editor\'s routes at the tablet', () => {
   let mitarbeiterin: SessionUser
   let tablet: SessionUser
   const month = { year: 2026, month: 12 }
+  // What only the plan editor's view sends (the „Dienstplan“ tile and the printout never do).
+  const editorQuery = { [PLAN_EDITOR_QUERY]: '1' }
   const writeCell = (user: SessionUser, token?: string) => call('entries/index.post', user, {
     token, body: { cells: [{ employeeId: mia, date: '2026-12-01' }], mode: 'replace', entry: { kind: 'shift', templateId: templateId(db, 'M') } },
   })
@@ -108,9 +115,37 @@ describe('the plan editor\'s routes at the tablet', () => {
     expect(await refusal(() => writeCell(tablet, miaToken))).toBe('forbidden')
     const lenaToken = unlock(lena, '111111')
     expect(await refusal(() => writeCell(tablet, lenaToken))).toBe('forbidden')
-    // Not editing: the tablet reads the released plan only (none yet).
+    // Not editing: the tablet reads the released plan only (none yet), also when the editor's view asks.
     expect(await refusal(() => call('plan/[year]/[month].get', tablet, { token: lenaToken, params: month }))).toBe('month_not_released')
+    expect(await refusal(() => call('plan/[year]/[month].get', tablet, { token: lenaToken, params: month, query: editorQuery })))
+      .toBe('month_not_released')
     expect(db.select().from(entries).all()).toEqual([])
+  })
+
+  it('gives the „Dienstplan“ tile the released plan only, even while an editing unlock holds, and leaves that unlock alone', async () => {
+    const token = unlock(lena, '111111')
+    await call('terminal/plan-edit.post', tablet, { token })
+    await writeCell(tablet, token)
+    await call('release.post', tablet, { token, params: month })
+    const lastUse = db.select().from(terminalUnlocks).get()!.lastActiveAt
+    await new Promise(resolve => setTimeout(resolve, 5))
+    // The tile (no `?editor=1`): the tablet's view, no editor data, the unlock not used.
+    expect(await call('plan/[year]/[month].get', tablet, { token, params: month })).toMatchObject({ admin: null })
+    expect(db.select().from(terminalUnlocks).get()!.lastActiveAt).toBe(lastUse)
+    // The editor's view: the draft as the editing person, counted as use.
+    expect(await call('plan/[year]/[month].get', tablet, { token, params: month, query: editorQuery })).toMatchObject({ admin: expect.anything() })
+    expect(db.select().from(terminalUnlocks).get()!.lastActiveAt).not.toBe(lastUse)
+  })
+
+  it('answers the editor\'s view of an editing unlock that ran out with the released plan, not 403', async () => {
+    const token = unlock(lena, '111111')
+    await call('terminal/plan-edit.post', tablet, { token })
+    await writeCell(tablet, token)
+    await call('release.post', tablet, { token, params: month })
+    // Last use well before the lock time (2 minutes plus grace); the row is still there.
+    db.update(terminalUnlocks).set({ lastActiveAt: new Date(Date.now() - 10 * 60_000).toISOString() }).run()
+    expect(await call('plan/[year]/[month].get', tablet, { token, params: month, query: editorQuery })).toMatchObject({ admin: null })
+    expect(await refusal(() => writeCell(tablet, token))).toBe('tablet_locked')
   })
 
   it('lets the person edit with their own account once started, and records that account', async () => {
@@ -119,7 +154,7 @@ describe('the plan editor\'s routes at the tablet', () => {
     expect(await writeCell(tablet, token)).toMatchObject({ ok: true })
     expect(db.select().from(entries).where(eq(entries.employeeId, mia)).get()).toMatchObject({ updatedBy: leitung.id })
     // The draft with the editor's data, as the Leitung sees it in the office.
-    expect(await call('plan/[year]/[month].get', tablet, { token, params: month })).toMatchObject({ admin: expect.anything() })
+    expect(await call('plan/[year]/[month].get', tablet, { token, params: month, query: editorQuery })).toMatchObject({ admin: expect.anything() })
     await call('release.post', tablet, { token, params: month })
     expect(db.select().from(monthPlans).get()).toMatchObject({ releasedBy: leitung.id })
     expect(await call('employees/[id]/children.get', tablet, { token, params: { id: mia } })).toMatchObject({ children: [] })
@@ -129,7 +164,7 @@ describe('the plan editor\'s routes at the tablet', () => {
     expect(await refusal(() => writeCell(tablet, token))).toBe('tablet_locked')
     expect(await refusal(() => call('terminal/plan-edit.post', tablet, { token }))).toBe('tablet_locked')
     // Read as the tablet again: the released plan without the editor's data.
-    expect(await call('plan/[year]/[month].get', tablet, { token, params: month })).toMatchObject({ admin: null })
+    expect(await call('plan/[year]/[month].get', tablet, { token, params: month, query: editorQuery })).toMatchObject({ admin: null })
   })
 
   it('gives the person exactly their account\'s rights: plan.edit without plan.release or the personal data', async () => {

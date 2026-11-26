@@ -1,5 +1,6 @@
 // Imported relative (no Nuxt aliases) so a test can load this file.
 import type { PermissionKey } from '../../shared/domain/permissions'
+import { PLAN_EDITOR_QUERY } from '../../shared/domain/tablet'
 
 /** The child pages (list, record, new child …); the tablet shows them only while a person has unlocked it. */
 // The info visits (/children/info-visits/…) are no child records: never at the tablet (their routes are for accounts).
@@ -11,6 +12,14 @@ export const isChildPagePath = (path: string): boolean =>
  * unlocked it edits the plan („Dienstplan bearbeiten“) – the editor with that person's rights; leaving them then locks.
  */
 export const isPlanPagePath = (path: string): boolean => path.startsWith('/plan/')
+
+/**
+ * The plan editor's view at the tablet: a plan page opened with `?editor=1` (by „Dienstplan bearbeiten“ and the month
+ * arrows there). Without it a plan page at the tablet is the „Dienstplan“ tile's read-only view, also after a reload
+ * while an editing unlock is still left on the server.
+ */
+export const isPlanEditorView = (path: string, query: Record<string, unknown>): boolean =>
+  isPlanPagePath(path) && query[PLAN_EDITOR_QUERY] === '1'
 
 /**
  * The pages the shared tablet opens without an unlock: stamping, the general plan and its printout

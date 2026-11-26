@@ -1,10 +1,11 @@
 import type { H3Event } from 'h3'
 import { PAGE_FACILITY_HEADER, SETTINGS_FACILITY_HEADER } from '../../shared/domain/pageFacility'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
+import { PLAN_EDITOR_QUERY } from '../../shared/domain/tablet'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
 import { facilityExists } from '../services/facilities'
-import { planEditStarted, resolveChildViewer, tabletPlanEditor } from '../services/tabletUnlock'
+import { resolveChildViewer, tabletPlanEditor, tabletPlanReader } from '../services/tabletUnlock'
 import { asChildPermission, type ChildActor, type ChildActorKey, type ChildViewer } from '../lib/childViewer'
 import { assertPageFacility, requestFacility } from '../lib/pageFacility'
 import { USER_SESSION_DAYS, sessionExpired } from '../lib/session'
@@ -131,15 +132,16 @@ async function planEditorAt(event: H3Event, tablet: SessionUser): Promise<Facili
 }
 
 /**
- * Who reads the month plan: the user as given, except the facility's tablet while a person edits the plan there – then
- * their account (the draft and what their rights show; 403 tablet_locked once that unlock is no longer valid). A tablet
- * that does not edit the plan reads the released plan as the tablet.
+ * Who reads the month plan: the user as given, except the facility's tablet when the plan editor's view asks for it
+ * (the query `?editor=1`, sent only while a person edits the plan there) and the tablet's unlock is valid and editing –
+ * then that person's account (the draft and what their rights show; the request counts as use). Everything else at the
+ * tablet – the „Dienstplan“ tile, the printout, an editing unlock that ran out or ended – reads the released plan as
+ * the tablet and leaves the unlock as it is: the cookie alone never opens the editor's data.
  */
 export async function planReader(event: H3Event, user: FacilityUser): Promise<FacilityUser> {
-  if (user.role !== 'terminal') return user
-  const terminal = { id: user.id, facilityId: user.facilityId }
-  const token = await childUnlockToken(event)
-  return planEditStarted(useDb(), terminal, token) ? planEditorAt(event, user) : user
+  if (user.role !== 'terminal' || getQuery(event)[PLAN_EDITOR_QUERY] !== '1') return user
+  const editor = tabletPlanReader(useDb(), { id: user.id, facilityId: user.facilityId }, await childUnlockToken(event))
+  return editor ? { ...editor, facilityId: user.facilityId } : user
 }
 
 /** The shared tablet, which stamps for the employees of its own facility. */

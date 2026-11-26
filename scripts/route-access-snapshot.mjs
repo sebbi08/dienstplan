@@ -16,6 +16,9 @@
 //                        tablet:observerEditor (Mitarbeiter account with „darf Kinderakten pflegen“), tablet:observer
 //                        (Mitarbeiter account without it), tablet:noAccount (person without an account, or a helper
 //                        from another facility)
+// The month plan's `planReader` (server/utils/auth.ts) is no guard: who gets in stays the same (the tablet as such);
+// it only decides as whom the tablet reads – the editing person while the editor asks (`?editor=1`) and that person's
+// editing unlock holds, the tablet otherwise – so that route stays modelled as plain `terminal`.
 // Guard-level only: rules inside the services (planner, own employee, group rights, contract fields …) are not part of
 // it. A route with several guards gets the intersection (the strictest combination).
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'

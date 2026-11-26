@@ -4,7 +4,7 @@ import { isEmployedOn } from '../../shared/domain/targets'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type { StampAction, TerminalPersonDto, TimeRecordDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employees, entries, timeRecords } from '../db/schema'
+import { employees, entries, signUnlocks, terminalUnlocks, timeRecords } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { hashPassword, verifyPassword } from '../lib/password'
 import { activeTrackingFrom } from './appSettings'
@@ -27,10 +27,18 @@ function findEmployee(db: Db, facilityId: number, employeeId: number) {
 }
 
 /** Sets the PIN (exactly six digits, pin_format otherwise); a new PIN also ends every lock. */
+/**
+ * A new PIN ends the person's running unlocks at every tablet (child records, „Dienstplan bearbeiten“, signing): a PIN
+ * changed because someone saw it must not leave a session open that was opened with the old one.
+ */
 export function setPin(db: Db, facilityId: number, employeeId: number, pin: string): void {
   findEmployee(db, facilityId, employeeId)
   if (!isValidPin(pin)) throw new ServiceError(400, 'pin_format')
-  db.update(employees).set({ pinHash: hashPassword(pin), ...PIN_RESET }).where(eq(employees.id, employeeId)).run()
+  db.transaction((tx) => {
+    tx.update(employees).set({ pinHash: hashPassword(pin), ...PIN_RESET }).where(eq(employees.id, employeeId)).run()
+    tx.delete(terminalUnlocks).where(eq(terminalUnlocks.employeeId, employeeId)).run()
+    tx.delete(signUnlocks).where(eq(signUnlocks.employeeId, employeeId)).run()
+  })
 }
 
 export function clearPin(db: Db, facilityId: number, employeeId: number): void {

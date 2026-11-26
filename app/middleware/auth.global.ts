@@ -1,4 +1,4 @@
-import { accountRedirect, isChildPagePath, isPlanPagePath, tabletMayOpen } from '~/utils/routeAccess'
+import { accountRedirect, isChildPagePath, isPlanEditorView, tabletMayOpen } from '~/utils/routeAccess'
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
   const { loggedIn, user } = useUserSession()
@@ -11,14 +11,15 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       await refreshUnlock()
       return unlock.value?.unlocked ? undefined : navigateTo('/terminal')
     }
-    // A full page load of a plan page asks whether a person edits the plan here („Dienstplan bearbeiten“): then the
-    // page shows the editor and the lock bar.
-    if (import.meta.server && isPlanPagePath(to.path)) await refreshUnlock()
+    // A full page load of the plan editor's view asks whether a person edits the plan here („Dienstplan bearbeiten“):
+    // then the page shows the editor and the lock bar. The „Dienstplan“ tile's view (no `?editor=1`) never asks, so a
+    // reload of it never opens the editor.
+    if (import.meta.server && isPlanEditorView(to.path, to.query)) await refreshUnlock()
     // Leaving the child pages (e.g. for the plan) ends the unlock, so it does not stay alive behind the tablet's back;
-    // so does leaving the plan editor for anything but another month. Into the plan editor (started from the child
-    // pages) the unlock goes along. The start page locks by itself.
-    const editorStays = editingPlan.value && isPlanPagePath(to.path)
-    const leaving = isChildPagePath(from.path) || (editingPlan.value && isPlanPagePath(from.path))
+    // so does leaving the plan editor for anything but another month of it. Into the plan editor (started from the
+    // child pages) the unlock goes along. The start page locks by itself.
+    const editorStays = editingPlan.value && isPlanEditorView(to.path, to.query)
+    const leaving = isChildPagePath(from.path) || (editingPlan.value && isPlanEditorView(from.path, from.query))
     if (import.meta.client && leaving && !editorStays && to.path !== '/terminal') lockOnLeave()
     return tabletMayOpen(to.path) ? undefined : navigateTo('/terminal')
   }

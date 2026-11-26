@@ -15,7 +15,7 @@ type Mode = 'start' | 'stamp' | 'children' | 'sign'
 /** A person of the list; clockedIn null = not known (the list kept for stamping without network has names only). */
 type Person = Omit<TerminalPersonDto, 'clockedIn'> & { clockedIn: boolean | null }
 
-const { onTablet, unlock, lock } = useChildRights()
+const { onTablet, unlock, lock, lockPending, lockConfirmed } = useChildRights()
 // The tablet starts with the choice between stamping and the child records; anybody else only stamps here.
 const mode = ref<Mode>(onTablet.value ? 'start' : 'stamp')
 // Loaded in the browser (not with the page), so the page the tablet keeps for use without network carries no team data.
@@ -260,6 +260,8 @@ async function openChildren() {
       return
     }
     const status = await $fetch<TabletUnlockStatusDto>('/api/terminal/children/unlock', { method: 'POST', body: { employeeId: person.employeeId, pin: pin.value } })
+    // The server ended every earlier unlock of this tablet: a lock still waiting to be sent must not end this one.
+    lockConfirmed()
     if (isStale()) {
       // The person went back meanwhile: do not leave the records unlocked behind their back.
       lock()
@@ -299,6 +301,13 @@ async function openChildren() {
         {{ de.terminal.syncFailed(offlineStamps.pending.value) }}
       </p>
     </div>
+    <!-- The server has not confirmed the lock yet (no answer): it is sent again until it has. -->
+    <p
+      v-if="onTablet && lockPending" role="status"
+      class="flex items-center gap-2 rounded-xl bg-amber-100 px-4 py-3 text-lg font-medium text-amber-900 ring-1 ring-amber-300"
+    >
+      <UIcon name="i-lucide-loader-circle" class="size-6 shrink-0 animate-spin" aria-hidden="true" />{{ de.terminal.lockPending }}
+    </p>
 
     <template v-if="mode === 'start'">
       <h1 class="text-2xl font-semibold">{{ de.terminal.startTitle }}</h1>

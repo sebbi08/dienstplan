@@ -338,6 +338,9 @@ export const de = {
     unlock: 'Aufschließen', unlockedAs: (name: string) => `Aufgeschlossen: ${name}`, lock: 'Sperren',
     // „Dienstplan bearbeiten“: only for a person whose own account may edit this facility's plan (the lock bar's button).
     editPlan: 'Dienstplan bearbeiten',
+    // „Sperren“ sent, but the server has not confirmed it yet (no network): it is sent again until it has.
+    locking: 'Sperren…',
+    lockPending: 'Sperren… – das Tablet wird gesperrt, sobald der Server wieder erreichbar ist.',
     lockUnsavedConfirm: 'Es gibt Änderungen, die noch nicht gespeichert sind. Wenn du jetzt sperrst, gehen sie verloren.',
     lockDiscard: 'Verwerfen und sperren',
     idleUnsavedWarning: 'Das Tablet sperrt sich gleich. Tippe auf den Bildschirm und speichere deine Änderungen – sonst gehen sie verloren.',

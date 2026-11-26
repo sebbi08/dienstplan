@@ -1,8 +1,50 @@
 import type { ChildRightsDto, TabletUnlockStatusDto } from '#shared/types/api'
+import { REQUEST_TIMEOUT_MS } from '~/utils/offlineQueue'
+import { lockNeedsRetry } from '~/utils/tabletLock'
 
 /** The tablet's unlock as last reported by the server (null until asked); shared by the pages, the lock bar and the plugin. */
 export function useTabletUnlock() {
   return useState<TabletUnlockStatusDto | null>('tablet-unlock', () => null)
+}
+
+/**
+ * A lock the server has not confirmed yet (no answer, server error): the tablet sends it again until it has, and the
+ * start page shows „Sperren…“ meanwhile. Until then the unlock – and with it „Dienstplan bearbeiten“ – may still hold on
+ * the server; the plan pages never read the editor's data without the editor's own request, so the „Dienstplan“ tile
+ * shows the released plan all the same.
+ */
+function useLockPending() {
+  return useState<boolean>('tablet-lock-pending', () => false)
+}
+
+/** Between two tries of an unconfirmed lock. */
+const LOCK_RETRY_MS = 3_000
+let lockRetry: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * Sends the lock of this tablet's unlock (only its own, the server knows it by the session) and, until the server has
+ * confirmed it, again every LOCK_RETRY_MS. True when this try was confirmed. An answer that refuses it (no tablet
+ * session any more) needs no retry: without the session there is no unlock to end.
+ */
+async function sendLock(): Promise<boolean> {
+  const pending = useLockPending()
+  clearTimeout(lockRetry)
+  try {
+    await $fetch<TabletUnlockStatusDto>('/api/terminal/children/lock', { method: 'POST', timeout: REQUEST_TIMEOUT_MS })
+    pending.value = false
+    return true
+  }
+  catch (error) {
+    pending.value = lockNeedsRetry(error)
+    if (pending.value) lockRetry = setTimeout(() => void sendLock(), LOCK_RETRY_MS)
+    return false
+  }
+}
+
+/** A new unlock replaced every earlier one on the server: a lock still waiting to be sent must not end the new one. */
+function lockConfirmed() {
+  clearTimeout(lockRetry)
+  useLockPending().value = false
 }
 
 /**
@@ -57,32 +99,32 @@ export function useChildRights() {
     }
   }
 
-  async function lock() {
-    if (!onTablet.value) return
+  /**
+   * Locks: the screen at once, the server as soon as it answers (sendLock retries until it has confirmed; meanwhile
+   * `lockPending` shows „Sperren…“). Resolves after the first try: true when the server confirmed it.
+   */
+  async function lock(): Promise<boolean> {
+    if (!onTablet.value) return true
     unlock.value = { unlocked: false }
-    try {
-      await $fetch<TabletUnlockStatusDto>('/api/terminal/children/lock', { method: 'POST' })
-    }
-    catch {
-      // The server ends the unlock after the lock time anyway.
-    }
+    return sendLock()
   }
 
   /**
    * The tablet leaves the child pages (or the plan editor) for another page (e.g. the plan): the unlock ends on the
-   * server at once (best effort), and on the screen once that navigation is through - earlier, the lock bar still on
-   * screen would take the tablet to its start page instead of where it is going.
+   * server at once (retried until confirmed, see sendLock), and on the screen once that navigation is through - earlier,
+   * the lock bar still on screen would take the tablet to its start page instead of where it is going.
    */
   function lockOnLeave() {
     if (!onTablet.value) return
-    $fetch<TabletUnlockStatusDto>('/api/terminal/children/lock', { method: 'POST' }).catch(() => {
-      // The server ends the unlock after the lock time anyway.
-    })
+    void sendLock()
     const stop = router.afterEach(() => {
       stop()
       unlock.value = { unlocked: false }
     })
   }
 
-  return { rights, onTablet, unlock, planEdit, editingPlan, startPlanEdit, refreshUnlock, lock, lockOnLeave }
+  return {
+    rights, onTablet, unlock, planEdit, editingPlan, startPlanEdit, refreshUnlock, lock, lockOnLeave,
+    lockPending: useLockPending(), lockConfirmed,
+  }
 }

@@ -5,6 +5,23 @@ export const DEFAULT_TABLET_LOCK_MINUTES = 2
 export const MIN_TABLET_LOCK_MINUTES = 1
 export const MAX_TABLET_LOCK_MINUTES = 30
 
+/**
+ * While a person edits the plan at the tablet („Dienstplan bearbeiten“, with their own account's rights) the lock time
+ * is at most this long, whatever the facility set (and the windows without the automatic lock do not apply).
+ */
+export const PLAN_EDIT_MAX_LOCK_MINUTES = 5
+
+/**
+ * The query flag (`?editor=1`) with which the plan editor's view at the tablet asks for the month plan as the editing
+ * person; without it the tablet always reads the released plan (server/utils/auth.ts planReader).
+ */
+export const PLAN_EDITOR_QUERY = 'editor'
+
+/** The lock time of an unlock: the facility's, shortened to PLAN_EDIT_MAX_LOCK_MINUTES while the plan is edited. */
+export function unlockLockMinutes(lockMinutes: number, editingPlan: boolean): number {
+  return editingPlan ? Math.min(lockMinutes, PLAN_EDIT_MAX_LOCK_MINUTES) : lockMinutes
+}
+
 /** The server accepts an unlock this long after the lock time ran out, so a keep-alive on its way is not refused. */
 export const UNLOCK_GRACE_SECONDS = 30
 

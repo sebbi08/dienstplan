@@ -1,7 +1,8 @@
 import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { weekday } from '../../shared/domain/dates'
 import {
-  UNLOCK_GRACE_SECONDS, berlinDate, noLockPeriods, unlockDeadline, windowsOnDay, type NoLockPeriod, type TimeWindow,
+  UNLOCK_GRACE_SECONDS, berlinDate, noLockPeriods, unlockDeadline, unlockLockMinutes, windowsOnDay, type NoLockPeriod,
+  type TimeWindow,
 } from '../../shared/domain/tablet'
 import type { IsoDate } from '../../shared/domain/types'
 import { isCheckedDay } from '../../shared/domain/warnings'
@@ -97,10 +98,12 @@ export function deleteExpiredUnlocks(db: Db, now: Date): number {
     const days = rows.filter(row => row.facilityId === facilityId).map(row => berlinDate(Date.parse(row.lastActiveAt)))
     periods.set(facilityId, noLockPeriodsOn(db, facilityId, windows.get(facilityId) ?? [], days))
   }
-  // While the person edits the plan the windows do not hold the unlock open (unlockPeriods in tabletUnlock.ts).
+  // While the person edits the plan the windows do not hold the unlock open and the lock time is shorter (resolveUnlock
+  // in tabletUnlock.ts).
   const expired = rows
     .filter(row => now.getTime() > validUntil(
-      row.lastActiveAt, lockMinutes.get(row.facilityId) ?? 0, row.planEditSince ? [] : periods.get(row.facilityId) ?? [],
+      row.lastActiveAt, unlockLockMinutes(lockMinutes.get(row.facilityId) ?? 0, row.planEditSince !== null),
+      row.planEditSince ? [] : periods.get(row.facilityId) ?? [],
     ))
     .map(row => row.id)
   if (expired.length > 0) db.delete(terminalUnlocks).where(inArray(terminalUnlocks.id, expired)).run()

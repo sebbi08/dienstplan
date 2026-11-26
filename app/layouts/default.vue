@@ -5,7 +5,7 @@ import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { pathAfterFacilitySwitch } from '~/utils/facilitySwitch'
 import { isEntryActive, isGroupActive, navMenu, navLabelWithCount, type NavEntry, type NavMenu } from '~/utils/navMenu'
-import { isChildPagePath, isPlanPagePath } from '~/utils/routeAccess'
+import { isChildPagePath, isPlanEditorView, isPlanPagePath } from '~/utils/routeAccess'
 import type { DropdownMenuItem } from '@nuxt/ui'
 
 const { user, loggedIn, clear } = useUserSession()
@@ -117,8 +117,8 @@ const phoneGroups = computed(() => [
 // the tablet has left the plan pages after a lock (the bar takes it to the start page).
 const { editingPlan } = useChildRights()
 const planEditorOpen = ref(false)
-watch([() => route.path, editingPlan], ([path, editing]) => {
-  if (!isPlanPagePath(path)) planEditorOpen.value = false
+watch([() => isPlanEditorView(route.path, route.query), editingPlan], ([editorView, editing]) => {
+  if (!editorView) planEditorOpen.value = false
   else if (editing) planEditorOpen.value = true
 }, { immediate: true })
 const tabletChildren = computed(() => user.value?.role === 'terminal'

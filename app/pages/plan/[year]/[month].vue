@@ -4,12 +4,14 @@ import { hasPlannedDuty } from '#shared/domain/balance'
 import { cellKey } from '#shared/domain/cells'
 import { todayIso } from '#shared/domain/dates'
 import { fullShiftOptions } from '#shared/domain/suggest'
+import { PLAN_EDITOR_QUERY } from '#shared/domain/tablet'
 import { isTargetGapCode } from '#shared/domain/warnings'
 import type { GapSuggestion } from '~/components/plan/PlanCellMenu.vue'
 import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
 import { entryApplyMode } from '~/utils/applyMode'
 import { errorMessage } from '~/utils/errors'
+import { isPlanEditorView } from '~/utils/routeAccess'
 import { readGroupFilter, shownGroup, writeGroupFilter } from '~/utils/groups'
 import { busyCellKeys, type CellScope, cellScope, isMarker } from '~/utils/helpOuts'
 import { planWithoutHidden } from '~/utils/longAbsence'
@@ -19,18 +21,33 @@ const year = computed(() => Number(route.params.year))
 const month = computed(() => Number(route.params.month))
 const { can } = useCan()
 // At the tablet the person who unlocked it edits the plan („Dienstplan bearbeiten“) with their own account's rights.
-const { onTablet, planEdit, editingPlan } = useChildRights()
+const { onTablet, planEdit, editingPlan, lock } = useChildRights()
 const toast = useToast()
 const confirm = useConfirm()
+/**
+ * At the tablet: the plan editor's view (opened by „Dienstplan bearbeiten“ with `?editor=1`) while a person edits the
+ * plan. The „Dienstplan“ tile's view has no `?editor=1` and stays read-only, also after a reload.
+ */
+const editorView = computed(() => onTablet.value && editingPlan.value && isPlanEditorView(route.path, route.query))
 
-const { data: plan, error, refresh } = await useFetch<MonthPlanDto>(() => `/api/plan/${year.value}/${month.value}`)
+// At the tablet only the editor's view asks for the editing person's plan (`?editor=1` to the server too); without it
+// the server always answers the released plan, whatever unlock may be left on the server.
+const { data: plan, error, refresh } = await useFetch<MonthPlanDto>(() => `/api/plan/${year.value}/${month.value}`, {
+  query: computed(() => (editorView.value ? { [PLAN_EDITOR_QUERY]: '1' } : {})),
+})
 // The editor (draft, templates, help-outs, warnings: plan.edit, as the server sends the draft); otherwise read-only. At
-// the tablet only while a person edits the plan and the server sent the editor's data.
-const isAdmin = computed(() => (onTablet.value ? editingPlan.value && plan.value?.admin != null : can('plan.edit')))
+// the tablet only in the editor's view and when the server sent the editor's data.
+const isAdmin = computed(() => (onTablet.value ? editorView.value && plan.value?.admin != null : can('plan.edit')))
+// The tile's view needs no unlock: whatever is left of one (a lock the server has not confirmed) is ended again.
+onMounted(() => {
+  if (onTablet.value && !isPlanEditorView(route.path, route.query)) void lock()
+})
 /** „Freigeben“ and „Änderungen verwerfen“: plan.release (at the tablet the editing person's). */
 const canRelease = computed(() => (onTablet.value ? planEdit.value?.canRelease === true : can('plan.release')))
 /** The employees' personal data (which child is sick): employees.personal (at the tablet the editing person's). */
 const seesPersonal = computed(() => (onTablet.value ? planEdit.value?.seesPersonal === true : can('employees.personal')))
+/** The sick days right: „Im Dienst erkrankt“ is offered only with it (the server refuses it otherwise). */
+const seesSickness = computed(() => (onTablet.value ? planEdit.value?.seesSickness === true : can('employees.sickness')))
 
 /**
  * At the tablet, editing ends with the lock (lock time, „Sperren“, another person, rights gone): the draft goes off the
@@ -39,7 +56,7 @@ const seesPersonal = computed(() => (onTablet.value ? planEdit.value?.seesPerson
  */
 const lockedOut = ref(false)
 watch(editingPlan, (now, before) => {
-  if (!onTablet.value || now || !before) return
+  if (!onTablet.value || now || !before || !isPlanEditorView(route.path, route.query)) return
   lockedOut.value = true
   plan.value = undefined
   void navigateTo('/terminal')
@@ -138,11 +155,12 @@ const gapSuggestions = computed((): GapSuggestion[] => {
 /**
  * "Im Dienst erkrankt" fits a cell of the own staff (never a helper's: their home facility marks it) whose day, today or
  * earlier, has a duty and no full-day absence; a help-out elsewhere counts as duty. A marked cell can always be opened.
+ * Only for whoever may see the sick days (employees.sickness), as the server requires.
  */
 const today = todayIso()
 function canMarkSick(employeeId: number, date: string): boolean {
   const current = plan.value
-  if (!current?.admin) return false
+  if (!current?.admin || !seesSickness.value) return false
   if (current.admin.sickLeaves[cellKey(employeeId, date)]) return true
   const employee = current.employees.find(candidate => candidate.id === employeeId)
   if (date > today || !employee || employee.helpFrom) return false
@@ -344,8 +362,9 @@ async function release() {
   releaseStatusKey.value += 1
 }
 
+/** Another month; the plan editor at the tablet stays the editor there. */
 function navigate(nextYear: number, nextMonth: number) {
-  return navigateTo(`/plan/${nextYear}/${nextMonth}`)
+  return navigateTo({ path: `/plan/${nextYear}/${nextMonth}`, query: editorView.value ? { [PLAN_EDITOR_QUERY]: '1' } : {} })
 }
 </script>
 

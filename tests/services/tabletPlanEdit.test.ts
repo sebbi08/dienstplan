@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { changeLog, entries, monthPlans, terminalUnlocks } from '../../server/db/schema'
+import { changeLog, entries, monthPlans, terminalUnlocks, users } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { applyToCells } from '../../server/services/entries'
 import { saveBundleOverride } from '../../server/services/permissions'
@@ -9,7 +9,7 @@ import { releaseMonth } from '../../server/services/release'
 import { setTabletSettings } from '../../server/services/tabletSettings'
 import { setPin } from '../../server/services/terminal'
 import {
-  deleteExpiredUnlocks, lockChildren, planEditStarted, startPlanEdit, tabletChildViewer, tabletPlanEditor, tabletUnlockStatus,
+  deleteExpiredUnlocks, lockChildren, startPlanEdit, tabletChildViewer, tabletPlanEditor, tabletPlanReader, tabletUnlockStatus,
   unlockChildren,
 } from '../../server/services/tabletUnlock'
 import { berlinInstant } from '../../shared/domain/tablet'
@@ -69,7 +69,7 @@ describe('„Dienstplan bearbeiten“ at the tablet', () => {
     const lenaToken = unlock(lena, '111111')
     // Unlocked for the child records only: no plan editing.
     expect(errorCode(() => tabletPlanEditor(db, tablet, lenaToken, NOW))).toBe('forbidden')
-    expect(planEditStarted(db, tablet, lenaToken)).toBe(false)
+    expect(tabletPlanReader(db, tablet, lenaToken, NOW)).toBeNull()
     // Mitarbeiterin and a person without account cannot start it.
     expect(errorCode(() => startPlanEdit(db, tablet, unlock(mia, '222222'), NOW))).toBe('forbidden')
     const noraToken = unlock(nora, '333333')
@@ -80,7 +80,7 @@ describe('„Dienstplan bearbeiten“ at the tablet', () => {
   it('edits as the person\'s own account in the tablet\'s facility, and every change names that account', () => {
     const token = unlock(lena, '111111')
     expect(startPlanEdit(db, tablet, token, NOW)).toMatchObject({ unlocked: true, planEdit: { active: true }, noLockPeriods: [] })
-    expect(planEditStarted(db, tablet, token)).toBe(true)
+    expect(tabletPlanReader(db, tablet, token, NOW)).toMatchObject({ id: leitung.id, facilityId: 1 })
     const editor = tabletPlanEditor(db, tablet, token, after(10))
     expect(editor).toMatchObject({ id: leitung.id, username: 'lena', role: 'admin', employeeId: lena, facilityId: 1 })
     expect(editor.permissions.has('plan.edit')).toBe(true)
@@ -154,7 +154,7 @@ describe('„Dienstplan bearbeiten“ at the tablet', () => {
     const token = unlock(lena, '111111')
     startPlanEdit(db, tablet, token, NOW)
     expect(errorCode(() => tabletPlanEditor(db, krippeTablet, token, NOW))).toBe('tablet_locked')
-    expect(planEditStarted(db, krippeTablet, token)).toBe(false)
+    expect(tabletPlanReader(db, krippeTablet, token, NOW)).toBeNull()
 
     // Lena helps out in the Krippe today: on its tablet's list, but her account is the Leitung of facility 1.
     const krippeLeitung = addUser(db, 'leitung-krippe', 'admin', null, krippe)
@@ -163,5 +163,59 @@ describe('„Dienstplan bearbeiten“ at the tablet', () => {
     const helper = unlockChildren(db, krippeTablet, lena, '111111', NOW)
     expect(helper.status).toMatchObject({ unlocked: true, planEdit: null })
     expect(errorCode(() => startPlanEdit(db, krippeTablet, helper.token, NOW))).toBe('forbidden')
+  })
+
+  it('tells whether the sick days right comes along', () => {
+    expect(tabletUnlockStatus(db, tablet, unlock(lena, '111111'), NOW)).toMatchObject({ planEdit: { seesSickness: true } })
+    saveBundleOverride(db, mitarbeiterin.id, 'planEdit', 'grant')
+    expect(tabletUnlockStatus(db, tablet, unlock(mia, '222222'), NOW)).toMatchObject({ planEdit: { seesSickness: false } })
+  })
+
+  it('refuses an account that must change its password first, as the login does', () => {
+    db.update(users).set({ mustChangePassword: true }).where(eq(users.id, leitung.id)).run()
+    const token = unlock(lena, '111111')
+    expect(tabletUnlockStatus(db, tablet, token, NOW)).toMatchObject({ unlocked: true, planEdit: null })
+    expect(errorCode(() => startPlanEdit(db, tablet, token, NOW))).toBe('forbidden')
+    // Flagged while editing: the tablet locks.
+    db.update(users).set({ mustChangePassword: false }).where(eq(users.id, leitung.id)).run()
+    const again = unlock(lena, '111111')
+    startPlanEdit(db, tablet, again, NOW)
+    db.update(users).set({ mustChangePassword: true }).where(eq(users.id, leitung.id)).run()
+    expect(errorCode(() => tabletPlanEditor(db, tablet, again, NOW))).toBe('tablet_locked')
+  })
+
+  it('needs the account itself in the tablet\'s facility, not only its employee', () => {
+    const krippe = addFacility(db, 'Krippe')
+    db.update(users).set({ facilityId: krippe }).where(eq(users.id, leitung.id)).run()
+    expect(tabletUnlockStatus(db, tablet, unlock(lena, '111111'), NOW)).toMatchObject({ planEdit: null })
+  })
+
+  it('locks after at most 5 minutes without use while editing, whatever the facility\'s lock time', () => {
+    setTabletSettings(db, 1, { lockMinutes: 30, showWaitlist: false, showFutureContracts: false }, NOW)
+    const token = unlock(lena, '111111')
+    expect(tabletUnlockStatus(db, tablet, token, NOW)).toMatchObject({ lockMinutes: 30 })
+    expect(startPlanEdit(db, tablet, token, NOW)).toMatchObject({ lockMinutes: 5 })
+    expect(tabletUnlockStatus(db, tablet, token, after(5 * 60 + 30))).toMatchObject({ unlocked: true })
+    expect(tabletUnlockStatus(db, tablet, token, after(5 * 60 + 31))).toEqual({ unlocked: false })
+    expect(deleteExpiredUnlocks(db, after(5 * 60 + 31))).toBe(1)
+  })
+
+  it('reads the plan as the editor only from a valid editing unlock, else as the tablet (never refusing)', () => {
+    const token = unlock(lena, '111111')
+    expect(tabletPlanReader(db, tablet, token, NOW)).toBeNull()
+    startPlanEdit(db, tablet, token, NOW)
+    expect(tabletPlanReader(db, tablet, token, after(60))).toMatchObject({ id: leitung.id })
+    expect(rows()[0]!.lastActiveAt).toBe(after(60).toISOString())
+    // Run out but not yet deleted: the released plan, no 403.
+    expect(tabletPlanReader(db, tablet, token, after(60 + 151))).toBeNull()
+    expect(tabletPlanReader(db, tablet, undefined, NOW)).toBeNull()
+  })
+
+  it('ends the person\'s unlocks with a new PIN', () => {
+    const token = unlock(lena, '111111')
+    startPlanEdit(db, tablet, token, NOW)
+    setPin(db, 1, lena, '999999')
+    expect(rows()).toEqual([])
+    expect(errorCode(() => tabletPlanEditor(db, tablet, token, NOW))).toBe('tablet_locked')
   })
 })

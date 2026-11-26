@@ -10,10 +10,12 @@ export default defineNuxtConfig({
     head: { htmlAttrs: { lang: 'de' }, title: 'Dienstplan' },
   },
   // Child data never stays in the browser cache (the shared tablet above all): the JSON answers and the pages that are
-  // rendered with it on the server.
+  // rendered with it on the server. Nor does the plan editor's data, which reaches the tablet with „Dienstplan
+  // bearbeiten“ (draft with health codes, hours, the employees' children, help-out candidates, week templates).
   routeRules: Object.fromEntries([
     '/api/children', '/api/children/**', '/api/child-contacts/**', '/api/child-documents/**', '/api/child-group-changes/**', '/api/terminal/**',
     '/children', '/children/**', '/print/children/**',
+    '/api/plan/**', '/plan/**', '/print/*/*', '/api/employees/*/children', '/api/help-outs/**', '/api/week-templates', '/api/week-templates/**',
   ].map(path => [path, { headers: { 'Cache-Control': 'no-store' } }])),
   nitro: {
     // server/lib/pdfText.ts reads uploaded PDFs with pdf.js in a worker thread that loads these two files by path

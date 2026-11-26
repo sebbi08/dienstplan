@@ -268,7 +268,7 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
 - Das Tablet sperrt sich wieder, wenn die **Sperrzeit** ohne Bedienung abgelaufen ist, wenn jemand „Sperren“
   antippt, die Kinderseiten verlässt (zur Startseite, zum Stempeln oder zum Dienstplan) oder eine andere Person
   aufschließt. Das merkt das Tablet spätestens nach einer halben Minute auch von selbst, z. B. wenn die Sperrzeit
-  verkürzt oder der Person die PIN gelöscht wurde.
+  verkürzt oder der Person die PIN gelöscht oder eine neue PIN gegeben wurde.
 - Unter *Einstellungen → Einrichtung → Tablet* stellen Leitung und Träger pro Einrichtung ein:
   - die **Sperrzeit ohne Bedienung** (1 bis 30 Minuten, voreingestellt 2 Minuten),
   - **Vormerkungen am Tablet zeigen** (voreingestellt aus),
@@ -300,17 +300,28 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
   die Startseite den freigegebenen Plan), die Verknüpfungen zu Einstellungen und Zeiterfassung auch nicht.
 - Jede Änderung wird mit dem **Namen der Person** gespeichert (Verlauf „wer, wann“, Freigabe „von …“) – nie als
   Tablet.
+  Bei Aushilfen, beim Entfernen einer Aushilfe, beim Speichern einer Wochenvorlage, beim Zurücknehmen von „Zur
+  Kenntnis genommen“ und beim Löschen einer Markierung „Im Dienst erkrankt“ merkt sich die App – wie im Büro – nicht,
+  wer es war.
 - **Personen ohne eigenes Konto** (nur PIN) und **Aushilfen aus einer anderen Einrichtung** können am Tablet nie den
   Dienstplan bearbeiten – auch dann nicht, wenn der Träger der Rolle Mitarbeiter das Recht gibt: Der Verlauf braucht
-  ein Konto, unter dem die Änderung steht.
+  ein Konto, unter dem die Änderung steht. Ebenso wenig ein Konto, das erst ein neues Passwort vergeben muss (wie bei
+  der Anmeldung), oder ein Konto, das zu einer anderen Einrichtung gehört.
 - Das Bearbeiten gehört zum Aufschließen: Es **endet sofort**, wenn jemand „Sperren“ antippt, die Sperrzeit ohne
-  Bedienung abläuft, eine andere Person aufschließt, man den Dienstplan verlässt (Startseite) oder dem Konto das Recht
-  genommen wird – dann sperrt sich das Tablet und zeigt wieder die Startseite. Der Server prüft das bei **jeder**
-  Änderung neu (Aufschließen noch gültig, Person noch auf der Tablet-Liste, Recht noch da, richtige Einrichtung).
-- Die Zeitfenster **„Keine automatische Sperre“** gelten beim Bearbeiten des Dienstplans **nicht**: Die Sperrzeit läuft
-  immer, damit ein liegen gelassenes Tablet nicht stundenlang mit den Rechten der Leitung offen bleibt.
+  Bedienung abläuft, eine andere Person aufschließt, man den Dienstplan verlässt (Startseite), dem Konto das Recht
+  genommen wird oder die Person eine **neue PIN** bekommt – dann sperrt sich das Tablet und zeigt wieder die
+  Startseite. Der Server prüft das bei **jeder** Änderung neu (Aufschließen noch gültig, Person noch auf der
+  Tablet-Liste, Recht noch da, richtige Einrichtung).
+- **Ohne Netz gesperrt:** Erreicht „Sperren“ den Server nicht, steht auf der Startseite „Sperren…“, und das Tablet
+  schickt die Sperre immer wieder, bis der Server sie bestätigt. Die Kachel „Dienstplan“ zeigt auch in dieser Zeit
+  (und auch nach dem Neuladen) nur den freigegebenen Plan – den Entwurf und die Bearbeitung gibt es nur über den Knopf
+  „Dienstplan bearbeiten“.
+- Die Zeitfenster **„Keine automatische Sperre“** gelten beim Bearbeiten des Dienstplans **nicht**, und die Sperrzeit
+  ist dabei **höchstens 5 Minuten** (auch wenn für das Tablet mehr eingestellt ist), damit ein liegen gelassenes Tablet
+  nicht lange mit den Rechten der Leitung offen bleibt.
 - Jede Änderung im Dienstplan wird sofort gespeichert. Was beim Sperren nur in einem offenen Fenster eingetippt, aber
   noch nicht übernommen war, geht verloren.
+- „Im Dienst erkrankt“ bietet der Dienstplan nur an, wer die Krankheitstage sehen darf (im Büro wie am Tablet).
 
 ### Aufbau der Seite *Kinder*
 

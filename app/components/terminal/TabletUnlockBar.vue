@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
-import { KEEP_ALIVE_MIN_SECONDS, STATUS_POLL_SECONDS, unlockDeadline } from '#shared/domain/tablet'
+import { KEEP_ALIVE_MIN_SECONDS, PLAN_EDITOR_QUERY, STATUS_POLL_SECONDS, unlockDeadline } from '#shared/domain/tablet'
 import type { TabletUnlockStatusDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage } from '~/utils/errors'
@@ -37,6 +37,8 @@ let warnTimer: ReturnType<typeof setTimeout> | undefined
 let warnedFor = -1
 let poll: ReturnType<typeof setInterval> | undefined
 let ending = false
+/** The lock is on its way to the server (the button says „Sperren…“). */
+const locking = ref(false)
 
 const lockMs = () => (status.value?.lockMinutes ?? 0) * 60_000
 /** The facility's windows without the automatic lock (from the last status): the lock waits for their end. */
@@ -93,7 +95,11 @@ async function end(sendLock: boolean) {
   clearTimeout(warnTimer)
   clearTimeout(noteTimer)
   clearInterval(poll)
-  if (sendLock) await lock()
+  if (sendLock) {
+    // „Sperren…“ while the first try is on its way; unconfirmed, it is sent again (the start page says so).
+    locking.value = true
+    await lock()
+  }
   if (unlockedPage(router.currentRoute.value.path)) await navigateTo('/terminal')
 }
 
@@ -111,7 +117,7 @@ async function editPlan() {
   try {
     await startPlanEdit()
     const today = parseIsoDate(todayIso())
-    await navigateTo(`/plan/${today.year}/${today.month}`)
+    await navigateTo({ path: `/plan/${today.year}/${today.month}`, query: { [PLAN_EDITOR_QUERY]: '1' } })
   }
   catch (error) {
     // 403 tablet_locked is handled by the tabletLocked plugin.
@@ -244,6 +250,9 @@ onBeforeUnmount(() => {
       v-if="offerPlanEdit" size="lg" color="neutral" variant="outline" icon="i-lucide-calendar-range"
       :label="de.terminal.editPlan" :loading="startingPlanEdit" @click="editPlan"
     />
-    <UButton size="lg" color="warning" icon="i-lucide-lock" :label="de.terminal.lock" @click="lockByHand" />
+    <UButton
+      size="lg" color="warning" icon="i-lucide-lock" :loading="locking" :label="locking ? de.terminal.locking : de.terminal.lock"
+      @click="lockByHand"
+    />
   </div>
 </template>

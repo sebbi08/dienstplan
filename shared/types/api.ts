@@ -1930,7 +1930,8 @@ export type TabletUnlockStatusDto =
     /**
      * „Dienstplan bearbeiten“: null when the person may not edit this facility's plan at the tablet (no active account of
      * their own in this facility, or no plan.edit there); otherwise whether they edit it now, and what their account
-     * may do beyond plan.edit. While they edit, the windows without the automatic lock do not apply (noLockPeriods empty).
+     * may do beyond plan.edit. While they edit, the windows without the automatic lock do not apply (noLockPeriods empty)
+     * and lockMinutes is at most PLAN_EDIT_MAX_LOCK_MINUTES.
      */
     planEdit: TabletPlanEditDto | null
   }
@@ -1943,6 +1944,8 @@ export interface TabletPlanEditDto {
   canRelease: boolean
   /** employees.personal: „Kind krank“ asks which child. */
   seesPersonal: boolean
+  /** employees.sickness: the health codes as they are and „Im Dienst erkrankt“. */
+  seesSickness: boolean
 }
 
 /** A stretch without the automatic lock as ISO moments (`until` excluded). */
