@@ -50,6 +50,8 @@ describe('unlocking the tablet for child records', () => {
       rights: { canEdit: false, isManager: false, canMoveFacility: false, showWaitlist: false, showFutureContracts: false },
       // No account of her own: never „Dienstplan bearbeiten“.
       planEdit: null,
+      // Without „Nur Kinderzahlen“ the child records as her rights say.
+      countsOnly: false,
     })
     expect(token.length).toBeGreaterThanOrEqual(40)
     expect(tabletUnlockStatus(db, tablet, token, NOW)).toEqual(status)

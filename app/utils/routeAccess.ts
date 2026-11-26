@@ -8,6 +8,22 @@ export const isChildPagePath = (path: string): boolean =>
   (path === '/children' || path.startsWith('/children/')) && !path.startsWith('/children/info-visits')
 
 /**
+ * „Kinder heute“: the names-free numbers of the day, the one child page of a person with „Nur Kinderzahlen“ at the
+ * tablet (a child page: only while unlocked, with the lock bar; no account opens it, see TABLET_ONLY).
+ */
+export const CHILD_COUNTS_PATH = '/children/today'
+
+/**
+ * Where the unlocked tablet goes instead of the child page `path`: a person with „Nur Kinderzahlen“ (`countsOnly`) only
+ * to „Kinder heute“, everyone else never there (they have the attendance list, the numbers page is not theirs).
+ * Undefined when the page may open.
+ */
+export function unlockedChildRedirect(path: string, countsOnly: boolean): string | undefined {
+  if (countsOnly) return path === CHILD_COUNTS_PATH ? undefined : CHILD_COUNTS_PATH
+  return path === CHILD_COUNTS_PATH ? '/children' : undefined
+}
+
+/**
  * The month plan's pages (/plan/<year>/<month>). At the tablet they show the released plan, or – while the person who
  * unlocked it edits the plan („Dienstplan bearbeiten“) – the editor with that person's rights; leaving them then locks.
  */
@@ -111,8 +127,11 @@ const PAGE_PERMISSIONS: readonly [prefix: string, key: PermissionKey | readonly 
   ['/print/contacts', 'contacts.view'],
 ]
 
-/** The tablet's pages that no signed-in account opens: the terminal routes answer only the tablet. */
-const TABLET_ONLY = ['/terminal']
+/**
+ * The tablet's pages that no signed-in account opens: the terminal routes answer only the tablet (the start page and
+ * „Kinder heute“).
+ */
+const TABLET_ONLY = ['/terminal', CHILD_COUNTS_PATH]
 
 /** The keys of which the page at `path` needs one from a signed-in account (not the tablet); empty when every account opens it. */
 export function pageKeys(path: string): readonly PermissionKey[] {

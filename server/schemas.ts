@@ -320,6 +320,8 @@ export const userRightsSchema = z.object({
   })).max(100),
 })
 export const stampingSchema = z.object({ stampVia: z.enum(STAMP_CHANNELS), breakMode: z.enum(BREAK_MODES) })
+/** „Nur Kinderzahlen (keine Namen, keine Akten)“ of an employee (tab „Zugang“). */
+export const countsOnlySchema = z.object({ countsOnly: z.boolean() }).strict()
 export const notificationsReadSchema = z.object({ ids: z.array(z.number().int().positive()).max(500) })
 export const leaveModuleSchema = z.object({ enabled: z.boolean(), plannerIds: z.array(z.number().int().positive()).max(50) })
 export const leaveMaxSchema = z.object({ value: z.number().int().min(1).max(100).nullable() })

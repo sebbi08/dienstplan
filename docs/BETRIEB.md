@@ -247,6 +247,7 @@ einer späteren Version entfernt.
 | Mitarbeiter mit dem Recht „eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“) | dürfen am Tablet zusätzlich Kinder anlegen und bearbeiten, Dokumente hochladen und vertrauliche Dokumente öffnen. Abmelden, Archiv und Löschen bleiben der Leitung und dem Träger vorbehalten. |
 | Gruppenleitung | darf in der Grundeinstellung dasselbe wie ein Mitarbeiter mit „eintragen und Akten ändern“ (eigene Gruppe) – und das auch **mit dem eigenen Konto** im Büro, nicht nur am Tablet. Vormerkungen und künftige Vertragskinder sieht sie wie am Tablet nur, wenn die Tablet-Schalter an sind (außer der Träger gibt ihr „Kinder: verwalten“). Siehe Abschnitt 28. |
 | Aushilfen aus einer anderen Einrichtung | sehen die Kinder am Tablet nur an den Tagen, an denen sie dort eingeplant sind, nur lesend und nur, wenn der Träger die gegenseitige Aushilfe der beiden Einrichtungen freigegeben hat (Abschnitt 23). Beobachtungsbögen lesen sie nur (außer als Bezugserzieher oder für einen Bogen freigeschaltet, Abschnitt 27). |
+| Personen mit „Nur Kinderzahlen“ | sehen **keine Kinder**, weder am Tablet noch mit dem eigenen Konto – unabhängig von Rolle und Ausnahmen. Am Tablet bekommen sie nach der PIN nur die Seite „Kinder heute“ mit Zahlen ohne Namen (Abschnitt 11, „Nur Kinderzahlen“). |
 
 Das Recht „eintragen und Akten ändern“ gibt die Leitung oder der Träger bei der Person (*Mitarbeitende → Name → Zugang*,
 oder *Benutzer* → „Rechte“). Es gilt am Tablet der Einrichtung. Was die Rollen sonst dürfen, stellt der Träger unter
@@ -260,7 +261,8 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
 - Auf der Startseite des Tablets gibt es unter anderem die Kacheln **Stempeln**, **Kinder** und **Dokumente** (mit
   „Vorlagen“, siehe Abschnitt 19).
   Unter „Kinder“ tippt die Person ihren Namen an und gibt ihre PIN ein; danach ist das Tablet für sie **aufgeschlossen**. Oben steht
-  „Aufgeschlossen: ‹Name›“ mit dem Knopf **Sperren**.
+  „Aufgeschlossen: ‹Name›“ mit dem Knopf **Sperren**. Wer die Einstellung **„Nur Kinderzahlen“** hat, sieht danach nur
+  die Seite „Kinder heute“ mit Zahlen ohne Namen (Abschnitt 11, „Nur Kinderzahlen“).
 - Für den Zugang braucht jeder Mitarbeiter eine **PIN**. Die vergibt die Leitung wie fürs Stempeln (unter
   *Mitarbeitende*). Auch wer kein eigenes Benutzerkonto hat, kann mit der PIN aufschließen (nur lesen). Die PIN hat
   6 Ziffern; nach falschen Eingaben wird sie gesperrt – beim Stempeln und beim Aufschließen gleich (siehe Abschnitt 15,
@@ -735,6 +737,36 @@ Alle Angaben lassen sich ändern, auch an älteren Tagen: Zeiten und Abholperson
 (ein versehentlich gestempelter Aufenthalt lässt sich dort auch löschen), die geplante Abholzeit und die Notiz
 in der geöffneten Zeile. Jede Änderung wird mit Person und Uhrzeit festgehalten. Ein kleines Verlaufs-Symbol in der
 Zeile zeigt, dass ein Eintrag geändert wurde; in der geöffneten Zeile zeigt ein Tipp darauf den Verlauf.
+
+### Nur Kinderzahlen („Kinder heute“)
+
+Für Personen, die nur wissen müssen, **wie viele** Kinder da sind und mitessen – z. B. die Hauswirtschaftskraft –, gibt
+es bei der Person die Einstellung **„Nur Kinderzahlen (keine Namen, keine Akten)“** (*Mitarbeitende → Name → Reiter
+„Zugang“*). Sie geht mit und ohne eigenes Konto.
+
+- **Wer sie setzt:** wie beim Recht „Kinder: eintragen und Akten ändern“ – die Leitung für Mitarbeiter ihrer Einrichtung
+  (mit Mitarbeiter-Konto oder ohne Konto), der Träger für alle. Bei einer Gruppenleitung sieht die Leitung den Stand,
+  ändern kann ihn nur der Träger. Für Personen mit Leitungs- oder Träger-Konto gibt es die Einstellung nicht.
+- **Was sie bewirkt:** Die Person sieht **keine Kinder** – am Tablet nicht und mit dem eigenen Konto (Handy, Büro) auch
+  nicht: keine Liste, keine Akten, keine Bögen, keine Dokumente der Kinder, keine Anwesenheit, keine Wochenübersicht und
+  keine Gruppenbücher, keine Geburtstage, keine Erinnerungen, keine Vormerkungen, keine Infogespräche, keine
+  Unfallberichte. Die Einstellung geht vor der Rolle und vor den Ausnahmen der Person (Abschnitt 28). Stempeln, der
+  Dienstplan, „Zu unterschreiben“, ihre eigenen Sachen, Wissen, Notizen und Kontakte bleiben wie bisher.
+- **Am Tablet:** Unter **„Kinder“** tippt die Person wie alle ihren Namen an und gibt die PIN ein. Statt der Kinder öffnet
+  sich dann die Seite **„Kinder heute“** mit Zahlen ohne Namen:
+  - **Da**, **Noch nicht da**, **Abwesend** und **Abgeholt** – dieselben Zahlen wie in der Zahlenzeile der Anwesenheit;
+  - **Essen heute:** je Essen, wie viele Kinder mitessen – gezählt wie in der Anwesenheit (zur Uhrzeit da oder von
+    Hand angehakt, siehe „Essen“);
+  - hat die Einrichtung mehr als eine Gruppe, darunter dieselben Zahlen **je Gruppe** (Kinder ohne Gruppe als „ohne
+    Gruppe“) und **Gesamt**.
+
+  Die Seite zeigt nur heute und aktualisiert sich jede Minute von selbst (oder mit **„Aktualisieren“**). Das
+  Aktualisieren zählt nicht als Bedienung: Ohne Antippen sperrt sich das Tablet nach der Sperrzeit wie sonst auch.
+- Andere Kinderseiten öffnen sich für die Person nicht (das Tablet führt zurück zu „Kinder heute“), und der Server gibt
+  ihr bei jeder Anfrage zu Kindern keine Daten. Wer die Einstellung nicht hat, sieht „Kinder heute“ nicht, sondern wie
+  bisher die Anwesenheit.
+- Ausschalten wirkt sofort: Beim nächsten Aufschließen bzw. der nächsten Anfrage hat die Person wieder die Kinder-Rechte
+  ihrer Rolle.
 
 ## 12. Wochenübersicht und Gruppenbücher
 
@@ -1678,6 +1710,10 @@ Mitarbeiter sehen in ihrem Kalender keine Anträge anderer.
 - Darunter stehen die **Rechte der Person** (Abschnitt 28): beim Träger alle Schalter mit Ausnahmen, bei der Leitung für
   Mitarbeiter nur „Kinder: eintragen und Akten ändern“ (früher „darf Kinderakten pflegen“). Bei einer Gruppenleitung
   sieht die Leitung statt der Rechte den Hinweis „Die Rechte der Gruppenleitung stellt der Träger ein.“
+- Ganz unten steht – auch bei einer Person **ohne** Konto – das Häkchen **„Nur Kinderzahlen (keine Namen, keine
+  Akten)“**: Die Person sieht dann keine Kinder mehr und am Tablet nur „Kinder heute“ (Abschnitt 11, „Nur
+  Kinderzahlen“). Es wird beim Antippen gleich gespeichert. Die Leitung setzt es für Mitarbeiter und Personen ohne Konto,
+  bei einer Gruppenleitung nur der Träger; bei Leitungs- und Träger-Konten gibt es das Häkchen nicht.
 
 ### Die Seite *Benutzer*
 
@@ -3518,6 +3554,10 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   gegeben hat, das darauf aufbaut (z. B. „Kinder: verwalten“); Setzen geht erst, wenn die Person „Kinder: ansehen“ hat.
   Beides stellt der Träger ein. In Klammern steht, für welchen Bereich das Recht gilt (eigene Gruppe oder ganze
   Einrichtung).
+- Ebenso setzt die Leitung bei Mitarbeitern ihrer Einrichtung (auch ohne Konto) **„Nur Kinderzahlen“** (Abschnitt 11).
+  Diese Einstellung geht allen Kinder-Rechten vor: Solange sie an ist, gelten „Kinder: ansehen“ und alles, was darauf
+  aufbaut, für die Person nicht – auch nicht als Ausnahme. Unter „Rechte dieser Person“ stehen die Kinder-Schalter dann
+  als nicht wirksam.
 
 ### Sicherheitsregeln
 

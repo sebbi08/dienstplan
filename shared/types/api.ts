@@ -1940,6 +1940,11 @@ export type TabletUnlockStatusDto =
   | {
     unlocked: true; employeeId: number; name: string; rights: ChildRightsDto; lockMinutes: number
     /**
+     * „Nur Kinderzahlen“: the person has no child rights at all and sees only „Kinder heute“ (names-free numbers,
+     * /children/today); every other child page sends there.
+     */
+    countsOnly: boolean
+    /**
      * The facility's windows without the automatic lock on the day of the last use and today (open days only, cut to the
      * opening hours; ISO moments, touching ones of a day joined): the tablet times its lock with them by
      * shared/domain/tablet.ts unlockDeadline, as the server does.
@@ -1970,6 +1975,50 @@ export interface TabletPlanEditDto {
 
 /** A stretch without the automatic lock as ISO moments (`until` excluded). */
 export interface NoLockPeriodDto { from: string; until: string }
+
+/**
+ * One line of „Kinder heute“ (the whole facility or one group): the numbers of the attendance list's summary line, by
+ * the same rules (shared/domain/childAttendance.ts dayStatus, countsForMeal). Numbers only.
+ */
+export interface ChildCountsLineDto {
+  present: number
+  notYet: number
+  /** krank, Urlaub, entschuldigt, unentschuldigt. */
+  absent: number
+  /** Abgeholt. */
+  gone: number
+  /** Children counted for each meal of the day, in the order of `ChildCountsDto.meals`. */
+  meals: number[]
+}
+
+/**
+ * „Kinder heute“ at the tablet for a person with „Nur Kinderzahlen“ (GET /api/terminal/children/counts): today's numbers
+ * of the facility without names, ids or anything else about a child.
+ */
+export interface ChildCountsDto {
+  date: IsoDate
+  /** False on weekends, holidays and closure days (the attendance list's hint). */
+  isCareDay: boolean
+  /** The meals of the day with the name and time valid today (minutes after midnight), by time. */
+  meals: { name: string; time: number }[]
+  total: ChildCountsLineDto
+  /**
+   * Per group, only when the facility has more than one group: the groups of today's children in the groups' order,
+   * `name` null for the children without group (last). Empty otherwise.
+   */
+  groups: (ChildCountsLineDto & { name: string | null })[]
+}
+
+/**
+ * „Nur Kinderzahlen“ of an employee as the tab „Zugang“ shows it (GET /api/employees/[id]/counts-only): `offered` false
+ * for a person with a Leitung or Träger account and for a viewer who may not set child rights (the block is hidden);
+ * `editable` false while offered only for a Gruppenleitung, whose child rights the Träger sets (the Leitung sees it).
+ */
+export interface CountsOnlyStateDto {
+  countsOnly: boolean
+  offered: boolean
+  editable: boolean
+}
 
 export type StampAction = 'in' | 'out'
 export type TimeRecordSource = 'self' | 'terminal' | 'admin'

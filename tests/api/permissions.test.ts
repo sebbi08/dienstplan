@@ -66,6 +66,8 @@ const USER_ROUTES = [
 const TERMINAL_ROUTES = [
   'terminal/status.get.ts', 'terminal/stamp.post.ts', 'terminal/children/unlock.post.ts', 'terminal/children/lock.post.ts',
   'terminal/children/keep-alive.post.ts', 'terminal/children/status.get.ts',
+  // „Kinder heute“: the names-free numbers; the service asks for the unlock of a person with „Nur Kinderzahlen“.
+  'terminal/children/counts.get.ts',
   // The consenting colleagues' emergency contacts: the service asks for the unlock like the child data.
   'terminal/staff-emergency-contacts.get.ts',
   // The tablet's offline queue (stamps kept without network, sent later): the tablet only, never an account.

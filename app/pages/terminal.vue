@@ -9,6 +9,7 @@ import { errorCode, errorMessage } from '~/utils/errors'
 import { shiftMonth } from '~/utils/format'
 import { isServerUnreachable, REQUEST_TIMEOUT_MS, tabletClockTime } from '~/utils/offlineQueue'
 import { pinFailureText } from '~/utils/pin'
+import { CHILD_COUNTS_PATH } from '~/utils/routeAccess'
 import { tabletStartTiles } from '~/utils/tabletStart'
 
 type Mode = 'start' | 'stamp' | 'children' | 'sign'
@@ -268,7 +269,8 @@ async function openChildren() {
       return
     }
     unlock.value = status
-    await navigateTo('/children')
+    // A person with „Nur Kinderzahlen“ gets „Kinder heute“ (names-free numbers) instead of the child records.
+    await navigateTo(status.unlocked && status.countsOnly ? CHILD_COUNTS_PATH : '/children')
   }
   catch (caught) {
     if (isStale()) return

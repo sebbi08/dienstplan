@@ -1,4 +1,4 @@
-import { accountRedirect, isChildPagePath, isPlanEditorView, tabletMayOpen } from '~/utils/routeAccess'
+import { accountRedirect, isChildPagePath, isPlanEditorView, tabletMayOpen, unlockedChildRedirect } from '~/utils/routeAccess'
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
   const { loggedIn, user } = useUserSession()
@@ -6,10 +6,13 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   if (!loggedIn.value || !user.value) return navigateTo('/login')
   if (user.value.role === 'terminal') {
     const { unlock, editingPlan, refreshUnlock, lockOnLeave } = useChildRights()
-    // The child pages only while a person has unlocked them (asked afresh, also on a full page load).
+    // The child pages only while a person has unlocked them (asked afresh, also on a full page load); a person with
+    // „Nur Kinderzahlen“ only „Kinder heute“, everyone else never that page.
     if (isChildPagePath(to.path)) {
       await refreshUnlock()
-      return unlock.value?.unlocked ? undefined : navigateTo('/terminal')
+      if (!unlock.value?.unlocked) return navigateTo('/terminal')
+      const target = unlockedChildRedirect(to.path, unlock.value.countsOnly)
+      return target ? navigateTo(target) : undefined
     }
     // A full page load of the plan editor's view asks whether a person edits the plan here („Dienstplan bearbeiten“):
     // then the page shows the editor and the lock bar. The „Dienstplan“ tile's view (no `?editor=1`) never asks, so a

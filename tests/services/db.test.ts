@@ -189,10 +189,12 @@ describe('upgrading a filled database through migrateDb', () => {
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_FACILITY_COLUMNS.includes(column))))
   // Columns of `employees` that 0062_personnel_file adds; the older tests compare employee rows without them (and
   // without `balance_from` of 0072_employee_balance_from, the training columns of 0074_employee_training_until and
-  // `single_parent` of 0086_employee_children).
+  // `single_parent` of 0086_employee_children, `counts_only` of 0137_employee_counts_only).
   const PERSONNEL_COLUMNS = ['birth_year', 'street', 'postal_code', 'city', 'phone', 'email', 'nationality', 'disability',
     'disability_degree', 'disability_equal', 'disability_until', 'fixed_term_until']
-  const LATER_EMPLOYEE_COLUMNS = [...PERSONNEL_COLUMNS, 'balance_from', 'training_until', 'recognition_year_counts', 'single_parent', 'probation_until']
+  const LATER_EMPLOYEE_COLUMNS = [
+    ...PERSONNEL_COLUMNS, 'balance_from', 'training_until', 'recognition_year_counts', 'single_parent', 'probation_until', 'counts_only',
+  ]
   const withoutPersonnel = (rows: unknown[]) => (rows as Record<string, unknown>[])
     .map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_EMPLOYEE_COLUMNS.includes(column))))
   // 0104_vaccination_counselling_document gives every facility this document type; the older tests leave it out.

@@ -1,4 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm'
+import { COUNTS_ONLY_OVERRIDES, countsOnlyApplies } from '../../shared/domain/countsOnly'
 import {
   effectiveRights, isRightsRole, type BundleId, type BundleOverride, type BundleScope, type EffectiveRights,
   type RightsRole, type RoleBundleSetting,
@@ -6,7 +7,7 @@ import {
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { Role } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { roleBundles, userBundleOverrides } from '../db/schema'
+import { employees, roleBundles, userBundleOverrides, users } from '../db/schema'
 
 /** What the resolver needs to know about an account (a session user or a users row with its resolved facility). */
 export interface PermissionSubject {
@@ -28,14 +29,32 @@ export function bundleOverrideRows(db: Db, userId: number): BundleOverride[] {
     .from(userBundleOverrides).where(eq(userBundleOverrides.userId, userId)).all()
 }
 
+/**
+ * The accounts (of those given) whose employee has „Nur Kinderzahlen“ (shared/domain/countsOnly.ts); whether it counts
+ * for the account's role decides `countsOnlyApplies`. Accounts without an employee (the Träger's, the tablet's) need
+ * no look at the employees.
+ */
+function countsOnlyAccounts(db: Db, userIds: readonly number[]): Set<number> {
+  if (userIds.length === 0) return new Set()
+  const linked = db.select({ id: users.id, employeeId: users.employeeId }).from(users)
+    .where(inArray(users.id, [...userIds])).all()
+    .flatMap(row => (row.employeeId === null ? [] : [{ id: row.id, employeeId: row.employeeId }]))
+  if (linked.length === 0) return new Set()
+  const flagged = new Set(db.select({ id: employees.id }).from(employees)
+    .where(and(inArray(employees.id, linked.map(row => row.employeeId)), eq(employees.countsOnly, true))).all().map(row => row.id))
+  return new Set(linked.filter(row => flagged.has(row.employeeId)).map(row => row.id))
+}
+
 /** Leave planning holds only in the account's own facility (today's `isPlanner`: a Leitung plans only there). */
 const OUTSIDE_OWN_FACILITY: BundleOverride = { bundle: 'leavePlan', effect: 'revoke', scope: null }
 
 /**
  * The account's rights for work in `facilityId` (default: the facility it works in), fresh from the database: the
  * role's settings (else the defaults) and the account's exceptions (see `effectiveRights`). Outside its own facility a
- * Leitung or Mitarbeiter does not plan leave. The old flags (`can_edit_children`, `leave_planners`,
- * `contract_visible_to_admins`) are not read: migration 0064 moved them into the rights tables.
+ * Leitung or Mitarbeiter does not plan leave. A Gruppenleitung or Mitarbeiter whose employee has „Nur Kinderzahlen“
+ * has no child rights at all, whatever the role and the exceptions say (`COUNTS_ONLY_OVERRIDES`, applied last). The
+ * old flags (`can_edit_children`, `leave_planners`, `contract_visible_to_admins`) are not read: migration 0064 moved
+ * them into the rights tables.
  */
 export function accountRights(
   db: Db, account: PermissionSubject, facilityId: number | null = account.facilityId,
@@ -43,6 +62,7 @@ export function accountRights(
   if (!isRightsRole(account.role)) return effectiveRights({ role: account.role })
   const overrides = bundleOverrideRows(db, account.id)
   if (facilityId === null || facilityId !== account.facilityId) overrides.push(OUTSIDE_OWN_FACILITY)
+  if (countsOnlyApplies(countsOnlyAccounts(db, [account.id]).has(account.id), account.role)) overrides.push(...COUNTS_ONLY_OVERRIDES)
   return effectiveRights({ role: account.role, roleBundles: roleBundleRows(db, account.role), overrides })
 }
 
@@ -58,6 +78,7 @@ export function accountsRights(db: Db, accounts: readonly PermissionSubject[]): 
       overrides.set(row.userId, [...overrides.get(row.userId) ?? [], { bundle: row.bundle, effect: row.effect, scope: row.scope }])
     }
   }
+  const countsOnly = countsOnlyAccounts(db, ids)
   const roleRows = new Map<RightsRole, RoleBundleSetting[]>()
   const result = new Map<number, EffectiveRights>()
   for (const account of accounts) {
@@ -68,6 +89,7 @@ export function accountsRights(db: Db, accounts: readonly PermissionSubject[]): 
     if (!roleRows.has(account.role)) roleRows.set(account.role, roleBundleRows(db, account.role))
     const own = [...overrides.get(account.id) ?? []]
     if (account.facilityId === null) own.push(OUTSIDE_OWN_FACILITY)
+    if (countsOnlyApplies(countsOnly.has(account.id), account.role)) own.push(...COUNTS_ONLY_OVERRIDES)
     result.set(account.id, effectiveRights({ role: account.role, roleBundles: roleRows.get(account.role), overrides: own }))
   }
   return result

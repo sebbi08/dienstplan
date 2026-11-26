@@ -183,6 +183,12 @@ export const employees = sqliteTable('employees', {
   stampVia: text('stamp_via', { enum: ['both', 'tablet'] }).notNull().default('both'),
   /** 'stamp': breaks are clocked (gaps count); 'auto': the planned break is deducted in full from the clocked time. */
   breakMode: text('break_mode', { enum: ['stamp', 'auto'] }).notNull().default('stamp'),
+  /**
+   * „Nur Kinderzahlen“ (Zugang, server/services/countsOnly.ts): no child data anywhere – no child rights at the tablet nor
+   * with an own account – only the names-free numbers of the day at the tablet („Kinder heute“). No effect for a Leitung
+   * or Träger account.
+   */
+  countsOnly: integer('counts_only', { mode: 'boolean' }).notNull().default(false),
   // Contract data, edited only by the Träger (provider); see shared/domain/tvoed.ts.
   personnelNumber: text('personnel_number').unique(),
   employedSince: text('employed_since'),

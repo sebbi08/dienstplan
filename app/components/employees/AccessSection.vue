@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Role, UserDto } from '#shared/types/api'
+import type { CountsOnlyStateDto, Role, UserDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { formatDateTime } from '~/utils/format'
 import { personRightsMode, providerSetsRights } from '~/utils/rights'
@@ -12,8 +12,25 @@ import { accountLock, manageableRoles } from '#shared/domain/roles'
  */
 const props = defineProps<{ employeeId: number; employeeName: string }>()
 const LINKED_ROLES: Role[] = ['admin', 'group_lead', 'observer']
-const { data: users, refresh } = await useFetch<UserDto[]>('/api/users')
+const { data: users, refresh: refreshUsers } = await useFetch<UserDto[]>('/api/users')
+/**
+ * „Nur Kinderzahlen“, a setting of the person with or without an account (the server says whether it is offered: not for
+ * a Leitung or Träger account, not for viewers who set no child rights; a Gruppenleitung's only the Träger changes).
+ */
+const { data: countsOnly, refresh: refreshCountsOnly } = await useFetch<CountsOnlyStateDto>(() => `/api/employees/${props.employeeId}/counts-only`)
+// A changed or new account can change whether the setting is offered.
+const refresh = () => Promise.all([refreshUsers(), refreshCountsOnly()])
 const run = useAction(refresh)
+/** The checkbox; saved on every change, back to the stored state when the server refuses. */
+const countsOnlyChecked = ref(false)
+watch(countsOnly, state => (countsOnlyChecked.value = state?.countsOnly ?? false), { immediate: true })
+async function saveCountsOnly() {
+  const value = countsOnlyChecked.value
+  const ok = await run(() => $fetch<CountsOnlyStateDto>(`/api/employees/${props.employeeId}/counts-only`, {
+    method: 'PUT', body: { countsOnly: value },
+  }), value ? de.employees.access.countsOnlyOn : de.employees.access.countsOnlyOff)
+  if (!ok) countsOnlyChecked.value = countsOnly.value?.countsOnly ?? false
+}
 const { can } = useCan()
 const canProviderAccounts = computed(() => can('users.providerAccounts'))
 
@@ -150,6 +167,17 @@ async function create() {
         <div class="sm:col-span-3"><UButton type="submit" icon="i-lucide-user-plus" :label="de.employees.access.setUp" /></div>
       </form>
     </template>
+
+    <!-- „Nur Kinderzahlen“: with or without an account; not offered for Leitung and Träger accounts. -->
+    <div v-if="countsOnly?.offered" class="space-y-1 border-t border-gray-200 pt-3">
+      <label class="flex min-h-11 items-center gap-2 text-sm font-medium">
+        <input v-model="countsOnlyChecked" type="checkbox" class="size-4" :disabled="!countsOnly.editable" @change="saveCountsOnly">
+        {{ de.employees.access.countsOnly }}
+      </label>
+      <p class="text-xs text-gray-500">{{ de.employees.access.countsOnlyHint }}</p>
+      <p v-if="!countsOnly.editable" class="text-xs text-gray-500">{{ de.employees.access.countsOnlyByProvider }}</p>
+      <p v-if="countsOnly.countsOnly && account" class="text-xs text-amber-800">{{ de.employees.access.countsOnlyRightsNote }}</p>
+    </div>
 
     <NuxtLink to="/admin/users" class="inline-block text-sm text-sky-700 hover:underline">{{ de.employees.access.usersPage }}</NuxtLink>
 

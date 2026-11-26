@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
+import { COUNTS_ONLY_OVERRIDES, countsOnlyApplies } from '../../shared/domain/countsOnly'
 import { effectiveRights, isRightsRole, type BundleScope } from '../../shared/domain/permissionBundles'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { berlinDate, planEditEndsAt, unlockLockMinutes, type NoLockPeriod } from '../../shared/domain/tablet'
@@ -26,6 +27,8 @@ type Resolved =
   | { unlocked: false; dropped?: UnlockRow }
   | {
     unlocked: true; row: UnlockRow; person: TerminalPersonDto; settings: TabletSettingsDto; viewer: ChildViewer
+    /** „Nur Kinderzahlen“ counts for the person: no child rights (see viewerFor), only „Kinder heute“. */
+    countsOnly: boolean
     periods: NoLockPeriod[]
     /** The person's own account as it would edit the plan here (planEditorFor); null when it may not. */
     editor: SessionUser | null
@@ -35,10 +38,13 @@ type Resolved =
 
 /**
  * A person without (active) account of the home facility at the tablet: the current Mitarbeiter role settings (else the
- * defaults), no exceptions. Read per request, so a change of the role reaches them at once (spec §6).
+ * defaults), no exceptions. Read per request, so a change of the role reaches them at once (spec §6). With „Nur
+ * Kinderzahlen“ without any child right (shared/domain/countsOnly.ts).
  */
-function noAccountRights(db: Db) {
-  return effectiveRights({ role: 'observer', roleBundles: roleBundleRows(db, 'observer') })
+function noAccountRights(db: Db, countsOnly: boolean) {
+  return effectiveRights({
+    role: 'observer', roleBundles: roleBundleRows(db, 'observer'), overrides: countsOnly ? COUNTS_ONLY_OVERRIDES : [],
+  })
 }
 
 type GroupScopes = Pick<ChildViewer, 'groups' | 'writeGroups'>
@@ -80,20 +86,26 @@ const ALL_GROUPS: GroupScopes = { groups: null, writeGroups: { attendance: null,
  * the current Mitarbeiter role settings without exceptions, so reads and keeps the attendance, but changes no record. Home staff
  * whose child switches have the scope „nur eigene Gruppe“ work with their own group and the groups it may read (group
  * book spec §3.1); with „ganze Einrichtung“, helpers and staff without a home group with every group (ruling: no home
- * group = all groups). Without children.planned the tablet switches decide which planned children are shown.
+ * group = all groups). Without children.planned the tablet switches decide which planned children are shown. A person
+ * with „Nur Kinderzahlen“ (unless their active account is a Leitung's or the Träger's) has no child rights at all, with
+ * or without an account, at home and as a helper: `countsOnly` (their page is „Kinder heute“).
  */
-function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: TabletSettingsDto): ChildViewer {
-  const employee = db.select({ facilityId: employees.facilityId, name: employees.name, groupId: employees.groupId })
-    .from(employees).where(eq(employees.id, employeeId)).get()
+function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: TabletSettingsDto): { viewer: ChildViewer; countsOnly: boolean } {
+  const employee = db.select({
+    facilityId: employees.facilityId, name: employees.name, groupId: employees.groupId, countsOnly: employees.countsOnly,
+  }).from(employees).where(eq(employees.id, employeeId)).get()
   const homeStaff = employee?.facilityId === terminal.facilityId
   const account = homeStaff
     ? db.select().from(users).where(and(eq(users.employeeId, employeeId), eq(users.active, true))).get()
     : undefined
   const role = account?.role ?? 'observer'
-  // One read of the rights gives both the permissions and the scope.
-  const rights = account ? accountRights(db, { id: account.id, role: account.role, facilityId: terminal.facilityId }) : noAccountRights(db)
+  const countsOnly = countsOnlyApplies(employee?.countsOnly ?? false, role)
+  // One read of the rights gives both the permissions and the scope (accountRights applies „Nur Kinderzahlen“ itself).
+  const rights = account
+    ? accountRights(db, { id: account.id, role: account.role, facilityId: terminal.facilityId })
+    : noAccountRights(db, countsOnly)
   const permissions = rights.permissions
-  return {
+  const viewer: ChildViewer = {
     id: account?.id ?? null,
     employeeId,
     name: employee?.name ?? '',
@@ -104,6 +116,7 @@ function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: Tab
     onTablet: true,
     ...homeStaff ? groupAccessFor(db, rights.scopes, employee.groupId) : ALL_GROUPS,
   }
+  return { viewer, countsOnly }
 }
 
 /**
@@ -150,10 +163,10 @@ function resolveUnlock(db: Db, terminal: Terminal, token: string | undefined, no
   if (row.planEditSince && now.getTime() > planEditEndsAt(row.planEditSince)) return { unlocked: false, dropped: row }
   const person = terminalStatus(db, terminal.facilityId, now).find(candidate => candidate.employeeId === row.employeeId)
   if (!person) return { unlocked: false, dropped: row }
-  const viewer = viewerFor(db, terminal, row.employeeId, settings)
+  const { viewer, countsOnly } = viewerFor(db, terminal, row.employeeId, settings)
   const editor = planEditorFor(db, terminal, viewer)
   if (editing && !editor) return { unlocked: false, dropped: row }
-  return { unlocked: true, row, person, settings, viewer, periods, editor, lockMinutes }
+  return { unlocked: true, row, person, settings, viewer, countsOnly, periods, editor, lockMinutes }
 }
 
 /** „Dienstplan bearbeiten“ in the status: null when the person may not; else whether they do and what else they may. */
@@ -183,7 +196,7 @@ function statusOf(resolved: Resolved): TabletUnlockStatusDto {
   if (!resolved.unlocked) return { unlocked: false }
   return {
     unlocked: true, employeeId: resolved.person.employeeId, name: resolved.person.name,
-    rights: rightsOf(resolved.viewer), lockMinutes: resolved.lockMinutes,
+    rights: rightsOf(resolved.viewer), countsOnly: resolved.countsOnly, lockMinutes: resolved.lockMinutes,
     noLockPeriods: resolved.periods
       .map(period => ({ from: new Date(period.from).toISOString(), until: new Date(period.until).toISOString() })),
     planEdit: planEditOf(resolved.row, resolved.editor),
@@ -284,6 +297,18 @@ function validUnlock(db: Db, terminal: Terminal, token: string | undefined, now:
     throw new ServiceError(403, 'tablet_locked')
   }
   return resolved
+}
+
+/**
+ * „Kinder heute“ at the tablet: the facility whose names-free numbers the person who unlocked it may see – only a person
+ * with „Nur Kinderzahlen“ (403 forbidden for everyone else: they have the attendance list, or no child rights at all);
+ * 403 tablet_locked without a valid unlock (a dropped one is deleted). Reading the numbers is no use of the tablet (the
+ * page refreshes them on a timer, the lock time keeps running; touches count through the unlock bar).
+ */
+export function tabletCountsFacility(db: Db, terminal: Terminal, token: string | undefined, now: Date = new Date()): number {
+  const resolved = validUnlock(db, terminal, token, now)
+  if (!resolved.countsOnly) throw new ServiceError(403, 'forbidden')
+  return resolved.viewer.facilityId
 }
 
 /**

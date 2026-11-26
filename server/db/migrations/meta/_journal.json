@@ -960,6 +960,13 @@
       "when": 1795709133526,
       "tag": "0136_required_documents_rights",
       "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "6",
+      "when": 1795711362153,
+      "tag": "0137_employee_counts_only",
+      "breakpoints": true
     }
   ]
 }

@@ -371,6 +371,19 @@ export const de = {
     offlineNoStorage: 'Offline – Stempeln ist auf diesem Gerät gerade nicht möglich',
     syncFailed: (count: number) => `${count === 1 ? '1 Stempel konnte' : `${count} Stempel konnten`} nicht übertragen werden – bitte Leitung informieren`,
     childrenOffline: 'Die Kinder gibt es nur mit Netz. Bitte später noch einmal versuchen.',
+    // „Kinder heute“: the names-free numbers for a person with „Nur Kinderzahlen“ (page /children/today).
+    countsToday: {
+      title: 'Kinder heute',
+      day: (date: string) => `Heute, ${date}`,
+      updatedAt: (time: string) => `Stand ${time} Uhr · aktualisiert sich jede Minute`,
+      refresh: 'Aktualisieren',
+      present: 'Da', notYet: 'Noch nicht da', absent: 'Abwesend', gone: 'Abgeholt',
+      meals: 'Essen heute', noMeals: 'Heute ist kein Essen eingetragen.',
+      mealHead: (name: string, time: string) => `${name} · ${time} Uhr`,
+      children: (count: number) => (count === 1 ? '1 Kind' : `${count} Kinder`),
+      groups: 'Nach Gruppen', group: 'Gruppe', noGroup: 'ohne Gruppe', total: 'Gesamt',
+      noCareDay: 'Heute ist kein Betreuungstag (Wochenende, Feiertag oder Schließtag).',
+    },
   },
   login: { title: 'Anmelden', username: 'Benutzername', password: 'Passwort', submit: 'Anmelden' },
   password: {
@@ -893,6 +906,13 @@ export const de = {
       linked: 'Dieses Benutzerkonto gehört zu dieser Person.',
       inactiveHint: 'Nicht aktiv: Die Person kann sich nicht anmelden.',
       usersPage: 'Alle Benutzer ansehen',
+      // „Nur Kinderzahlen“: a setting of the person, with or without an own account (not for Leitung and Träger).
+      countsOnly: 'Nur Kinderzahlen (keine Namen, keine Akten)',
+      countsOnlyHint: 'Die Person sieht keine Kinder (keine Liste, Akten, Bögen, Anwesenheit) – weder am Tablet noch mit eigenem Zugang. Am Tablet bekommt sie nach der PIN nur „Kinder heute“: wie viele Kinder da, noch nicht da, abwesend und abgeholt sind und je Essen mitessen. Stempeln, Dienstplan und Eigenes bleiben.',
+      countsOnlyByProvider: 'Das stellt bei einer Gruppenleitung der Träger ein.',
+      countsOnlyRightsNote: 'Solange das eingeschaltet ist, hat die Person keine Kinder-Rechte – auch wenn die Rolle oder eine Ausnahme sie vorsieht.',
+      countsOnlyOn: '„Nur Kinderzahlen“ ist eingeschaltet.',
+      countsOnlyOff: '„Nur Kinderzahlen“ ist ausgeschaltet.',
     },
   },
   /** Emergency contacts of an employee (tab „Stammdaten“) and the print list; only Leitung and Träger. */
@@ -3687,6 +3707,7 @@ export const de = {
     rights_dependent_bundle: '„Eintragen und Akten ändern“ kann hier nicht weggenommen werden: Die Person hat vom Träger ein Recht, das darauf aufbaut (z. B. „Kinder verwalten“). Das kann nur der Träger ändern.',
     provider_only_right: 'Dieses Recht hat nur der Träger, es kann nicht vergeben werden.',
     rights_not_held: '„Eintragen und Akten ändern“ kannst du nur vergeben, wenn du es selbst hast. Frag den Träger.',
+    counts_only_manager: '„Nur Kinderzahlen“ gibt es nicht für Leitung und Träger.',
     unknown_bundle: 'Dieses Recht gibt es nicht. Lade die Seite neu.',
     conflicting_bundles: 'Diese Änderung widerspricht sich: Ein Recht, das du setzt, braucht ein Recht, das du gleichzeitig wegnimmst.',
     invalid_scope: 'Bitte als Umfang „nur eigene Gruppe“ oder „ganze Einrichtung“ wählen.',
