@@ -844,8 +844,8 @@ export interface TemplateCategoryDto {
   /** The facility's own PDF templates filed directly in it; while there are any it cannot be deleted. */
   templateCount: number
   /**
-   * The Bögen (form templates, also stopped ones) filed directly in it, for whoever manages them (formTemplates.manage;
-   * 0 for everyone else); while there are any it cannot be deleted either.
+   * The Bögen (form templates, also stopped ones) filed directly in it, for whoever maintains the categories
+   * (printTemplates.edit or formTemplates.manage; 0 for everyone else); while there are any it cannot be deleted either.
    */
   formCount: number
   /**
@@ -865,6 +865,8 @@ export interface TemplateCategoryInput {
   name: string
   visibility: TemplateVisibility
   parentId?: number | null
+  /** The editor confirmed that Bögen in it would no longer be seen by some who fill them in (else 409 template_category_hides_forms). */
+  confirmHidingForms?: boolean
 }
 
 /** A category name the facilities use (or items for all facilities carry) with the subcategory names under it. */

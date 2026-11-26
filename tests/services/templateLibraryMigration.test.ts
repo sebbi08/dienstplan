@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { describe, expect, it } from 'vitest'
 import { createDb, migrateDb } from '../../server/db/client'
+import { listTemplates } from '../../server/services/printTemplates'
+import { permissionsOf } from '../helpers/fixtures'
 
 const MIGRATIONS = 'server/db/migrations'
 
@@ -94,6 +96,98 @@ describe('0133_one_template_library', () => {
     sqlite.exec(`DELETE FROM template_categories WHERE id = ${idOf(1, 'Gesundheit', 'Neu')}`)
     expect(sqlite.prepare('SELECT category_id FROM form_templates WHERE id = 7').get()).toEqual({ category_id: null })
     expect(() => sqlite.exec(`UPDATE form_templates SET category_id = 9999 WHERE id = 1`)).toThrow(/FOREIGN KEY/)
+  })
+
+  it('never fails on names that would collide: cut names alike, a taken „(Bögen ‹id›)“, deterministic suffixes', () => {
+    const { db, sqlite } = databaseBefore0133()
+    const long = 'Dokumentation der Entwicklungsgespräche mit Eltern im Kita-Jahr'
+    expect(long.length).toBeGreaterThan(52)
+    const a = `${long} A`
+    const b = `${long} B`
+    sqlite.exec(`
+      DELETE FROM form_templates; DELETE FROM form_template_categories; DELETE FROM print_templates; DELETE FROM template_categories;
+      INSERT INTO template_categories (id, facility_id, parent_id, name, sort_order, visibility) VALUES
+        (10, 1, NULL, '${a}', 0, 'managers'), (11, 1, NULL, '${b}', 1, 'managers'),
+        (12, 1, NULL, 'Team', 2, 'provider'), (13, 1, NULL, 'Team (Bögen)', 3, 'managers'), (14, 1, NULL, 'Team (Bögen 22)', 4, 'managers'),
+        (15, 1, NULL, 'Bögen 22', 5, 'managers');
+      INSERT INTO form_template_categories (id, facility_id, parent_id, name, sort_order) VALUES
+        (20, 1, NULL, '${a}', 0), (21, 1, NULL, '${b}', 1), (22, 1, NULL, 'Team', 2), (23, 1, 22, 'Krippe', 0);
+      INSERT INTO form_templates (id, facility_id, category_id, kind, name, sort_order, content, created_at, updated_at) VALUES
+        (1, 1, 20, 'child', 'A', 0, '{"sections":[]}', 'c', 'u'), (2, 1, 21, 'child', 'B', 0, '{"sections":[]}', 'c', 'u'),
+        (3, 1, 22, 'team', 'Sitzung', 0, '{"sections":[]}', 'c', 'u'), (4, 1, 23, 'child', 'Krippe', 0, '{"sections":[]}', 'c', 'u');
+    `)
+    expect(() => migrateDb(db, MIGRATIONS)).not.toThrow()
+    const cut = long.slice(0, 52).trimEnd()
+    const added = sqlite.prepare('SELECT id, name, visibility FROM template_categories WHERE id > 15 AND parent_id IS NULL ORDER BY sort_order').all()
+    // The first of the two alike gets „(Bögen)“, the second „(Bögen ‹id›)“.
+    expect(added).toEqual([
+      { id: expect.any(Number), name: `${cut} (Bögen)`, visibility: 'all' },
+      { id: expect.any(Number), name: `${long.slice(0, 44).trimEnd()} (Bögen 21)`, visibility: 'all' },
+    ])
+    // „Team“: „(Bögen)“, „(Bögen 22)“ and „Bögen 22“ are all taken – the category cannot be created; its templates (and
+    // its subcategory's) stay, without a category. Nothing else changed.
+    expect(sqlite.prepare('SELECT id, category_id FROM form_templates ORDER BY id').all()).toEqual([
+      { id: 1, category_id: (added[0] as { id: number }).id }, { id: 2, category_id: (added[1] as { id: number }).id },
+      { id: 3, category_id: null }, { id: 4, category_id: null },
+    ])
+    expect(sqlite.prepare('SELECT count(*) AS n FROM template_categories').get()).toEqual({ n: 8 })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('compares names as the app does: case with umlauts and ß/ss; a twin by fold is a twin', () => {
+    const { db, sqlite } = databaseBefore0133()
+    sqlite.exec(`
+      DELETE FROM form_templates; DELETE FROM form_template_categories; DELETE FROM print_templates; DELETE FROM template_categories;
+      INSERT INTO template_categories (id, facility_id, parent_id, name, sort_order, visibility) VALUES
+        (10, 1, NULL, 'UNFÄLLE', 0, 'managers'), (11, 1, NULL, 'STRASSE', 1, 'all'), (12, 1, NULL, 'Gesundheit', 2, 'all'),
+        (13, 1, 12, 'Ärztliches', 0, 'all');
+      INSERT INTO form_template_categories (id, facility_id, parent_id, name, sort_order) VALUES
+        (20, 1, NULL, 'Unfälle', 0), (21, 1, NULL, 'Straße', 1), (22, 1, NULL, 'Ärztliches', 2), (23, 1, NULL, 'GESUNDHEIT', 3),
+        (24, 1, 23, 'ärztliches', 0);
+      INSERT INTO form_templates (id, facility_id, category_id, kind, name, sort_order, content, created_at, updated_at) VALUES
+        (1, 1, 20, 'accident', 'Unfall', 0, '{"sections":[]}', 'c', 'u'), (2, 1, 21, 'child', 'Weg', 0, '{"sections":[]}', 'c', 'u'),
+        (3, 1, 22, 'child', 'Arzt', 0, '{"sections":[]}', 'c', 'u'), (4, 1, 24, 'child', 'Arzt Sub', 0, '{"sections":[]}', 'c', 'u');
+    `)
+    migrateDb(db, MIGRATIONS)
+    const rows = sqlite.prepare(`SELECT c.id, p.name AS parent, c.name, c.visibility FROM template_categories c
+      LEFT JOIN template_categories p ON p.id = c.parent_id ORDER BY c.parent_id IS NOT NULL, c.sort_order`).all() as
+      { id: number; parent: string | null; name: string; visibility: string }[]
+    expect(rows.map(({ id: _, ...rest }) => rest)).toEqual([
+      { parent: null, name: 'UNFÄLLE', visibility: 'managers' },
+      { parent: null, name: 'STRASSE', visibility: 'all' },
+      { parent: null, name: 'Gesundheit', visibility: 'all' },
+      // The stricter twin by fold („UNFÄLLE“) keeps the Bögen apart; a PDF subcategory's name is no twin at the top.
+      { parent: null, name: 'Unfälle (Bögen)', visibility: 'all' },
+      { parent: null, name: 'Ärztliches', visibility: 'all' },
+      { parent: 'Gesundheit', name: 'Ärztliches', visibility: 'all' },
+    ])
+    const idOf = (parent: string | null, name: string) => rows.find(row => row.parent === parent && row.name === name)!.id
+    expect(sqlite.prepare('SELECT id, category_id FROM form_templates ORDER BY id').all()).toEqual([
+      { id: 1, category_id: idOf(null, 'Unfälle (Bögen)') }, { id: 2, category_id: 11 },
+      { id: 3, category_id: idOf(null, 'Ärztliches') }, { id: 4, category_id: 13 },
+    ])
+  })
+
+  it('gives a facility with Bögen categories only those, and shows the Träger\'s PDFs in a new category of their name', () => {
+    const { db, sqlite } = databaseBefore0133()
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      DELETE FROM form_templates; DELETE FROM form_template_categories; DELETE FROM print_templates; DELETE FROM template_categories;
+      INSERT INTO form_template_categories (id, facility_id, parent_id, name, sort_order) VALUES (20, 2, NULL, 'Kinder', 0), (21, 2, NULL, 'Team', 1);
+      INSERT INTO form_templates (id, facility_id, category_id, kind, name, sort_order, content, created_at, updated_at) VALUES
+        (1, 2, 21, 'team', 'Sitzung', 0, '{"sections":[]}', 'c', 'u');
+      INSERT INTO print_templates (id, facility_id, title, category_name, visibility, all_facilities, mime_type, size, data, uploaded_at, updated_at) VALUES
+        (1, NULL, 'Teamregeln', 'team', 'managers', 1, 'application/pdf', 4, x'25504446', 'x', 'x');
+    `)
+    migrateDb(db, MIGRATIONS)
+    expect(sqlite.prepare('SELECT name, sort_order, visibility FROM template_categories WHERE facility_id = 2 ORDER BY sort_order').all())
+      .toEqual([{ name: 'Kinder', sort_order: 0, visibility: 'all' }, { name: 'Team', sort_order: 1, visibility: 'all' }])
+    // The Träger's PDF for all facilities, under „Vom Träger“ before, now shows in „Team“ – not more visible: its own
+    // „nur Leitung und Träger“ still applies.
+    const listed = (role: 'admin' | 'observer') => listTemplates(db, { role, permissions: permissionsOf(role), facilityId: 2 })
+    const team = sqlite.prepare(`SELECT id FROM template_categories WHERE facility_id = 2 AND name = 'Team'`).get() as { id: number }
+    expect(listed('admin').map(template => [template.title, template.categoryId])).toEqual([['Teamregeln', team.id]])
+    expect(listed('observer')).toEqual([])
   })
 
   it('takes a further name when „‹Name› (Bögen)“ is taken too', () => {

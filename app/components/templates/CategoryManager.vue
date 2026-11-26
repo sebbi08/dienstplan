@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { TemplateVisibility } from '#shared/domain/templateCategories'
-import type { TemplateCategoryDto } from '#shared/types/api'
+import type { FormTemplateDto, TemplateCategoryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { hiddenByVisibility, movedToProvider } from '~/utils/printTemplates'
 import { subcategoriesOf, topCategories } from '~/utils/subcategories'
+import { formsHiddenBy, holdsOtherKind } from '~/utils/templateEntries'
 
 /**
  * „Kategorien verwalten“ on „Dokumente“ → „Vorlagen“ (whoever may edit the PDF templates, printTemplates.edit), for the
@@ -15,8 +16,22 @@ import { subcategoriesOf, topCategories } from '~/utils/subcategories'
  * „Wer sieht sie?“ (on top of the category's) and delete when empty. A category with subcategories cannot be deleted.
  * The list holds only the categories the editor sees, and only the visibilities the editor sees are offered (`levels`:
  * a Mitarbeiter only „alle“, the Leitung not „nur Träger“; the server refuses them as well).
+ * Either kind's right maintains the categories (`rights`; the requests go to the route of a right the editor holds):
+ * a category holding entries of a kind the editor does not maintain can be renamed, but neither moved nor given another
+ * „Wer sieht sie?“. A visibility that hides Bögen from some who fill them in names them and who loses them, and asks
+ * first (`forms`: the Bögen the editor maintains; the server asks for the same confirmation).
  */
-const props = defineProps<{ categories: TemplateCategoryDto[]; levels: TemplateVisibility[]; refresh: () => Promise<unknown> }>()
+const props = defineProps<{
+  categories: TemplateCategoryDto[]; levels: TemplateVisibility[]; refresh: () => Promise<unknown>
+  forms: FormTemplateDto[]; rights: { pdfs: boolean; forms: boolean }
+}>()
+const base = computed(() => (props.rights.pdfs ? '/api/template-categories' : '/api/form-template-categories'))
+const otherKind = (category: TemplateCategoryDto) => holdsOtherKind(category, props.categories, props.rights)
+/** The category being changed holds entries of a kind the editor does not maintain: „Wer sieht sie?“ stays. */
+const visibilityLocked = computed(() => {
+  const current = props.categories.find(category => category.id === editingId.value)
+  return !!current && otherKind(current)
+})
 const open = defineModel<boolean>('open', { required: true })
 
 const { busy, run } = useBusyAction(props.refresh)
@@ -66,9 +81,15 @@ watch(open, (isOpen) => {
 
 async function save() {
   const id = editingId.value
-  const body = { name: form.name, visibility: form.visibility, ...(id === null && parent.value ? { parentId: parent.value.id } : {}) }
+  const body: Record<string, unknown> = { name: form.name, visibility: form.visibility, ...(id === null && parent.value ? { parentId: parent.value.id } : {}) }
   // Making a category with templates the Träger's alone hides them from Leitung, Mitarbeiter and the tablet: ask first.
   const current = props.categories.find(category => category.id === id)
+  // Bögen that some who fill them in would no longer see (in the pickers too): name them and who loses them, ask first.
+  const hiddenForms = current ? formsHiddenBy(current, form.visibility, props.categories, props.forms) : { names: [], losers: null }
+  if (current && hiddenForms.losers) {
+    if (!(await confirm(de.templateLibrary.confirmHideForms(current.name, hiddenForms.names, de.templateLibrary.losers[hiddenForms.losers])))) return
+    body.confirmHidingForms = true
+  }
   const hidden = current ? hiddenByVisibility(current, form.visibility, props.categories) : { count: 0, global: 0 }
   if (hidden.count > 0 && !(await confirm(t.confirmProviderOnly(current!.name, hidden.count, hidden.global)))) return
   // A new name: the Träger's templates shown in it by the old name move to „Vom Träger“ (from a subcategory: into its category).
@@ -78,20 +99,20 @@ async function save() {
     if (!(await confirm(question, { confirmLabel: t.rename }))) return
   }
   const saved = await run(() => (id === null
-    ? $fetch<{ id: number }>('/api/template-categories', { method: 'POST', body })
-    : $fetch<{ ok: boolean }>(`/api/template-categories/${id}`, { method: 'PUT', body })), de.common.saved)
+    ? $fetch<{ id: number }>(base.value, { method: 'POST', body })
+    : $fetch<{ ok: boolean }>(`${base.value}/${id}`, { method: 'PUT', body })), de.common.saved)
   if (saved) startNew()
 }
 
 function move(category: TemplateCategoryDto, direction: 'up' | 'down') {
-  run(() => $fetch<{ ok: boolean }>(`/api/template-categories/${category.id}/move`, { method: 'POST', body: { direction } }))
+  run(() => $fetch<{ ok: boolean }>(`${base.value}/${category.id}/move`, { method: 'POST', body: { direction } }))
 }
 
 async function remove(category: TemplateCategoryDto) {
   const moved = movedToProvider(category, null, props.categories)
   const question = category.parentId === null ? t.confirmDelete(category.name, moved) : t.confirmDeleteSub(category.name, moved)
   if (await confirm(question)) {
-    const deleted = await run(() => $fetch<{ ok: boolean }>(`/api/template-categories/${category.id}`, { method: 'DELETE' }), de.common.deleted)
+    const deleted = await run(() => $fetch<{ ok: boolean }>(`${base.value}/${category.id}`, { method: 'DELETE' }), de.common.deleted)
     if (deleted && editingId.value === category.id) startNew()
   }
 }
@@ -126,8 +147,8 @@ const deletable = (category: TemplateCategoryDto, subcategories: number) =>
                 </span>
               </div>
               <div class="flex flex-wrap items-center gap-1">
-                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="`${t.moveUp}: ${category.name}`" :title="t.moveUp" :disabled="busy || index === 0" @click="move(category, 'up')" />
-                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="`${t.moveDown}: ${category.name}`" :title="t.moveDown" :disabled="busy || index === tree.length - 1" @click="move(category, 'down')" />
+                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="`${t.moveUp}: ${category.name}`" :title="otherKind(category) ? de.templateLibrary.otherKindHint : t.moveUp" :disabled="busy || index === 0 || otherKind(category)" @click="move(category, 'up')" />
+                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="`${t.moveDown}: ${category.name}`" :title="otherKind(category) ? de.templateLibrary.otherKindHint : t.moveDown" :disabled="busy || index === tree.length - 1 || otherKind(category)" @click="move(category, 'down')" />
                 <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-folder-plus" :aria-label="t.addSubIn(category.name)" :title="t.addSub" :disabled="busy" @click="startSub(category)" />
                 <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="`${de.common.edit}: ${category.name}`" :title="de.common.edit" :disabled="busy" @click="startEdit(category)" />
                 <UButton
@@ -149,8 +170,8 @@ const deletable = (category: TemplateCategoryDto, subcategories: number) =>
                   </span>
                 </div>
                 <div class="flex flex-wrap items-center gap-1">
-                  <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="`${t.moveUp}: ${sub.name}`" :title="t.moveUp" :disabled="busy || subIndex === 0" @click="move(sub, 'up')" />
-                  <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="`${t.moveDown}: ${sub.name}`" :title="t.moveDown" :disabled="busy || subIndex === subcategories.length - 1" @click="move(sub, 'down')" />
+                  <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up" :aria-label="`${t.moveUp}: ${sub.name}`" :title="otherKind(sub) ? de.templateLibrary.otherKindHint : t.moveUp" :disabled="busy || subIndex === 0 || otherKind(sub)" @click="move(sub, 'up')" />
+                  <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-down" :aria-label="`${t.moveDown}: ${sub.name}`" :title="otherKind(sub) ? de.templateLibrary.otherKindHint : t.moveDown" :disabled="busy || subIndex === subcategories.length - 1 || otherKind(sub)" @click="move(sub, 'down')" />
                   <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="`${de.common.edit}: ${sub.name}`" :title="de.common.edit" :disabled="busy" @click="startEdit(sub)" />
                   <UButton
                     size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${sub.name}`"
@@ -167,8 +188,8 @@ const deletable = (category: TemplateCategoryDto, subcategories: number) =>
           <UFormField :label="t.name" required>
             <UInput ref="nameInput" v-model="form.name" maxlength="60" class="w-full" required />
           </UFormField>
-          <UFormField :label="t.visibility" :description="editingSub ? t.subVisibilityHint : undefined">
-            <USelect v-model="form.visibility" :items="visibilityItems" class="w-full" />
+          <UFormField :label="t.visibility" :description="visibilityLocked ? de.templateLibrary.otherKindHint : editingSub ? t.subVisibilityHint : undefined">
+            <USelect v-model="form.visibility" :items="visibilityItems" class="w-full" :disabled="visibilityLocked" />
           </UFormField>
           <div class="flex gap-2">
             <UButton type="submit" :label="editingId === null ? (parent ? t.addSub : t.add) : de.common.save" :loading="busy" :disabled="busy" />

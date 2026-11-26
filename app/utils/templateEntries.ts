@@ -1,3 +1,4 @@
+import { stricterVisibility, TEMPLATE_VISIBILITIES, type TemplateVisibility } from '#shared/domain/templateCategories'
 import { entryKey, mergeEntries } from '#shared/domain/templateEntries'
 import type { FormTemplateDto, PrintTemplateDto, TemplateCategoryDto } from '#shared/types/api'
 import { subcategoriesOf, subcategoryChip, topCategories, GENERAL_CHIP, type ItemGroup } from './subcategories'
@@ -132,6 +133,65 @@ export function librarySearch(
     }
   }
   return groups
+}
+
+// ---- „Wer sieht sie?“ and the Bögen ---------------------------------------------------------------------------
+
+/** Who sees an entry filed in the category row `id` (null: none – everyone): the category's and its parent's setting. */
+export function filedVisibility(categories: readonly TemplateCategoryDto[], id: number | null): TemplateVisibility {
+  const row = id === null ? undefined : categories.find(category => category.id === id)
+  if (!row) return 'all'
+  const parent = row.parentId === null ? undefined : categories.find(category => category.id === row.parentId)
+  return stricterVisibility(row.visibility, parent?.visibility ?? 'all')
+}
+
+/** Whether `after` hides from some who saw `before`. */
+export const narrows = (after: TemplateVisibility, before: TemplateVisibility): boolean =>
+  TEMPLATE_VISIBILITIES.indexOf(after) > TEMPLATE_VISIBILITIES.indexOf(before)
+
+/** Who no longer sees an entry when `before` becomes `after` (the key of de.templateLibrary.losers); null: nobody. */
+export function losersOf(before: TemplateVisibility, after: TemplateVisibility): 'staff' | 'staffAndLeitung' | 'leitung' | null {
+  if (!narrows(after, before)) return null
+  if (after === 'managers') return 'staff'
+  return before === 'managers' ? 'leitung' : 'staffAndLeitung'
+}
+
+/**
+ * The Bögen that some who saw them would no longer see when the category (with its subcategories) gets the visibility
+ * `next` (the server asks for the same confirmation), and who loses them (the widest loss among them).
+ */
+export function formsHiddenBy(
+  category: TemplateCategoryDto, next: TemplateVisibility, categories: readonly TemplateCategoryDto[], forms: readonly FormTemplateDto[],
+): { names: string[]; losers: ReturnType<typeof losersOf> } {
+  const names: string[] = []
+  let losers: ReturnType<typeof losersOf> = null
+  const rank = { leitung: 0, staff: 1, staffAndLeitung: 2 } as const
+  for (const form of forms) {
+    const filedIn = form.subcategoryId ?? form.categoryId
+    if (filedIn === null) continue
+    const row = categories.find(other => other.id === filedIn)
+    if (!row || (row.id !== category.id && row.parentId !== category.id)) continue
+    const before = filedVisibility(categories, row.id)
+    const changed = categories.map(other => (other.id === category.id ? { ...other, visibility: next } : other))
+    const lost = losersOf(before, filedVisibility(changed, row.id))
+    if (!lost) continue
+    names.push(form.name)
+    if (losers === null || rank[lost] > rank[losers]) losers = lost
+  }
+  return { names, losers }
+}
+
+/**
+ * Whether the category (with its subcategories) holds entries of a kind the viewer does not maintain – then they may
+ * rename it, but not change who sees it or move it (the server refuses that as well).
+ */
+export function holdsOtherKind(
+  category: TemplateCategoryDto, categories: readonly TemplateCategoryDto[], rights: { pdfs: boolean; forms: boolean },
+): boolean {
+  const covered = [category, ...(category.parentId === null ? categories.filter(row => row.parentId === category.id) : [])]
+  const pdfs = covered.some(row => row.templateCount > 0 || row.globalCount > 0)
+  const forms = covered.some(row => row.formCount > 0)
+  return (pdfs && !rights.pdfs) || (forms && !rights.forms)
 }
 
 /**

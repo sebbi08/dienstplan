@@ -1678,9 +1678,20 @@ export const de = {
    * forms.
    */
   templateLibrary: {
-    intro: 'Bögen füllst du im Programm aus – in der Kinderakte, bei Gesprächen, Teamsitzungen, Unfällen und Besuchen. '
-      + 'Änderungen an einem Bogen gelten nur für neue Bögen. PDF-Formulare druckst du aus oder füllst sie aus („Öffnen“ zeigt '
-      + 'das PDF in einem neuen Tab).',
+    intro: 'Bögen füllst du im Programm aus (Änderungen gelten nur für neue Bögen). PDF-Formulare öffnest du zum Drucken '
+      + 'oder füllst sie mit „Ausfüllen“ aus.',
+    // Who no longer sees a Bogen when its category gets a stricter „Wer sieht sie?“ (app/utils/templateEntries.ts losersOf).
+    losers: {
+      staff: 'Mitarbeitende, Gruppenleitungen und das Tablet sehen', staffAndLeitung: 'Leitung, Mitarbeitende, Gruppenleitungen und das Tablet sehen',
+      leitung: 'Die Leitung sieht',
+    },
+    confirmHideForms: (category: string, names: string[], losers: string) => `„${category}“: ${losers} `
+      + `${names.length === 1 ? `den Bogen „${names[0]}“` : `die Bögen ${names.map(name => `„${name}“`).join(', ')}`} dann nicht mehr – `
+      + 'auch nicht beim Anlegen (Kinderakte, Unfälle, Teamsitzungen …). Trotzdem speichern?',
+    confirmRestricted: (name: string, category: string, losers: string) => `„${category}“ sehen nicht alle: ${losers} den Bogen `
+      + `„${name}“ dann nicht mehr – auch nicht beim Anlegen (Kinderakte, Unfälle, Teamsitzungen …). Trotzdem dort ablegen?`,
+    otherKindHint: 'Hier liegen auch Vorlagen, die du nicht verwalten darfst (Bögen oder PDF-Formulare). „Wer sieht sie?“ und die '
+      + 'Reihenfolge ändert, wer beide Arten verwalten darf; umbenennen kannst du die Kategorie.',
     typeBadge: { form: 'Bogen – im Programm ausfüllen', pdf: 'PDF – ausdrucken oder ausfüllen' },
     newTemplate: 'Neue Vorlage', chooseTitle: 'Neue Vorlage: Was für eine?',
     chooseForm: 'Bogen', chooseFormHint: 'Wird im Programm ausgefüllt, z. B. ein Beobachtungsbogen in der Kinderakte oder ein Mitarbeitergespräch.',
@@ -3067,7 +3078,7 @@ export const de = {
     reuseCreate: 'Neues Gespräch anlegen',
     reused: 'Neues Gespräch angelegt',
     date: 'Datum', start: 'Uhrzeit', participants: 'Teilnehmer', period: 'Zeitraum', periodPlaceholder: 'z. B. 2025/26',
-    forms: 'Bögen', noTemplates: 'Es gibt keine aktiven Vorlagen für Mitarbeitergespräche (Dokumente → Bögen).',
+    forms: 'Bögen', noTemplates: 'Es gibt keine aktiven Vorlagen für Mitarbeitergespräche (Dokumente → Vorlagen). (Vorlagen in einer Kategorie, die du nicht siehst, stehen hier nicht.)',
     talkOn: (date: string) => `Gespräch am ${date}`,
     atTime: (time: string) => `um ${time} Uhr`,
     roles: { self: 'Selbstbeurteilung', assessment: 'Beurteilung' },
@@ -3106,7 +3117,7 @@ export const de = {
     none: 'Noch keine Unfälle eingetragen.', loading: 'Bogen wird geladen …',
     createChild: 'Unfallbericht ausfüllen', createEmployee: 'Unfallanzeige ausfüllen', created: 'Bogen angelegt',
     template: 'Vorlage', templatePick: 'Vorlage wählen',
-    noTemplates: 'Es gibt keine aktive Vorlage „für Unfälle“ dafür. Die Leitung legt sie unter Dokumente → Bögen an.',
+    noTemplates: 'Es gibt keine aktive Vorlage „für Unfälle“ dafür. Die Leitung legt sie unter Dokumente → Vorlagen an. (Vorlagen in einer Kategorie, die du nicht siehst, stehen hier nicht.)',
     date: 'Datum', start: 'Uhrzeit', startHint: 'optional',
     doctor: 'Arztbesuch', unfit: 'arbeitsunfähig', reportedOn: 'an Unfallkasse gemeldet am', reportedOnHint: 'leer = noch nicht gemeldet',
     yes: 'ja', no: 'nein',
@@ -3169,7 +3180,7 @@ export const de = {
     create: 'Bogen anlegen', created: 'Bogen angelegt',
     template: 'Vorlage', templatePick: 'Vorlage wählen', date: 'Datum', start: 'Uhrzeit', startHint: 'freiwillig',
     participants: 'Teilnehmer', participantsPlaceholder: 'z. B. Mama, Papa, Frau Weber',
-    noTemplates: 'Es gibt keine aktiven Vorlagen für Beobachtungsbögen. Die Leitung legt sie unter Dokumente → Bögen an.',
+    noTemplates: 'Es gibt keine aktiven Vorlagen für Beobachtungsbögen. Die Leitung legt sie unter Dokumente → Vorlagen an. (Vorlagen in einer Kategorie, die du nicht siehst, stehen hier nicht.)',
     dateInvalid: 'Bitte ein gültiges Datum angeben.',
     atTime: (time: string) => `um ${time} Uhr`,
     fromMeeting: 'zum Elterngespräch',
@@ -3256,7 +3267,7 @@ export const de = {
     participants: 'Teilnehmer', participantsMorePlaceholder: 'weitere, z. B. Frau Weber (Fachberatung)',
     participantsPick: 'Aus dem Team (unterzeichnen das Protokoll)',
     recorder: 'Protokollführung',
-    noTemplates: 'Es gibt keine aktive Vorlage für Teamsitzungen. Die Leitung legt sie unter Dokumente → Bögen an.',
+    noTemplates: 'Es gibt keine aktive Vorlage für Teamsitzungen. Die Leitung legt sie unter Dokumente → Vorlagen an. (Vorlagen in einer Kategorie, die du nicht siehst, stehen hier nicht.)',
     dateInvalid: 'Bitte ein gültiges Datum angeben.',
     atTime: (time: string) => `um ${time} Uhr`,
     states: { draft: 'Entwurf', released: 'Freigegeben' },
@@ -3919,6 +3930,8 @@ export const de = {
     template_category_name_required: 'Bitte einen Namen für die Kategorie angeben.',
     template_category_name_taken: 'Eine Kategorie mit diesem Namen gibt es schon.',
     template_category_not_empty: 'In dieser Kategorie liegen noch Vorlagen (PDFs oder Bögen, auch stillgelegte). Verschieb oder lösch sie zuerst.',
+    template_category_other_kind: 'In dieser Kategorie liegen auch Vorlagen, die du nicht verwalten darfst. „Wer sieht sie?“ und die Reihenfolge ändert, wer beide Arten verwalten darf.',
+    template_category_hides_forms: 'Bögen in dieser Kategorie würden dann nicht mehr allen angezeigt, die sie ausfüllen. Bitte bestätige das.',
     template_category_has_subcategories: 'Diese Kategorie hat noch Unterkategorien. Lösch sie zuerst.',
     template_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung, nicht zu einer anderen Unterkategorie.',
     cash_box_not_found: 'Diese Kasse gibt es nicht (mehr).',
@@ -4012,6 +4025,7 @@ export const de = {
     form_release_withdrawn: 'Die Leitung hat die Freigabe zurückgenommen. Deine Eingaben wurden nicht gespeichert.',
     form_template_changed: 'Die Vorlage wurde inzwischen von jemand anderem gespeichert. Bitte lade sie neu.',
     form_category_invalid: 'Bitte eine Kategorie dieser Einrichtung wählen.',
+    form_category_restricted: 'Diese Kategorie sehen nicht alle: Der Bogen würde dann nicht mehr allen angezeigt, die ihn ausfüllen. Bitte bestätige das.',
     child_form_meeting_taken: 'Für dieses Elterngespräch gibt es schon einen Bogen. Öffne ihn über „Bogen öffnen“.',
     info_form_read_only: 'Bögen aus dem Infogespräch bleiben, wie sie sind: Sie lassen sich nicht freischalten oder löschen und gehen mit der Kinderakte.',
     child_form_date_invalid: 'Bitte gib ein gültiges Datum an.',
@@ -4328,7 +4342,7 @@ export const de = {
     deleteDocumentConfirm: (title: string) => `Das Dokument „${title}“ endgültig löschen?`,
     uploaded: (name: string | null, date: string) => (name ? `hochgeladen von ${name} am ${date}` : `hochgeladen am ${date}`),
     forms: 'Bögen', addForm: 'Bogen anlegen', chooseTemplate: 'Vorlage', noForms: 'Noch keine Bögen.',
-    noTemplates: 'Für diese Art gibt es noch keine Vorlage. Vorlagen legt die Leitung unter Dokumente → Vorlagen an.',
+    noTemplates: 'Für diese Art gibt es noch keine Vorlage. Vorlagen legt die Leitung unter Dokumente → Vorlagen an. (Vorlagen in einer Kategorie, die du nicht siehst, stehen hier nicht.)',
     deleteForm: 'Bogen löschen', deleteFormConfirm: (title: string) => `Den Bogen „${title}“ löschen?`,
     lastChanged: (by: string | null, at: string) => (by ? `zuletzt geändert von ${by} am ${at}` : `zuletzt geändert am ${at}`),
     back: 'Zurück zur Liste', save: 'Speichern',

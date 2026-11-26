@@ -7,9 +7,11 @@ import { createFacility } from '../../server/services/facilities'
 import { exampleCategoryOf, seedFormCategories } from '../../server/services/formTemplateCategories'
 import { copyTemplate, createTemplate, deleteTemplate, listTemplates, templateChoices, updateTemplate } from '../../server/services/formTemplates'
 import { listEntries, orderEntries, uploadTemplate } from '../../server/services/printTemplates'
-import { createCategory, deleteCategory, listCategories, updateCategory } from '../../server/services/templateCategories'
+import { createCategory, deleteCategory, listCategories, moveCategory, updateCategory } from '../../server/services/templateCategories'
 import type { SessionUser } from '../../shared/types/api'
-import { addChild, addEmployee, addUser, asChildViewer, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
+import { resolveChildViewer, unlockChildren } from '../../server/services/tabletUnlock'
+import { setPin } from '../../server/services/terminal'
+import { addChild, addEmployee, addGroup, addUser, asChildViewer, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
 
 /**
  * The Bögen in the shared categories of „Vorlagen“ (template_categories, since 0133_one_template_library): the example
@@ -61,7 +63,7 @@ describe('Bögen in the categories of „Vorlagen“', () => {
     const intern = createCategory(db, asEditor(leitung), { name: 'Intern', visibility: 'managers' })
     const geheim = createCategory(db, asEditor(traeger), { name: 'Geheim', visibility: 'provider' })
     const make = (name: string, categoryId: number | null) =>
-      createTemplate(db, traeger, 1, { kind: 'child', name, selfAssessment: false, categoryId }, now)
+      createTemplate(db, traeger, 1, { kind: 'child', name, selfAssessment: false, categoryId, confirmRestricted: true }, now)
     const offen = make('Offen', null)
     const fuerLeitung = make('Für Leitung', intern)
     const nurTraeger = make('Nur Träger', geheim)
@@ -160,5 +162,83 @@ describe('Bögen in the categories of „Vorlagen“', () => {
     const child = addChild(db, 1)
     expect(listChildForms(db, asChildViewer(leitung), child, now).templates.map(template => template.id))
       .toEqual(choices.map(choice => choice.id))
+  })
+
+  it('asks before Bögen vanish from those who fill them in: a stricter category, filing or moving a Bogen into one', () => {
+    const editor = asEditor(leitung)
+    const unfaelle = exampleCategoryOf(db, 1, 'accident')!
+    const sub = createCategory(db, editor, { name: 'Intern', visibility: 'all', parentId: unfaelle })
+    const inSub = createTemplate(db, leitung, 1, { kind: 'accident', subject: 'child', name: 'Unfall Krippe', selfAssessment: false, categoryId: sub }, now)
+    // „Unfälle“ holds the accident starters: „nur Leitung und Träger“ hides them (and the subcategory's) from the staff.
+    expect(errorCode(() => updateCategory(db, editor, unfaelle, { name: 'Unfälle', visibility: 'managers' }))).toBe('template_category_hides_forms')
+    expect(errorCode(() => updateCategory(db, editor, sub, { name: 'Intern', visibility: 'managers' }))).toBe('template_category_hides_forms')
+    // Renaming alone asks nothing; a confirmed change goes through, and widening it again asks nothing either.
+    updateCategory(db, editor, unfaelle, { name: 'Unfallberichte', visibility: 'all' })
+    updateCategory(db, editor, sub, { name: 'Intern', visibility: 'managers', confirmHidingForms: true })
+    expect(templateChoices(db, 1, 'accident', { role: 'observer' }).map(choice => choice.id)).not.toContain(inSub)
+    updateCategory(db, editor, sub, { name: 'Intern', visibility: 'all' })
+    // A category without Bögen: no question.
+    const leer = createCategory(db, editor, { name: 'Leer', visibility: 'all' })
+    updateCategory(db, editor, leer, { name: 'Leer', visibility: 'managers' })
+    // Filing a new Bogen into a stricter category, or moving one there, asks as well; within the same visibility not.
+    const bogen = (categoryId: number | null, confirmRestricted?: boolean) =>
+      createTemplate(db, leitung, 1, { kind: 'child', name: `Bogen ${categoryId}-${confirmRestricted}`, selfAssessment: false, categoryId, confirmRestricted }, now)
+    expect(errorCode(() => bogen(leer))).toBe('form_category_restricted')
+    const loose = bogen(null)
+    expect(errorCode(() => updateTemplate(db, leitung, 1, loose, { categoryId: leer }, now))).toBe('form_category_restricted')
+    updateTemplate(db, leitung, 1, loose, { categoryId: leer, confirmRestricted: true }, now)
+    const leer2 = createCategory(db, editor, { name: 'Leer 2', visibility: 'managers' })
+    updateTemplate(db, leitung, 1, loose, { categoryId: leer2 }, now)
+    updateTemplate(db, leitung, 1, loose, { categoryId: null }, now)
+  })
+
+  it('lets either kind\'s right maintain the categories, never what the account cannot change', () => {
+    // A Mitarbeiter account that maintains the Bögen only, and a Leitung that maintains the PDF templates only.
+    const formsOnly = { ...addUser(db, 'boegen', 'observer', addEmployee(db, 'Bea Bögen'), 1), facilityId: 1 }
+    formsOnly.permissions = new Set(['formTemplates.manage', 'printTemplates.view'] as const)
+    const pdfOnly = { ...leitung, facilityId: 1, permissions: new Set([...leitung.permissions].filter(key => key !== 'formTemplates.manage')) }
+    const upload = (categoryId: number) => uploadTemplate(db, asEditor(leitung), { title: 'Brief', scope: 'facility', categoryId }, { data: pdf(), filename: 'b.pdf' }, now)
+    for (const actor of [formsOnly, pdfOnly]) {
+      // Create, rename, order and delete an empty one: either right.
+      const id = createCategory(db, actor, { name: `Neu ${actor.role}`, visibility: 'all' })
+      updateCategory(db, actor, id, { name: `Umbenannt ${actor.role}`, visibility: 'all' })
+      moveCategory(db, actor, id, 'up')
+      deleteCategory(db, actor, id)
+    }
+    // A category with Bögen: the PDF-only account renames it, but neither restricts nor moves it.
+    const kinder = exampleCategoryOf(db, 1, 'child')!
+    createTemplate(db, leitung, 1, { kind: 'child', name: 'Beobachtung neu', selfAssessment: false, categoryId: kinder }, now)
+    updateCategory(db, pdfOnly, kinder, { name: 'Kinder', visibility: 'all' })
+    expect(errorCode(() => updateCategory(db, pdfOnly, kinder, { name: 'Kinder', visibility: 'managers', confirmHidingForms: true }))).toBe('template_category_other_kind')
+    expect(errorCode(() => moveCategory(db, pdfOnly, kinder, 'up'))).toBe('template_category_other_kind')
+    // A category with a PDF template: likewise for the Bögen-only account (which as Mitarbeiter sees „Alle“ only anyway).
+    const briefe = createCategory(db, asEditor(leitung), { name: 'Briefe', visibility: 'all' })
+    upload(briefe)
+    expect(errorCode(() => moveCategory(db, formsOnly, briefe, 'up'))).toBe('template_category_other_kind')
+    const formsLeitung = { ...leitung, facilityId: 1, permissions: new Set(['formTemplates.manage', 'printTemplates.view'] as const) }
+    expect(errorCode(() => updateCategory(db, formsLeitung, briefe, { name: 'Briefe', visibility: 'managers' }))).toBe('template_category_other_kind')
+    // The Bögen are counted for both.
+    expect(listCategories(db, { ...pdfOnly }).find(row => row.id === kinder)!.formCount).toBeGreaterThan(0)
+    expect(listCategories(db, { ...formsOnly }).find(row => row.id === kinder)!.formCount).toBeGreaterThan(0)
+    // Without either right: no category work at all.
+    const neither = { ...formsOnly, permissions: new Set(['printTemplates.view'] as const) }
+    expect(errorCode(() => createCategory(db, neither, { name: 'X', visibility: 'all' }))).toBe('forbidden')
+  })
+
+  it('offers the person who unlocked the tablet only the Bögen of categories everyone sees', () => {
+    const baeren = addGroup(db, 1, 'Bären')
+    const kim = addEmployee(db, 'Kim', { groupId: baeren })
+    setPin(db, 1, kim, '123456')
+    const tablet = addUser(db, 'tablet', 'terminal')
+    const child = addChild(db, 1, { groupId: baeren })
+    const intern = createCategory(db, asEditor(leitung), { name: 'Intern', visibility: 'managers' })
+    const kinder = exampleCategoryOf(db, 1, 'child')!
+    const open = createTemplate(db, leitung, 1, { kind: 'child', name: 'Für alle', selfAssessment: false, categoryId: kinder }, now)
+    const restricted = createTemplate(db, leitung, 1, { kind: 'child', name: 'Nur Leitung', selfAssessment: false, categoryId: intern, confirmRestricted: true }, now)
+    const token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, kim, '123456', now).token
+    const viewer = resolveChildViewer(db, tablet, token, now)
+    const offered = listChildForms(db, viewer, child, now).templates.map(template => template.id)
+    expect(offered).toContain(open)
+    expect(offered).not.toContain(restricted)
   })
 })

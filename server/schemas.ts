@@ -701,7 +701,10 @@ export const templateOrderSchema = z.object({
 })
 // The categories of a facility; `parentId` (only when creating) makes a subcategory of that category. A change keeps
 // where the category sits: a `parentId` there is refused (400), as moving to another category is not offered.
-export const templateCategoryUpdateSchema = z.object({ name: z.string().max(60), visibility: z.enum(TEMPLATE_VISIBILITIES) }).strict()
+// `confirmHidingForms`: the editor confirmed that Bögen in it would no longer be seen by some who fill them in.
+export const templateCategoryUpdateSchema = z.object({
+  name: z.string().max(60), visibility: z.enum(TEMPLATE_VISIBILITIES), confirmHidingForms: z.boolean().optional(),
+}).strict()
 export const templateCategorySchema = templateCategoryUpdateSchema.extend({ parentId: z.number().int().positive().nullish() })
 /** Replacing the file sends the file alone. */
 export const noFields = z.object({})
@@ -871,7 +874,7 @@ export const formTemplateQuery = z.object({ kind: formKind.optional() })
  */
 export const formTemplateSchema = z.object({
   kind: formKind, name: z.string().max(200), selfAssessment: z.boolean().default(false), subject: z.string().max(20).nullish(),
-  categoryId: z.number().int().positive().nullish(),
+  categoryId: z.number().int().positive().nullish(), confirmRestricted: z.boolean().optional(),
 })
 /** Any subset; `content` is the whole content as the editor holds it (new sections, items and options without ids). */
 export const formTemplateUpdateSchema = z.object({
@@ -879,6 +882,7 @@ export const formTemplateUpdateSchema = z.object({
   archived: z.boolean().optional(),
   selfAssessment: z.boolean().optional(),
   categoryId: z.number().int().positive().nullable().optional(),
+  confirmRestricted: z.boolean().optional(),
   content: z.unknown().optional(),
   expectedUpdatedAt: z.string().max(40).optional(),
 })

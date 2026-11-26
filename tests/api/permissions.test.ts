@@ -592,14 +592,19 @@ describe('API route permissions', () => {
   it('opens the form templates and their categories to managers of the active facility only (staff and tablet 403)', () => {
     const touching = routes.filter(route => /^form-template(s|-categories)\//.test(route)
       || source(route).includes('services/formTemplates\'') || source(route).includes('services/formTemplateCategories\''))
-    // The categories of „Vorlagen“ (shared with the PDF templates since 0133) are maintained under template-categories/;
-    // only the list stays here, for an account with Bögen but without printTemplates.view.
+    // The categories of „Vorlagen“ are shared with the PDF templates since 0133: whoever maintains the Bögen maintains them
+    // here, whoever maintains the PDF templates under template-categories/ (the same service and rules).
     expect(touching).toEqual([
-      'form-template-categories/index.get.ts',
+      'form-template-categories/[id].delete.ts', 'form-template-categories/[id].put.ts', 'form-template-categories/[id]/move.post.ts',
+      'form-template-categories/index.get.ts', 'form-template-categories/index.post.ts',
       'form-templates/[id].delete.ts', 'form-templates/[id].put.ts', 'form-templates/[id]/copy.post.ts',
       'form-templates/index.get.ts', 'form-templates/index.post.ts', 'form-templates/order.post.ts'])
-    // These two hand the whole account on (its facility, role and permissions decide what it sees and may move).
-    const wholeAccount = { 'form-template-categories/index.get.ts': 'listCategories(useDb(), admin)', 'form-templates/order.post.ts': 'withHomeGroup(event, admin)' }
+    // These hand the whole account on (its facility, role and permissions decide what it sees and may change).
+    const wholeAccount = {
+      'form-template-categories/index.get.ts': 'listCategories(useDb(), admin)', 'form-templates/order.post.ts': 'withHomeGroup(event, admin)',
+      'form-template-categories/index.post.ts': 'createCategory(useDb(), admin, body)', 'form-template-categories/[id].put.ts': 'updateCategory(useDb(), admin, id, body)',
+      'form-template-categories/[id].delete.ts': 'deleteCategory(useDb(), admin, id)', 'form-template-categories/[id]/move.post.ts': 'moveCategory(useDb(), admin, id, direction)',
+    }
     for (const route of touching) {
       const code = source(route)
       expect(code, route).toContain("requirePermission(event, 'formTemplates.manage')")

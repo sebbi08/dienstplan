@@ -161,10 +161,12 @@ export const PERMISSIONS: readonly PermissionDef[] = [
   def('childForms.edit', 'forms', 'Alle Beobachtungsbögen anlegen und ausfüllen',
     { requires: ['children.view'], scoped: true }),
   def('childForms.manage', 'forms', 'Bearbeiter freischalten, Bögen löschen', { requires: ['childForms.edit'] }),
-  def('formTemplates.manage', 'forms', 'Vorlagen (Bögen) verwalten'),
-  def('printTemplates.view', 'forms', 'Druckvorlagen ansehen'),
-  def('printTemplates.edit', 'forms', 'Druckvorlagen der Einrichtung verwalten', { requires: ['printTemplates.view'] }),
-  def('printTemplates.global', 'forms', 'Druckvorlagen für alle Einrichtungen',
+  // „Dokumente“ → „Vorlagen“: either right maintains the shared categories (who sees them and their order only with the
+  // right for every kind of entry in them, server/services/templateCategories.ts).
+  def('formTemplates.manage', 'forms', 'Bogen-Vorlagen und die Kategorien unter „Vorlagen“ verwalten'),
+  def('printTemplates.view', 'forms', 'PDF-Vorlagen ansehen'),
+  def('printTemplates.edit', 'forms', 'PDF-Vorlagen der Einrichtung und die Kategorien unter „Vorlagen“ verwalten', { requires: ['printTemplates.view'] }),
+  def('printTemplates.global', 'forms', 'PDF-Vorlagen für alle Einrichtungen',
     { requires: ['printTemplates.edit'], ...fixed }),
   def('talks.manage', 'forms', 'Mitarbeitergespräche führen', { requires: ['employees.view'] }),
   def('talks.own', 'forms', 'Eigene Gesprächsbögen'),

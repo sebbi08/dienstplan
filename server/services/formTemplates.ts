@@ -10,7 +10,7 @@ import type { Db } from '../db/client'
 import { employees, facilities, forms, formStarterSeeds, formTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { uniqueName } from '../lib/uniqueName'
-import { chosenFormCategory, exampleCategoryOf, seedFormCategories, seesFormCategory } from './formTemplateCategories'
+import { assertFilingConfirmed, chosenFormCategory, exampleCategoryOf, seedFormCategories, seesFormCategory } from './formTemplateCategories'
 import { appendEntry } from './printTemplates'
 import { facilityCategories } from './templateCategories'
 
@@ -24,6 +24,8 @@ export interface FormTemplateInput {
   subject?: string | null
   /** The facility's category or subcategory (of „Vorlagen“, one the actor sees) to file it in (null or left out = none). */
   categoryId?: number | null
+  /** The editor confirmed filing it in a category not everyone sees (else 409 form_category_restricted). */
+  confirmRestricted?: boolean
 }
 
 /** Any subset of the template's fields; `content` is the whole content as the editor holds it (new parts without ids). */
@@ -34,6 +36,8 @@ export interface FormTemplateUpdate {
   content?: unknown
   /** Another category or subcategory of the facility (null = none); the template goes to the end of that list. */
   categoryId?: number | null
+  /** The editor confirmed moving it into a category fewer people see (else 409 form_category_restricted). */
+  confirmRestricted?: boolean
   /** The template's updatedAt the editor loaded; when given, a newer save in between is 409 form_template_changed. */
   expectedUpdatedAt?: string
 }
@@ -200,6 +204,7 @@ export function createTemplate(db: Db, actor: SessionUser, facilityId: number, i
   const subject = checkedSubject(input.kind, input.subject)
   const name = checkedName(db, facilityId, input.kind, input.name, null)
   const categoryId = chosenFormCategory(db, facilityId, actor.role, input.categoryId ?? null)
+  assertFilingConfirmed(db, facilityId, null, categoryId, input.confirmRestricted)
   const at = now.toISOString()
   return db.transaction((tx) => {
     const id = tx.insert(formTemplates).values({
@@ -239,6 +244,7 @@ export function updateTemplate(
   if (input.archived !== undefined && input.archived !== row.archived) values.archived = input.archived
   if (input.categoryId !== undefined) {
     const categoryId = chosenFormCategory(db, facilityId, actor.role, input.categoryId)
+    assertFilingConfirmed(db, facilityId, row.categoryId, categoryId, input.confirmRestricted)
     if (categoryId !== row.categoryId) values.categoryId = categoryId
   }
   if (input.selfAssessment !== undefined) {

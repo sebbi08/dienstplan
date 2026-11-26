@@ -21,7 +21,7 @@ import {
 } from '~/utils/printTemplates'
 import { filedCategoryId, subcategoryChip, subcategoryItems, subcategoryNamesFor, topCategories, type ItemGroup } from '~/utils/subcategories'
 import {
-  chosenLibraryTab, libraryGroups, librarySearch, libraryTabs, movedEntries, type LibraryEntry,
+  chosenLibraryTab, filedVisibility, libraryGroups, librarySearch, libraryTabs, losersOf, movedEntries, type LibraryEntry,
 } from '~/utils/templateEntries'
 
 /**
@@ -48,6 +48,8 @@ const canEditPdfs = computed(() => can('printTemplates.edit'))
 const canEditGlobal = computed(() => can('printTemplates.global'))
 const managesForms = computed(() => !onTabletRole.value && can('formTemplates.manage'))
 const canOrder = computed(() => canEditPdfs.value || managesForms.value)
+// The shared categories: whoever maintains either kind (each request by the route of a right the editor holds).
+const canManageCategories = canOrder
 // The visibilities the editor may give a category (or a template for all facilities): those of the own role.
 const categoryLevels = computed(() => (user.value ? visibleTemplateLevels(user.value.role) : []))
 const { activeName } = useFacilities()
@@ -385,12 +387,21 @@ const formDialogOpen = ref(false)
 const moving = ref<FormTemplateDto | null>(null)
 const subjectItems = (['child', 'employee'] as const).map(value => ({ label: t.subjects[value], value }))
 const kindItems = FORM_KINDS.map(value => ({ label: t.forKinds[value], value }))
-const formCategoryItems = computed(() => [{ label: c.categoryNone, value: 0 }, ...topItems.value])
+/** A category's name with who sees it when not everyone does („Intern (nur Leitung und Träger)“). */
+const labelWithVisibility = (category: TemplateCategoryDto) =>
+  (category.visibility === 'all' ? category.name : `${category.name} (${de.printTemplates.visibilityBadge[category.visibility]})`)
+const formCategoryItems = computed(() => [
+  { label: c.categoryNone, value: 0 },
+  ...topCategories(categories.value).map(category => ({ label: labelWithVisibility(category), value: category.id })),
+])
 /** `kind` undefined until picked: preset only in an example category (Unfälle → für Unfälle …), see exampleKindOf. */
 const draft = reactive<{ name: string; kind: FormKind | undefined; selfAssessment: boolean; subject: FormSubject; categoryId: number; subcategoryId: number }>({
   name: '', kind: undefined, selfAssessment: false, subject: 'child', categoryId: 0, subcategoryId: 0,
 })
-const draftSubItems = computed(() => subcategoryItems(categories.value, draft.categoryId || undefined, c.subNone))
+const draftSubItems = computed(() => [
+  { label: c.subNone, value: 0 },
+  ...categories.value.filter(row => row.parentId !== null && row.parentId === draft.categoryId).map(row => ({ label: labelWithVisibility(row), value: row.id })),
+])
 watch(() => draft.categoryId, () => {
   if (!draftSubItems.value.some(item => item.value === draft.subcategoryId)) draft.subcategoryId = 0
 })
@@ -414,10 +425,16 @@ async function saveFormDialog() {
   if (!moving.value && !draft.name.trim()) return void toast.add({ title: t.nameFirst, color: 'warning' })
   if (!moving.value && !draft.kind) return void toast.add({ title: t.kindFirst, color: 'warning' })
   const categoryId = filedCategoryId(draft.categoryId || undefined, draft.subcategoryId) ?? null
+  // A category not everyone sees: name the Bogen and who no longer gets it offered, and ask first (the server asks too).
+  const from = moving.value ? (moving.value.subcategoryId ?? moving.value.categoryId) : null
+  const losers = losersOf(filedVisibility(categories.value, from), filedVisibility(categories.value, categoryId))
+  const target = categories.value.find(row => row.id === categoryId)
+  if (losers && target && !(await confirm(de.templateLibrary.confirmRestricted(moving.value?.name ?? draft.name.trim(), target.name, de.templateLibrary.losers[losers])))) return
+  const confirmRestricted = losers ? true : undefined
   savingForm.value = true
   try {
     if (moving.value) {
-      await $fetch<unknown>(`/api/form-templates/${moving.value.id}`, { method: 'PUT', body: { categoryId } })
+      await $fetch<unknown>(`/api/form-templates/${moving.value.id}`, { method: 'PUT', body: { categoryId, confirmRestricted } })
       await refresh()
       toast.add({ title: t.moved, color: 'success' })
       formDialogOpen.value = false
@@ -427,7 +444,7 @@ async function saveFormDialog() {
         method: 'POST',
         body: {
           kind: draft.kind, name: draft.name, selfAssessment: draft.kind === 'staff' && draft.selfAssessment,
-          subject: draft.kind === 'accident' ? draft.subject : null, categoryId,
+          subject: draft.kind === 'accident' ? draft.subject : null, categoryId, confirmRestricted,
         },
       })
       await refresh()
@@ -536,10 +553,9 @@ const entryIcon = (entry: LibraryEntry) => (entry.type === 'form' ? 'i-lucide-cl
       <div class="flex flex-wrap items-center gap-3">
         <p class="min-w-60 flex-1 text-sm text-gray-600">
           {{ de.templateLibrary.intro }}
-          <template v-if="fillTargets.length && pdfs.length"> {{ de.pdfFill.libraryHint }}</template>
         </p>
         <div v-if="canEditPdfs || managesForms" class="flex flex-wrap gap-2">
-          <UButton v-if="canEditPdfs" color="neutral" variant="outline" icon="i-lucide-folder-cog" :label="de.printTemplates.manageCategories" @click="managing = true" />
+          <UButton v-if="canManageCategories" color="neutral" variant="outline" icon="i-lucide-folder-cog" :label="de.printTemplates.manageCategories" @click="managing = true" />
           <UButton
             v-if="canOrder && tabs.some(entry => entry.entries.length)" color="neutral" :variant="reordering ? 'solid' : 'outline'"
             :icon="reordering ? 'i-lucide-check' : 'i-lucide-arrow-up-down'" :label="reordering ? de.common.reorderDone : de.common.reorder"
@@ -799,7 +815,10 @@ const entryIcon = (entry: LibraryEntry) => (entry.type === 'form' ? 'i-lucide-cl
       </template>
     </UModal>
 
-    <TemplatesCategoryManager v-if="canEditPdfs" v-model:open="managing" :categories="categories" :levels="categoryLevels" :refresh="refresh" />
+    <TemplatesCategoryManager
+      v-if="canManageCategories" v-model:open="managing" :categories="categories" :levels="categoryLevels" :refresh="refresh"
+      :forms="forms" :rights="{ pdfs: canEditPdfs, forms: managesForms }"
+    />
     <PdfFillStart v-if="filling" v-model:open="fillOpen" :template="filling" />
     <SignRequestsSendDialog v-if="sending" v-model:open="sendOpen" :source="sending" />
   </div>

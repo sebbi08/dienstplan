@@ -2025,10 +2025,21 @@ Beide Arten liegen nebeneinander in **denselben Kategorien und Unterkategorien**
   z. B. Elternbriefe, Einverständniserklärungen, ein Formular für Medikamente oder einen Urlaubsantrag. Knöpfe wie
   bisher: **Öffnen**, **Ausfüllen**, **Zum Unterschreiben senden**, **Bearbeiten**, **Löschen**.
 
-Jeder sieht von jeder Art nur, was er mit seinen Rechten schon bisher sah: die Bögen, wer Bögen pflegen darf („Vorlagen
-(Bögen) verwalten“ – Leitung und Träger), die PDF-Formulare, wer Druckvorlagen ansehen darf (alle Konten und das
-Tablet; ändern nur mit „Druckvorlagen der Einrichtung verwalten“). Mitarbeiter und das Tablet sehen deshalb unter
-**Vorlagen** nur die PDF-Formulare. Die Rechte selbst sind unverändert.
+Jeder sieht und ändert von jeder Art nur, was er mit seinen Rechten schon bisher durfte: die Bögen, wer „Bogen-Vorlagen
+und die Kategorien unter ‚Vorlagen‘ verwalten“ darf (Leitung und Träger), die PDF-Formulare, wer „PDF-Vorlagen ansehen“
+darf (alle Konten und das Tablet; ändern mit „PDF-Vorlagen der Einrichtung und die Kategorien unter ‚Vorlagen‘
+verwalten“). Mitarbeiter und das Tablet sehen deshalb unter **Vorlagen** nur die PDF-Formulare. Auf der Seite **Rechte
+und Rollen** heißen die Rechte jetzt so (vorher „Vorlagen (Bögen) verwalten“, „Druckvorlagen ansehen“ und
+„Druckvorlagen der Einrichtung verwalten“; der Bereich „Zum Ausdrucken“ heißt „Vorlagen (PDF-Formulare)“).
+
+**Kategorien verwalten** darf, wer **eine der beiden Arten** verwalten darf: anlegen, umbenennen, die Reihenfolge ändern
+und eine leere Kategorie löschen. Damit niemand über Vorlagen bestimmt, die er nicht ändern darf, gilt: **„Wer sieht
+sie?“ ändern** und eine Kategorie **verschieben** kann nur, wer jede Art verwalten darf, die darin liegt (auch in ihren
+Unterkategorien; bei den PDFs auch die des Trägers, die dort nach dem Namen stehen). Sonst sind Auswahl und Pfeile
+gesperrt, mit dem Hinweis „Hier liegen auch Vorlagen, die du nicht verwalten darfst …“, und die App lehnt es ab.
+Umbenennen geht trotzdem. Bei den Standardrechten (Leitung und Träger haben beide Rechte) ändert sich nichts; betroffen
+sind nur Konten mit genau einem der beiden Rechte, z. B. eine Mitarbeiterin mit „Bögen: verwalten“ – sie legt wie bisher
+Kategorien und Unterkategorien an.
 
 - **Neue Vorlage** fragt zuerst **Bogen** oder **PDF hochladen** (wer nur eine Art anlegen darf, kommt gleich dorthin)
   und öffnet dann das bisherige Fenster der Art. Bei einem Bogen ist in einer Beispielkategorie wie „Unfälle“ das
@@ -2041,30 +2052,44 @@ Tablet; ändern nur mit „Druckvorlagen der Einrichtung verwalten“). Mitarbei
   Vorlagen beider Arten kommen ans Ende ihrer Liste.
 - **„Wer sieht sie?“** einer Kategorie (und Unterkategorie) gilt für **beide Arten**: Einen Bogen in einer Kategorie „Nur
   Leitung und Träger“ bieten auch die Auswahllisten (Kinderakte, Mitarbeitergespräch, Teamsitzung, Unfall,
-  Infogespräch, Hospitation) nur Leitung und Träger an; am Tablet zählt dafür die Person, die es entsperrt hat. Die
-  Einstellung „Wer sieht sie?“ an einem einzelnen PDF bleibt wie bisher (die engere Einstellung gewinnt). Stellt der
-  Träger eine Kategorie mit Vorlagen auf „Nur Träger“, nennt die Rückfrage Bögen und PDFs zusammen.
-- **Kategorien verwalten** (wer Druckvorlagen der Einrichtung verwalten darf, also Leitung und Träger) zeigt bei jeder
-  Kategorie, wie viele Bögen und PDF-Vorlagen darin liegen. Löschen geht nur, solange weder ein Bogen (auch kein
-  stillgelegter) noch eine PDF-Vorlage darin liegt.
+  Infogespräch, Hospitation) nur Leitung und Träger an. Am Tablet zählt dafür bei Bögen in der Kinderakte (Beobachtungen,
+  Unfälle) die Person, die es entsperrt hat; bei Teamsitzungen zählt das Tablet selbst, es sieht also nur Bögen aus
+  Kategorien für **Alle**. Die Einstellung „Wer sieht sie?“ an einem einzelnen PDF bleibt wie bisher (die engere
+  Einstellung gewinnt). Stellt der Träger eine Kategorie mit Vorlagen auf „Nur Träger“, nennt die Rückfrage Bögen und
+  PDFs zusammen.
+- **Rückfrage, bevor Bögen verschwinden:** Würden Bögen danach für Leute unsichtbar, die sie bisher ausfüllen konnten,
+  fragt die App vorher und nennt die Bögen und wer sie verliert, z. B. „‚Unfälle‘: Mitarbeitende, Gruppenleitungen und das
+  Tablet sehen den Bogen ‚Unfallbericht Kind‘ dann nicht mehr – auch nicht beim Anlegen (Kinderakte, Unfälle,
+  Teamsitzungen …). Trotzdem speichern?“. Das gilt, wenn eine Kategorie oder Unterkategorie mit Bögen auf „Nur Leitung
+  und Träger“ oder „Nur Träger“ gestellt wird, und wenn ein Bogen neu in eine solche Kategorie gelegt oder dorthin
+  verschoben wird. Im Fenster des Bogens steht bei solchen Kategorien dazu „(nur Leitung und Träger)“ bzw. „(nur
+  Träger)“. Ohne Bestätigung speichert die App nicht – auch nicht über einen anderen Weg.
+- **Kategorien verwalten** zeigt bei jeder Kategorie, wie viele Bögen und PDF-Vorlagen darin liegen. Löschen geht nur,
+  solange weder ein Bogen (auch kein stillgelegter) noch eine PDF-Vorlage darin liegt.
 - **Gilt für** (Einrichtungen und Gruppen) und das **Anlegen einer Kategorie in anderen Einrichtungen** gibt es wie
   bisher nur für PDF-Formulare. Bögen gehören weiter genau ihrer Einrichtung und gelten für alle Gruppen; daran hat sich
   nichts geändert.
 - **In der Kinderakte, der Personalakte und den anderen Auswahllisten** funktioniert das Ausfüllen wie bisher; die Bögen
   stehen dort nach den gemeinsamen Kategorien gruppiert („Kategorie › Unterkategorie“).
 - **Beim Update** (Migration 0133) wurden die Kategorien der Bögen in die der Einrichtung übernommen, je Einrichtung:
-  - Gibt es auf derselben Ebene schon eine Kategorie mit **demselben Namen** (Leerzeichen am Rand und Groß-/
-    Kleinschreibung zählen nicht), wird daraus **eine** Kategorie; die Unterkategorien darunter ebenso.
+  - Gibt es auf derselben Ebene schon eine Kategorie mit **demselben Namen** (Leerzeichen am Rand, Groß-/
+    Kleinschreibung – auch bei Umlauten – und ß/ss zählen nicht, wie überall in der App), wird daraus **eine**
+    Kategorie; die Unterkategorien darunter ebenso.
   - **Ausnahme, damit niemand Vorlagen verliert oder mehr sieht als vorher:** Bögen hatten bisher kein „Wer sieht
     sie?“ – wer sie ausfüllen durfte, bekam sie angeboten. Ist die gleichnamige Kategorie der PDFs auf „Nur Leitung und
     Träger“ oder „Nur Träger“ gestellt, würden die Bögen darin für Mitarbeitende verschwinden; die PDFs für alle zu
     öffnen, wäre umgekehrt mehr als bisher. Deshalb bleiben die Bögen dann in einer **eigenen Kategorie „‹Name›
-    (Bögen)“** für **Alle** (wäre auch dieser Name schon vergeben: „‹Name› (Bögen ‹Nummer›)“). Das gilt genauso für eine
-    Unterkategorie.
+    (Bögen)“** für **Alle**. Wäre dieser Name schon vergeben (oder würden zwei lange Namen gleich gekürzt), heißt sie
+    „‹Name› (Bögen ‹Nummer›)“, zuletzt „Bögen ‹Nummer›“. Ist selbst das vergeben, entsteht die Kategorie nicht, und ihre
+    Bögen stehen unter **Ohne Kategorie** – das Update bricht nie ab. Das gilt genauso für eine Unterkategorie.
   - Alle anderen Kategorien der Bögen kommen **für Alle** dazu, und zwar **nach** den bisherigen Kategorien von „Zum
     Ausdrucken“ in der Reihenfolge, die sie bei den Bögen hatten (Unterkategorien nach den bisherigen Unterkategorien).
   - Keine Vorlage ging verloren: jeder Bogen liegt danach in der Kategorie, die aus seiner geworden ist; Bögen ohne
     Kategorie stehen im Reiter **Ohne Kategorie**.
+  - **PDFs des Trägers für alle (oder mehrere) Einrichtungen** stehen nach dem Namen ihrer Kategorie. Bekam eine
+    Einrichtung durch das Update eine Kategorie dieses Namens (z. B. „Team“ oder „Unfälle“ aus den Bögen), steht ein
+    solches PDF jetzt dort statt unter **„Vom Träger“**. Sichtbarer wird es dadurch nicht: es gilt weiter sein eigenes
+    „Wer sieht sie?“.
   - Reihenfolge in einer zusammengelegten Liste: zuerst die PDFs wie bisher, dann die Bögen in ihrer bisherigen
     Reihenfolge – bis jemand die Reihenfolge ändert oder eine neue Vorlage dazukommt.
   - Die **Beispielkategorien** der Bögen (Kinder, Fachkräfte, Team, Unfälle, Infogespräche, Hospitationen) sind damit

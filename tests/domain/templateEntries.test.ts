@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chosenLibraryTab, FROM_PROVIDER_TAB, libraryGroups, librarySearch, libraryTabs, movedEntries, NO_CATEGORY_TAB, type LibraryEntry,
+  chosenLibraryTab, filedVisibility, formsHiddenBy, FROM_PROVIDER_TAB, holdsOtherKind, libraryGroups, librarySearch, libraryTabs, losersOf,
+  movedEntries, NO_CATEGORY_TAB, type LibraryEntry,
 } from '../../app/utils/templateEntries'
 import { compareEntryPlaces, MERGED_BOGEN_PLACE, mergeEntries } from '../../shared/domain/templateEntries'
 import type { FormTemplateDto, PrintTemplateDto, TemplateCategoryDto } from '../../shared/types/api'
@@ -67,5 +68,35 @@ describe('the tabs of „Vorlagen“', () => {
     expect(movedEntries(items, () => true, 'form-1', -1)).toEqual([{ type: 'form', id: 1 }, { type: 'pdf', id: 1 }])
     expect(movedEntries(items, () => true, 'form-1', 1)).toBeNull()
     expect(movedEntries(items, entry => entry.type === 'form', 'form-1', -1)).toBeNull()
+  })
+})
+
+describe('„Wer sieht sie?“ and the Bögen', () => {
+  const cat = (id: number, name: string, visibility: TemplateCategoryDto['visibility'] = 'all', parentId: number | null = null, counts: Partial<TemplateCategoryDto> = {}): TemplateCategoryDto =>
+    ({ id, parentId, name, visibility, templateCount: 0, formCount: 0, globalCount: 0, hiddenSubcategories: 0, ...counts })
+  const categories = [cat(1, 'Unfälle'), cat(11, 'Intern', 'managers', 1), cat(2, 'Team')]
+
+  it('tells who sees a filed entry and who loses it', () => {
+    expect(filedVisibility(categories, null)).toBe('all')
+    expect(filedVisibility(categories, 11)).toBe('managers')
+    expect(losersOf('all', 'managers')).toBe('staff')
+    expect(losersOf('all', 'provider')).toBe('staffAndLeitung')
+    expect(losersOf('managers', 'provider')).toBe('leitung')
+    expect(losersOf('managers', 'all')).toBeNull()
+  })
+
+  it('names the Bögen a stricter category would hide, its subcategories\' too, not those already hidden', () => {
+    const forms = [bogen(1, 'Unfallbericht', 1, 0), bogen(2, 'Intern', 1, 0, { subcategoryId: 11 }), bogen(3, 'Sitzung', 2, 0)]
+    expect(formsHiddenBy(categories[0]!, 'managers', categories, forms)).toEqual({ names: ['Unfallbericht'], losers: 'staff' })
+    expect(formsHiddenBy(categories[0]!, 'provider', categories, forms)).toEqual({ names: ['Unfallbericht', 'Intern'], losers: 'staffAndLeitung' })
+    expect(formsHiddenBy(categories[0]!, 'all', categories, forms)).toEqual({ names: [], losers: null })
+  })
+
+  it('locks a category holding entries of a kind the editor does not maintain', () => {
+    const withPdf = [cat(1, 'Eltern', 'all', null, { templateCount: 1 }), cat(11, 'Briefe', 'all', 1, { formCount: 2 })]
+    expect(holdsOtherKind(withPdf[0]!, withPdf, { pdfs: true, forms: false })).toBe(true)
+    expect(holdsOtherKind(withPdf[0]!, withPdf, { pdfs: false, forms: true })).toBe(true)
+    expect(holdsOtherKind(withPdf[0]!, withPdf, { pdfs: true, forms: true })).toBe(false)
+    expect(holdsOtherKind(withPdf[1]!, withPdf, { pdfs: false, forms: true })).toBe(false)
   })
 })

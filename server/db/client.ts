@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
+import { foldCategoryName } from '../../shared/domain/templateCategories'
 import * as schema from './schema'
 
 /** Accepts both the root database and a transaction. */
@@ -17,7 +18,18 @@ export function createDb(filename: string): { db: Db; sqlite: Database.Database 
   sqlite.pragma('foreign_keys = ON')
   // Deleted rows (children, documents) must not linger in free pages of the file and of every later backup.
   sqlite.pragma('secure_delete = ON')
+  registerSqlFunctions(sqlite)
   return { db: drizzle({ client: sqlite, schema }), sqlite }
+}
+
+/**
+ * SQL functions the migrations may call, on every connection (createDb is the only way the app and the tests open the
+ * database). `app_fold_name(text)`: a category name folded as the app compares names (foldCategoryName: surrounding
+ * spaces, case with umlauts, ß/ss), because SQLite's own lower() knows only ASCII (0133_one_template_library matches
+ * the Bögen categories with it). NULL stays NULL.
+ */
+export function registerSqlFunctions(sqlite: Database.Database): void {
+  sqlite.function('app_fold_name', { deterministic: true }, (value: unknown) => (typeof value === 'string' ? foldCategoryName(value) : null))
 }
 
 /**

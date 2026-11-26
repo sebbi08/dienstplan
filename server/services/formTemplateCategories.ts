@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { bogenCategoryName, EXAMPLE_FORM_CATEGORIES, FORM_CATEGORY_SEED_KEY, foldFormCategoryName } from '../../shared/domain/formCategories'
 import type { FormKind } from '../../shared/domain/forms'
-import { seesCategoryNode } from '../../shared/domain/templateCategories'
+import { seesCategoryNode, stricterVisibility, TEMPLATE_VISIBILITIES, type TemplateVisibility } from '../../shared/domain/templateCategories'
 import type { Role } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { formStarterSeeds, templateCategories } from '../db/schema'
@@ -23,6 +23,29 @@ export function seesFormCategory(categories: readonly CategoryRow[], categoryId:
   if (categoryId === null) return true
   const row = categories.find(category => category.id === categoryId)
   return !!row && seesCategoryNode(role, row, categories)
+}
+
+/** Who sees a Bogen filed in the category row `categoryId` (null: none, everyone): the category's and its parent's „Wer sieht sie?“. */
+export function formCategoryVisibility(categories: readonly CategoryRow[], categoryId: number | null): TemplateVisibility {
+  const row = categoryId === null ? undefined : categories.find(category => category.id === categoryId)
+  if (!row) return 'all'
+  const parent = row.parentId === null ? undefined : categories.find(category => category.id === row.parentId)
+  return stricterVisibility(row.visibility, parent?.visibility ?? 'all')
+}
+
+/**
+ * Whether filing a Bogen in `to` instead of `from` (null: none; a new Bogen: from none) hides it from some who saw it –
+ * a category not everyone sees (Mitarbeitende, Gruppenleitungen and the tablet, for „nur Träger“ the Leitung as well). The
+ * editor confirms that first (`confirmRestricted`, else 409 form_category_restricted), so a Bogen does not silently
+ * vanish from the pickers of those who fill it in.
+ */
+export function assertFilingConfirmed(db: Db, facilityId: number, from: number | null, to: number | null, confirmed: boolean | undefined): void {
+  if (confirmed || to === null || to === from) return
+  const categories = facilityCategories(db, facilityId)
+  const order = (visibility: TemplateVisibility) => TEMPLATE_VISIBILITIES.indexOf(visibility)
+  if (order(formCategoryVisibility(categories, to)) > order(formCategoryVisibility(categories, from))) {
+    throw new ServiceError(409, 'form_category_restricted')
+  }
 }
 
 /**

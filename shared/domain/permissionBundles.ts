@@ -33,7 +33,7 @@ export const BUNDLE_AREA_LABELS: Record<BundleArea, string> = {
   knowledge: 'Wissen',
   cash: 'Kasse',
   calendar: 'Kalender',
-  templates: 'Zum Ausdrucken',
+  templates: 'Vorlagen (PDF-Formulare)',
   administration: 'Verwaltung',
 }
 
@@ -132,7 +132,7 @@ const SPECS: readonly Spec[] = [
 
   bundle('formsGroup', 'forms', 'eigene Gruppe anlegen und ausfüllen (auch Entwicklungsgespräche)', ['childForms.group']),
   bundle('formsFill', 'forms', 'alle anlegen und ausfüllen', ['childForms.edit']),
-  bundle('formsManage', 'forms', 'verwalten (Vorlagen, Freigaben)', ['childForms.manage', 'formTemplates.manage']),
+  bundle('formsManage', 'forms', 'verwalten (Bogen-Vorlagen und Kategorien, Freigaben)', ['childForms.manage', 'formTemplates.manage']),
   bundle('accidentsManage', 'forms', 'Unfälle verwalten (Übersicht, Unfallanzeigen der Mitarbeiter)', ['accidents.manage']),
 
   bundle('visitsManage', 'visits', 'führen (anlegen, Dokumente, Bögen, übernehmen, einstellen, absagen)', ['visits.manage']),
@@ -154,7 +154,7 @@ const SPECS: readonly Spec[] = [
   bundle('calendarEdit', 'calendar', 'Termine und Schließzeiten bearbeiten', ['calendar.edit', 'closures.manage']),
 
   bundle('templatesView', 'templates', 'ansehen', ['printTemplates.view']),
-  bundle('templatesEdit', 'templates', 'bearbeiten', ['printTemplates.edit']),
+  bundle('templatesEdit', 'templates', 'bearbeiten (auch die Kategorien)', ['printTemplates.edit']),
 
   bundle('settingsFacility', 'administration', 'Einstellungen der Einrichtung', ['settings.facility']),
   bundle('usersManage', 'administration', 'Zugänge verwalten', ['users.manage']),

@@ -1,9 +1,9 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
-import { reachesAudience } from '../../shared/domain/documentTargets'
+import { inFacilityScope, reachesAudience } from '../../shared/domain/documentTargets'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import {
   categoriesInTreeOrder, categoryNameList, categoryPlacer, foldCategoryName, seesAll, seesCategoryNode, spotVisibilities,
-  swappedSiblings, visibleTemplateLevels, type TemplateVisibility,
+  stricterVisibility, swappedSiblings, TEMPLATE_VISIBILITIES, visibleTemplateLevels, type TemplateVisibility,
 } from '../../shared/domain/templateCategories'
 import type { CategoryNameDto, Role, SessionUser, TemplateCategoryDto, TemplateCategoryInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -16,17 +16,21 @@ import { loadTargets } from './documentTargets'
  * one level of subcategories: a subcategory belongs to a category of the same facility, never to another subcategory.
  * They hold both kinds of entries – the PDF templates and, since 0133_one_template_library, the Bögen (form templates) –
  * and „Wer sieht sie?“ applies to both (server/services/formTemplateCategories.ts for the Bögen).
- * Whoever holds printTemplates.edit (Leitung and Träger by default, a Mitarbeiter with the bundle „Vorlagen bearbeiten“)
- * maintains those of the facility they work in, each only those they see (by role; a subcategory only with its
- * category): a category for the Träger alone is the Träger's to create, change and delete, and a Leitung can neither
- * see it (404) nor give a category that visibility (403); a Mitarbeiter only those visible to all. Another facility's
- * category is 404 as well.
+ * Whoever maintains either kind – printTemplates.edit (the PDF templates) or formTemplates.manage (the Bögen) – maintains
+ * the categories of the facility they work in: create, rename, order and delete an empty one, each only those they see
+ * (by role; a subcategory only with its category): a category for the Träger alone is the Träger's to create, change and
+ * delete, and a Leitung can neither see it (404) nor give a category that visibility (403); a Mitarbeiter only those
+ * visible to all. Another facility's category is 404 as well. Changing who sees a category, or moving it, while it (or a
+ * subcategory of it) holds entries of a kind the actor does not maintain is refused (403 template_category_other_kind):
+ * nobody gains control over entries they could not change before. Making Bögen invisible to some who fill them in needs
+ * the editor's confirmation (409 template_category_hides_forms without `confirmHidingForms`).
  */
 export type CategoryActor = Pick<SessionUser, 'role' | 'permissions'> & { facilityId: number }
 
 /**
  * Who looks at a facility's categories: the role decides which they see, the home group which Träger templates count,
- * the permissions whether the Bögen are counted (formTemplates.manage).
+ * the permissions whether the Bögen are counted (whoever maintains the categories: printTemplates.edit or
+ * formTemplates.manage).
  */
 export type CategoryViewer = Pick<SessionUser, 'role'> & {
   facilityId: number; homeGroupId?: number | null; permissions?: ReadonlySet<PermissionKey>
@@ -47,7 +51,8 @@ export const comparableCategoryName = foldCategoryName
  * too), each category followed by its subcategories, with how many of the facility's own templates are filed directly
  * in each and how many of the Träger's templates for all facilities (that the viewer sees) show directly in each by
  * name. A name shared by twins from before the categories counts for the first of them, as the templates show there.
- * Whoever manages the Bögen (formTemplates.manage) also gets how many Bögen are filed directly in each.
+ * Whoever maintains the categories (printTemplates.edit or formTemplates.manage) also gets how many Bögen are filed
+ * directly in each.
  */
 export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategoryDto[] {
   const all = facilityCategories(db, viewer.facilityId)
@@ -55,7 +60,7 @@ export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategory
   const counts = new Map(rows.length === 0 ? [] : db.select({ id: printTemplates.categoryId, n: count() }).from(printTemplates)
     .where(inArray(printTemplates.categoryId, rows.map(row => row.id))).groupBy(printTemplates.categoryId).all()
     .map(row => [row.id, row.n]))
-  const formCounts = new Map(rows.length === 0 || !viewer.permissions || !can(viewer.permissions, 'formTemplates.manage')
+  const formCounts = new Map(rows.length === 0 || !viewer.permissions || !maintainsCategories(viewer.permissions)
     ? []
     : db.select({ id: formTemplates.categoryId, n: count() }).from(formTemplates)
         .where(inArray(formTemplates.categoryId, rows.map(row => row.id))).groupBy(formTemplates.categoryId).all()
@@ -96,9 +101,59 @@ export function chosenCategory(db: Db, role: Role, facilityId: number, id: numbe
   return row
 }
 
+/** Whether the account maintains the categories: with either kind's right. */
+export const maintainsCategories = (permissions: ReadonlySet<PermissionKey>): boolean =>
+  can(permissions, 'printTemplates.edit') || can(permissions, 'formTemplates.manage')
+
 function assertEditor(actor: Pick<CategoryActor, 'permissions'>): void {
-  if (!can(actor.permissions, 'printTemplates.edit')) throw new ServiceError(403, 'forbidden')
+  if (!maintainsCategories(actor.permissions)) throw new ServiceError(403, 'forbidden')
 }
+
+/** The category and, for a category, its subcategories (what its visibility and its place cover). */
+const coveredBy = (row: CategoryRow, all: readonly CategoryRow[]) => [row, ...(row.parentId === null ? all.filter(child => child.parentId === row.id) : [])]
+
+/**
+ * Whether the category (with its subcategories) holds PDF templates – the facility's own, or the Träger's for this
+ * facility shown in it by name – and how many Bögen (also stopped ones), with who sees each Bogen there.
+ */
+function entriesIn(db: Db, facilityId: number, row: CategoryRow, all: readonly CategoryRow[]) {
+  const covered = coveredBy(row, all)
+  const ids = covered.map(category => category.id)
+  const own = db.select({ id: printTemplates.id }).from(printTemplates).where(inArray(printTemplates.categoryId, ids)).limit(1).get()
+  const place = categoryPlacer(all)
+  const globals = db.select({
+    id: printTemplates.id, name: printTemplates.categoryName, subcategoryName: printTemplates.subcategoryName, allFacilities: printTemplates.allFacilities,
+  }).from(printTemplates).where(isNull(printTemplates.facilityId)).all()
+  const targets = loadTargets(db, 'template', globals)
+  const global = globals.some((item) => {
+    const spot = place.byName(item.name, item.subcategoryName)
+    const shownIn = spot.subcategory ?? spot.category
+    const itemTargets = targets.get(item.id)
+    return !!shownIn && ids.includes(shownIn.id) && !!itemTargets && inFacilityScope(itemTargets, facilityId)
+  })
+  const forms = db.select({ id: formTemplates.id, categoryId: formTemplates.categoryId }).from(formTemplates)
+    .where(inArray(formTemplates.categoryId, ids)).all()
+  return { pdfs: !!own || global, forms }
+}
+
+/** 403 template_category_other_kind when the category holds entries of a kind the actor does not maintain. */
+function assertMaintainsEntries(db: Db, actor: CategoryActor, row: CategoryRow, all: readonly CategoryRow[]) {
+  const entries = entriesIn(db, actor.facilityId, row, all)
+  if ((entries.pdfs && !can(actor.permissions, 'printTemplates.edit')) || (entries.forms.length > 0 && !can(actor.permissions, 'formTemplates.manage'))) {
+    throw new ServiceError(403, 'template_category_other_kind')
+  }
+  return entries
+}
+
+/** The visibility that applies to an entry filed in the category row (with its category's for a subcategory). */
+function effectiveVisibility(row: CategoryRow, all: readonly CategoryRow[], own: TemplateVisibility = row.visibility, parentOverride?: TemplateVisibility): TemplateVisibility {
+  const parent = row.parentId === null ? undefined : all.find(other => other.id === row.parentId)
+  return stricterVisibility(own, parent ? parentOverride ?? parent.visibility : 'all')
+}
+
+/** Whether `after` hides from someone who saw `before` (fewer people see it). */
+const narrower = (after: TemplateVisibility, before: TemplateVisibility) =>
+  TEMPLATE_VISIBILITIES.indexOf(after) > TEMPLATE_VISIBILITIES.indexOf(before)
 
 /** A category the actor maintains: one of their facility they see (else 404 template_category_not_found). */
 function loadEditable(db: Db, actor: CategoryActor, id: number): { row: CategoryRow; all: CategoryRow[] } {
@@ -154,19 +209,36 @@ export function createCategory(db: Db, actor: CategoryActor, input: TemplateCate
     .returning({ id: templateCategories.id }).get().id
 }
 
-/** Renames the category and changes who sees it (and its templates); where it sits (category or subcategory) stays. */
+/**
+ * Renames the category and changes who sees it (and its entries); where it sits (category or subcategory) stays. A new
+ * visibility needs the right for every kind of entry in it (403 template_category_other_kind); when it hides Bögen from
+ * some who saw them – also those of its subcategories – the editor confirms it (`confirmHidingForms`, else 409
+ * template_category_hides_forms).
+ */
 export function updateCategory(db: Db, actor: CategoryActor, id: number, input: TemplateCategoryInput): void {
   const { row, all } = loadEditable(db, actor, id)
-  db.update(templateCategories).set(checkedInput(actor, all, input, row.parentId, row)).where(eq(templateCategories.id, id)).run()
+  const values = checkedInput(actor, all, input, row.parentId, row)
+  if (values.visibility !== row.visibility) {
+    const { forms } = assertMaintainsEntries(db, actor, row, all)
+    const hides = forms.some((form) => {
+      const filed = all.find(category => category.id === form.categoryId)!
+      const before = effectiveVisibility(filed, all)
+      const after = filed.id === row.id ? effectiveVisibility(filed, all, values.visibility) : effectiveVisibility(filed, all, filed.visibility, values.visibility)
+      return narrower(after, before)
+    })
+    if (hides && !input.confirmHidingForms) throw new ServiceError(409, 'template_category_hides_forms')
+  }
+  db.update(templateCategories).set(values).where(eq(templateCategories.id, id)).run()
 }
 
 /**
  * Swaps the category with its neighbour among its siblings the actor sees (the facility's categories, or the
  * subcategories of the same category; the Leitung's list skips the Träger's hidden ones); at an end nothing changes.
- * The siblings are numbered afresh.
+ * The siblings are numbered afresh. Only with the right for every kind of entry in it (403 template_category_other_kind).
  */
 export function moveCategory(db: Db, actor: CategoryActor, id: number, direction: 'up' | 'down'): void {
   const { row, all } = loadEditable(db, actor, id)
+  assertMaintainsEntries(db, actor, row, all)
   const siblings = all.filter(other => other.parentId === row.parentId)
   const swapped = swappedSiblings(siblings, siblings.filter(other => seesCategoryNode(actor.role, other, all)), id, direction)
   if (!swapped) return
