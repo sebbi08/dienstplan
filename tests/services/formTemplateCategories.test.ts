@@ -1,131 +1,164 @@
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { formTemplateCategories } from '../../server/db/schema'
+import { formStarterSeeds, templateCategories } from '../../server/db/schema'
 import { listChildForms } from '../../server/services/childForms'
 import { createFacility } from '../../server/services/facilities'
-import {
-  createFormCategory, deleteFormCategory, exampleCategoryOf, listFormCategories, moveFormCategory, renameFormCategory, seedFormCategories,
-} from '../../server/services/formTemplateCategories'
-import { createTemplate, listTemplates, orderTemplates, templateChoices, updateTemplate } from '../../server/services/formTemplates'
+import { exampleCategoryOf, seedFormCategories } from '../../server/services/formTemplateCategories'
+import { copyTemplate, createTemplate, deleteTemplate, listTemplates, templateChoices, updateTemplate } from '../../server/services/formTemplates'
+import { listEntries, orderEntries, uploadTemplate } from '../../server/services/printTemplates'
+import { createCategory, deleteCategory, listCategories, updateCategory } from '../../server/services/templateCategories'
 import type { SessionUser } from '../../shared/types/api'
-import { addChild, addEmployee, addUser, asChildViewer, createTestDb, errorCode } from '../helpers/fixtures'
+import { addChild, addEmployee, addUser, asChildViewer, createTestDb, errorCode, permissionsOf } from '../helpers/fixtures'
 
 /**
- * Own categories of the form templates (Dokumente → Bögen): the examples, creating, renaming, ordering and deleting
- * (only empty ones, no subcategories), one level of subcategories, filing a template, the order within a category, the
- * pickers grouped by category and still filtered by kind, facility isolation.
+ * The Bögen in the shared categories of „Vorlagen“ (template_categories, since 0133_one_template_library): the example
+ * categories by name (a stricter twin gets „‹Name› (Bögen)“), filing a Bogen, „Wer sieht sie?“ for the Bögen (library,
+ * pickers, making a form), deleting only an empty category (also no Bögen), one order across both kinds, facility
+ * isolation.
  */
 
 const now = new Date('2026-11-25T09:00:00.000Z')
+const pdf = () => Buffer.from('%PDF-1.7\ncontent')
 let db: Db
 let leitung: SessionUser
-const names = (facilityId = 1) => listFormCategories(db, facilityId).map(row => (row.parentId === null ? row.name : `  ${row.name}`))
+let traeger: SessionUser
+const tops = (facilityId = 1) => listCategories(db, { role: 'provider', facilityId }).filter(row => row.parentId === null).map(row => row.name)
+const asEditor = (user: SessionUser, facilityId = 1) => ({ ...user, facilityId })
 
 beforeEach(() => {
   db = createTestDb()
   leitung = addUser(db, 'leitung', 'admin', addEmployee(db, 'Anna Leitung'))
+  traeger = addUser(db, 'traeger', 'provider')
 })
 
-describe('form template categories', () => {
-  it('gives every facility the example categories with the starters filed by kind, once', () => {
-    expect(names()).toEqual(['Kinder', 'Fachkräfte', 'Team', 'Unfälle', 'Infogespräche', 'Hospitationen'])
+describe('Bögen in the categories of „Vorlagen“', () => {
+  it('gives a new facility the example categories after the PDF ones, with the starters filed by kind, once', () => {
     const krippe = createFacility(db, 'Krippe').id
-    expect(names(krippe)).toEqual(['Kinder', 'Fachkräfte', 'Team', 'Unfälle', 'Infogespräche', 'Hospitationen'])
+    expect(tops(krippe)).toEqual(['Eingewöhnungsmappe', 'Mitarbeitermappe', 'Eltern', 'Gesundheit', 'Personal',
+      'Kinder', 'Fachkräfte', 'Team', 'Unfälle', 'Infogespräche', 'Hospitationen'])
     // The new facility's accident starters sit in „Unfälle“.
     expect(listTemplates(db, krippe).map(template => template.category)).toEqual(['Unfälle', 'Unfälle'])
     // A deleted example does not come back.
-    deleteFormCategory(db, krippe, exampleCategoryOf(db, krippe, 'info')!)
+    deleteCategory(db, asEditor(traeger, krippe), exampleCategoryOf(db, krippe, 'info')!)
     seedFormCategories(db, krippe, now)
-    expect(names(krippe)).not.toContain('Infogespräche')
+    expect(tops(krippe)).not.toContain('Infogespräche')
   })
 
-  it('creates, renames and orders categories and one level of subcategories; names unique among siblings', () => {
-    const kinder = exampleCategoryOf(db, 1, 'child')!
-    const krippe = createFormCategory(db, 1, { name: ' Krippe ', parentId: kinder })
-    createFormCategory(db, 1, { name: 'Kita', parentId: kinder })
-    expect(names()).toEqual(['Kinder', '  Krippe', '  Kita', 'Fachkräfte', 'Team', 'Unfälle', 'Infogespräche', 'Hospitationen'])
-    expect(errorCode(() => createFormCategory(db, 1, { name: 'kinder' }))).toBe('form_category_name_taken')
-    expect(errorCode(() => createFormCategory(db, 1, { name: 'KITA', parentId: kinder }))).toBe('form_category_name_taken')
-    // The same name under another category or at the top is fine.
-    createFormCategory(db, 1, { name: 'Krippe' })
-    expect(errorCode(() => createFormCategory(db, 1, { name: 'Tief', parentId: krippe }))).toBe('form_category_parent_invalid')
-    expect(errorCode(() => createFormCategory(db, 1, { name: '   ' }))).toBe('form_category_name_required')
-    expect(errorCode(() => createFormCategory(db, 1, { name: 'x'.repeat(61) }))).toBe('form_category_name_too_long')
-    renameFormCategory(db, 1, krippe, { name: 'Krippe (0–3)' })
-    moveFormCategory(db, 1, krippe, 'down')
-    moveFormCategory(db, 1, exampleCategoryOf(db, 1, 'team')!, 'up')
-    expect(names().slice(0, 5)).toEqual(['Kinder', '  Kita', '  Krippe (0–3)', 'Team', 'Fachkräfte'])
-    // At an end nothing changes.
-    moveFormCategory(db, 1, kinder, 'up')
-    expect(names()[0]).toBe('Kinder')
+  it('files the starters of a stricter twin in „‹Name› (Bögen)“, so they stay offered to everyone', () => {
+    const facility = createFacility(db, 'Hort').id
+    // As if the facility had a category „Unfälle“ only for Leitung and Träger before the examples arrived.
+    db.delete(formStarterSeeds).where(eq(formStarterSeeds.facilityId, facility)).run()
+    db.delete(templateCategories).where(eq(templateCategories.facilityId, facility)).run()
+    createCategory(db, asEditor(traeger, facility), { name: 'Unfälle', visibility: 'managers' })
+    seedFormCategories(db, facility, now)
+    expect(tops(facility)).toEqual(['Unfälle', 'Kinder', 'Fachkräfte', 'Team', 'Unfälle (Bögen)', 'Infogespräche', 'Hospitationen'])
+    const bogen = exampleCategoryOf(db, facility, 'accident')!
+    expect(listCategories(db, { role: 'provider', facilityId: facility }).find(row => row.id === bogen)).toMatchObject({ name: 'Unfälle (Bögen)', visibility: 'all' })
   })
 
-  it('deletes only an empty category without subcategories', () => {
+  it('shows a Bogen only to those who see its category: library, pickers and making a form', () => {
+    const intern = createCategory(db, asEditor(leitung), { name: 'Intern', visibility: 'managers' })
+    const geheim = createCategory(db, asEditor(traeger), { name: 'Geheim', visibility: 'provider' })
+    const make = (name: string, categoryId: number | null) =>
+      createTemplate(db, traeger, 1, { kind: 'child', name, selfAssessment: false, categoryId }, now)
+    const offen = make('Offen', null)
+    const fuerLeitung = make('Für Leitung', intern)
+    const nurTraeger = make('Nur Träger', geheim)
+    const ids = (role: 'provider' | 'admin' | 'observer') => templateChoices(db, 1, 'child', { role }).map(choice => choice.id)
+    expect(ids('provider')).toEqual(expect.arrayContaining([offen, fuerLeitung, nurTraeger]))
+    expect(ids('admin')).toEqual(expect.arrayContaining([offen, fuerLeitung]))
+    expect(ids('admin')).not.toContain(nurTraeger)
+    expect(ids('observer')).toContain(offen)
+    expect(ids('observer')).not.toContain(fuerLeitung)
+    // The library of the Leitung leaves out the Träger's, and the Leitung can neither change nor delete it.
+    expect(listTemplates(db, 1, undefined, leitung).map(template => template.id)).not.toContain(nurTraeger)
+    expect(errorCode(() => updateTemplate(db, leitung, 1, nurTraeger, { name: 'X' }, now))).toBe('form_template_not_found')
+    expect(errorCode(() => deleteTemplate(db, 1, nurTraeger, leitung))).toBe('form_template_not_found')
+    expect(errorCode(() => copyTemplate(db, leitung, 1, nurTraeger, now))).toBe('form_template_not_found')
+    expect(errorCode(() => createTemplate(db, leitung, 1, { kind: 'team', name: 'Y', selfAssessment: false, categoryId: geheim }, now)))
+      .toBe('form_category_invalid')
+    // The child record's picker of a Mitarbeiter at the tablet (the person's role) offers the open ones only.
+    const child = addChild(db, 1)
+    const staff = addUser(db, 'kollegin', 'observer', addEmployee(db, 'Kim Kollegin'), 1)
+    const viewer = { ...asChildViewer(leitung), role: staff.role, permissions: permissionsOf('admin') }
+    const offered = listChildForms(db, viewer, child, now).templates.map(template => template.id)
+    expect(offered).toContain(offen)
+    expect(offered).not.toContain(fuerLeitung)
+  })
+
+  it('deletes only a category without PDF templates and Bögen (also stopped ones)', () => {
+    const editor = asEditor(leitung)
     const kinder = exampleCategoryOf(db, 1, 'child')!
-    const sub = createFormCategory(db, 1, { name: 'Krippe', parentId: kinder })
-    expect(errorCode(() => deleteFormCategory(db, 1, kinder))).toBe('form_category_has_subcategories')
+    const sub = createCategory(db, editor, { name: 'Krippe', visibility: 'all', parentId: kinder })
     const template = createTemplate(db, leitung, 1, { kind: 'child', name: 'Eingewöhnung', selfAssessment: false, categoryId: sub }, now)
     updateTemplate(db, leitung, 1, template, { archived: true }, now)
-    expect(errorCode(() => deleteFormCategory(db, 1, sub))).toBe('form_category_not_empty')
+    expect(errorCode(() => deleteCategory(db, editor, sub))).toBe('template_category_not_empty')
+    expect(listCategories(db, { ...editor, permissions: leitung.permissions }).find(row => row.id === sub)).toMatchObject({ formCount: 1, templateCount: 0 })
+    // Without formTemplates.manage the Bögen are not counted.
+    expect(listCategories(db, { role: 'observer', facilityId: 1, permissions: permissionsOf('observer') }).find(row => row.id === sub)!.formCount).toBe(0)
     updateTemplate(db, leitung, 1, template, { categoryId: kinder }, now)
-    deleteFormCategory(db, 1, sub)
-    expect(listFormCategories(db, 1).find(row => row.id === kinder)!.templateCount).toBeGreaterThanOrEqual(1)
+    deleteCategory(db, editor, sub)
+  })
+
+  it('orders PDF templates and Bögen of a list together; a new entry of either kind goes to the end', () => {
+    const editor = asEditor(leitung)
+    const eltern = createCategory(db, editor, { name: 'Briefe', visibility: 'all' })
+    const upload = (title: string) => uploadTemplate(db, editor, { title, scope: 'facility', categoryId: eltern }, { data: pdf(), filename: `${title}.pdf` }, now)
+    const bogen = (name: string) => createTemplate(db, leitung, 1, { kind: 'child', name, selfAssessment: false, categoryId: eltern }, now)
+    const a = upload('PDF A')
+    const b = bogen('Bogen B')
+    const c = upload('PDF C')
+    const keys = () => listEntries(db, 1, eltern).map(entry => `${entry.type}-${entry.id}`)
+    expect(keys()).toEqual([`pdf-${a}`, `form-${b}`, `pdf-${c}`])
+    orderEntries(db, editor, eltern, [{ type: 'pdf', id: c }, { type: 'pdf', id: a }, { type: 'form', id: b }])
+    expect(keys()).toEqual([`pdf-${c}`, `pdf-${a}`, `form-${b}`])
+    const d = bogen('Bogen D')
+    expect(keys().at(-1)).toBe(`form-${d}`)
+    // Without formTemplates.manage only the PDF templates move; the Bögen keep their places.
+    const pdfOnly = { ...editor, permissions: new Set([...leitung.permissions].filter(key => key !== 'formTemplates.manage')) }
+    expect(errorCode(() => orderEntries(db, pdfOnly, eltern, [{ type: 'pdf', id: a }, { type: 'pdf', id: c }, { type: 'form', id: b }, { type: 'form', id: d }])))
+      .toBe('invalid_order')
+    orderEntries(db, pdfOnly, eltern, [{ type: 'pdf', id: a }, { type: 'pdf', id: c }])
+    expect(keys()).toEqual([`pdf-${a}`, `pdf-${c}`, `form-${b}`, `form-${d}`])
+    // An entry missing, twice or of another list is refused.
+    for (const entries of [[{ type: 'pdf' as const, id: a }], [{ type: 'pdf' as const, id: a }, { type: 'pdf' as const, id: a }]]) {
+      expect(errorCode(() => orderEntries(db, pdfOnly, eltern, entries))).toBe('invalid_order')
+    }
   })
 
   it('keeps every facility to its own categories', () => {
     const krippe = createFacility(db, 'Krippe').id
     const foreign = exampleCategoryOf(db, krippe, 'team')!
-    expect(errorCode(() => renameFormCategory(db, 1, foreign, { name: 'X' }))).toBe('form_category_not_found')
-    expect(errorCode(() => moveFormCategory(db, 1, foreign, 'up'))).toBe('form_category_not_found')
-    expect(errorCode(() => deleteFormCategory(db, 1, foreign))).toBe('form_category_not_found')
-    expect(errorCode(() => createFormCategory(db, 1, { name: 'Sub', parentId: foreign }))).toBe('form_category_parent_invalid')
     expect(errorCode(() => createTemplate(db, leitung, 1, { kind: 'team', name: 'X', selfAssessment: false, categoryId: foreign }, now)))
       .toBe('form_category_invalid')
     const own = createTemplate(db, leitung, 1, { kind: 'team', name: 'Y', selfAssessment: false }, now)
     expect(errorCode(() => updateTemplate(db, leitung, 1, own, { categoryId: foreign }, now))).toBe('form_category_invalid')
-    expect(db.select().from(formTemplateCategories).where(eq(formTemplateCategories.facilityId, krippe)).all()).toHaveLength(6)
+    expect(errorCode(() => orderEntries(db, asEditor(leitung), foreign, [{ type: 'form', id: own }]))).toBe('template_category_not_found')
   })
 
   it('lists the pickers by category › subcategory in the category order, still only the active ones of the kind', () => {
+    const editor = asEditor(leitung)
     const kinder = exampleCategoryOf(db, 1, 'child')!
     const team = exampleCategoryOf(db, 1, 'team')!
-    const krippe = createFormCategory(db, 1, { name: 'Krippe', parentId: kinder })
+    const krippe = createCategory(db, editor, { name: 'Krippe', visibility: 'all', parentId: kinder })
     const make = (name: string, kind: 'child' | 'team', categoryId: number | null) =>
       createTemplate(db, leitung, 1, { kind, name, selfAssessment: false, categoryId }, now)
-    const late = make('Spät', 'child', null)
-    const sub = make('Eingewöhnung', 'child', krippe)
-    const inTeam = make('Kind im Team', 'child', team)
+    make('Spät', 'child', null)
+    make('Eingewöhnung', 'child', krippe)
+    make('Kind im Team', 'child', team)
     make('Sitzung', 'team', team)
     const stopped = make('Alt', 'child', kinder)
     updateTemplate(db, leitung, 1, stopped, { archived: true }, now)
-    moveFormCategory(db, 1, team, 'up')
-    moveFormCategory(db, 1, team, 'up')
-    const choices = templateChoices(db, 1, 'child')
-    expect(choices.map(choice => [choice.name, choice.category])).toEqual([
-      ['Kind im Team', 'Team'], ['Entwicklungsgespräch', 'Kinder'], ['Eingewöhnung', 'Kinder › Krippe'], ['Spät', null],
-    ].map(([name, category]) => [expect.stringContaining(name!), category]))
+    // The pickers follow the categories' order (renaming changes nothing there).
+    updateCategory(db, editor, team, { name: 'Team', visibility: 'all' })
+    const order = listCategories(db, editor).filter(row => row.parentId === null).map(row => row.id)
+    expect(order.indexOf(kinder)).toBeLessThan(order.indexOf(team))
+    const choices = templateChoices(db, 1, 'child', leitung)
+    expect(choices.map(choice => choice.category)).toEqual(['Kinder', 'Kinder › Krippe', 'Team', null])
     expect(choices.some(choice => choice.id === stopped)).toBe(false)
-    // The child record's picker gets the same list.
     const child = addChild(db, 1)
     expect(listChildForms(db, asChildViewer(leitung), child, now).templates.map(template => template.id))
       .toEqual(choices.map(choice => choice.id))
-    expect([late, sub, inTeam].every(id => choices.some(choice => choice.id === id))).toBe(true)
-    // A category's own list („Allgemein“) and its subcategory's are separate lists for ▲/▼.
-    const own = make('Eigen', 'child', kinder)
-    const kinderList = listTemplates(db, 1).filter(template => !template.archived && template.categoryId === kinder && template.subcategoryId === null)
-      .map(template => template.id)
-    expect(errorCode(() => orderTemplates(db, 1, kinder, [...kinderList, sub]))).toBe('invalid_order')
-    expect(errorCode(() => orderTemplates(db, 1, krippe, [sub, own]))).toBe('invalid_order')
-    orderTemplates(db, 1, kinder, [...kinderList].reverse())
-    expect(listTemplates(db, 1).filter(template => !template.archived && template.categoryId === kinder && template.subcategoryId === null)
-      .map(template => template.id)).toEqual([...kinderList].reverse())
-  })
-
-  it('answers a clash of the unique index (two requests at once) as 409 form_category_name_taken', () => {
-    // As if another request had stored the name between the check and the write: the index refuses it.
-    db.run(sql`CREATE TRIGGER clash BEFORE INSERT ON form_template_categories WHEN NEW.name = 'Doppelt'
-      BEGIN SELECT RAISE(ABORT, 'UNIQUE constraint failed: form_template_categories.facility_id'); END`)
-    expect(errorCode(() => createFormCategory(db, 1, { name: 'Doppelt' }))).toBe('form_category_name_taken')
   })
 })

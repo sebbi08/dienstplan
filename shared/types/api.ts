@@ -840,8 +840,13 @@ export interface TemplateCategoryDto {
   parentId: number | null
   name: string
   visibility: TemplateVisibility
-  /** The facility's own templates filed directly in it; while there are any it cannot be deleted. */
+  /** The facility's own PDF templates filed directly in it; while there are any it cannot be deleted. */
   templateCount: number
+  /**
+   * The Bögen (form templates, also stopped ones) filed directly in it, for whoever manages them (formTemplates.manage;
+   * 0 for everyone else); while there are any it cannot be deleted either.
+   */
+  formCount: number
   /**
    * The Träger's templates for all facilities shown directly in it (by its name) that the viewer sees: they move to „Vom
    * Träger“ (from a subcategory: into its category) when it is deleted or renamed (the confirmations name them).
@@ -902,6 +907,11 @@ export interface PrintTemplateDto {
   canEdit: boolean
   /** A PDF form with fields to fill in the app („Ausfüllen“). */
   fillable: boolean
+  /**
+   * Its place in its list of the facility, numbered together with the Bögen there (shared/domain/templateEntries.ts);
+   * null for a template of before that was never ordered (after the placed ones, by title).
+   */
+  place: number | null
   /** „Gilt für“, for Leitung, Träger and whoever may change it (null for everyone else). */
   targets: DocumentTargetsDto | null
 }
@@ -3583,26 +3593,14 @@ export interface FormTemplateDto {
   updatedBy: string
   /** Forms were made from it (then it can only be archived, not deleted). */
   inUse: boolean
-  /** The facility's category it is filed in (the top one; null = none) and its subcategory (null = directly in it). */
+  /**
+   * The facility's category of „Vorlagen“ it is filed in (template_categories, shared with the PDF templates; the top
+   * one; null = none) and its subcategory (null = directly in it).
+   */
   categoryId: number | null
   subcategoryId: number | null
   /** „Kategorie › Unterkategorie“; null without a category. */
   category: string | null
-}
-
-/** A category of the facility's form templates (Dokumente → Bögen), or with `parentId` a subcategory of one. */
-export interface FormTemplateCategoryDto {
-  id: number
-  parentId: number | null
-  name: string
-  /** How many templates (also stopped ones) are filed directly in it. */
-  templateCount: number
-}
-
-/** A new category (with `parentId`: a subcategory of that category) or a new name. */
-export interface FormTemplateCategoryInput {
-  name: string
-  parentId?: number | null
 }
 
 export type TalkFormRole = 'self' | 'assessment'

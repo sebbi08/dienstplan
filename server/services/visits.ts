@@ -129,8 +129,8 @@ function countsOf(db: Db, kind: VisitKind, ids: number[]): { documents: Map<numb
   }
 }
 
-function activeTemplates(db: Db, facilityId: number, kind: VisitKind): TemplateChoice[] {
-  return templateChoices(db, facilityId, kind)
+function activeTemplates(db: Db, actor: VisitActor, kind: VisitKind): TemplateChoice[] {
+  return templateChoices(db, actor.facilityId, kind, actor)
 }
 
 // ---- info visits ------------------------------------------------------------------------------------------
@@ -204,7 +204,7 @@ export function getInfoVisit(db: Db, actor: VisitActor, id: number, today: IsoDa
     createdBy: row.createdBy === null ? null : names.get(row.createdBy) ?? null,
     updatedBy: row.updatedBy === null ? null : names.get(row.updatedBy) ?? null,
     documents: documentsOf(db, 'info', row.id), forms: formListOf(db, 'info', row.id),
-    templates: activeTemplates(db, actor.facilityId, 'info'), staff: staffOf(db, actor.facilityId, today),
+    templates: activeTemplates(db, actor, 'info'), staff: staffOf(db, actor.facilityId, today),
   }
 }
 
@@ -394,7 +394,7 @@ export function getApplicant(db: Db, actor: VisitActor, id: number, today: IsoDa
     createdBy: row.createdBy === null ? null : names.get(row.createdBy) ?? null,
     updatedBy: row.updatedBy === null ? null : names.get(row.updatedBy) ?? null,
     documents: documentsOf(db, 'applicant', row.id), forms: formListOf(db, 'applicant', row.id),
-    templates: manager ? activeTemplates(db, actor.facilityId, 'applicant') : [],
+    templates: manager ? activeTemplates(db, actor, 'applicant') : [],
     staff: manager ? staffOf(db, actor.facilityId, today) : [],
     canManage: manager,
   }
@@ -614,7 +614,7 @@ export function deleteVisitDocument(db: Db, actor: VisitActor, documentId: numbe
  */
 export function createVisitForm(db: Db, actor: VisitActor, kind: VisitKind, id: number, templateId: number, now: Date = new Date()): number {
   assertManager(actor)
-  const template = loadTemplate(db, actor.facilityId, templateId)
+  const template = loadTemplate(db, actor.facilityId, templateId, actor)
   if (template.kind !== kind) throw new ServiceError(404, 'form_template_not_found')
   if (template.archived) throw new ServiceError(409, 'form_template_archived')
   const at = now.toISOString()

@@ -3,37 +3,44 @@ import type { PermissionKey } from '#shared/domain/permissions'
 import type { Role } from '#shared/types/api'
 
 /**
- * „Dokumente“ (/documents): the form templates („Bögen“, formTemplates.manage) and the blank forms to print („Zum Ausdrucken“,
- * printTemplates.view; the tablet without a permission of its own) and „Wissen“ (knowledge.view: every account and the
- * tablet), each a tab. `?tab=forms|templates|knowledge` opens one; the former tab „Unterschriften“ (`?tab=signatures`)
- * is a tab of Mitarbeitende now (the page sends there, app/utils/areaTabs.ts).
+ * „Dokumente“ (/documents): „Vorlagen“ – the Bögen (formTemplates.manage) and the PDF templates (printTemplates.view; the
+ * tablet without a permission of its own) side by side in the facility's categories, each seen with its own right – and
+ * „Wissen“ (knowledge.view: every account and the tablet), each a tab. `?tab=templates|knowledge` opens one; the
+ * former tabs „Bögen“ (`?tab=forms`) and „Zum Ausdrucken“ (`templates`) open „Vorlagen“, the former tab „Unterschriften“
+ * (`?tab=signatures`) is a tab of Mitarbeitende now (the page sends there, app/utils/areaTabs.ts).
  */
-export const DOCUMENT_TABS = ['forms', 'templates', 'knowledge'] as const
+export const DOCUMENT_TABS = ['templates', 'knowledge'] as const
 export type DocumentTab = typeof DOCUMENT_TABS[number]
 
-const TAB_KEYS: Record<DocumentTab, PermissionKey> = {
-  forms: 'formTemplates.manage', templates: 'printTemplates.view', knowledge: 'knowledge.view',
-}
+/** The former tab keys and the tab that replaced them (old links and bookmarks). */
+const FORMER_TABS: Record<string, DocumentTab> = { forms: 'templates' }
 
 export interface DocumentsViewer {
   role: Role
   can: (key: PermissionKey) => boolean
 }
 
-/** The tabs the viewer may use, in their order; the tablet has the print templates and „Wissen“ (read only). */
-export function documentTabs(viewer: DocumentsViewer): DocumentTab[] {
-  if (viewer.role === 'terminal') return ['templates', 'knowledge']
-  return DOCUMENT_TABS.filter(tab => viewer.can(TAB_KEYS[tab]))
+/** Whether the viewer may use the tab: „Vorlagen“ with either kind's right, „Wissen“ with knowledge.view. */
+function mayUse(viewer: DocumentsViewer, tab: DocumentTab): boolean {
+  if (tab === 'templates') return viewer.can('printTemplates.view') || viewer.can('formTemplates.manage')
+  return viewer.can('knowledge.view')
 }
 
-/** The tab `?tab=` asks for when the viewer may use it, else the first one they may. */
+/** The tabs the viewer may use, in their order; the tablet has „Vorlagen“ (the PDF templates) and „Wissen“ (read only). */
+export function documentTabs(viewer: DocumentsViewer): DocumentTab[] {
+  if (viewer.role === 'terminal') return ['templates', 'knowledge']
+  return DOCUMENT_TABS.filter(tab => mayUse(viewer, tab))
+}
+
+/** The tab `?tab=` asks for (a former key: the tab that replaced it) when the viewer may use it, else the first one they may. */
 export function chosenDocumentTab(requested: unknown, tabs: readonly DocumentTab[]): DocumentTab | null {
-  return tabs.find(tab => tab === requested) ?? tabs[0] ?? null
+  const wanted = typeof requested === 'string' ? FORMER_TABS[requested] ?? requested : requested
+  return tabs.find(tab => tab === wanted) ?? tabs[0] ?? null
 }
 
 /**
- * Where an old address leads (/templates → „Zum Ausdrucken“, /admin/forms → „Bögen“): /documents with that tab, keeping the
- * other query values and the anchor.
+ * Where an old address leads (/templates and /admin/forms → „Vorlagen“): /documents with that tab, keeping the other
+ * query values and the anchor.
  */
 export function documentsLocation(tab: DocumentTab, from: { query: LocationQuery; hash: string }): RouteLocationRaw {
   return { path: '/documents', query: { ...from.query, tab }, hash: from.hash }

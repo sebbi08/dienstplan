@@ -7,9 +7,10 @@ import {
   categoryPlacer, compareSpots, seesAll, seesCategoryNode, spotVisibilities, stricterVisibility, visibleTemplateLevels, type CategorySpot,
   type TemplateVisibility,
 } from '../../shared/domain/templateCategories'
+import { entryKey, mergeEntries, type PlacedEntry, type TemplateEntryType } from '../../shared/domain/templateEntries'
 import type { PrintTemplateDto, PrintTemplateMeta, PrintTemplateScope, Role, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { printTemplateOrder, printTemplates } from '../db/schema'
+import { formTemplates, printTemplateOrder, printTemplates } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
@@ -155,25 +156,64 @@ function placedTemplates(db: Db, facilityId: number, audience: Audience, orphans
 /** Everyone, for the order: every template for the facility counts, visible or not. */
 const EVERYONE: Audience = { role: 'provider', homeGroupId: null }
 
-/** Numbers the facility's sub-tab afresh in the given order (0, 1, …). */
-function writeOrder(db: Db, facilityId: number, ids: readonly number[]): void {
-  ids.forEach((templateId, sortOrder) => {
-    db.insert(printTemplateOrder).values({ facilityId, templateId, sortOrder })
+/** An entry of one of the facility's lists (shared/domain/templateEntries.ts): a PDF template with its placing, or a Bogen. */
+type ListEntry = PlacedEntry & ({ type: 'pdf'; placed: Placed } | { type: 'form'; archived: boolean })
+
+/**
+ * Every entry of one list of the facility in its order – both kinds, also those the viewer does not see (`placed.visible`)
+ * and stopped Bögen –: a subcategory, the entries directly in a category (by the category's id), or for null either „Vom
+ * Träger“ (`nullList` 'pdf': the Träger's templates without a category of their name here) or the Bögen without a
+ * category ('form'), the two lists that hold one kind only.
+ */
+export function listEntries(
+  db: Db, facilityId: number, groupId: number | null, nullList: TemplateEntryType = 'pdf', audience: Audience = EVERYONE, orphans = false,
+): ListEntry[] {
+  const pdfs: ListEntry[] = groupId === null && nullList === 'form'
+    ? []
+    : placedTemplates(db, facilityId, audience, orphans).filter(entry => entry.placement.groupId === groupId)
+        .map(entry => ({ type: 'pdf', id: entry.row.id, place: entry.order ?? null, placed: entry }))
+  const forms: ListEntry[] = groupId === null && nullList === 'pdf'
+    ? []
+    : db.select({ id: formTemplates.id, archived: formTemplates.archived, sortOrder: formTemplates.sortOrder }).from(formTemplates)
+        .where(and(eq(formTemplates.facilityId, facilityId), groupId === null ? isNull(formTemplates.categoryId) : eq(formTemplates.categoryId, groupId)))
+        .all().sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
+        .map(row => ({ type: 'form', id: row.id, place: row.sortOrder, archived: row.archived }))
+  return mergeEntries(pdfs, forms)
+}
+
+/** Numbers one list of the facility afresh in the given order (0, 1, …): a PDF's place here, a Bogen's sort order. */
+function writeEntries(db: Db, facilityId: number, entries: readonly Pick<PlacedEntry, 'type' | 'id'>[]): void {
+  entries.forEach((entry, sortOrder) => {
+    if (entry.type === 'form') {
+      db.update(formTemplates).set({ sortOrder }).where(and(eq(formTemplates.id, entry.id), eq(formTemplates.facilityId, facilityId))).run()
+      return
+    }
+    db.insert(printTemplateOrder).values({ facilityId, templateId: entry.id, sortOrder })
       .onConflictDoUpdate({ target: [printTemplateOrder.facilityId, printTemplateOrder.templateId], set: { sortOrder } }).run()
   })
 }
 
 /**
- * Puts the template at the end of its sub-tab in the facility (a new upload, filed elsewhere, or newly for this
- * facility). The others keep the order they show in, so those of before without a place get one (else they would sort
- * after the new one).
+ * Puts the entry at the end of its list in the facility (a new upload or Bogen, a copy, filed elsewhere, or newly for
+ * this facility). The others keep the order they show in, so those of before without a place (or with one from 0133)
+ * get one (else they would sort after the new one). A Bogen's list is the category row it is filed in (null: the Bögen
+ * without a category); a PDF template's where it shows in the facility (nowhere: nothing happens).
  */
-function appendToSubTab(db: Db, facilityId: number, templateId: number): void {
-  const placed = placedTemplates(db, facilityId, EVERYONE)
-  const self = placed.find(entry => entry.row.id === templateId)
-  if (!self) return
-  const others = placed.filter(entry => entry.row.id !== templateId && entry.placement.groupId === self.placement.groupId)
-  writeOrder(db, facilityId, [...others.map(entry => entry.row.id), templateId])
+export function appendEntry(db: Db, facilityId: number, entry: Pick<PlacedEntry, 'type' | 'id'>): void {
+  let groupId: number | null
+  if (entry.type === 'form') {
+    const row = db.select({ categoryId: formTemplates.categoryId }).from(formTemplates)
+      .where(and(eq(formTemplates.id, entry.id), eq(formTemplates.facilityId, facilityId))).get()
+    if (!row) return
+    groupId = row.categoryId
+  }
+  else {
+    const self = placedTemplates(db, facilityId, EVERYONE).find(placed => placed.row.id === entry.id)
+    if (!self) return
+    groupId = self.placement.groupId
+  }
+  const others = listEntries(db, facilityId, groupId, entry.type).filter(other => other.type !== entry.type || other.id !== entry.id)
+  writeEntries(db, facilityId, [...others, entry])
 }
 
 /** Where the template shows in each facility it is for: facility → its list there (undefined = nowhere). */
@@ -250,7 +290,7 @@ export function uploadTemplate(
     // Asked for: its category (and subcategory) where it is missing, so it shows there.
     if (input.createCategories && !own) createMissingCategories(tx, 'template', actor.facilityId, shownIn, filing.categoryName ?? '', filing.subcategoryName)
     // At the end of its category, in every facility it shows in.
-    for (const facility of shownIn) appendToSubTab(tx, facility, id)
+    for (const facility of shownIn) appendEntry(tx, facility, { type: 'pdf', id })
     return id
   })
 }
@@ -265,7 +305,7 @@ export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[
   const placed = placedTemplates(db, viewer.facilityId, audienceOf(viewer), can(permissions, 'printTemplates.global'))
     .filter(({ placement }) => placement.visible)
   const names = placed.length > 0 ? targetNames(db) : null
-  return placed.map(({ row, placement, targets }) => {
+  return placed.map(({ row, placement, targets, order }) => {
     const canEdit = mayEdit(permissions, row)
     return {
       id: row.id,
@@ -286,6 +326,7 @@ export function listTemplates(db: Db, viewer: TemplateViewer): PrintTemplateDto[
       canEdit,
       // Judged when the file was stored; a template of before not judged yet (null) offers no „Ausfüllen“ yet.
       fillable: row.fillable === true,
+      place: order ?? null,
       targets: (canEdit || seesAllGroups(viewer.role)) && targets && names ? targetsDto(row, targets, viewer.facilityId, names, canEdit) : null,
     }
   })
@@ -370,7 +411,7 @@ export function updateTemplate(db: Db, actor: TemplateActor, id: number, meta: P
     }
     const after = subTabsOf(tx, { ...row, facilityId, ...filing, allFacilities: targets.allFacilities })
     for (const [shownIn, subTab] of after) {
-      if (!before.has(shownIn) || before.get(shownIn) !== subTab) appendToSubTab(tx, shownIn, id)
+      if (!before.has(shownIn) || before.get(shownIn) !== subTab) appendEntry(tx, shownIn, { type: 'pdf', id })
     }
     const losing = facilitiesLosing([...before.keys()], [...after.keys()], [])
     if (losing.length > 0) {
@@ -380,29 +421,39 @@ export function updateTemplate(db: Db, actor: TemplateActor, id: number, meta: P
 }
 
 /**
- * The new order of a list of the actor's facility – a subcategory, the templates directly in a category („Allgemein“,
- * by the category's id; a category without subcategories has only this list), or null for „Vom Träger“ – of a category
- * they see, as the editor sees it: exactly the templates of the list the actor sees, each once (else 400
- * invalid_order). Templates the actor does not see keep their places in between. For a template of the Träger this is
- * the order of this facility alone; the Leitung may order them too (printTemplates.edit, else 403).
+ * The new order of a list of the actor's facility on „Vorlagen“ (▲/▼) – a subcategory, the entries directly in a category
+ * („Allgemein“, by the category's id; a category without subcategories has only this list) of a category they see, or
+ * null for „Vom Träger“ (PDF templates) or the Bögen without a category (as the entries say) –, as the editor sees it:
+ * exactly the entries of the list the actor may move, each once (else 400 invalid_order). The actor moves the PDF
+ * templates they see with printTemplates.edit (for a template of the Träger the order of this facility alone; the
+ * Leitung may order them too) and the active Bögen with formTemplates.manage; without either right 403. Every other
+ * entry – hidden, stopped, or of the other kind – keeps its place in between. The whole list is numbered afresh.
  */
-export function orderTemplates(db: Db, actor: TemplateActor, categoryId: number | null, ids: readonly number[]): void {
-  if (!can(actor.permissions, 'printTemplates.edit')) throw new ServiceError(403, 'forbidden')
+export function orderEntries(
+  db: Db, actor: TemplateActor, categoryId: number | null, entries: readonly Pick<PlacedEntry, 'type' | 'id'>[],
+): void {
+  const movesPdf = can(actor.permissions, 'printTemplates.edit')
+  const movesForms = can(actor.permissions, 'formTemplates.manage')
+  if (!movesPdf && !movesForms) throw new ServiceError(403, 'forbidden')
   if (categoryId !== null) {
     const all = facilityCategories(db, actor.facilityId)
     const category = all.find(row => row.id === categoryId)
     if (!category || !seesCategoryNode(actor.role, category, all)) throw new ServiceError(404, 'template_category_not_found')
   }
-  const subTab = placedTemplates(db, actor.facilityId, audienceOf(actor), can(actor.permissions, 'printTemplates.global'))
-    .filter(entry => entry.placement.groupId === categoryId)
-  const visible = new Set(subTab.filter(entry => entry.placement.visible).map(entry => entry.row.id))
-  if (ids.length !== visible.size || new Set(ids).size !== ids.length || !ids.every(id => visible.has(id))) {
+  const types = new Set(entries.map(entry => entry.type))
+  if (categoryId === null && types.size > 1) throw new ServiceError(400, 'invalid_order')
+  const nullList: TemplateEntryType = types.has('form') ? 'form' : 'pdf'
+  const list = listEntries(db, actor.facilityId, categoryId, nullList, audienceOf(actor), can(actor.permissions, 'printTemplates.global'))
+  const movable = (entry: ListEntry) => (entry.type === 'pdf' ? movesPdf && entry.placed.placement.visible : movesForms && !entry.archived)
+  const keys = new Set(list.filter(movable).map(entryKey))
+  const sent = entries.map(entryKey)
+  if (sent.length !== keys.size || new Set(sent).size !== sent.length || !sent.every(key => keys.has(key))) {
     throw new ServiceError(400, 'invalid_order')
   }
-  // The visible ones take the visible places in the new order, the hidden ones stay put.
+  // The movable ones take the movable places in the new order, the others stay put.
   let next = 0
-  const order = subTab.map(entry => (entry.placement.visible ? ids[next++]! : entry.row.id))
-  db.transaction(tx => writeOrder(tx, actor.facilityId, order))
+  const order = list.map(entry => (movable(entry) ? entries[next++]! : entry))
+  db.transaction(tx => writeEntries(tx, actor.facilityId, order))
 }
 
 /** A new file for the template (same id, title and category). */

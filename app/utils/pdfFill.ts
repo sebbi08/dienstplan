@@ -5,7 +5,7 @@ import type { ChildDocumentMeta, DocumentTypeDto, EmployeeDocumentMeta } from '#
 import { formatDate } from '~/utils/format'
 
 /**
- * „Ausfüllen“ of PDFs in the app (Dokumente → Zum Ausdrucken, child record, personnel file): who the filled copy can go to
+ * „Ausfüllen“ of PDFs in the app (Dokumente → Vorlagen, child record, personnel file): who the filled copy can go to
  * and the requests that save it. The fill view itself (pdf.js) is app/components/pdf/FillDialog.vue.
  */
 

@@ -165,7 +165,7 @@ export function listChildForms(db: Db, viewer: ChildViewer, childId: number, now
   const canCreate = !child.archived && canCreateChildForm(asRightViewer(viewer, child), { keyEducatorId: child.row.keyEducatorId })
   // The tablet cannot read the template list itself (managers only), so whoever may start a form gets the choice here.
   const templates = canCreate
-    ? templateChoices(db, viewer.facilityId, 'child')
+    ? templateChoices(db, viewer.facilityId, 'child', viewer)
     : []
   return {
     forms: rows.map(row => toListItem(row, access(viewer, child, row, editors.get(row.id)!), viewer, child)),
@@ -235,7 +235,7 @@ export function createChildForm(
   if (!canCreateChildForm(asRightViewer(viewer, child), { keyEducatorId: child.row.keyEducatorId })) {
     throw new ServiceError(403, 'forbidden')
   }
-  const template = loadTemplate(db, viewer.facilityId, input.templateId)
+  const template = loadTemplate(db, viewer.facilityId, input.templateId, viewer)
   if (template.kind !== 'child') throw new ServiceError(404, 'form_template_not_found')
   if (template.archived) throw new ServiceError(409, 'form_template_archived')
   let header: Header

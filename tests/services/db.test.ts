@@ -2409,7 +2409,8 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
 
   it('0108 gives a new database the default categories of a new facility, the two folders first', () => {
     const { db, sqlite } = createDb(':memory:')
-    migrateDb(db, MIGRATIONS)
+    // Up to 0132: since 0133_one_template_library the example categories of the Bögen follow them (tested there).
+    migrateThrough(db, '0132')
     expect(sqlite.prepare('SELECT facility_id, name, visibility FROM template_categories ORDER BY sort_order, id').all())
       .toEqual(DEFAULT_TEMPLATE_CATEGORIES.map(name => ({ facility_id: 1, name, visibility: 'all' })))
     expect(DEFAULT_TEMPLATE_CATEGORIES).toEqual(['Eingewöhnungsmappe', 'Mitarbeitermappe', 'Eltern', 'Gesundheit', 'Personal'])

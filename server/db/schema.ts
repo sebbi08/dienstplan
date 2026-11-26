@@ -1434,7 +1434,9 @@ export const groupBookChanges = sqliteTable('group_book_changes', {
 }, table => [index('group_book_changes_group_date').on(table.groupId, table.date)])
 
 /**
- * A category of print templates of one facility (one list for all facilities before 0108_facility_template_categories),
+ * A category of „Dokumente“ → „Vorlagen“ of one facility (one list for all facilities before
+ * 0108_facility_template_categories), holding the PDF templates and, since 0133_one_template_library, the Bögen
+ * (form_templates.category_id; „Wer sieht sie?“ applies to both),
  * in `sortOrder` among its siblings. One level of subcategories (0115_subcategories): a subcategory names its category in
  * `parentId` (a category of the same facility without a parent of its own); a category is deleted only without
  * subcategories. The name is unique per facility and parent regardless of case; `visibility` says who sees the category
@@ -1505,10 +1507,11 @@ export const printTemplateTargetGroups = sqliteTable('print_template_target_grou
 }, table => [primaryKey({ columns: [table.templateId, table.groupId] }), index('print_template_target_groups_group').on(table.groupId)])
 
 /**
- * The order of the templates within a facility's sub-tab of „Dokumente“ → „Zum Ausdrucken“ (▲/▼), one row per facility and
- * template: a template for all facilities shows in every facility and each orders it on its own. Within a sub-tab the
+ * The order of the PDF templates within a facility's list of „Dokumente“ → „Vorlagen“ (▲/▼), one row per facility and
+ * template: a template for all facilities shows in every facility and each orders it on its own. Within a list the
  * templates with a row come first by `sortOrder`, those without one after them by title (so a template of before stays
- * where it was). Gone with the facility or the template.
+ * where it was). The Bögen of the list are numbered together with them (form_templates.sort_order, see
+ * shared/domain/templateEntries.ts). Gone with the facility or the template.
  */
 export const printTemplateOrder = sqliteTable('print_template_order', {
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
@@ -1642,13 +1645,15 @@ export const cashLog = sqliteTable('cash_log', {
  * `content` is JSON FormContent (sections and items with stable ids, see shared/domain/forms.ts). `starterKey` marks a
  * starter template created by the app (null for the facility's own templates and for copies). `selfAssessment`: filled
  * in by the employee. `subject`: whom an accident template's forms are about (null for the other kinds). `updatedBy` is
- * the name at the time ('' for the starters). `categoryId`: the facility's category or subcategory it is filed in (null =
- * none); `sortOrder` is its place within that list.
+ * the name at the time ('' for the starters). `categoryId`: the facility's category or subcategory of „Dokumente“ →
+ * „Vorlagen“ it is filed in (template_categories, shared with the PDF templates since 0133_one_template_library; null =
+ * none). `sortOrder` is its place within that list, numbered together with the PDF templates' places there
+ * (print_template_order, see shared/domain/templateEntries.ts).
  */
 export const formTemplates = sqliteTable('form_templates', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
-  categoryId: integer('category_id').references((): AnySQLiteColumn => formTemplateCategories.id, { onDelete: 'set null' }),
+  categoryId: integer('category_id').references(() => templateCategories.id, { onDelete: 'set null' }),
   kind: text('kind', { enum: FORM_KIND_VALUES }).notNull(),
   subject: text('subject', { enum: ['child', 'employee'] }),
   name: text('name').notNull(),
@@ -1665,23 +1670,6 @@ export const formTemplates = sqliteTable('form_templates', {
 }, table => [
   index('form_templates_facility_kind').on(table.facilityId, table.kind),
   index('form_templates_category').on(table.categoryId),
-])
-
-/**
- * A category of the facility's form templates (Dokumente → Bögen, server/services/formTemplateCategories.ts), or with
- * `parentId` a subcategory of one (one level). The name is unique among its siblings regardless of case; only an empty
- * category without subcategories may be deleted (the service checks).
- */
-export const formTemplateCategories = sqliteTable('form_template_categories', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  facilityId: integer('facility_id').notNull().references(() => facilities.id, { onDelete: 'cascade' }),
-  parentId: integer('parent_id').references((): AnySQLiteColumn => formTemplateCategories.id),
-  name: text('name').notNull(),
-  sortOrder: integer('sort_order').notNull().default(0),
-}, table => [
-  uniqueIndex('form_template_categories_facility_parent_name')
-    .on(table.facilityId, sql`(case when ${table.parentId} is null then 0 else ${table.parentId} end)`, sql`lower(${table.name})`),
-  index('form_template_categories_parent').on(table.parentId),
 ])
 
 /**

@@ -1,8 +1,11 @@
-import type { FormTemplateCategoryDto } from '../../../shared/types/api'
-import { listFormCategories } from '../../services/formTemplateCategories'
+import { listCategories } from '../../services/templateCategories'
 
-/** The categories and subcategories of the facility's form templates (Dokumente → Bögen), in their order. */
-export default defineServiceHandler(async (event): Promise<FormTemplateCategoryDto[]> => {
+/**
+ * The categories of „Vorlagen“ (shared by the Bögen and the PDF templates) for whoever manages the Bögen, to file them:
+ * those of the facility the viewer's role sees, with how many Bögen lie in each. Whoever may see the PDF templates
+ * reads them at /api/template-categories; this is for an account with Bögen but without that right.
+ */
+export default defineServiceHandler(async (event) => {
   const admin = await requirePermission(event, 'formTemplates.manage')
-  return listFormCategories(useDb(), admin.facilityId)
+  return listCategories(useDb(), admin)
 })

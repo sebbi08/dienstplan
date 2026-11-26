@@ -6,9 +6,10 @@ import { seedDefaults } from '../../server/db/seed'
 import { createFacility } from '../../server/services/facilities'
 import { exampleCategoryOf } from '../../server/services/formTemplateCategories'
 import {
-  copyTemplate, createTemplate, deleteTemplate, listTemplates, orderTemplates, seedPendingStarterTemplates, seedStarterTemplates,
+  copyTemplate, createTemplate, deleteTemplate, listTemplates, seedPendingStarterTemplates, seedStarterTemplates,
   updateTemplate, withFormErrors,
 } from '../../server/services/formTemplates'
+import { orderEntries } from '../../server/services/printTemplates'
 import { listTeamMeetings } from '../../server/services/teamMeetings'
 import type { ServiceError } from '../../server/lib/errors'
 import { checkContent, FormError, type FormContent } from '../../shared/domain/forms'
@@ -455,6 +456,9 @@ describe('form template order (▲/▼ within a category)', () => {
   const idsOf = (...wanted: string[]) => wanted.map(name => listTemplates(db, facility).find(template => template.name === name)!.id)
   const createIn = (name: string, kind: 'staff' | 'child' | 'team', categoryId: number | null) =>
     createTemplate(db, leitung, facility, { kind, name, selfAssessment: false, categoryId }, now)
+  /** ▲/▼ on „Vorlagen“ by the Leitung, here for Bögen only (the lists hold no PDF templates). */
+  const orderTemplates = (_db: Db, facilityId: number, categoryId: number | null, ids: readonly number[]) =>
+    orderEntries(db, { ...leitung, facilityId }, categoryId, ids.map(id => ({ type: 'form' as const, id })))
 
   it('stores the new order of the active templates of a category; the pickers list them in it', () => {
     for (const name of ['Erste', 'Zweite', 'Dritte']) createIn(name, 'team', team)
@@ -462,7 +466,7 @@ describe('form template order (▲/▼ within a category)', () => {
     orderTemplates(db, facility, team, idsOf('Dritte', 'Kind', 'Erste', 'Zweite'))
     expect(names(team)).toEqual(['Dritte', 'Kind', 'Erste', 'Zweite'])
     // The picker still filters by kind, in the category's order.
-    const member = { facilityId: facility, name: 'Leitung', manager: true, left: false, employeeId: null }
+    const member = { facilityId: facility, role: 'admin' as const, name: 'Leitung', manager: true, left: false, employeeId: null }
     expect(listTeamMeetings(db, member, { year: 2026 }, now).templates).toEqual([
       { id: idsOf('Dritte')[0], name: 'Dritte', category: 'Team' }, { id: idsOf('Erste')[0], name: 'Erste', category: 'Team' },
       { id: idsOf('Zweite')[0], name: 'Zweite', category: 'Team' },
@@ -506,11 +510,11 @@ describe('form template order (▲/▼ within a category)', () => {
     const [a, b] = ['A', 'B'].map(name => createIn(name, 'team', team))
     const elsewhere = createIn('Woanders', 'child', null)
     const foreign = create('Fremd', 'team', 1)
-    for (const ids of [[a!], [a!, b!, b!], [a!, b!, elsewhere], [a!, b!, foreign], [b!, foreign], []]) {
+    for (const ids of [[a!], [a!, b!, b!], [a!, b!, elsewhere], [a!, b!, foreign], [b!, foreign]]) {
       expect(errorCode(() => orderTemplates(db, facility, team, ids)), JSON.stringify(ids)).toBe('invalid_order')
     }
     // Another facility's category is no list of this one.
-    expect(errorCode(() => orderTemplates(db, facility, exampleCategoryOf(db, 1, 'team')!, [a!, b!]))).toBe('form_category_invalid')
+    expect(errorCode(() => orderTemplates(db, facility, exampleCategoryOf(db, 1, 'team')!, [a!, b!]))).toBe('template_category_not_found')
     expect(names(team)).toEqual(['A', 'B'])
   })
 })

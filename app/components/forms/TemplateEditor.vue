@@ -3,29 +3,27 @@ import {
   FORM_LIMITS, ITEM_KINDS, addItem, addSection, moveItem, moveSection, removeItem, removeSection,
   type FormContent, type FormItem, type FormKind, type ItemDraft, type ItemKind,
 } from '#shared/domain/forms'
-import type { FormTemplateCategoryDto, FormTemplateDto } from '#shared/types/api'
+import type { FormTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage, errorTextOf } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
 
 /**
- * Dokumente → Bögen: the list of the facility's form templates by its own categories (TemplateLibrary.vue: create, copy,
- * move, archive, delete, order with ▲/▼ within a category – the pickers for new forms list them in that order) and the
- * editor of one template (sections and items with arrows, inline texts, the options of a choices item). The editor works
- * on a local copy and sends the whole content with „Vorlage speichern“; the server checks it and answers in German.
- * An item's kind cannot change (delete it and add a new one).
+ * „Dokumente“ → „Vorlagen“, the editor of one Bogen (form template), opened from the list (templates/Library.vue):
+ * sections and items with arrows, inline texts, the options of a choices item. It works on a local copy and sends the
+ * whole content with „Vorlage speichern“; the server checks it and answers in German. An item's kind cannot change
+ * (delete it and add a new one). „Zurück zur Liste“ asks first while there are unsaved changes, then emits `close`.
+ * `templates` is the list as loaded (refreshed with `refresh`), so a save shows the server's copy.
  */
-const { data: templates, refresh: refreshTemplates } = await useFetch<FormTemplateDto[]>('/api/form-templates', { default: () => [] })
-const { data: categoryData, refresh: refreshCategories } = await useFetch<FormTemplateCategoryDto[]>('/api/form-template-categories', { default: () => [] })
-const categories = computed(() => categoryData.value ?? [])
-const refresh = () => Promise.all([refreshTemplates(), refreshCategories()])
+const props = defineProps<{ templates: FormTemplateDto[]; templateId: number; refresh: () => Promise<unknown> }>()
+const emit = defineEmits<{ close: [] }>()
+const refresh = () => props.refresh()
 const confirm = useConfirm()
 const toast = useToast()
 
 // ---- editor -------------------------------------------------------------
 interface Draft { name: string; selfAssessment: boolean; content: FormContent }
-const editingId = ref<number | null>(null)
-const editing = computed(() => (templates.value ?? []).find(template => template.id === editingId.value) ?? null)
+const editing = computed(() => props.templates.find(template => template.id === props.templateId) ?? null)
 /** The kind of the template being edited (only a Mitarbeitergespräch has „vom Mitarbeiter auszufüllen“). */
 const kind = computed<FormKind>(() => editing.value?.kind ?? 'staff')
 const draft = ref<Draft | null>(null)
@@ -52,16 +50,11 @@ async function reloadDraft() {
   await refresh()
   if (editing.value) loadDraft(editing.value)
 }
-function openEditor(id: number) {
-  const template = (templates.value ?? []).find(entry => entry.id === id)
-  if (!template) return
-  editingId.value = id
-  loadDraft(template)
-}
+if (editing.value) loadDraft(editing.value)
 async function closeEditor() {
   if (dirty.value && !await confirm(de.settingsAreas.unsavedConfirm, { confirmLabel: de.settingsAreas.unsavedLeave })) return
-  editingId.value = null
   draft.value = null
+  emit('close')
 }
 async function discard() {
   if (editing.value) loadDraft(editing.value)
@@ -142,11 +135,8 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
 
 <template>
   <div class="min-w-0 space-y-3">
-    <!-- The list: the facility's categories as tabs (TemplateLibrary.vue). -->
-    <FormsTemplateLibrary v-if="!draft" :templates="templates ?? []" :categories="categories" :refresh="refresh" @open="openEditor" />
-
     <!-- The editor of one template -->
-    <form v-else class="space-y-3 rounded-lg bg-white p-3 ring-1 ring-gray-200 sm:p-4" @submit.prevent="save">
+    <form v-if="draft" class="space-y-3 rounded-lg bg-white p-3 ring-1 ring-gray-200 sm:p-4" @submit.prevent="save">
       <div class="flex flex-wrap items-center gap-2">
         <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-arrow-left" :label="de.forms.back" @click="closeEditor" />
         <span class="text-sm text-gray-500">{{ de.forms.kinds[kind] }}<template v-if="editing?.subject"> · {{ de.forms.subjectBadge(de.forms.subjects[editing.subject]) }}</template></span>

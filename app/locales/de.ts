@@ -29,7 +29,7 @@ const generalMoves = (count: number) => (count === 1
 const providerContactMoves = (count: number) => (count === 1
   ? 'Der 1 Kontakt des Trägers darin steht danach unter „Vom Träger“ – sichtbar für alle, für die der Träger ihn freigegeben hat.'
   : `Die ${count} Kontakte des Trägers darin stehen danach unter „Vom Träger“ – sichtbar für alle, für die der Träger sie freigegeben hat.`)
-/** „Wer sieht sie?“ of a category, the same words for „Zum Ausdrucken“, „Wissen“ and „Kontakte“. */
+/** „Wer sieht sie?“ of a category, the same words for „Vorlagen“, „Wissen“ and „Kontakte“. */
 const CATEGORY_VISIBILITIES = { all: 'Alle (auch Mitarbeitende und Tablet)', managers: 'Nur Leitung und Träger', provider: 'Nur Träger' } as const
 /** The note at a category (or an item) not everyone sees, in all three places. */
 const VISIBILITY_BADGES = { all: '', managers: 'nur Leitung und Träger', provider: 'nur Träger' } as const
@@ -330,8 +330,8 @@ export const de = {
     title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
     pinLockedUntil: (time: string) => `PIN gesperrt bis ${time}.`,
     startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', templatesTitle: 'Zum Ausdrucken', notesTitle: 'Notizen',
-    // The start page's tile for „Dokumente“ (the tabs „Zum Ausdrucken“ and „Wissen“ there).
-    documentsTitle: 'Dokumente', documentsHint: 'Zum Ausdrucken und Wissen',
+    // The start page's tile for „Dokumente“ (the tabs „Vorlagen“ and „Wissen“ there).
+    documentsTitle: 'Dokumente', documentsHint: 'Vorlagen und Wissen',
     toStart: 'Startseite',
     backToStart: 'Zurück zum Start', printPlan: 'Dienstplan drucken', printPlanThisMonth: 'Dieser Monat', printPlanNextMonth: 'Nächster Monat',
     chooseChildren: 'Bitte deinen Namen antippen und deine PIN eingeben, um die Kinder aufzuschließen.',
@@ -1524,7 +1524,7 @@ export const de = {
       applicant: 'Es gibt keine offene Hospitation oder Bewerbung. Sie stehen unter Mitarbeitende → Bewerbungen & Hospitationen.',
     },
     noMatch: 'Nichts gefunden.', planned: 'noch nicht in der Kita', left: 'ausgeschieden', loading: 'Wird geladen …',
-    noTemplates: 'Es gibt keine Vorlagen zum Ausfüllen. PDF-Vorlagen legt die Leitung unter „Dokumente → Zum Ausdrucken“ ab.',
+    noTemplates: 'Es gibt keine Vorlagen zum Ausfüllen. PDF-Vorlagen legt die Leitung unter „Dokumente → Vorlagen“ ab.',
     // The fill view.
     forTarget: (name: string) => `für ${name}`,
     opening: 'Das Formular wird geladen …', failed: 'Das Formular konnte nicht geöffnet werden.',
@@ -1571,15 +1571,12 @@ export const de = {
     folder: 'Fach',
   },
   /**
-   * „Dokumente“: the form templates („Bögen“), the blank PDFs („Zum Ausdrucken“, key `templates`) and „Wissen“ as tabs;
+   * „Dokumente“: „Vorlagen“ (key `templates`: the Bögen and the PDF templates side by side) and „Wissen“ as tabs;
    * the first two with a short line saying what is in them („Unterschriften“ is a tab of Mitarbeitende now).
    */
   documents: {
-    title: 'Dokumente', tabsLabel: 'Bereich', tabs: { forms: 'Bögen', templates: 'Zum Ausdrucken', knowledge: 'Wissen' },
-    tabHints: {
-      forms: 'Vorlagen für Bögen, die im Programm ausgefüllt werden', templates: 'PDF-Formulare zum Ausdrucken oder Ausfüllen',
-      knowledge: '',
-    },
+    title: 'Dokumente', tabsLabel: 'Bereich', tabs: { templates: 'Vorlagen', knowledge: 'Wissen' },
+    tabHints: { templates: 'Bögen zum Ausfüllen im Programm und PDF-Formulare', knowledge: '' },
   },
   /**
    * „Zum Unterschreiben senden“: the Leitung sends a PDF to employees, who sign it in the app (Meins → Zu unterschreiben,
@@ -1607,7 +1604,7 @@ export const de = {
     // Mitarbeitende → Unterschriften.
     pageTitle: 'Unterschriften',
     intro: 'Was du zum Unterschreiben gesendet hast, mit dem Stand je Person. Die unterschriebenen Kopien liegen in der Personalakte.',
-    howToSend: 'Senden kannst du unter „Zum Ausdrucken“ oder bei einem PDF in der Personalakte, jeweils mit „Zum Unterschreiben senden“.',
+    howToSend: 'Senden kannst du unter „Dokumente → Vorlagen“ bei einem PDF oder bei einem PDF in der Personalakte, jeweils mit „Zum Unterschreiben senden“.',
     none: 'Es wurde noch nichts zum Unterschreiben gesendet.',
     sentOn: (date: string, by: string | null) => (by ? `gesendet am ${date} von ${by}` : `gesendet am ${date}`),
     dueOn: (date: string) => `bis ${date}`, overdue: 'überfällig',
@@ -1656,6 +1653,30 @@ export const de = {
     tabletTitle: 'Zu unterschreiben', tabletChoose: 'Wer bist du? Nach deiner PIN siehst du nur deine eigenen Dokumente.',
     tabletUnlock: 'Meine Dokumente zeigen', tabletDone: 'Fertig',
   },
+  /**
+   * „Dokumente“ → „Vorlagen“: the Bögen (filled in the app) and the PDF templates (printed or filled as PDF) side by side
+   * in the facility's categories, each entry marked with its kind. The texts of each kind stay under printTemplates and
+   * forms.
+   */
+  templateLibrary: {
+    intro: 'Bögen füllst du im Programm aus – in der Kinderakte, bei Gesprächen, Teamsitzungen, Unfällen und Besuchen. '
+      + 'Änderungen an einem Bogen gelten nur für neue Bögen. PDF-Formulare druckst du aus oder füllst sie aus („Öffnen“ zeigt '
+      + 'das PDF in einem neuen Tab).',
+    typeBadge: { form: 'Bogen – im Programm ausfüllen', pdf: 'PDF – ausdrucken oder ausfüllen' },
+    newTemplate: 'Neue Vorlage', chooseTitle: 'Neue Vorlage: Was für eine?',
+    chooseForm: 'Bogen', chooseFormHint: 'Wird im Programm ausgefüllt, z. B. ein Beobachtungsbogen in der Kinderakte oder ein Mitarbeitergespräch.',
+    choosePdf: 'PDF hochladen', choosePdfHint: 'Ein PDF-Formular, das man ausdruckt oder in der App ausfüllt.',
+    none: 'Es gibt noch keine Vorlagen.',
+    search: 'Vorlagen suchen', searchPlaceholder: 'Name, Titel oder Kategorie',
+    searchResults: (count: number) => (count === 1 ? '1 Treffer in allen Kategorien' : `${count} Treffer in allen Kategorien`),
+    noMatch: 'Keine Vorlage passt zur Suche.',
+    entryCount: (count: number) => (count === 1 ? '1 Vorlage' : `${count} Vorlagen`),
+    noCategory: 'Ohne Kategorie',
+    noCategoryHint: 'Bögen, die in keiner Kategorie liegen. Mit „Verschieben“ ordnest du sie einer Kategorie zu.',
+    emptyCategory: 'In dieser Kategorie gibt es noch keine Vorlagen.',
+    // The sub-tabs of the categories and the order (▲/▼, both kinds in one order).
+    tabsLabel: 'Kategorien', order: 'Reihenfolge', moveUp: 'Nach oben', moveDown: 'Nach unten',
+  },
   printTemplates: {
     intro: 'Leere PDF-Formulare zum Ausdrucken. „Öffnen“ zeigt das PDF in einem neuen Tab, dort kannst du es drucken.',
     none: 'Es gibt noch keine Formulare zum Ausdrucken.',
@@ -1686,8 +1707,8 @@ export const de = {
     subcategoryName: 'Unterkategorie (freiwillig)',
     subcategoryNameHint: 'Hat die Kategorie einer Einrichtung eine Unterkategorie mit diesem Namen, steht die Vorlage dort, sonst direkt in der Kategorie („Allgemein“).',
     categories: {
-      intro: 'Die Kategorien gelten nur für diese Einrichtung. Jede Kategorie kann Unterkategorien haben (eine Ebene). '
-        + 'Löschen lässt sich nur eine leere Kategorie ohne Unterkategorien.',
+      intro: 'Die Kategorien gelten nur für diese Einrichtung, für Bögen und PDF-Vorlagen gemeinsam – „Wer sieht sie?“ gilt für beide. '
+        + 'Jede Kategorie kann Unterkategorien haben (eine Ebene). Löschen lässt sich nur eine leere Kategorie ohne Unterkategorien.',
       none: 'Es gibt noch keine Kategorien.',
       add: 'Kategorie anlegen', edit: 'Kategorie ändern', name: 'Name', visibility: 'Wer sieht sie?',
       addSub: 'Unterkategorie anlegen', addSubIn: (name: string) => `Unterkategorie in „${name}“ anlegen`,
@@ -1701,11 +1722,13 @@ export const de = {
       confirmRenameSub: (name: string, moved: number) => `Die Unterkategorie „${name}“ umbenennen? ${generalMoves(moved)}`,
       visibilities: CATEGORY_VISIBILITIES,
       moveUp: 'Nach oben', moveDown: 'Nach unten',
-      templateCount: (n: number) => (n === 1 ? '1 Vorlage' : `${n} Vorlagen`),
+      templateCount: (n: number) => (n === 1 ? '1 PDF-Vorlage' : `${n} PDF-Vorlagen`),
+      // The Bögen filed in it (for whoever manages them), also stopped ones.
+      formCount: (n: number) => (n === 1 ? '1 Bogen' : `${n} Bögen`),
       // The Träger's templates for all facilities shown in the category by its name.
       globalCount: (n: number) => (n === 1 ? '1 Vorlage vom Träger' : `${n} Vorlagen vom Träger`),
       /** `global`: how many of the `n` are the Träger's templates for all facilities. */
-      confirmProviderOnly: (name: string, n: number, global = 0) => `${n === 1 ? 'Die 1 Vorlage' : `Die ${n} Vorlagen`} in „${name}“ `
+      confirmProviderOnly: (name: string, n: number, global = 0) => `${n === 1 ? 'Die 1 Vorlage' : `Die ${n} Vorlagen`} (Bögen und PDFs) in „${name}“ `
         + `${global > 0 ? `(davon ${global} vom Träger für alle Einrichtungen) ` : ''}`
         + 'sehen Leitung, Mitarbeitende und Tablet dann nicht mehr. Trotzdem auf „Nur Träger“ stellen?',
       /** `moved`: the Träger's templates for all facilities that then show under „Vom Träger“. */
@@ -2882,24 +2905,11 @@ export const de = {
     kindPick: 'Wofür?', kindPlaceholder: 'Bitte wählen …', kindFirst: 'Bitte wähle, wofür die Vorlage ist.',
     kindPickHint: 'Bestimmt, wo die Vorlage zur Auswahl steht (Kinderakte, Mitarbeitergespräch, Teamsitzung …). Lässt sich später nicht ändern.',
     newTemplate: 'Neue Vorlage', moveTo: 'Verschieben', moveTitle: (name: string) => `„${name}“ verschieben`, moved: 'Verschoben',
-    /** The facility's own categories of the templates (one level of subcategories). */
+    /** Where a Bogen is filed: the categories of „Vorlagen“ (shared with the PDF templates; one level of subcategories). */
     categories: {
-      tabsLabel: 'Kategorien', manage: 'Kategorien verwalten', none: 'Ohne Kategorie',
+      none: 'Ohne Kategorie',
       // In a picker, when a real category is named „Ohne Kategorie“ as well: the heading of the templates without one.
       noneClash: 'Ohne Kategorie (keiner zugeordnet)',
-      noneHint: 'Vorlagen, die in keiner Kategorie liegen. Mit „Verschieben“ ordnest du sie einer Kategorie zu.',
-      allChip: 'Alle', generalChip: 'Allgemein', subTabsLabel: (name: string) => `Unterkategorien von ${name}:`,
-      empty: 'In dieser Kategorie gibt es noch keine Vorlagen. Lege mit „Neue Vorlage“ eine an.',
-      emptySub: 'In dieser Unterkategorie gibt es noch keine Vorlagen.',
-      noneYet: 'Es gibt noch keine Kategorien. Lege unter „Kategorien verwalten“ eine an.',
-      templateCount: (count: number) => (count === 1 ? '1 Vorlage' : `${count} Vorlagen`),
-      subcategoryCount: (count: number) => (count === 1 ? '1 Unterkategorie' : `${count} Unterkategorien`),
-      intro: 'Die Kategorien der Bögen-Vorlagen dieser Einrichtung, jede mit Unterkategorien (eine Ebene). Löschen geht nur, solange keine Vorlage (auch keine stillgelegte) und keine Unterkategorie darin liegt.',
-      add: 'Kategorie anlegen', addSub: 'Unterkategorie anlegen', addSubIn: (name: string) => `Unterkategorie in „${name}“ anlegen`,
-      edit: 'Kategorie umbenennen', editSub: 'Unterkategorie umbenennen', rename: 'Umbenennen', name: 'Name',
-      moveUp: 'Nach oben', moveDown: 'Nach unten',
-      confirmDelete: (name: string) => `Die Kategorie „${name}“ löschen?`,
-      confirmDeleteSub: (name: string) => `Die Unterkategorie „${name}“ löschen?`,
       category: 'Kategorie', subcategory: 'Unterkategorie', categoryNone: 'keine Kategorie', subNone: 'Allgemein (keine Unterkategorie)',
     },
     subjects: { child: 'Kind', employee: 'Mitarbeiter:in' },
@@ -3885,7 +3895,7 @@ export const de = {
     template_category_not_found: 'Diese Kategorie gibt es nicht (mehr).',
     template_category_name_required: 'Bitte einen Namen für die Kategorie angeben.',
     template_category_name_taken: 'Eine Kategorie mit diesem Namen gibt es schon.',
-    template_category_not_empty: 'In dieser Kategorie liegen noch Vorlagen (auch in anderen Einrichtungen). Verschieb oder lösch sie zuerst.',
+    template_category_not_empty: 'In dieser Kategorie liegen noch Vorlagen (PDFs oder Bögen, auch stillgelegte). Verschieb oder lösch sie zuerst.',
     template_category_has_subcategories: 'Diese Kategorie hat noch Unterkategorien. Lösch sie zuerst.',
     template_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung, nicht zu einer anderen Unterkategorie.',
     cash_box_not_found: 'Diese Kasse gibt es nicht (mehr).',
@@ -3979,13 +3989,6 @@ export const de = {
     form_release_withdrawn: 'Die Leitung hat die Freigabe zurückgenommen. Deine Eingaben wurden nicht gespeichert.',
     form_template_changed: 'Die Vorlage wurde inzwischen von jemand anderem gespeichert. Bitte lade sie neu.',
     form_category_invalid: 'Bitte eine Kategorie dieser Einrichtung wählen.',
-    form_category_not_found: 'Diese Kategorie gibt es nicht mehr. Bitte lade die Seite neu.',
-    form_category_name_required: 'Bitte einen Namen für die Kategorie angeben.',
-    form_category_name_too_long: 'Der Name der Kategorie darf höchstens 60 Zeichen lang sein.',
-    form_category_name_taken: 'Diesen Namen gibt es hier schon.',
-    form_category_parent_invalid: 'Eine Unterkategorie gehört zu einer Kategorie dieser Einrichtung (nicht zu einer Unterkategorie).',
-    form_category_has_subcategories: 'In dieser Kategorie liegen noch Unterkategorien. Lösch sie zuerst.',
-    form_category_not_empty: 'In dieser Kategorie liegen noch Vorlagen (auch stillgelegte). Verschieb sie zuerst.',
     child_form_meeting_taken: 'Für dieses Elterngespräch gibt es schon einen Bogen. Öffne ihn über „Bogen öffnen“.',
     info_form_read_only: 'Bögen aus dem Infogespräch bleiben, wie sie sind: Sie lassen sich nicht freischalten oder löschen und gehen mit der Kinderakte.',
     child_form_date_invalid: 'Bitte gib ein gültiges Datum an.',
@@ -4302,7 +4305,7 @@ export const de = {
     deleteDocumentConfirm: (title: string) => `Das Dokument „${title}“ endgültig löschen?`,
     uploaded: (name: string | null, date: string) => (name ? `hochgeladen von ${name} am ${date}` : `hochgeladen am ${date}`),
     forms: 'Bögen', addForm: 'Bogen anlegen', chooseTemplate: 'Vorlage', noForms: 'Noch keine Bögen.',
-    noTemplates: 'Für diese Art gibt es noch keine Vorlage. Vorlagen legt die Leitung unter Dokumente → Bögen an.',
+    noTemplates: 'Für diese Art gibt es noch keine Vorlage. Vorlagen legt die Leitung unter Dokumente → Vorlagen an.',
     deleteForm: 'Bogen löschen', deleteFormConfirm: (title: string) => `Den Bogen „${title}“ löschen?`,
     lastChanged: (by: string | null, at: string) => (by ? `zuletzt geändert von ${by} am ${at}` : `zuletzt geändert am ${at}`),
     back: 'Zurück zur Liste', save: 'Speichern',

@@ -66,10 +66,10 @@ describe('team meetings', () => {
   })
 
   it('resolves the members of a facility: managers, staff with an employee, the tablet as „Tablet“', () => {
-    expect(leitung).toEqual({ facilityId: 1, name: 'Lea Leitung', manager: true, left: false, employeeId: leitungUser.employeeId })
-    expect(anna).toEqual({ facilityId: 1, name: 'Anna', manager: false, left: false, employeeId: expect.any(Number) })
-    expect(tablet).toEqual({ facilityId: 1, name: 'Tablet', manager: false, left: false, employeeId: null })
-    expect(staffB).toEqual({ facilityId: facilityB, name: 'Bea', manager: false, left: false, employeeId: expect.any(Number) })
+    expect(leitung).toEqual({ facilityId: 1, role: 'admin', name: 'Lea Leitung', manager: true, left: false, employeeId: leitungUser.employeeId })
+    expect(anna).toEqual({ facilityId: 1, role: 'observer', name: 'Anna', manager: false, left: false, employeeId: expect.any(Number) })
+    expect(tablet).toEqual({ facilityId: 1, role: 'terminal', name: 'Tablet', manager: false, left: false, employeeId: null })
+    expect(staffB).toEqual({ facilityId: facilityB, role: 'observer', name: 'Bea', manager: false, left: false, employeeId: expect.any(Number) })
     expect(tabletB.facilityId).toBe(facilityB)
     // A Mitarbeiter account without an employee has no facility.
     expect(failure(() => teamMember(db, addUser(db, 'ohne', 'observer')))).toBe('403 no_facility')

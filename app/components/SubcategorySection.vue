@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * One list of „Dokumente“ → „Zum Ausdrucken“ or „Wissen“ as a bordered section: in „Alle“ one per subcategory (and
+ * One list of „Dokumente“ → „Vorlagen“ or „Wissen“ as a bordered section: in „Alle“ one per subcategory (and
  * „Allgemein“), in the search one per „Kategorie › Unterkategorie“. The tinted header bar shows a folder icon, the name in
  * bold, „· 3 Einträge“ and a note on who sees it; a foldable one is a button (aria-expanded, aria-controls) with a chevron,
  * and folded it keeps its count. Without a title only the content shows (a single list, no section).

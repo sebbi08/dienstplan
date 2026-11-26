@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  EXAMPLE_FORM_CATEGORIES, exampleKindOf, foldFormCategoryName, formCategoriesInTreeOrder, formCategoryRanks, formCategorySpot, groupTemplateChoices,
+  bogenCategoryName, EXAMPLE_FORM_CATEGORIES, exampleKindOf, foldFormCategoryName, formCategoriesInTreeOrder, formCategoryRanks, formCategorySpot, groupTemplateChoices,
 } from '../../shared/domain/formCategories'
 import { FORM_KINDS } from '../../shared/domain/forms'
 
@@ -64,6 +64,10 @@ describe('form template categories', () => {
     expect(exampleKindOf('Hospitationen')).toBe('applicant')
     expect(EXAMPLE_FORM_CATEGORIES.every(entry => exampleKindOf(entry.name) === entry.kind)).toBe(true)
     expect(exampleKindOf('Elternarbeit')).toBeNull()
+    // The example beside a stricter twin („Unfälle (Bögen)“, 0133 and the seeding) keeps its kind.
+    expect(bogenCategoryName(' Unfälle ')).toBe('Unfälle (Bögen)')
+    expect(bogenCategoryName('x'.repeat(60))).toHaveLength(60)
+    expect(exampleKindOf('unfälle (bögen)')).toBe('accident')
     expect(exampleKindOf(null)).toBeNull()
   })
 })

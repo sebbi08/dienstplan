@@ -3,7 +3,7 @@ import type { Db } from '../../server/db/client'
 import { printTemplateOrder, printTemplates, templateCategories } from '../../server/db/schema'
 import { MAX_DOCUMENT_BYTES } from '../../server/lib/fileSignature'
 import {
-  deleteTemplate, listTemplates, orderTemplates, readTemplateFile, replaceTemplateFile, templateReaderFacility, updateTemplate,
+  deleteTemplate, listTemplates, orderEntries, readTemplateFile, replaceTemplateFile, templateReaderFacility, updateTemplate,
   uploadTemplate, type TemplateActor,
 } from '../../server/services/printTemplates'
 import { createCategory, deleteCategory } from '../../server/services/templateCategories'
@@ -20,6 +20,9 @@ const png = () => Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A
 const actor = (user: SessionUser): TemplateActor => ({
   id: user.id, role: user.role, permissions: user.permissions, facilityId: user.facilityId!,
 })
+/** ▲/▼ of a list holding PDF templates only (these tests file no Bögen in their categories). */
+const orderTemplates = (db: Db, by: TemplateActor, categoryId: number | null, ids: readonly number[]) =>
+  orderEntries(db, by, categoryId, ids.map(id => ({ type: 'pdf' as const, id })))
 /** A viewer of the role with the role's default permissions. */
 const seer = (role: Role, facilityId: number) => ({ role, permissions: permissionsOf(role), facilityId })
 
@@ -78,7 +81,7 @@ describe('print templates', () => {
       expect(listTemplates(db, seer('admin', 1))).toEqual([{
         id, title: 'Elternbrief', categoryId: cat.Eltern, category: 'Eltern', subcategoryId: null, subcategory: '', global: false, globalCategoryName: null,
         globalSubcategoryName: null, globalVisibility: null, allFacilities: false, visibility: 'all', size: pdf().length, uploadedAt: NOW.toISOString(), updatedAt: NOW.toISOString(), canEdit: true,
-        fillable: false, targets: { scope: 'facility', facilityIds: [1], facilityNames: [], groupTargets: [], groupNames: null },
+        fillable: false, place: 0, targets: { scope: 'facility', facilityIds: [1], facilityNames: [], groupTargets: [], groupNames: null },
       }])
       const row = db.select().from(printTemplates).get()!
       expect(row).toMatchObject({ facilityId: 1, mimeType: 'application/pdf', uploadedBy: leitung.id, categoryId: cat.Eltern, category: '' })

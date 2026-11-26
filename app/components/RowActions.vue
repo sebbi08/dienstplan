@@ -4,7 +4,7 @@ import { de } from '~/locales/de'
 import { rowActionSplit, rowMenuItem, type RowAction } from '~/utils/rowActions'
 
 /**
- * The buttons of one list row („Zum Ausdrucken“, „Bögen“, „Wissen“, „Kontakte“): on phones (below 640 px) only the
+ * The buttons of one list row („Vorlagen“, „Wissen“, „Kontakte“): on phones (below 640 px) only the
  * first one as a button and the others in a „⋯“ menu, so a row keeps one line of buttons and „Löschen“ is not tapped by
  * mistake; from 640 px all of them in a row as before. `name` names the row for screen readers („Weitere Aktionen: …“).
  */

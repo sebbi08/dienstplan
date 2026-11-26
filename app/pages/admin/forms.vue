@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { documentsLocation } from '~/utils/documents'
 
-/** The old address of „Bögen“: now „Dokumente“ → „Bögen“ (bookmarks and old links keep working). */
-definePageMeta({ redirect: to => documentsLocation('forms', to) })
+/** The old address of „Bögen“: now „Dokumente“ → „Vorlagen“ (bookmarks and old links keep working). */
+definePageMeta({ redirect: to => documentsLocation('templates', to) })
 </script>
 
 <template>

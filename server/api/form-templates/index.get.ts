@@ -5,5 +5,5 @@ import { listTemplates } from '../../services/formTemplates'
 export default defineServiceHandler(async (event) => {
   const admin = await requirePermission(event, 'formTemplates.manage')
   const { kind } = await getValidatedQuery(event, formTemplateQuery.parse)
-  return listTemplates(useDb(), admin.facilityId, kind)
+  return listTemplates(useDb(), admin.facilityId, kind, admin)
 })

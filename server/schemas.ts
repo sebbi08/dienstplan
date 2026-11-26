@@ -21,6 +21,7 @@ import { DECLINE_REASON_MAX, SIGN_REQUEST_NOTE_MAX, SIGN_REQUEST_TITLE_MAX, pars
 import { QUALIFICATIONS } from '../shared/domain/staffing/types'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { TEMPLATE_VISIBILITIES } from '../shared/domain/templateCategories'
+import { TEMPLATE_ENTRY_TYPES } from '../shared/domain/templateEntries'
 import { JOB_KEYS } from '../shared/domain/tvoed'
 import { TEMPLATE_INFO_MAX } from '../shared/domain/weekTemplates'
 import { COLOR_KEYS, EVE_LEAVE_OPTIONS, REVIEW_SECTIONS, type MeetingKind } from '../shared/types/api'
@@ -633,7 +634,7 @@ export const employeeDocumentSchema = z.object({
 export const employeeDocumentUploadSchema = employeeDocumentSchema.extend({
   requiredTypeId: z.union([z.literal(''), z.coerce.number().int().positive()]).default('').transform(value => (value === '' ? null : value)),
 })
-// „Gilt für“ of „Zum Ausdrucken“ and „Wissen“ (shared/domain/documentTargets.ts): the facilities chosen and the groups per
+// „Gilt für“ of the PDF templates of „Vorlagen“ and of „Wissen“ (shared/domain/documentTargets.ts): the facilities chosen and the groups per
 // facility; the service checks that they exist and fit together.
 const targetFacilityIds = z.array(z.number().int().positive()).max(500)
 /** A multipart flag: 'true' or 'false' (left out: false). */
@@ -687,12 +688,12 @@ export const printTemplateFields = z.object({
   createCategories: formFlag,
 })
 /**
- * The new order of one list of „Zum Ausdrucken“: a subcategory of the facility, the templates directly in a category
- * („Allgemein“: the category's id), or null for „Vom Träger“.
+ * The new order of one list of „Vorlagen“, both kinds together: a subcategory of the facility, the entries directly in a
+ * category („Allgemein“: the category's id), or null for „Vom Träger“ (PDF templates) or the Bögen without a category.
  */
-export const printTemplateOrderSchema = z.object({
+export const templateOrderSchema = z.object({
   categoryId: z.number().int().positive().nullable(),
-  ids: z.array(z.number().int().positive()).max(500),
+  entries: z.array(z.object({ type: z.enum(TEMPLATE_ENTRY_TYPES), id: z.number().int().positive() }).strict()).max(1000),
 })
 // The categories of a facility; `parentId` (only when creating) makes a subcategory of that category. A change keeps
 // where the category sits: a `parentId` there is refused (400), as moving to another category is not offered.
@@ -860,10 +861,6 @@ export const cashCsvQuery = yearQuery.extend({ month: z.coerce.number().int().mi
 const formKind = z.enum(FORM_KINDS as ['staff', 'child', 'team', 'accident', 'info', 'applicant'])
 export const formTemplateQuery = z.object({ kind: formKind.optional() })
 /** A category of the form templates: the name (checked by the service, 1–60) and, for a subcategory, its category. */
-export const formCategorySchema = z.object({ name: z.string().max(200), parentId: z.number().int().positive().nullish() })
-export const formCategoryNameSchema = z.object({ name: z.string().max(200) })
-/** The new order of the active templates filed directly in one category or subcategory (null = those without one). */
-export const formTemplateOrderSchema = z.object({ categoryId: z.number().int().positive().nullable(), ids: z.array(z.number().int().positive()).max(500) })
 /**
  * `subject` is required for an accident template; the service checks it (form_subject_invalid). `categoryId` the
  * facility's category or subcategory to file it in (left out or null = none; the service checks it).

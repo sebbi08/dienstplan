@@ -8,7 +8,7 @@ import { templatePickerItems } from '~/utils/forms'
 
 /**
  * „Bögen“ of an info visit or an applicant: start one from a template of the matching kind („Infogespräch“ /
- * „Hospitation“, made under Dokumente → Bögen), open one to fill it in (one at a time; leaving unsaved answers asks
+ * „Hospitation“, made under Dokumente → Vorlagen), open one to fill it in (one at a time; leaving unsaved answers asks
  * first), delete one. Read only without `editable`.
  */
 const props = defineProps<{

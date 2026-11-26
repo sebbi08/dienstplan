@@ -6,9 +6,11 @@ import { hiddenByVisibility, movedToProvider } from '~/utils/printTemplates'
 import { subcategoriesOf, topCategories } from '~/utils/subcategories'
 
 /**
- * „Kategorien verwalten“ on „Dokumente“ → „Zum Ausdrucken“ (whoever may edit templates), for the active facility: create,
- * rename, reorder, change who sees a category, delete an empty one (templates for all facilities filed by its name do
- * not count, but deleting or renaming names them: they move to „Vom Träger“). Each category can have subcategories (one
+ * „Kategorien verwalten“ on „Dokumente“ → „Vorlagen“ (whoever may edit the PDF templates, printTemplates.edit), for the
+ * active facility: the categories hold the Bögen and the PDF templates alike, and „Wer sieht sie?“ applies to both.
+ * Create, rename, reorder, change who sees a category, delete an empty one – no PDF template and no Bogen (also no
+ * stopped one) in it; templates for all facilities filed by its name do not count, but deleting or renaming names them:
+ * they move to „Vom Träger“. Each category can have subcategories (one
  * level), shown indented below it: „Unterkategorie anlegen“ at the category, then rename, reorder within the category,
  * „Wer sieht sie?“ (on top of the category's) and delete when empty. A category with subcategories cannot be deleted.
  * The list holds only the categories the editor sees, and only the visibilities the editor sees are offered (`levels`:
@@ -99,13 +101,13 @@ async function remove(category: TemplateCategoryDto) {
  * without naming them) –, else the button's own label.
  */
 const deleteTitle = (category: TemplateCategoryDto, subcategories: number) => {
-  if (category.templateCount > 0) return de.errors.template_category_not_empty
+  if (category.templateCount > 0 || category.formCount > 0) return de.errors.template_category_not_empty
   if (subcategories > 0) return de.errors.template_category_has_subcategories
   return category.hiddenSubcategories > 0 ? t.hiddenSubcategories : de.common.delete
 }
-/** Whether the editor may delete the category: empty and without subcategories (also hidden ones). */
+/** Whether the editor may delete the category: empty (no PDF template, no Bogen) and without subcategories (also hidden ones). */
 const deletable = (category: TemplateCategoryDto, subcategories: number) =>
-  category.templateCount === 0 && subcategories === 0 && category.hiddenSubcategories === 0
+  category.templateCount === 0 && category.formCount === 0 && subcategories === 0 && category.hiddenSubcategories === 0
 </script>
 
 <template>
@@ -120,7 +122,7 @@ const deletable = (category: TemplateCategoryDto, subcategories: number) =>
               <div class="min-w-40 flex-1">
                 <span class="font-medium">{{ category.name }}</span>
                 <span class="block text-xs text-gray-500">
-                  {{ t.visibilities[category.visibility] }}<template v-if="category.templateCount > 0"> · {{ t.templateCount(category.templateCount) }}</template><template v-if="category.globalCount > 0"> · {{ t.globalCount(category.globalCount) }}</template><template v-if="subcategories.length > 0"> · {{ t.subcategoryCount(subcategories.length) }}</template><template v-if="category.hiddenSubcategories > 0"> · {{ t.hiddenSubcategoryNote }}</template>
+                  {{ t.visibilities[category.visibility] }}<template v-if="category.formCount > 0"> · {{ t.formCount(category.formCount) }}</template><template v-if="category.templateCount > 0"> · {{ t.templateCount(category.templateCount) }}</template><template v-if="category.globalCount > 0"> · {{ t.globalCount(category.globalCount) }}</template><template v-if="subcategories.length > 0"> · {{ t.subcategoryCount(subcategories.length) }}</template><template v-if="category.hiddenSubcategories > 0"> · {{ t.hiddenSubcategoryNote }}</template>
                 </span>
               </div>
               <div class="flex flex-wrap items-center gap-1">
@@ -143,7 +145,7 @@ const deletable = (category: TemplateCategoryDto, subcategories: number) =>
                 <div class="min-w-32 flex-1">
                   <span class="font-medium">{{ sub.name }}</span>
                   <span class="block text-xs text-gray-500">
-                    {{ t.visibilities[sub.visibility] }}<template v-if="sub.templateCount > 0"> · {{ t.templateCount(sub.templateCount) }}</template><template v-if="sub.globalCount > 0"> · {{ t.globalCount(sub.globalCount) }}</template>
+                    {{ t.visibilities[sub.visibility] }}<template v-if="sub.formCount > 0"> · {{ t.formCount(sub.formCount) }}</template><template v-if="sub.templateCount > 0"> · {{ t.templateCount(sub.templateCount) }}</template><template v-if="sub.globalCount > 0"> · {{ t.globalCount(sub.globalCount) }}</template>
                   </span>
                 </div>
                 <div class="flex flex-wrap items-center gap-1">
@@ -152,7 +154,7 @@ const deletable = (category: TemplateCategoryDto, subcategories: number) =>
                   <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="`${de.common.edit}: ${sub.name}`" :title="de.common.edit" :disabled="busy" @click="startEdit(sub)" />
                   <UButton
                     size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="`${de.common.delete}: ${sub.name}`"
-                    :title="deleteTitle(sub, 0)" :disabled="busy || sub.templateCount > 0" @click="remove(sub)"
+                    :title="deleteTitle(sub, 0)" :disabled="busy || !deletable(sub, 0)" @click="remove(sub)"
                   />
                 </div>
               </li>

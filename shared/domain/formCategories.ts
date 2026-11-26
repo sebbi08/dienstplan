@@ -1,9 +1,10 @@
 import type { FormKind } from './forms'
 
 /**
- * The facility's own categories of the form templates (Dokumente → Bögen, server/services/formTemplateCategories.ts),
- * with one level of subcategories, like the categories of the Vorlagen. „Wofür“ (the kind) stays an attribute of each
- * template; the pickers filter by kind and group by category. The rules both sides share.
+ * The Bögen (form templates) in the facility's categories of „Dokumente“ → „Vorlagen“, which they share with the PDF
+ * templates (template_categories since 0133_one_template_library, server/services/formTemplateCategories.ts), with one
+ * level of subcategories. „Wofür“ (the kind) stays an attribute of each template; the pickers filter by kind and group
+ * by category. The rules both sides share.
  */
 
 /** At most this long: a category's name. */
@@ -11,7 +12,8 @@ export const FORM_CATEGORY_NAME_MAX = 60
 
 /**
  * The example categories every facility starts with (migration 0128 for the existing ones, the starter seeding for new
- * ones), named like the former groups of the kinds; a template is filed into the one of its kind.
+ * ones), named like the former groups of the kinds; a starter template is filed into the one of its kind. Where the
+ * facility has a stricter category of that name, it is „‹Name› (Bögen)“ instead (bogenCategoryName).
  */
 export const EXAMPLE_FORM_CATEGORIES: readonly { kind: FormKind; name: string }[] = [
   { kind: 'child', name: 'Kinder' },
@@ -27,6 +29,13 @@ export const FORM_CATEGORY_SEED_KEY = 'categories'
 
 /** Names that differ only in case (umlauts included), surrounding spaces or ß/ss count as the same. */
 export const foldFormCategoryName = (name: string): string => name.trim().toLocaleLowerCase('de').replace(/ß/g, 'ss')
+
+/**
+ * The name of a category for Bögen beside a stricter category of the same name („Team (Bögen)“): kept apart by
+ * 0133_one_template_library and by the example seeding, so a Bogen never becomes less visible than before. Within 60
+ * characters, as in the migration.
+ */
+export const bogenCategoryName = (name: string): string => `${name.trim().slice(0, FORM_CATEGORY_NAME_MAX - 8).trimEnd()} (Bögen)`
 
 export interface FormCategoryNode {
   id: number
@@ -98,9 +107,12 @@ export function groupTemplateChoices<T extends TemplateChoice>(
 
 /**
  * The kind a new template in a category starts with: the kind of the example category of that name (Kinder → child …,
- * EXAMPLE_FORM_CATEGORIES, regardless of case); null for any other category (the kind must then be picked).
+ * EXAMPLE_FORM_CATEGORIES, regardless of case; also „Kinder (Bögen)“); null for any other category (the kind must then
+ * be picked).
  */
 export function exampleKindOf(categoryName: string | null | undefined): FormKind | null {
   if (!categoryName) return null
-  return EXAMPLE_FORM_CATEGORIES.find(entry => foldFormCategoryName(entry.name) === foldFormCategoryName(categoryName))?.kind ?? null
+  const folded = foldFormCategoryName(categoryName)
+  return EXAMPLE_FORM_CATEGORIES.find(entry => foldFormCategoryName(entry.name) === folded
+    || foldFormCategoryName(bogenCategoryName(entry.name)) === folded)?.kind ?? null
 }

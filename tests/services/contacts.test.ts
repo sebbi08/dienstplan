@@ -98,7 +98,7 @@ describe('address book (Kontakte)', () => {
     })
   })
 
-  describe('„Wer sieht sie?“ at the category (as for „Zum Ausdrucken“ and „Wissen“)', () => {
+  describe('„Wer sieht sie?“ at the category (as for „Vorlagen“ and „Wissen“)', () => {
     it('hides a category for Leitung and Träger with its contacts from the staff and the tablet, whatever the contact says', () => {
       const office = createContactCategory(db, leitung, { name: 'Intern', visibility: 'managers' })
       createContact(db, leitung, contact({ categoryId: office, organisation: 'Steuerbüro', visibility: 'all' }), NOW)

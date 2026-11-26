@@ -4,7 +4,7 @@ import { blankSheet } from '~/utils/forms'
 import { blankU1000Sheet } from '~/utils/u1000'
 
 /**
- * A form template printed blank (A4 portrait), to fill in by hand; Leitung and Träger, from Mehr → Dokumente → Bögen. The U 1000
+ * A form template printed blank (A4 portrait), to fill in by hand; Leitung and Träger, from Dokumente → Vorlagen. The U 1000
  * starter and its copies (print layout 'u1000') print in the layout of the official Unfallanzeige.
  */
 definePageMeta({ layout: false })

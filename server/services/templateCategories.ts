@@ -1,19 +1,21 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { reachesAudience } from '../../shared/domain/documentTargets'
-import { can } from '../../shared/domain/permissions'
+import { can, type PermissionKey } from '../../shared/domain/permissions'
 import {
   categoriesInTreeOrder, categoryNameList, categoryPlacer, foldCategoryName, seesAll, seesCategoryNode, spotVisibilities,
   swappedSiblings, visibleTemplateLevels, type TemplateVisibility,
 } from '../../shared/domain/templateCategories'
 import type { CategoryNameDto, Role, SessionUser, TemplateCategoryDto, TemplateCategoryInput } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { printTemplates, templateCategories } from '../db/schema'
+import { formTemplates, printTemplates, templateCategories } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { loadTargets } from './documentTargets'
 
 /**
- * The categories of the print templates, one list per facility (each facility orders, names and adds its own), with one
- * level of subcategories: a subcategory belongs to a category of the same facility, never to another subcategory.
+ * The categories of „Dokumente“ → „Vorlagen“, one list per facility (each facility orders, names and adds its own), with
+ * one level of subcategories: a subcategory belongs to a category of the same facility, never to another subcategory.
+ * They hold both kinds of entries – the PDF templates and, since 0133_one_template_library, the Bögen (form templates) –
+ * and „Wer sieht sie?“ applies to both (server/services/formTemplateCategories.ts for the Bögen).
  * Whoever holds printTemplates.edit (Leitung and Träger by default, a Mitarbeiter with the bundle „Vorlagen bearbeiten“)
  * maintains those of the facility they work in, each only those they see (by role; a subcategory only with its
  * category): a category for the Träger alone is the Träger's to create, change and delete, and a Leitung can neither
@@ -22,8 +24,13 @@ import { loadTargets } from './documentTargets'
  */
 export type CategoryActor = Pick<SessionUser, 'role' | 'permissions'> & { facilityId: number }
 
-/** Who looks at a facility's categories: the role decides which they see, the home group which Träger templates count. */
-export type CategoryViewer = Pick<SessionUser, 'role'> & { facilityId: number; homeGroupId?: number | null }
+/**
+ * Who looks at a facility's categories: the role decides which they see, the home group which Träger templates count,
+ * the permissions whether the Bögen are counted (formTemplates.manage).
+ */
+export type CategoryViewer = Pick<SessionUser, 'role'> & {
+  facilityId: number; homeGroupId?: number | null; permissions?: ReadonlySet<PermissionKey>
+}
 
 type CategoryRow = typeof templateCategories.$inferSelect
 
@@ -40,6 +47,7 @@ export const comparableCategoryName = foldCategoryName
  * too), each category followed by its subcategories, with how many of the facility's own templates are filed directly
  * in each and how many of the Träger's templates for all facilities (that the viewer sees) show directly in each by
  * name. A name shared by twins from before the categories counts for the first of them, as the templates show there.
+ * Whoever manages the Bögen (formTemplates.manage) also gets how many Bögen are filed directly in each.
  */
 export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategoryDto[] {
   const all = facilityCategories(db, viewer.facilityId)
@@ -47,6 +55,11 @@ export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategory
   const counts = new Map(rows.length === 0 ? [] : db.select({ id: printTemplates.categoryId, n: count() }).from(printTemplates)
     .where(inArray(printTemplates.categoryId, rows.map(row => row.id))).groupBy(printTemplates.categoryId).all()
     .map(row => [row.id, row.n]))
+  const formCounts = new Map(rows.length === 0 || !viewer.permissions || !can(viewer.permissions, 'formTemplates.manage')
+    ? []
+    : db.select({ id: formTemplates.categoryId, n: count() }).from(formTemplates)
+        .where(inArray(formTemplates.categoryId, rows.map(row => row.id))).groupBy(formTemplates.categoryId).all()
+        .map(row => [row.id, row.n]))
   const place = categoryPlacer(all)
   const globalCounts = new Map<number, number>()
   const globals = db.select({
@@ -67,7 +80,7 @@ export function listCategories(db: Db, viewer: CategoryViewer): TemplateCategory
   }
   return rows.map(row => ({
     id: row.id, parentId: row.parentId, name: row.name, visibility: row.visibility,
-    templateCount: counts.get(row.id) ?? 0, globalCount: globalCounts.get(row.id) ?? 0,
+    templateCount: counts.get(row.id) ?? 0, formCount: formCounts.get(row.id) ?? 0, globalCount: globalCounts.get(row.id) ?? 0,
     hiddenSubcategories: all.filter(child => child.parentId === row.id && !seesCategoryNode(viewer.role, child, all)).length,
   }))
 }
@@ -165,14 +178,15 @@ export function moveCategory(db: Db, actor: CategoryActor, id: number, direction
 }
 
 /**
- * Deletes an empty category: one with subcategories is 409 template_category_has_subcategories, one holding templates of
- * the facility 409 template_category_not_empty. Templates for all facilities filed under its name do not count: they
- * move to „Vom Träger“ (from a subcategory: directly into its category).
+ * Deletes an empty category: one with subcategories is 409 template_category_has_subcategories, one holding PDF templates
+ * of the facility or Bögen (also stopped ones) 409 template_category_not_empty. Templates for all facilities filed under
+ * its name do not count: they move to „Vom Träger“ (from a subcategory: directly into its category).
  */
 export function deleteCategory(db: Db, actor: CategoryActor, id: number): void {
   const { all } = loadEditable(db, actor, id)
   if (all.some(row => row.parentId === id)) throw new ServiceError(409, 'template_category_has_subcategories')
   const used = db.select({ id: printTemplates.id }).from(printTemplates).where(eq(printTemplates.categoryId, id)).limit(1).get()
+    ?? db.select({ id: formTemplates.id }).from(formTemplates).where(eq(formTemplates.categoryId, id)).limit(1).get()
   if (used) throw new ServiceError(409, 'template_category_not_empty')
   db.delete(templateCategories).where(eq(templateCategories.id, id)).run()
 }

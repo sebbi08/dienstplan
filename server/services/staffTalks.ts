@@ -162,7 +162,7 @@ function nextSort(db: Db, talkId: number): number {
  * like the template; a self-assessment template makes a `self` form, any other an assessment.
  */
 function insertForm(db: Db, actor: SessionUser, facilityId: number, talkId: number, templateId: number, at: string): number {
-  const template = loadTemplate(db, facilityId, templateId)
+  const template = loadTemplate(db, facilityId, templateId, actor)
   if (template.kind !== 'staff') throw new ServiceError(404, 'form_template_not_found')
   if (template.archived) throw new ServiceError(409, 'form_template_archived')
   const formId = db.insert(forms).values({

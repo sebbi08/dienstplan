@@ -592,15 +592,18 @@ describe('API route permissions', () => {
   it('opens the form templates and their categories to managers of the active facility only (staff and tablet 403)', () => {
     const touching = routes.filter(route => /^form-template(s|-categories)\//.test(route)
       || source(route).includes('services/formTemplates\'') || source(route).includes('services/formTemplateCategories\''))
+    // The categories of „Vorlagen“ (shared with the PDF templates since 0133) are maintained under template-categories/;
+    // only the list stays here, for an account with Bögen but without printTemplates.view.
     expect(touching).toEqual([
-      'form-template-categories/[id].delete.ts', 'form-template-categories/[id].put.ts', 'form-template-categories/[id]/move.post.ts',
-      'form-template-categories/index.get.ts', 'form-template-categories/index.post.ts',
+      'form-template-categories/index.get.ts',
       'form-templates/[id].delete.ts', 'form-templates/[id].put.ts', 'form-templates/[id]/copy.post.ts',
       'form-templates/index.get.ts', 'form-templates/index.post.ts', 'form-templates/order.post.ts'])
+    // These two hand the whole account on (its facility, role and permissions decide what it sees and may move).
+    const wholeAccount = { 'form-template-categories/index.get.ts': 'listCategories(useDb(), admin)', 'form-templates/order.post.ts': 'withHomeGroup(event, admin)' }
     for (const route of touching) {
       const code = source(route)
       expect(code, route).toContain("requirePermission(event, 'formTemplates.manage')")
-      expect(code, route).toContain('admin.facilityId')
+      expect(code, route).toContain(wholeAccount[route as keyof typeof wholeAccount] ?? 'admin.facilityId')
     }
   })
 
@@ -876,8 +879,9 @@ describe('API route permissions', () => {
   })
 
   it('lets the tablet and Mitarbeiter open the print templates and their categories, but only managers change them', () => {
-    const touching = routes.filter(route => /^(print-templates|template-categories)\//.test(route)
-      || /services\/(printTemplates|templateCategories)'/.test(source(route)))
+    // (The routes of the Bögen that use these services are form templates' routes, tested above.)
+    const touching = routes.filter(route => !route.startsWith('form-template') && (/^(print-templates|template-categories)\//.test(route)
+      || /services\/(printTemplates|templateCategories)'/.test(source(route))))
     expect(touching).toEqual(['print-templates/[id].delete.ts', 'print-templates/[id].put.ts', 'print-templates/[id]/file.get.ts',
       'print-templates/[id]/file.put.ts', 'print-templates/index.get.ts', 'print-templates/index.post.ts',
       'print-templates/missing-categories.post.ts', 'print-templates/order.post.ts', 'print-templates/targets.get.ts',

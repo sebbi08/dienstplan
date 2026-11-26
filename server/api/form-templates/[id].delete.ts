@@ -5,6 +5,6 @@ import { deleteTemplate } from '../../services/formTemplates'
 export default defineServiceHandler(async (event) => {
   const admin = await requirePermission(event, 'formTemplates.manage')
   const { id } = await getValidatedRouterParams(event, idParams.parse)
-  deleteTemplate(useDb(), admin.facilityId, id)
+  deleteTemplate(useDb(), admin.facilityId, id, admin)
   return { ok: true }
 })

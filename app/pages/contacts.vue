@@ -128,7 +128,7 @@ const badgeOf = (contact: ContactDto) => {
 
       <section id="contacts-tab-panel" role="tabpanel" :aria-labelledby="`contacts-tab-${tab}`" class="space-y-2">
         <p v-if="tab === 'provider'" class="text-sm text-gray-600">{{ t.fromProviderHint }}</p>
-        <!-- A category not everyone sees, as at „Zum Ausdrucken“ and „Wissen“. -->
+        <!-- A category not everyone sees, as at „Vorlagen“ and „Wissen“. -->
         <span v-else-if="currentCategory && currentCategory.visibility !== 'all'" class="inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
           {{ t.visibilityBadge[currentCategory.visibility] }}
         </span>

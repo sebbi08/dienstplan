@@ -24,7 +24,7 @@ import { ServiceError } from '../lib/errors'
 import { DOCUMENT_EXTENSIONS, checkedDocumentFile, type DocumentMime } from '../lib/fileSignature'
 import { safeFileNamePart } from '../lib/fileName'
 import { facilityContactData } from './facilityContact'
-import { actorName, loadTemplate, templateChoices, withFormErrors } from './formTemplates'
+import { actorName, loadTemplate, templateChoices, withFormErrors, type FormViewer } from './formTemplates'
 
 /**
  * Accident reports („Unfälle“, forms of kind `accident`, see shared/domain/accidents.ts): an Unfallbericht about a child
@@ -273,16 +273,19 @@ function rightOf(form: FormRow, writes: boolean, manager: boolean, author: boole
   return writes && (manager || (author && form.accidentReportedOn === null)) ? 'edit' : 'read'
 }
 
-/** The active accident template of the facility for the subject (404 form_template_not_found, 409 form_template_archived). */
-function accidentTemplate(db: Db, facilityId: number, templateId: number, subject: FormSubject) {
-  const template = loadTemplate(db, facilityId, templateId)
+/**
+ * The active accident template of the facility for the subject, in a category of „Vorlagen“ the viewer sees (404
+ * form_template_not_found, 409 form_template_archived).
+ */
+function accidentTemplate(db: Db, facilityId: number, templateId: number, subject: FormSubject, viewer: FormViewer) {
+  const template = loadTemplate(db, facilityId, templateId, viewer)
   if (template.kind !== 'accident' || template.subject !== subject) throw new ServiceError(404, 'form_template_not_found')
   if (template.archived) throw new ServiceError(409, 'form_template_archived')
   return template
 }
 
-function activeTemplates(db: Db, facilityId: number, subject: FormSubject): TemplateChoice[] {
-  return templateChoices(db, facilityId, 'accident', template => template.subject === subject)
+function activeTemplates(db: Db, facilityId: number, subject: FormSubject, viewer: FormViewer): TemplateChoice[] {
+  return templateChoices(db, facilityId, 'accident', viewer, template => template.subject === subject)
 }
 
 interface NewForm {
@@ -294,11 +297,13 @@ interface NewForm {
   employeeId?: number
   prefill: PrefillValues
   author: { userId: number | null; employeeId: number | null; name: string }
+  /** Who fills it in: which categories of „Vorlagen“ (and the templates in them) they see. */
+  viewer: FormViewer
 }
 
 /** A new report from the template (its content copied, its print layout taken over, e.g. 'u1000' of the starter and its copies). */
 function insertForm(db: Db, input: NewForm, now: Date): number {
-  const template = accidentTemplate(db, input.facilityId, input.templateId, input.subject)
+  const template = accidentTemplate(db, input.facilityId, input.templateId, input.subject, input.viewer)
   const content = JSON.parse(template.content) as FormContent
   const answers = prefilledAnswers(db, content, input.facilityId, input.prefill)
   const at = now.toISOString()
@@ -456,7 +461,7 @@ export function listChildAccidents(db: Db, viewer: ChildViewer, childId: number,
   return {
     forms: rows.map(row => toListItem(childAccessOf(viewer, row, child))),
     canCreate,
-    templates: canCreate ? activeTemplates(db, viewer.facilityId, 'child') : [],
+    templates: canCreate ? activeTemplates(db, viewer.facilityId, 'child', viewer) : [],
   }
 }
 
@@ -475,7 +480,7 @@ export function createChildAccident(
   const header = checkedHeader(input, 'child', today, { canReport: can(viewer.permissions, 'accidents.manage'), stored: null })
   return insertForm(db, {
     facilityId: viewer.facilityId, subject: 'child', templateId: input.templateId, header, childId,
-    prefill: childPrefill(db, child), author: { userId: viewer.id, employeeId: viewer.employeeId, name: viewer.name },
+    prefill: childPrefill(db, child), author: { userId: viewer.id, employeeId: viewer.employeeId, name: viewer.name }, viewer,
   }, now)
 }
 
@@ -572,7 +577,7 @@ function employeeList(db: Db, actor: AccidentActor, employee: EmployeeRow, canCr
   return {
     forms: rows.map(row => toListItem(employeeAccessOf(db, actor, row, employee))),
     canCreate,
-    templates: canCreate ? activeTemplates(db, employee.facilityId, 'employee') : [],
+    templates: canCreate ? activeTemplates(db, employee.facilityId, 'employee', actor.user) : [],
   }
 }
 
@@ -583,7 +588,7 @@ function createEmployeeForm(db: Db, actor: AccidentActor, employee: EmployeeRow,
   return insertForm(db, {
     facilityId: employee.facilityId, subject: 'employee', templateId: input.templateId, header, employeeId: employee.id,
     prefill: employeePrefill(db, employee, header.date, readableFor(actor.user.permissions, self)),
-    author: { userId: actor.user.id, employeeId: actor.user.employeeId, name: actorName(db, actor.user) },
+    author: { userId: actor.user.id, employeeId: actor.user.employeeId, name: actorName(db, actor.user) }, viewer: actor.user,
   }, now)
 }
 

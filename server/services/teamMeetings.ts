@@ -4,7 +4,7 @@ import { checkAnswers, type FormAnswers, type FormContent } from '../../shared/d
 import { can } from '../../shared/domain/permissions'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
 import type {
-  SessionUser, TeamMeetingDto, TeamMeetingHeader, TeamMeetingInput, TeamMeetingListItemDto, TeamMeetingSavedDto,
+  Role, SessionUser, TeamMeetingDto, TeamMeetingHeader, TeamMeetingInput, TeamMeetingListItemDto, TeamMeetingSavedDto,
   TeamMeetingSaveInput, TeamMeetingSignerDto, TeamMeetingsDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -26,6 +26,8 @@ export const TABLET_NAME = 'Tablet'
  */
 export interface TeamMember {
   facilityId: number
+  /** The account's role (the tablet's own): which categories of „Vorlagen“ – and the team templates in them – it sees. */
+  role: Role
   name: string
   manager: boolean
   left: boolean
@@ -40,16 +42,16 @@ export interface TeamMember {
 export function teamMember(db: Db, user: SessionUser, now: Date = new Date()): TeamMember {
   const facilityId = user.facilityId
   if (facilityId === null) throw new ServiceError(403, 'no_facility')
-  if (user.role === 'terminal') return { facilityId, name: TABLET_NAME, manager: false, left: false, employeeId: null }
+  if (user.role === 'terminal') return { facilityId, role: user.role, name: TABLET_NAME, manager: false, left: false, employeeId: null }
   if (can(user.permissions, 'teamMeetings.manage')) {
-    return { facilityId, name: actorName(db, user), manager: true, left: false, employeeId: user.employeeId }
+    return { facilityId, role: user.role, name: actorName(db, user), manager: true, left: false, employeeId: user.employeeId }
   }
   // Everyone else who writes the minutes belongs to the facility of their employee (a Mitarbeiter account without one
   // has no facility).
   if (can(user.permissions, 'teamMeetings.write') && user.employeeId !== null) {
     const leftOn = db.select({ leftOn: employees.leftOn }).from(employees).where(eq(employees.id, user.employeeId)).get()?.leftOn
     const left = leftBefore(leftOn, nowInBerlin(now).date)
-    return { facilityId, name: actorName(db, user), manager: false, left, employeeId: user.employeeId }
+    return { facilityId, role: user.role, name: actorName(db, user), manager: false, left, employeeId: user.employeeId }
   }
   throw new ServiceError(403, 'forbidden')
 }
@@ -175,7 +177,7 @@ export function listTeamMeetings(
   const signers = signersOf(db, rows.map(row => row.meeting.id), today)
   return {
     meetings: rows.map(row => toListItem(row.meeting, row.form, names, signers.get(row.meeting.id)!, member)),
-    templates: templateChoices(db, member.facilityId, 'team'),
+    templates: templateChoices(db, member.facilityId, 'team', member),
     groups: facilityGroups(db, member.facilityId),
     staff: choosableStaff(db, member.facilityId, today),
     toSign: toSign(db, member, today),
@@ -293,7 +295,7 @@ function participantIdsOf(db: Db, meetingId: number): Set<number> {
 export function createTeamMeeting(db: Db, member: TeamMember, input: TeamMeetingInput, now: Date = new Date()): number {
   assertMayWrite(member)
   const header = checkedHeader(db, member, input, now)
-  const template = loadTemplate(db, member.facilityId, input.templateId)
+  const template = loadTemplate(db, member.facilityId, input.templateId, member)
   if (template.kind !== 'team') throw new ServiceError(404, 'form_template_not_found')
   if (template.archived) throw new ServiceError(409, 'form_template_archived')
   const at = now.toISOString()

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { templateCategories } from '../../server/db/schema'
 import { DEFAULT_TEMPLATE_CATEGORIES } from '../../server/db/seed'
+import { EXAMPLE_FORM_CATEGORIES } from '../../shared/domain/formCategories'
 import {
   knowledgeCategorySchema, knowledgeCategoryUpdateSchema, templateCategorySchema, templateCategoryUpdateSchema,
 } from '../../server/schemas'
@@ -30,11 +31,13 @@ describe('template categories', () => {
   it('starts a new database and every new facility with the default categories, visible to all, as own copies', () => {
     const fresh = createTestDb()
     expect(DEFAULT_TEMPLATE_CATEGORIES).toEqual(['Eingewöhnungsmappe', 'Mitarbeitermappe', 'Eltern', 'Gesundheit', 'Personal'])
+    // After them the example categories of the Bögen (0128, now in the same list since 0133), holding the starters.
+    const examples = EXAMPLE_FORM_CATEGORIES.map(example => example.name)
     expect(listCategories(fresh, leitung).map(category => [category.name, category.visibility, category.templateCount]))
-      .toEqual(DEFAULT_TEMPLATE_CATEGORIES.map(name => [name, 'all', 0]))
+      .toEqual([...DEFAULT_TEMPLATE_CATEGORIES, ...examples].map(name => [name, 'all', 0]))
     const krippe = addFacility(fresh, 'Krippe')
     const copies = listCategories(fresh, as('admin', krippe))
-    expect(copies.map(category => [category.name, category.visibility])).toEqual(DEFAULT_TEMPLATE_CATEGORIES.map(name => [name, 'all']))
+    expect(copies.map(category => [category.name, category.visibility])).toEqual([...DEFAULT_TEMPLATE_CATEGORIES, ...examples].map(name => [name, 'all']))
     // Copies: renaming one in the new facility leaves the first facility's alone.
     updateCategory(fresh, as('admin', krippe), copies[2]!.id, { name: 'Elternbriefe', visibility: 'all' })
     const namesIn = (facilityId: number) => listCategories(fresh, { role: 'admin', facilityId }).map(category => category.name)
@@ -53,8 +56,8 @@ describe('template categories', () => {
       const eltern = create(leitung, '  Eltern ')
       create(provider, 'Personal', 'managers')
       expect(listCategories(db, provider)).toEqual([
-        { id: eltern, parentId: null, name: 'Eltern', visibility: 'all', templateCount: 0, globalCount: 0, hiddenSubcategories: 0 },
-        { id: expect.any(Number), parentId: null, name: 'Personal', visibility: 'managers', templateCount: 0, globalCount: 0, hiddenSubcategories: 0 },
+        { id: eltern, parentId: null, name: 'Eltern', visibility: 'all', templateCount: 0, formCount: 0, globalCount: 0, hiddenSubcategories: 0 },
+        { id: expect.any(Number), parentId: null, name: 'Personal', visibility: 'managers', templateCount: 0, formCount: 0, globalCount: 0, hiddenSubcategories: 0 },
       ])
     })
 
@@ -271,7 +274,7 @@ describe('template categories', () => {
       sub(leitung, eltern, 'Ausflüge')
       expect(tree('admin')).toEqual(['Eltern', '  Briefe', '  Ausflüge', 'Personal', '  Urlaub'])
       expect(listCategories(db, leitung).find(category => category.id === briefe))
-        .toEqual({ id: briefe, parentId: eltern, name: 'Briefe', visibility: 'all', templateCount: 0, globalCount: 0, hiddenSubcategories: 0 })
+        .toEqual({ id: briefe, parentId: eltern, name: 'Briefe', visibility: 'all', templateCount: 0, formCount: 0, globalCount: 0, hiddenSubcategories: 0 })
       // A new category still goes to the end of the categories.
       create(leitung, 'Gesundheit')
       expect(tree('admin').filter(name => !name.startsWith(' '))).toEqual(['Eltern', 'Personal', 'Gesundheit'])

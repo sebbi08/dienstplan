@@ -16,37 +16,39 @@ function as(role: Role) {
 }
 
 describe('„Dokumente“', () => {
-  it('names the tabs by what is in them: „Bögen“ (filled in the app) and „Zum Ausdrucken“ (PDFs), each with a short line', () => {
-    expect(de.documents.tabs).toEqual({ forms: 'Bögen', templates: 'Zum Ausdrucken', knowledge: 'Wissen' })
-    expect(de.documents.tabHints.forms).toBe('Vorlagen für Bögen, die im Programm ausgefüllt werden')
-    expect(de.documents.tabHints.templates).toBe('PDF-Formulare zum Ausdrucken oder Ausfüllen')
+  it('names the tabs by what is in them: „Vorlagen“ (Bögen and PDFs) with a short line, and „Wissen“', () => {
+    expect(de.documents.tabs).toEqual({ templates: 'Vorlagen', knowledge: 'Wissen' })
+    expect(de.documents.tabHints.templates).toBe('Bögen zum Ausfüllen im Programm und PDF-Formulare')
     expect(de.documents.tabHints.knowledge).toBe('')
   })
 
-  it('shows each viewer the tabs they may use: managers all three, Mitarbeiter and the tablet „Zum Ausdrucken“ and „Wissen“', () => {
-    expect(documentTabs(as('provider'))).toEqual(['forms', 'templates', 'knowledge'])
-    expect(documentTabs(as('admin'))).toEqual(['forms', 'templates', 'knowledge'])
+  it('shows each viewer the tabs they may use: „Vorlagen“ with either kind\'s right, „Wissen“; the tablet both', () => {
+    expect(documentTabs(as('provider'))).toEqual(['templates', 'knowledge'])
+    expect(documentTabs(as('admin'))).toEqual(['templates', 'knowledge'])
     // „Unterschriften“ is a tab of Mitarbeitende now.
     expect(documentTabs({ role: 'admin', can: key => key === 'signRequests.manage' })).toEqual([])
     expect(documentTabs(as('observer'))).toEqual(['templates', 'knowledge'])
     expect(documentTabs(as('terminal'))).toEqual(['templates', 'knowledge'])
     expect(documentTabs({ role: 'observer', can: key => key === 'knowledge.view' })).toEqual(['knowledge'])
-    expect(documentTabs({ role: 'observer', can: key => key === 'formTemplates.manage' })).toEqual(['forms'])
+    expect(documentTabs({ role: 'observer', can: key => key === 'formTemplates.manage' })).toEqual(['templates'])
+    expect(documentTabs({ role: 'observer', can: key => key === 'printTemplates.view' })).toEqual(['templates'])
     expect(documentTabs({ role: 'observer', can: () => false })).toEqual([])
   })
 
-  it('opens the tab the address asks for when the viewer may use it, else the first', () => {
-    expect(chosenDocumentTab('templates', ['forms', 'templates'])).toBe('templates')
-    expect(chosenDocumentTab(undefined, ['forms', 'templates'])).toBe('forms')
-    expect(chosenDocumentTab('forms', ['templates'])).toBe('templates')
-    expect(chosenDocumentTab('unknown', ['templates'])).toBe('templates')
+  it('opens the tab the address asks for when the viewer may use it (the former „Bögen“: „Vorlagen“), else the first', () => {
+    expect(chosenDocumentTab('knowledge', ['templates', 'knowledge'])).toBe('knowledge')
+    expect(chosenDocumentTab('templates', ['templates', 'knowledge'])).toBe('templates')
+    expect(chosenDocumentTab('forms', ['templates', 'knowledge'])).toBe('templates')
+    expect(chosenDocumentTab(undefined, ['templates', 'knowledge'])).toBe('templates')
+    expect(chosenDocumentTab('forms', ['knowledge'])).toBe('knowledge')
+    expect(chosenDocumentTab('unknown', ['knowledge'])).toBe('knowledge')
     expect(chosenDocumentTab('forms', [])).toBeNull()
   })
 
   it('sends the old addresses to their tab, keeping the other query values and the anchor', () => {
     expect(documentsLocation('templates', { query: {}, hash: '' })).toEqual({ path: '/documents', query: { tab: 'templates' }, hash: '' })
-    expect(documentsLocation('forms', { query: { x: '1', tab: 'old' }, hash: '#unfaelle' }))
-      .toEqual({ path: '/documents', query: { x: '1', tab: 'forms' }, hash: '#unfaelle' })
+    expect(documentsLocation('templates', { query: { x: '1', tab: 'old' }, hash: '#unfaelle' }))
+      .toEqual({ path: '/documents', query: { x: '1', tab: 'templates' }, hash: '#unfaelle' })
   })
 
   it('sends the former tab „Unterschriften“ (?tab=signatures) to the tab of Mitarbeitende, keeping the rest of the address', () => {
@@ -57,11 +59,11 @@ describe('„Dokumente“', () => {
     expect(page).not.toContain('SignRequestsOverview')
   })
 
-  it('redirects /templates to „Zum Ausdrucken“ and /admin/forms to „Bögen“; the tablet\'s start page links to „Dokumente“', () => {
+  it('redirects /templates and /admin/forms to „Vorlagen“; the tablet\'s start page links to „Dokumente“', () => {
     const page = (path: string) => readFileSync(join(process.cwd(), 'app', 'pages', path), 'utf8')
     expect(page('templates.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('templates', to) })")
-    expect(page('admin/forms.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('forms', to) })")
-    // One tile „Dokumente“ („Zum Ausdrucken“ and „Wissen“) on the tablet's start page.
+    expect(page('admin/forms.vue')).toContain("definePageMeta({ redirect: to => documentsLocation('templates', to) })")
+    // One tile „Dokumente“ („Vorlagen“ and „Wissen“) on the tablet's start page.
     expect(tabletStartTiles({ showContacts: false, planPath: '/plan/2026/11' }).find(tile => tile.key === 'documents')!.action).toEqual({ kind: 'link', to: '/documents' })
   })
 })

@@ -5,7 +5,7 @@ import { TEMPLATE_VISIBILITIES, stricterVisibility, type TemplateVisibility } fr
  * The facility's address book („Kontakte“): external business contacts such as schools, the Jugendamt or the
  * Fachberatung, filed in categories of the facility's own (like the print template categories).
  *
- * Who sees a contact follows the same model as „Zum Ausdrucken“ and „Wissen“: each category says „Wer sieht sie?“ (all /
+ * Who sees a contact follows the same model as „Vorlagen“ and „Wissen“: each category says „Wer sieht sie?“ (all /
  * Leitung and Träger / Träger only), and each contact has the same three levels on top („Wer sieht ihn?“); the stricter
  * of both counts, and under „Vom Träger“ (no category of that name) the contact's own alone. „Leitung und Träger“ means
  * whoever maintains the address book (contacts.manage); „nur Träger“ only such a person with the role Träger.
