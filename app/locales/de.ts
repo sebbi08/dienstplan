@@ -336,6 +336,8 @@ export const de = {
     backToStart: 'Zurück zum Start', printPlan: 'Dienstplan drucken', printPlanThisMonth: 'Dieser Monat', printPlanNextMonth: 'Nächster Monat',
     chooseChildren: 'Bitte deinen Namen antippen und deine PIN eingeben, um die Kinder aufzuschließen.',
     unlock: 'Aufschließen', unlockedAs: (name: string) => `Aufgeschlossen: ${name}`, lock: 'Sperren',
+    // „Dienstplan bearbeiten“: only for a person whose own account may edit this facility's plan (the lock bar's button).
+    editPlan: 'Dienstplan bearbeiten',
     lockUnsavedConfirm: 'Es gibt Änderungen, die noch nicht gespeichert sind. Wenn du jetzt sperrst, gehen sie verloren.',
     lockDiscard: 'Verwerfen und sperren',
     idleUnsavedWarning: 'Das Tablet sperrt sich gleich. Tippe auf den Bildschirm und speichere deine Änderungen – sonst gehen sie verloren.',

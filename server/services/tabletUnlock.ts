@@ -4,7 +4,7 @@ import { effectiveRights, type BundleScope } from '../../shared/domain/permissio
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { berlinDate, type NoLockPeriod } from '../../shared/domain/tablet'
 import type {
-  ChildRightsDto, GroupAccess, SessionUser, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto,
+  ChildRightsDto, GroupAccess, SessionUser, TabletPlanEditDto, TabletSettingsDto, TabletUnlockStatusDto, TerminalPersonDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, terminalUnlocks, users } from '../db/schema'
@@ -101,18 +101,44 @@ function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: Tab
   }
 }
 
-/** Looks at the unlock the token stands for; never writes. A person who dropped off the tablet list is reported as dropped. */
+/**
+ * Whether the person who unlocked may edit this facility's plan at the tablet: only with an active account of their
+ * own in the home facility (`viewer.id`, as for changing child records: the plan's history names an account) whose
+ * permissions there hold plan.edit. A person without one never does, whatever the Mitarbeiter role settings say.
+ */
+function mayEditPlan(viewer: ChildViewer): boolean {
+  return viewer.id !== null && can(viewer.permissions, 'plan.edit')
+}
+
+/**
+ * Looks at the unlock the token stands for; never writes. A person who dropped off the tablet list is reported as
+ * dropped, and so is a person editing the plan whose account lost plan.edit meanwhile (the tablet locks: editing rights
+ * are never kept). While the plan is edited, the facility's windows without the automatic lock do not apply: an
+ * unattended tablet must not keep an account's plan rights open for hours.
+ */
 function resolveUnlock(db: Db, terminal: Terminal, token: string | undefined, now: Date): Resolved {
   const row = token ? db.select().from(terminalUnlocks).where(eq(terminalUnlocks.id, token)).get() : undefined
   if (!row || row.terminalUserId !== terminal.id || row.facilityId !== terminal.facilityId) return { unlocked: false }
   const settings = getTabletSettings(db, terminal.facilityId)
   // The windows of the day of the last use decide; today's go to the tablet as well (a touch moves the last use there).
-  const periods = noLockPeriodsOn(db, terminal.facilityId, settings.noLockWindows,
+  const periods = row.planEditSince ? [] : noLockPeriodsOn(db, terminal.facilityId, settings.noLockWindows,
     [berlinDate(Date.parse(row.lastActiveAt)), berlinDate(now.getTime())])
   if (now.getTime() > validUntil(row.lastActiveAt, settings.lockMinutes, periods)) return { unlocked: false }
   const person = terminalStatus(db, terminal.facilityId, now).find(candidate => candidate.employeeId === row.employeeId)
   if (!person) return { unlocked: false, dropped: row }
-  return { unlocked: true, row, person, settings, viewer: viewerFor(db, terminal, row.employeeId, settings), periods }
+  const viewer = viewerFor(db, terminal, row.employeeId, settings)
+  if (row.planEditSince && !mayEditPlan(viewer)) return { unlocked: false, dropped: row }
+  return { unlocked: true, row, person, settings, viewer, periods }
+}
+
+/** „Dienstplan bearbeiten“ in the status: null when the person may not; else whether they do and what else they may. */
+function planEditOf(row: UnlockRow, viewer: ChildViewer): TabletPlanEditDto | null {
+  if (!mayEditPlan(viewer)) return null
+  return {
+    active: row.planEditSince !== null,
+    canRelease: can(viewer.permissions, 'plan.release'),
+    seesPersonal: can(viewer.permissions, 'employees.personal'),
+  }
 }
 
 function rightsOf(viewer: ChildViewer): ChildRightsDto {
@@ -133,6 +159,7 @@ function statusOf(resolved: Resolved): TabletUnlockStatusDto {
     rights: rightsOf(resolved.viewer), lockMinutes: resolved.settings.lockMinutes,
     noLockPeriods: resolved.periods
       .map(period => ({ from: new Date(period.from).toISOString(), until: new Date(period.until).toISOString() })),
+    planEdit: planEditOf(resolved.row, resolved.viewer),
   }
 }
 
@@ -220,4 +247,60 @@ export function resolveChildViewer(db: Db, user: SessionUser, token: string | un
 /** Like tabletChildViewer, but answers { unlocked: false } instead of throwing and changes nothing. */
 export function tabletUnlockStatus(db: Db, terminal: Terminal, token: string | undefined, now: Date = new Date()): TabletUnlockStatusDto {
   return statusOf(resolveUnlock(db, terminal, token, now))
+}
+
+/** The valid unlock (403 tablet_locked otherwise, deleting a dropped one, as tabletChildViewer does). */
+function validUnlock(db: Db, terminal: Terminal, token: string | undefined, now: Date): Extract<Resolved, { unlocked: true }> {
+  const resolved = resolveUnlock(db, terminal, token, now)
+  if (!resolved.unlocked) {
+    if (resolved.dropped) lockChildren(db, resolved.dropped.terminalUserId, resolved.dropped.id)
+    throw new ServiceError(403, 'tablet_locked')
+  }
+  return resolved
+}
+
+/**
+ * „Dienstplan bearbeiten“ at the tablet: the person who unlocked it starts editing this facility's plan (403
+ * tablet_locked without a valid unlock, 403 forbidden without an own account with plan.edit, see mayEditPlan). It stays
+ * part of this unlock: locking, another person's unlock and the lock time end it; the windows without the automatic lock
+ * no longer apply. Counts as use.
+ */
+export function startPlanEdit(db: Db, terminal: Terminal, token: string | undefined, now: Date = new Date()): TabletUnlockStatusDto {
+  const { row, viewer } = validUnlock(db, terminal, token, now)
+  if (!mayEditPlan(viewer)) throw new ServiceError(403, 'forbidden')
+  const stamp = now.toISOString()
+  db.update(terminalUnlocks).set({ planEditSince: row.planEditSince ?? stamp, lastActiveAt: stamp }).where(eq(terminalUnlocks.id, row.id)).run()
+  return statusOf(resolveUnlock(db, terminal, token, now))
+}
+
+/**
+ * Who edits the plan at this tablet, as their own account works in the tablet's facility: the account of the person
+ * who unlocked it, with its permissions there read afresh (role settings and exceptions), so every change is recorded
+ * with their account, as in the office. 403 tablet_locked without a valid unlock (none, another tablet's or facility's,
+ * run out, the person off the tablet list, or the account no longer allowed – then the tablet is locked), 403 forbidden
+ * while the unlock opens the child records only. The request counts as use.
+ */
+export function tabletPlanEditor(db: Db, terminal: Terminal, token: string | undefined, now: Date = new Date()): SessionUser {
+  const { row, viewer } = validUnlock(db, terminal, token, now)
+  if (!row.planEditSince || viewer.id === null) throw new ServiceError(403, 'forbidden')
+  // resolveUnlock checked the account (home staff, active, plan.edit) through the viewer; read once more for the
+  // session's fields and the scopes.
+  const account = db.select().from(users).where(and(eq(users.id, viewer.id), eq(users.active, true))).get()
+  if (!account) throw new ServiceError(403, 'forbidden')
+  const rights = accountRights(db, { id: account.id, role: account.role, facilityId: terminal.facilityId })
+  if (!can(rights.permissions, 'plan.edit')) throw new ServiceError(403, 'forbidden')
+  db.update(terminalUnlocks).set({ lastActiveAt: now.toISOString() }).where(eq(terminalUnlocks.id, row.id)).run()
+  return {
+    id: account.id, username: account.username, role: account.role, employeeId: account.employeeId,
+    mustChangePassword: account.mustChangePassword, facilityId: terminal.facilityId,
+    permissions: rights.permissions, scopes: rights.scopes,
+  }
+}
+
+/** Whether the unlock the token stands for (this tablet's) has started editing the plan, valid or not; never writes. */
+export function planEditStarted(db: Db, terminal: Terminal, token: string | undefined): boolean {
+  if (!token) return false
+  const row = db.select({ terminalUserId: terminalUnlocks.terminalUserId, planEditSince: terminalUnlocks.planEditSince })
+    .from(terminalUnlocks).where(eq(terminalUnlocks.id, token)).get()
+  return row?.terminalUserId === terminal.id && row.planEditSince !== null
 }

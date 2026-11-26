@@ -1,7 +1,9 @@
 import { readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { accountRedirect, isChildPagePath, pageKeys, pagePermission, tabletMayOpen, tabletOnlyPage } from '../../app/utils/routeAccess'
+import {
+  accountRedirect, isChildPagePath, isPlanPagePath, pageKeys, pagePermission, tabletMayOpen, tabletOnlyPage,
+} from '../../app/utils/routeAccess'
 import { ROLE_DEFAULTS } from '../../shared/domain/permissions'
 import { flaggedPermissions } from '../helpers/rights'
 import type { Role } from '../../shared/types/api'
@@ -163,6 +165,8 @@ describe('route access per role (unchanged by the permissions)', () => {
     const tablet = ['/contacts', '/documents', '/notes', '/plan/2026/10', '/print/2026/10', '/team-meetings', '/team-meetings/1', '/templates', '/terminal']
     expect(pagePaths.filter(tabletMayOpen)).toEqual(tablet)
     expect(pagePaths.filter(isChildPagePath)).toEqual(['/children', '/children/1', '/children/new'])
+    // The month plan, where „Dienstplan bearbeiten“ runs with the unlock (not its printout, not „Mein Dienstplan“).
+    expect(pagePaths.filter(isPlanPagePath)).toEqual(['/plan/2026/10'])
   })
 })
 

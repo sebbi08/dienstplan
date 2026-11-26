@@ -18,12 +18,32 @@ const route = useRoute()
 const year = computed(() => Number(route.params.year))
 const month = computed(() => Number(route.params.month))
 const { can } = useCan()
-// The editor (draft, templates, help-outs, warnings: plan.edit, as the server sends the draft); otherwise read-only.
-const isAdmin = computed(() => can('plan.edit'))
+// At the tablet the person who unlocked it edits the plan („Dienstplan bearbeiten“) with their own account's rights.
+const { onTablet, planEdit, editingPlan } = useChildRights()
 const toast = useToast()
 const confirm = useConfirm()
 
 const { data: plan, error, refresh } = await useFetch<MonthPlanDto>(() => `/api/plan/${year.value}/${month.value}`)
+// The editor (draft, templates, help-outs, warnings: plan.edit, as the server sends the draft); otherwise read-only. At
+// the tablet only while a person edits the plan and the server sent the editor's data.
+const isAdmin = computed(() => (onTablet.value ? editingPlan.value && plan.value?.admin != null : can('plan.edit')))
+/** „Freigeben“ and „Änderungen verwerfen“: plan.release (at the tablet the editing person's). */
+const canRelease = computed(() => (onTablet.value ? planEdit.value?.canRelease === true : can('plan.release')))
+/** The employees' personal data (which child is sick): employees.personal (at the tablet the editing person's). */
+const seesPersonal = computed(() => (onTablet.value ? planEdit.value?.seesPersonal === true : can('employees.personal')))
+
+/**
+ * At the tablet, editing ends with the lock (lock time, „Sperren“, another person, rights gone): the draft goes off the
+ * screen at once and the tablet returns to its start page (nothing typed in a dialog is kept; every change already went
+ * to the server when it was made).
+ */
+const lockedOut = ref(false)
+watch(editingPlan, (now, before) => {
+  if (!onTablet.value || now || !before) return
+  lockedOut.value = true
+  plan.value = undefined
+  void navigateTo('/terminal')
+})
 const run = useAction(refresh)
 const selection = usePlanSelection()
 const selectedDate = ref<string | null>(null)
@@ -215,7 +235,7 @@ const codeDetails = reactive<{ open: boolean; code: CodeDto | null; employeeId: 
 })
 function needsDetails(code: CodeDto): boolean {
   const employeeIds = new Set(selection.cells.value.map(cell => cell.employeeId))
-  return code.key === 'special_leave' || (code.key === 'child_sick' && employeeIds.size === 1 && can('employees.personal'))
+  return code.key === 'special_leave' || (code.key === 'child_sick' && employeeIds.size === 1 && seesPersonal.value)
 }
 
 function onCode(code: CodeDto) {
@@ -331,12 +351,12 @@ function navigate(nextYear: number, nextMonth: number) {
 
 <template>
   <div class="space-y-3">
-    <template v-if="plan && !error">
-      <PlanSetupNotice v-if="isAdmin" />
+    <template v-if="plan && !error && !lockedOut">
+      <PlanSetupNotice v-if="isAdmin && !onTablet" />
       <!-- The Leitung's own to-dos (with a linked employee), as on „Mein Dienstplan“; hidden while nothing is open. -->
-      <OpenItemsCard v-if="isAdmin" />
+      <OpenItemsCard v-if="isAdmin && !onTablet" />
       <PlanHeader
-        :plan="plan" :is-admin="isAdmin" :group-filter="activeGroup"
+        :plan="plan" :is-admin="isAdmin" :can-release="canRelease" :printable="!(onTablet && isAdmin)" :group-filter="activeGroup"
         @navigate="navigate" @release="release" @discard="discardOpen = true"
       />
       <PlanReleaseNotifications v-if="isAdmin && plan.release.releasedAt" :key="`${year}-${month}-${releaseStatusKey}`" :year="year" :month="month" />
@@ -357,7 +377,7 @@ function navigate(nextYear: number, nextMonth: number) {
             <USelect v-model="groupSelect" :items="groupItems" class="w-48" :aria-label="de.groups.filter" />
           </div>
           <PlanGrid
-            :plan="gridPlan ?? plan" :group-filter="activeGroup"
+            :plan="gridPlan ?? plan" :group-filter="activeGroup" :plain-actuals="onTablet"
             :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
             @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
             @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
@@ -396,7 +416,7 @@ function navigate(nextYear: number, nextMonth: number) {
         @fill-gap="menuActions.fillGap" @add-break="menuActions.addBreak" @report-sick="menuActions.reportSick"
       />
     </template>
-    <template v-else>
+    <template v-else-if="!lockedOut">
       <MonthNav :year="year" :month="month" @change="navigate" />
       <UAlert color="warning" variant="soft" :title="errorMessage(error)" />
     </template>

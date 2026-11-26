@@ -362,7 +362,7 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
   const actors = ACTORS as string[]
 
   it('covers every file under server/api, and nothing else', () => {
-    expect(routes).toHaveLength(558)
+    expect(routes).toHaveLength(559)
     expect(Object.keys(fixture).sort()).toEqual(routes)
   })
 
@@ -376,7 +376,8 @@ describe('route access before the switch (tests/fixtures/route-access-before.jso
 
   it('records the guards of a few known routes', () => {
     expect(fixture['backup.get.ts']).toEqual(['provider'])
-    expect(fixture['entries/index.post.ts']).toEqual(['provider', 'admin'])
+    // At the tablet only while a person with an own account and plan.edit edits the plan there („Dienstplan bearbeiten“).
+    expect(fixture['entries/index.post.ts']).toEqual(['provider', 'admin', 'tablet:provider', 'tablet:admin'])
     expect(fixture['my/time.get.ts']).toEqual(['provider', 'admin', 'group_lead', 'observer'])
     expect(fixture['plan/[year]/[month].get.ts']).toEqual(['provider', 'admin', 'group_lead', 'observer', 'terminal'])
     expect(fixture['terminal/stamp.post.ts']).toEqual(['terminal'])

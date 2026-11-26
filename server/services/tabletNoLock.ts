@@ -97,8 +97,11 @@ export function deleteExpiredUnlocks(db: Db, now: Date): number {
     const days = rows.filter(row => row.facilityId === facilityId).map(row => berlinDate(Date.parse(row.lastActiveAt)))
     periods.set(facilityId, noLockPeriodsOn(db, facilityId, windows.get(facilityId) ?? [], days))
   }
+  // While the person edits the plan the windows do not hold the unlock open (unlockPeriods in tabletUnlock.ts).
   const expired = rows
-    .filter(row => now.getTime() > validUntil(row.lastActiveAt, lockMinutes.get(row.facilityId) ?? 0, periods.get(row.facilityId) ?? []))
+    .filter(row => now.getTime() > validUntil(
+      row.lastActiveAt, lockMinutes.get(row.facilityId) ?? 0, row.planEditSince ? [] : periods.get(row.facilityId) ?? [],
+    ))
     .map(row => row.id)
   if (expired.length > 0) db.delete(terminalUnlocks).where(inArray(terminalUnlocks.id, expired)).run()
   return expired.length

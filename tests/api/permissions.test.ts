@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ACTORS as SCRIPT_ACTORS, DEFAULTS as SCRIPT_DEFAULTS, routeFiles, tabletPasses } from '../../scripts/route-access-snapshot.mjs'
+import {
+  ACTORS as SCRIPT_ACTORS, DEFAULTS as SCRIPT_DEFAULTS, routeFiles, tabletPasses, tabletPlanEditPasses,
+} from '../../scripts/route-access-snapshot.mjs'
 import { PERMISSION_KEYS, PERMISSIONS, type PermissionKey } from '../../shared/domain/permissions'
 
 const API_DIR = join(process.cwd(), 'server', 'api')
@@ -71,6 +73,20 @@ const TERMINAL_ROUTES = [
   // Requests to sign at the tablet: the service asks for the unlock and shows only the unlocking person's requests.
   'terminal/sign-requests/index.get.ts', 'terminal/sign-requests/[id]/file.get.ts', 'terminal/sign-requests/[id]/sign.post.ts',
   'terminal/sign-requests/[id]/decline.post.ts', 'terminal/sign-requests/unlock.post.ts', 'terminal/sign-requests/lock.post.ts',
+  // „Dienstplan bearbeiten“: the unlocking person starts editing the plan (the service checks the unlock and their account).
+  'terminal/plan-edit.post.ts',
+]
+/**
+ * The plan editor's routes, which the tablet passes while a person with an own account edits the plan there
+ * (`tabletPlanEdit: true`; that account's permissions count): exactly what the month plan page calls.
+ */
+const TABLET_PLAN_EDIT_ROUTES = [
+  'day-notes/[date].put.ts', 'early-sick-leaves/[id].delete.ts', 'early-sick-leaves/index.put.ts',
+  'employees/[id]/children.get.ts', 'entries/[id].delete.ts', 'entries/[id].put.ts', 'entries/[id]/group.put.ts',
+  'entries/index.post.ts', 'help-outs/[id].delete.ts', 'help-outs/candidates.get.ts', 'help-outs/index.post.ts',
+  'plan/[year]/[month]/notifications.get.ts', 'plan/[year]/[month]/release.post.ts', 'plan/[year]/[month]/revert.post.ts',
+  'plan/warning-acks.delete.ts', 'plan/warning-acks.post.ts', 'week-templates/[id]/apply.post.ts', 'week-templates/index.get.ts',
+  'week-templates/index.post.ts',
 ]
 /** Routes that need no session at all. */
 const PUBLIC_ROUTES = ['health.get.ts', 'auth/login.post.ts']
@@ -180,6 +196,7 @@ const TABLET_PEOPLE = ACTORS.filter(actor => actor.startsWith('tablet:'))
 /** The role defaults and the tablet model of scripts/route-access-snapshot.mjs (one copy of it). */
 const DEFAULTS = SCRIPT_DEFAULTS as Record<typeof RIGHTS_ROLES[number], ReadonlySet<PermissionKey>>
 const tabletPassesChild = tabletPasses as (actor: string, key: PermissionKey) => boolean
+const tabletPlanEditPassesFor = tabletPlanEditPasses as (actor: string, key: PermissionKey) => boolean
 const PROVIDER_ONLY = new Set(PERMISSIONS.filter(permission => permission.providerOnly).map(permission => permission.key))
 
 const OLD_GUARDS = /require(Admin|Provider|TemplateReader|ChildReader|ChildEditor|ChildManager)\(/
@@ -199,10 +216,14 @@ function permissionCalls(route: string): { key: string; options: string }[] {
   return [...source(route).matchAll(PERMISSION_CALL)].map(([, key, options]) => ({ key: key!, options: options ?? '' }))
 }
 
-/** Who passes `requirePermission(event, key, options)` under the role defaults (the Träger has every key). */
+/**
+ * Who passes `requirePermission(event, key, options)` under the role defaults (the Träger has every key); with
+ * `tabletPlanEdit: true` also the tablet unlocked by a person whose own account has plan.edit and the key.
+ */
 function permissionActors(key: PermissionKey, options: string): string[] {
   const actors = ['provider', ...RIGHTS_ROLES.filter(role => DEFAULTS[role].has(key))]
   if (/allowTerminal: true/.test(options)) actors.push('terminal')
+  if (/tabletPlanEdit: true/.test(options)) actors.push(...TABLET_PEOPLE.filter(actor => tabletPlanEditPassesFor(actor, key)))
   return actors
 }
 
@@ -347,14 +368,16 @@ describe('API route permissions', () => {
   })
 
   it('keeps the employees\' children to the personal data right, the Kinderkrankentage to the sick days, the values to the Träger', () => {
-    expect(permissionCalls('employees/[id]/children.get.ts')).toEqual([{ key: 'employees.personal', options: '' }])
+    // At the tablet only for the plan editor („Kind krank“: which child), with the editing person's employees.personal.
+    expect(permissionCalls('employees/[id]/children.get.ts')).toEqual([{ key: 'employees.personal', options: '{ tabletPlanEdit: true }' }])
     // Changing needs employees.edit here and employees.personal in the service (403 forbidden).
     expect(permissionCalls('employees/[id]/children.put.ts')).toEqual([{ key: 'employees.edit', options: '' }])
     expect(source('employees/[id]/children.put.ts')).toContain('admin.permissions')
     expect(permissionCalls('employees/[id]/child-sick-days.get.ts')).toEqual([{ key: 'employees.sickness', options: '' }])
     for (const route of ['employees/[id]/children.get.ts', 'employees/[id]/children.put.ts', 'employees/[id]/child-sick-days.get.ts']) {
       expect(source(route), route).toContain('.facilityId')
-      expect(fixture[route], route).toEqual(['provider', 'admin'])
+      const tablet = route === 'employees/[id]/children.get.ts' ? ['tablet:provider', 'tablet:admin'] : []
+      expect(fixture[route], route).toEqual(['provider', 'admin', ...tablet])
     }
     expect(permissionCalls('child-sick-settings.get.ts')).toEqual([{ key: 'settings.facility', options: '' }])
     expect(permissionCalls('child-sick-settings.put.ts')).toEqual([{ key: 'settings.absenceCodes', options: '' }])
@@ -736,9 +759,30 @@ describe('API route permissions', () => {
     expect(touching).toEqual(['early-sick-leaves/[id].delete.ts', 'early-sick-leaves/index.get.ts', 'early-sick-leaves/index.put.ts'])
     for (const route of touching) {
       const code = source(route)
-      expect(code, route).toContain("requirePermission(event, 'employees.sickness')")
+      // Setting and removing one also from the plan editor at the tablet, with the editing person's sick days right.
+      const options = route === 'early-sick-leaves/index.get.ts' ? '' : '{ tabletPlanEdit: true }'
+      expect(permissionCalls(route), route).toEqual([{ key: 'employees.sickness', options }])
       expect(code, route).toContain('admin.facilityId')
     }
+  })
+
+  it('lets the tablet into exactly the plan editor\'s routes, only while a person with an own account edits the plan', () => {
+    const marked = routes.filter(route => source(route).includes('tabletPlanEdit'))
+    expect(marked).toEqual(TABLET_PLAN_EDIT_ROUTES)
+    for (const route of TABLET_PLAN_EDIT_ROUTES) {
+      const [{ key, options }] = permissionCalls(route) as [{ key: PermissionKey; options: string }]
+      expect(options, route).toBe('{ tabletPlanEdit: true }')
+      // Never the tablet as such, never a person without an own account; a person with the key and plan.edit.
+      expect(fixture[route], route).not.toContain('terminal')
+      expect(fixture[route], route).not.toContain('tablet:noAccount')
+      expect(fixture[route]!.filter(actor => actor.startsWith('tablet:')), route)
+        .toEqual(TABLET_PEOPLE.filter(actor => tabletPlanEditPassesFor(actor, key)))
+    }
+    // The month plan itself: the tablet as before; while a person edits the plan there, as that person (planReader).
+    expect(source('plan/[year]/[month].get.ts')).toContain('planReader(event, await requirePermission(event, \'plan.view\', { allowTerminal: true }))')
+    expect(tabletPlanEditPassesFor('tablet:observer', 'plan.edit')).toBe(false)
+    expect(tabletPlanEditPassesFor('tablet:noAccount', 'plan.view')).toBe(false)
+    expect(tabletPlanEditPassesFor('tablet:admin', 'plan.release')).toBe(true)
   })
 
   it('opens the BEM to whoever has the sick days right, in the active facility, never about themselves; the text to managers', () => {

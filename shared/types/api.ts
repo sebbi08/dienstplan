@@ -1927,7 +1927,23 @@ export type TabletUnlockStatusDto =
      * shared/domain/tablet.ts unlockDeadline, as the server does.
      */
     noLockPeriods: NoLockPeriodDto[]
+    /**
+     * „Dienstplan bearbeiten“: null when the person may not edit this facility's plan at the tablet (no active account of
+     * their own in this facility, or no plan.edit there); otherwise whether they edit it now, and what their account
+     * may do beyond plan.edit. While they edit, the windows without the automatic lock do not apply (noLockPeriods empty).
+     */
+    planEdit: TabletPlanEditDto | null
   }
+
+/** What the person editing the plan at the tablet may do, from their own account's permissions (see TabletUnlockStatusDto). */
+export interface TabletPlanEditDto {
+  /** Editing has started with this unlock (the plan pages show the editor). */
+  active: boolean
+  /** plan.release: „Freigeben“ and „Änderungen verwerfen“. */
+  canRelease: boolean
+  /** employees.personal: „Kind krank“ asks which child. */
+  seesPersonal: boolean
+}
 
 /** A stretch without the automatic lock as ISO moments (`until` excluded). */
 export interface NoLockPeriodDto { from: string; until: string }

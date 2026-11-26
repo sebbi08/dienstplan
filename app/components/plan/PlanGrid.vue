@@ -25,6 +25,8 @@ const props = defineProps<{
   print?: boolean
   /** The group chosen above the plan: only its block is shown, plus the Springer and helpers (null = all). */
   groupFilter?: number | null
+  /** The recorded times as plain text, not as links to the time records (the plan editor at the tablet, which has none). */
+  plainActuals?: boolean
 }>()
 const emit = defineEmits<{
   cellClick: [employeeId: number, date: string, event: MouseEvent]
@@ -470,8 +472,14 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
                     <UIcon name="i-lucide-thermometer" class="size-4" />
                   </button>
                   <span v-if="cell.gapMinutes !== null" class="text-xs text-amber-700">{{ de.plan.stillMissing(formatDuration(cell.gapMinutes)) }}</span>
+                  <span
+                    v-if="cell.actual && plainActuals" class="text-xs"
+                    :class="cell.actual.deviates || cell.actual.open ? 'font-medium text-orange-600' : 'text-gray-500'"
+                  >
+                    {{ de.time.recorded }} {{ formatDuration(cell.actual.minutes) }}<template v-if="cell.actual.open"> ({{ de.time.open }})</template>
+                  </span>
                   <NuxtLink
-                    v-if="cell.actual" :to="`/admin/time?employee=${cell.employeeId}&year=${plan.year}&month=${plan.month}&date=${row.day.date}`"
+                    v-else-if="cell.actual" :to="`/admin/time?employee=${cell.employeeId}&year=${plan.year}&month=${plan.month}&date=${row.day.date}`"
                     class="text-xs hover:underline" :class="cell.actual.deviates || cell.actual.open ? 'font-medium text-orange-600' : 'text-gray-500'"
                     @click.stop
                   >

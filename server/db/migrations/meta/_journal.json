@@ -925,6 +925,13 @@
       "when": 1795636536116,
       "tag": "0131_long_absences",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "6",
+      "when": 1795676525025,
+      "tag": "0132_tablet_plan_edit",
+      "breakpoints": true
     }
   ]
 }

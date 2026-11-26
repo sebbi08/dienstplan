@@ -7,6 +7,12 @@ export const isChildPagePath = (path: string): boolean =>
   (path === '/children' || path.startsWith('/children/')) && !path.startsWith('/children/info-visits')
 
 /**
+ * The month plan's pages (/plan/<year>/<month>). At the tablet they show the released plan, or – while the person who
+ * unlocked it edits the plan („Dienstplan bearbeiten“) – the editor with that person's rights; leaving them then locks.
+ */
+export const isPlanPagePath = (path: string): boolean => path.startsWith('/plan/')
+
+/**
  * The pages the shared tablet opens without an unlock: stamping, the general plan and its printout
  * (/print/<year>/<month>), the print templates and „Wissen“ („Dokumente“, only its tabs „Zum Ausdrucken“ and „Wissen“ there;
  * /templates is the old address), the team meetings, the notes and the contacts marked for the staff (no child data). No other /print page:
@@ -17,7 +23,7 @@ export function tabletMayOpen(path: string): boolean {
   const teamMeetings = path === '/team-meetings' || path.startsWith('/team-meetings/')
   const planPrintout = /^\/print\/\d+\/\d+$/.test(path)
   return path === '/terminal' || path === '/documents' || path === '/templates' || path === '/notes' || path === '/contacts'
-    || path.startsWith('/plan/') || planPrintout || teamMeetings
+    || isPlanPagePath(path) || planPrintout || teamMeetings
 }
 
 /** A prefix starting with "=" matches only that address, any other one the address and the pages below it. */

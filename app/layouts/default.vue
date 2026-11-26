@@ -5,7 +5,7 @@ import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { pathAfterFacilitySwitch } from '~/utils/facilitySwitch'
 import { isEntryActive, isGroupActive, navMenu, navLabelWithCount, type NavEntry, type NavMenu } from '~/utils/navMenu'
-import { isChildPagePath } from '~/utils/routeAccess'
+import { isChildPagePath, isPlanPagePath } from '~/utils/routeAccess'
 import type { DropdownMenuItem } from '@nuxt/ui'
 
 const { user, loggedIn, clear } = useUserSession()
@@ -113,7 +113,16 @@ const phoneGroups = computed(() => [
 
 // At the tablet, a child page shows who unlocked it and the lock button instead of the menu; that bar never slides away,
 // so "Sperren" stays in reach on a narrow tablet.
-const tabletChildren = computed(() => user.value?.role === 'terminal' && isChildPagePath(route.path))
+// So does the plan editor at the tablet („Dienstplan bearbeiten“), which runs with the same unlock; the bar stays until
+// the tablet has left the plan pages after a lock (the bar takes it to the start page).
+const { editingPlan } = useChildRights()
+const planEditorOpen = ref(false)
+watch([() => route.path, editingPlan], ([path, editing]) => {
+  if (!isPlanPagePath(path)) planEditorOpen.value = false
+  else if (editing) planEditorOpen.value = true
+}, { immediate: true })
+const tabletChildren = computed(() => user.value?.role === 'terminal'
+  && (isChildPagePath(route.path) || (planEditorOpen.value && isPlanPagePath(route.path))))
 
 const pageFacility = usePageFacility()
 async function logout() {

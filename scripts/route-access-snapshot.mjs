@@ -10,7 +10,8 @@
 //   provider/admin/group_lead/observer  the own account (Träger / Leitung / Gruppenleitung / Mitarbeiter), with a
 //                        facility; group_lead added with Teil 3 (its Grundeinstellung)
 //   terminal             the tablet session, locked or unlocked (the guard does not look at the unlock)
-//   tablet:<person>      the tablet session unlocked by that person; only named where a child guard reads the unlock:
+//   tablet:<person>      the tablet session unlocked by that person; only named where a child guard or a plan editor's
+//                        guard (`tabletPlanEdit: true`, „Dienstplan bearbeiten“) reads the unlock:
 //                        tablet:provider / tablet:admin / tablet:group_lead (account of that role),
 //                        tablet:observerEditor (Mitarbeiter account with „darf Kinderakten pflegen“), tablet:observer
 //                        (Mitarbeiter account without it), tablet:noAccount (person without an account, or a helper
@@ -57,6 +58,14 @@ export function tabletPasses(actor, key) {
   return TABLET_PERMISSIONS[actor].has(key) && !(actor === 'tablet:noAccount' && CHILD_ACTOR_KEYS.includes(key))
 }
 
+/**
+ * Whether the person who unlocked the tablet passes a plan editor's guard (`tabletPlanEdit: true`, „Dienstplan
+ * bearbeiten“) for the key: only with an own account holding plan.edit and the key; a person without one never.
+ */
+export function tabletPlanEditPasses(actor, key) {
+  return actor !== 'tablet:noAccount' && TABLET_PERMISSIONS[actor].has('plan.edit') && TABLET_PERMISSIONS[actor].has(key)
+}
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = join(ROOT, 'server', 'api')
 const OUT = join(ROOT, 'tests', 'fixtures', 'route-access-before.json')
@@ -93,8 +102,11 @@ const GUARDS = {
   requirePermission: (args) => {
     const key = /^\s*event,\s*'([^']+)'/.exec(args)?.[1]
     if (!PERMISSION_KEYS.includes(key)) throw new Error(`unknown permission in requirePermission(${args})`)
-    return ['provider', ...RIGHTS_ACTORS, 'terminal'].filter(actor => actor === 'provider'
+    const office = ['provider', ...RIGHTS_ACTORS, 'terminal'].filter(actor => actor === 'provider'
       || (actor === 'terminal' ? /allowTerminal:\s*true/.test(args) : DEFAULTS[actor].has(key)))
+    // The plan editor's routes: the tablet only while a person with an own account and the key edits the plan there.
+    const tablet = /tabletPlanEdit:\s*true/.test(args) ? TABLET_READERS.filter(actor => tabletPlanEditPasses(actor, key)) : []
+    return [...office, ...tablet]
   },
   // Since Teil 1 Task 3: the own account needs children.ownAccount besides the key; the tablet only unlocked, with the
   // unlocking person's permissions (the Mitarbeiter defaults for a person without account, who never gets the keys

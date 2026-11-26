@@ -48,6 +48,8 @@ describe('unlocking the tablet for child records', () => {
     expect(status).toEqual({
       unlocked: true, employeeId: anna, name: 'Anna', lockMinutes: 2, noLockPeriods: [],
       rights: { canEdit: false, isManager: false, canMoveFacility: false, showWaitlist: false, showFutureContracts: false },
+      // No account of her own: never „Dienstplan bearbeiten“.
+      planEdit: null,
     })
     expect(token.length).toBeGreaterThanOrEqual(40)
     expect(tabletUnlockStatus(db, tablet, token, NOW)).toEqual(status)

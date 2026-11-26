@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { parseIsoDate, todayIso } from '#shared/domain/dates'
 import { KEEP_ALIVE_MIN_SECONDS, STATUS_POLL_SECONDS, unlockDeadline } from '#shared/domain/tablet'
 import type { TabletUnlockStatusDto } from '#shared/types/api'
 import { de } from '~/locales/de'
-import { isChildPagePath } from '~/utils/routeAccess'
+import { errorCode, errorMessage } from '~/utils/errors'
+import { isChildPagePath, isPlanPagePath } from '~/utils/routeAccess'
 import { noAutoLockNote, toNoLockPeriods } from '~/utils/tabletWindows'
 
 /**
@@ -17,9 +19,13 @@ import { noAutoLockNote, toNoLockPeriods } from '~/utils/tabletWindows'
  * In the facility's windows without the automatic lock (from the status, see unlockDeadline) the lock time does not run;
  * from a window's end it counts again (max(last use, window end) + lock time), as on the server. „Sperren“, another
  * person unlocking and the status poll end the unlock as always; the bar names the window's end meanwhile.
+ * A person whose own account may edit this facility's plan gets „Dienstplan bearbeiten“ here: the plan editor runs with
+ * this unlock and shows this bar too (the windows do not apply then: the server sends none). Locking there goes back
+ * to the start page as well.
  */
-const { unlock, lock } = useChildRights()
+const { unlock, lock, planEdit, startPlanEdit } = useChildRights()
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const confirm = useConfirm()
 const status = computed(() => (unlock.value?.unlocked ? unlock.value : null))
@@ -88,8 +94,35 @@ async function end(sendLock: boolean) {
   clearTimeout(noteTimer)
   clearInterval(poll)
   if (sendLock) await lock()
-  if (isChildPagePath(router.currentRoute.value.path)) await navigateTo('/terminal')
+  if (unlockedPage(router.currentRoute.value.path)) await navigateTo('/terminal')
 }
+
+/** The pages this bar is shown on: the child pages and, while the plan is edited, the plan editor. */
+const unlockedPage = (path: string) => isChildPagePath(path) || isPlanPagePath(path)
+
+/**
+ * „Dienstplan bearbeiten“ (only for a person whose own account may edit this facility's plan): the plan of this month
+ * opens as the editor with that person's rights, with this unlock; leaving it, „Sperren“ and the lock time end it.
+ */
+const startingPlanEdit = ref(false)
+async function editPlan() {
+  if (startingPlanEdit.value) return
+  startingPlanEdit.value = true
+  try {
+    await startPlanEdit()
+    const today = parseIsoDate(todayIso())
+    await navigateTo(`/plan/${today.year}/${today.month}`)
+  }
+  catch (error) {
+    // 403 tablet_locked is handled by the tabletLocked plugin.
+    if (errorCode(error) !== 'tablet_locked') toast.add({ title: errorMessage(error), color: 'error' })
+  }
+  finally {
+    startingPlanEdit.value = false
+  }
+}
+// Offered again on a child page if leaving it was cancelled (unsaved changes): starting once more changes nothing.
+const offerPlanEdit = computed(() => planEdit.value !== null && isChildPagePath(route.path))
 
 /** The server's view of the unlock; changes nothing there. `unlocked: false` ends the unlock here (watch below). */
 async function pollStatus() {
@@ -199,11 +232,18 @@ onBeforeUnmount(() => {
       <UIcon name="i-lucide-lock-open" class="size-5 text-amber-600" />
       {{ status ? de.terminal.unlockedAs(status.name) : '' }}
     </span>
+    <span v-if="isPlanPagePath(route.path)" class="flex items-center gap-1 text-sm text-gray-600">
+      <UIcon name="i-lucide-calendar-range" class="size-4" aria-hidden="true" /> {{ de.terminal.editPlan }}
+    </span>
     <span v-if="note" class="flex items-center gap-1 text-sm text-gray-600">
       <UIcon name="i-lucide-clock" class="size-4" aria-hidden="true" /> {{ note }}
     </span>
     <!-- The consenting colleagues' emergency contacts, reachable from every unlocked page (the server checks the unlock). -->
     <span class="ml-auto"><TerminalStaffEmergencyContacts compact /></span>
+    <UButton
+      v-if="offerPlanEdit" size="lg" color="neutral" variant="outline" icon="i-lucide-calendar-range"
+      :label="de.terminal.editPlan" :loading="startingPlanEdit" @click="editPlan"
+    />
     <UButton size="lg" color="warning" icon="i-lucide-lock" :label="de.terminal.lock" @click="lockByHand" />
   </div>
 </template>

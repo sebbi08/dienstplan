@@ -33,6 +33,19 @@ export function useChildRights() {
     }
   })
 
+  /**
+   * „Dienstplan bearbeiten“ at the tablet: what the person who unlocked it may do in the plan, from their own account
+   * (null: they may not, or the tablet is locked). The server checks every plan request as well.
+   */
+  const planEdit = computed(() => (onTablet.value && unlock.value?.unlocked ? unlock.value.planEdit : null))
+  /** The tablet's plan pages show the editor: the person who unlocked it edits the plan now. */
+  const editingPlan = computed(() => planEdit.value?.active === true)
+
+  /** Starts editing the plan with the current unlock (the server checks the unlock and the person's account). */
+  async function startPlanEdit() {
+    unlock.value = await $fetch<TabletUnlockStatusDto>('/api/terminal/plan-edit', { method: 'POST' })
+  }
+
   async function refreshUnlock() {
     if (!onTablet.value) return
     try {
@@ -56,9 +69,9 @@ export function useChildRights() {
   }
 
   /**
-   * The tablet leaves the child pages for another page (e.g. the plan): the unlock ends on the server at once (best
-   * effort), and on the screen once that navigation is through - earlier, the lock bar still on screen would take the
-   * tablet to its start page instead of where it is going.
+   * The tablet leaves the child pages (or the plan editor) for another page (e.g. the plan): the unlock ends on the
+   * server at once (best effort), and on the screen once that navigation is through - earlier, the lock bar still on
+   * screen would take the tablet to its start page instead of where it is going.
    */
   function lockOnLeave() {
     if (!onTablet.value) return
@@ -71,5 +84,5 @@ export function useChildRights() {
     })
   }
 
-  return { rights, onTablet, unlock, refreshUnlock, lock, lockOnLeave }
+  return { rights, onTablet, unlock, planEdit, editingPlan, startPlanEdit, refreshUnlock, lock, lockOnLeave }
 }

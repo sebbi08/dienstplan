@@ -4,7 +4,7 @@ import { can, type PermissionKey } from '../../shared/domain/permissions'
 import type { SessionUser } from '../../shared/types/api'
 import { getActiveUser } from '../services/auth'
 import { facilityExists } from '../services/facilities'
-import { resolveChildViewer } from '../services/tabletUnlock'
+import { planEditStarted, resolveChildViewer, tabletPlanEditor } from '../services/tabletUnlock'
 import { asChildPermission, type ChildActor, type ChildActorKey, type ChildViewer } from '../lib/childViewer'
 import { assertPageFacility, requestFacility } from '../lib/pageFacility'
 import { USER_SESSION_DAYS, sessionExpired } from '../lib/session'
@@ -78,6 +78,13 @@ export interface PermissionOptions {
    */
   allowTerminal?: boolean
   /**
+   * The plan editor's routes („Dienstplan bearbeiten“ at the tablet): the facility's tablet gets in while the person who
+   * unlocked it edits the plan there and their own account holds `key` in the tablet's facility (re-checked on every
+   * request, see tabletPlanEditor: 403 tablet_locked without a valid unlock, 403 forbidden otherwise). The route then
+   * works as that account, in the tablet's facility; the tablet's own rights stay as they are.
+   */
+  tabletPlanEdit?: boolean
+  /**
    * The facility the route works in. `request` (default): the active one, for the Träger on the settings pages the one
    * they edit there (403 no_facility without one, 409 facility_changed from a stale page, 404 facility_not_found).
    * `active`: always the active one (the header's facility switcher, the print templates). `none`: no facility at all
@@ -99,7 +106,12 @@ export async function requirePermission(
 export async function requirePermission(
   event: H3Event, key: PermissionKey, options: PermissionOptions = {},
 ): Promise<SessionUser> {
-  const user = await requireUser(event, { allowTerminal: options.allowTerminal })
+  const user = await requireUser(event, { allowTerminal: options.allowTerminal || options.tabletPlanEdit })
+  if (user.role === 'terminal' && options.tabletPlanEdit && !options.allowTerminal) {
+    const editor = await planEditorAt(event, user)
+    if (!can(editor.permissions, key)) throw httpError(403, 'forbidden')
+    return editor
+  }
   if (user.role !== 'terminal' && !can(user.permissions, key)) throw httpError(403, 'forbidden')
   const facility = options.facility ?? 'request'
   if (facility === 'none') return user
@@ -109,6 +121,25 @@ export async function requirePermission(
     return user
   }
   return withRequestFacility(event, user)
+}
+
+/** The account editing the plan at this tablet, in the tablet's facility (see tabletPlanEditor; 403 otherwise). */
+async function planEditorAt(event: H3Event, tablet: SessionUser): Promise<FacilityUser> {
+  if (!hasFacility(tablet)) throw httpError(403, 'no_facility')
+  const editor = tabletPlanEditor(useDb(), { id: tablet.id, facilityId: tablet.facilityId }, await childUnlockToken(event))
+  return { ...editor, facilityId: tablet.facilityId }
+}
+
+/**
+ * Who reads the month plan: the user as given, except the facility's tablet while a person edits the plan there – then
+ * their account (the draft and what their rights show; 403 tablet_locked once that unlock is no longer valid). A tablet
+ * that does not edit the plan reads the released plan as the tablet.
+ */
+export async function planReader(event: H3Event, user: FacilityUser): Promise<FacilityUser> {
+  if (user.role !== 'terminal') return user
+  const terminal = { id: user.id, facilityId: user.facilityId }
+  const token = await childUnlockToken(event)
+  return planEditStarted(useDb(), terminal, token) ? planEditorAt(event, user) : user
 }
 
 /** The shared tablet, which stamps for the employees of its own facility. */

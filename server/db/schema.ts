@@ -1347,7 +1347,9 @@ export const groupMerges = sqliteTable('group_merges', {
 /**
  * The child records are unlocked at a facility's tablet by one person (name + PIN): at most one row per tablet account.
  * Locking deletes the row; the tablet's session holds its id. Valid until `lastActiveAt` plus the facility's lock time,
- * kept open through the facility's windows without the automatic lock (tabletUnlockedWindows).
+ * kept open through the facility's windows without the automatic lock (tabletUnlockedWindows) – except while the person
+ * edits the plan there (`planEditSince`, „Dienstplan bearbeiten“ with their own account's plan.edit): then the lock time
+ * always runs (server/services/tabletUnlock.ts). Locking, another person's unlock and the lock time end the editing too.
  */
 export const terminalUnlocks = sqliteTable('terminal_unlocks', {
   id: text('id').primaryKey(),
@@ -1356,6 +1358,8 @@ export const terminalUnlocks = sqliteTable('terminal_unlocks', {
   employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
   createdAt: text('created_at').notNull(),
   lastActiveAt: text('last_active_at').notNull(),
+  /** When „Dienstplan bearbeiten“ started with this unlock (ISO); null = the unlock opens the child records only. */
+  planEditSince: text('plan_edit_since'),
 })
 
 /**

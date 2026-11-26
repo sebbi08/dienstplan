@@ -287,6 +287,31 @@ freigeschaltet sind, nur lesend) – siehe Abschnitt 12.
 - Einstellungen und das Verschieben eines Kindes in eine andere Einrichtung gibt es am Tablet nicht – auch nicht
   für Leitung und Träger.
 
+### Dienstplan am Tablet bearbeiten
+
+- Ohne Aufschließen zeigt das Tablet nur den **freigegebenen** Dienstplan (Kachel „Dienstplan“), zum Ansehen.
+- Wer mit dem **eigenen Benutzerkonto** den Dienstplan bearbeiten darf (Recht „Dienstplan: bearbeiten“, z. B. die
+  Leitung), bekommt nach dem Aufschließen (Kachel „Kinder“, Name und PIN) oben neben „Sperren“ den Knopf
+  **„Dienstplan bearbeiten“**. Alle anderen sehen ihn nicht.
+- Der Knopf öffnet den Dienstplan dieses Monats **wie im Büro**, für die Einrichtung des Tablets – mit genau den
+  Rechten des eigenen Kontos: Freigeben und „Änderungen verwerfen“ nur mit „Dienstplan: freigeben“, Krankheitsgründe
+  und „Im Dienst erkrankt“ nur mit dem Recht für Krankheitstage, die Kinder bei „Kind krank“ nur mit den persönlichen
+  Daten. Andere Monate erreicht man mit den Pfeilen. Den Knopf „Drucken“ gibt es dort nicht (das Tablet druckt über
+  die Startseite den freigegebenen Plan), die Verknüpfungen zu Einstellungen und Zeiterfassung auch nicht.
+- Jede Änderung wird mit dem **Namen der Person** gespeichert (Verlauf „wer, wann“, Freigabe „von …“) – nie als
+  Tablet.
+- **Personen ohne eigenes Konto** (nur PIN) und **Aushilfen aus einer anderen Einrichtung** können am Tablet nie den
+  Dienstplan bearbeiten – auch dann nicht, wenn der Träger der Rolle Mitarbeiter das Recht gibt: Der Verlauf braucht
+  ein Konto, unter dem die Änderung steht.
+- Das Bearbeiten gehört zum Aufschließen: Es **endet sofort**, wenn jemand „Sperren“ antippt, die Sperrzeit ohne
+  Bedienung abläuft, eine andere Person aufschließt, man den Dienstplan verlässt (Startseite) oder dem Konto das Recht
+  genommen wird – dann sperrt sich das Tablet und zeigt wieder die Startseite. Der Server prüft das bei **jeder**
+  Änderung neu (Aufschließen noch gültig, Person noch auf der Tablet-Liste, Recht noch da, richtige Einrichtung).
+- Die Zeitfenster **„Keine automatische Sperre“** gelten beim Bearbeiten des Dienstplans **nicht**: Die Sperrzeit läuft
+  immer, damit ein liegen gelassenes Tablet nicht stundenlang mit den Rechten der Leitung offen bleibt.
+- Jede Änderung im Dienstplan wird sofort gespeichert. Was beim Sperren nur in einem offenen Fenster eingetippt, aber
+  noch nicht übernommen war, geht verloren.
+
 ### Aufbau der Seite *Kinder*
 
 Oben stehen drei große Knöpfe, die **Bereiche**; darunter die kleinen Reiter des gewählten Bereichs:
@@ -2591,7 +2616,8 @@ Mitarbeiter kommen nicht heran.
   Datenbanken bekommen die Codes mit der Migration 0093.
 - **Wer die Codes sieht – „Alles Private als ‚abwesend‘“:** Krank, Kind krank, Mutterschutz und Beschäftigungsverbot
   sieht nur, wer die Krankheitstage sehen darf (`employees.sickness`, Leitung und Träger). Alle anderen – Mitarbeiter, die
-  Gruppenleitung, wer nur „Dienstplan bearbeiten“ oder die Zeiterfassung hat – und **immer das Tablet** sehen an diesen
+  Gruppenleitung, wer nur „Dienstplan bearbeiten“ oder die Zeiterfassung hat – und **immer das Tablet** (außer beim
+  „Dienstplan bearbeiten“ am Tablet: dort zählen die Rechte der aufschließenden Person, Abschnitt 8) sehen an diesen
   Tagen für alle vier dasselbe graue **„abwesend“** (ohne Notiz, ohne Kürzel): im Dienstplan (Entwurf und freigegebener
   Plan, auch beim Drucken und als PDF), in der Änderungsliste der Freigaben, im Jahreskalender und in der Urlaubsplanung
   („abwesend“; die Legende nennt „Krank“ und „Mutterschutz / Beschäftigungsverbot“ nur, wenn solche Tage gezeigt werden),
