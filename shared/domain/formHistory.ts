@@ -1,6 +1,7 @@
 import {
-  emptyAnswer, RATING_LEGEND, type AnswerableItem, type FormAnswer, type FormAnswers, type FormContent, type FormItem,
-  type MilestoneAnswer, type RatingAnswer, type RatingValue,
+  emptyAnswer, emptyTableCell, isEmptyTableCell, isEmptyTableRow, RATING_LEGEND, tableRowsOf, type AnswerableItem,
+  type FormAnswer, type FormAnswers, type FormContent, type FormItem, type MilestoneAnswer, type RatingAnswer,
+  type RatingValue, type TableAnswerRow, type TableCell, type TableColumnType, type TableItem,
 } from './forms'
 import { richTextFromAnswer, richTextToPlain, sameTextAnswer } from './richText'
 
@@ -21,8 +22,9 @@ export function answerableItems(content: FormContent): AnswerableItem[] {
 }
 
 /**
- * What an item is called in a list of items (the comparison): its question, criterion or sentence (a milestone with its
- * age); a choices item without a question by `fallback` (e.g. its section's title), else by its options.
+ * What an item is called in a list of items (the comparison): its question, criterion, sentence (a milestone with its
+ * age) or label; a choices item or a table without a question by `fallback` (e.g. its section's title), else by its
+ * options or column headings.
  */
 export function itemLabel(item: AnswerableItem, fallback = ''): string {
   switch (item.kind) {
@@ -30,6 +32,8 @@ export function itemLabel(item: AnswerableItem, fallback = ''): string {
     case 'choices': return item.question || fallback || item.options.map(option => option.label).join(' / ')
     case 'rating': return item.criterion
     case 'milestone': return `${item.text} (${item.ageLabel})`
+    case 'table': return item.question || fallback || item.columns.map(column => column.heading).join(' / ')
+    case 'checkbox': return item.label
   }
 }
 
@@ -40,7 +44,8 @@ export function answerOf(item: AnswerableItem, answers: FormAnswers): FormAnswer
 }
 
 const textOf = (value: FormAnswer): string => (typeof value === 'string' ? value : '')
-const choicesOf = (value: FormAnswer): string[] => (Array.isArray(value) ? value : [])
+const choicesOf = (value: FormAnswer): string[] =>
+  (Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [])
 const ratingOf = (value: FormAnswer): RatingAnswer => {
   const rating = value as RatingAnswer | null
   return { value: rating?.value ?? null, remark: rating?.remark ?? '' }
@@ -50,6 +55,27 @@ const milestoneOf = (value: FormAnswer): MilestoneAnswer => {
   return { reached: milestone?.reached === true, remark: milestone?.remark ?? '' }
 }
 const dateOf = (value: FormAnswer): string | null => (typeof value === 'string' && value !== '' ? value : null)
+const checkedOf = (value: FormAnswer): boolean => value === true
+
+/** The rows of a table that count: every row of a fixed table, the rows of a free one that say something. */
+function countedRows(item: TableItem, value: FormAnswer): TableAnswerRow[] {
+  const rows = tableRowsOf(item, value)
+  return item.freeRows ? rows.filter(row => !isEmptyTableRow(row)) : rows
+}
+/** Two cells hold the same (texts regardless of white space at the ends and between words). */
+const sameCell = (a: TableCell, b: TableCell): boolean =>
+  typeof a === 'string' && typeof b === 'string' ? a.replace(/\s+/g, ' ').trim() === b.replace(/\s+/g, ' ').trim() : a === b
+const cellOf = (row: TableAnswerRow, column: { id: string; type: TableColumnType }): TableCell =>
+  row.cells[column.id] ?? emptyTableCell(column.type)
+
+function sameTable(item: TableItem, a: FormAnswer, b: FormAnswer): boolean {
+  const left = countedRows(item, a)
+  const right = countedRows(item, b)
+  return left.length === right.length && left.every((row, index) => {
+    const other = right[index]!
+    return row.id === other.id && item.columns.every(column => sameCell(cellOf(row, column), cellOf(other, column)))
+  })
+}
 
 /**
  * A text answer's canonical HTML with its white space evened out: non-breaking spaces as spaces, runs of spaces as one,
@@ -63,7 +89,10 @@ function evenedText(value: string): string {
 /** Whether two text answers say the same: equal content, or differing only in white space. */
 const sameText = (a: string, b: string): boolean => sameTextAnswer(a, b) || evenedText(a) === evenedText(b)
 
-/** Whether two answers of the item hold the same (choices in any order, texts regardless of white space). */
+/**
+ * Whether two answers of the item hold the same (choices in any order, texts regardless of white space; of a free table
+ * the rows that say something).
+ */
 export function sameAnswer(item: AnswerableItem, a: FormAnswer, b: FormAnswer): boolean {
   switch (item.kind) {
     case 'text': return sameText(textOf(a), textOf(b))
@@ -83,10 +112,12 @@ export function sameAnswer(item: AnswerableItem, a: FormAnswer, b: FormAnswer): 
       return left.reached === right.reached && left.remark === right.remark
     }
     case 'date': return dateOf(a) === dateOf(b)
+    case 'table': return sameTable(item, a, b)
+    case 'checkbox': return checkedOf(a) === checkedOf(b)
   }
 }
 
-/** Whether the answer says nothing (a text of white space only, nothing ticked, no rating and no remark …). */
+/** Whether the answer says nothing (a text of white space only, nothing ticked, no rating and no remark, no cell filled …). */
 export function isEmptyAnswer(item: AnswerableItem, value: FormAnswer): boolean {
   switch (item.kind) {
     case 'text': return richTextToPlain(textOf(value)).trim() === ''
@@ -100,6 +131,8 @@ export function isEmptyAnswer(item: AnswerableItem, value: FormAnswer): boolean 
       return !milestone.reached && milestone.remark.trim() === ''
     }
     case 'date': return dateOf(value) === null
+    case 'table': return countedRows(item, value).every(isEmptyTableRow)
+    case 'checkbox': return !checkedOf(value)
   }
 }
 
@@ -240,6 +273,49 @@ export type AnswerDiffDetail =
   | { kind: 'rating'; from: RatingValue | null; to: RatingValue | null; remarkFrom: string; remarkTo: string }
   | { kind: 'milestone'; from: boolean; to: boolean; remarkFrom: string; remarkTo: string }
   | { kind: 'date'; from: string | null; to: string | null }
+  /** Changed cells, and of a free table the rows added and removed (only rows that say something). */
+  | { kind: 'table'; cells: TableCellChange[]; addedRows: TableRowChange[]; removedRows: TableRowChange[] }
+  | { kind: 'checkbox'; from: boolean; to: boolean }
+
+/** A row of a table as the history names it: a fixed row by its label, a free one by its number (from 1). */
+export interface TableRowRef { label: string | null; number: number }
+export interface TableCellChange { row: TableRowRef; column: string; type: TableColumnType; from: TableCell; to: TableCell }
+/** A row added or removed with its filled cells (column heading, type and value). */
+export interface TableRowChange { row: TableRowRef; cells: { column: string; type: TableColumnType; value: TableCell }[] }
+
+/**
+ * How a table differs, cell by cell: rows are matched by their id (a free row keeps its id, so removing one row does
+ * not shift the others); a free row only on one side is added or removed (left out when it says nothing). A row's
+ * number is its place in its own state.
+ */
+function tableDetail(item: TableItem, before: FormAnswer, after: FormAnswer): AnswerDiffDetail {
+  const was = tableRowsOf(item, before)
+  const is = tableRowsOf(item, after)
+  const labels = new Map(item.rows.map(row => [row.id, row.label]))
+  const ref = (rows: TableAnswerRow[], index: number): TableRowRef =>
+    ({ label: item.freeRows ? null : labels.get(rows[index]!.id) ?? null, number: index + 1 })
+  const filled = (row: TableAnswerRow) => item.columns.filter(column => !isEmptyTableCell(cellOf(row, column)))
+    .map(column => ({ column: column.heading, type: column.type, value: cellOf(row, column) }))
+  const wasById = new Map(was.map(row => [row.id, row]))
+  const isIds = new Set(is.map(row => row.id))
+  const cells: TableCellChange[] = []
+  const addedRows: TableRowChange[] = []
+  is.forEach((row, index) => {
+    const old = wasById.get(row.id)
+    if (!old) {
+      if (!isEmptyTableRow(row)) addedRows.push({ row: ref(is, index), cells: filled(row) })
+      return
+    }
+    for (const column of item.columns) {
+      const from = cellOf(old, column)
+      const to = cellOf(row, column)
+      if (!sameCell(from, to)) cells.push({ row: ref(is, index), column: column.heading, type: column.type, from, to })
+    }
+  })
+  const removedRows = was.flatMap((row, index) =>
+    (isIds.has(row.id) || isEmptyTableRow(row) ? [] : [{ row: ref(was, index), cells: filled(row) }]))
+  return { kind: 'table', cells, addedRows, removedRows }
+}
 
 export type AnswerDiff = { status: 'same' } | { status: Exclude<DiffStatus, 'same'>; detail: AnswerDiffDetail }
 
@@ -266,6 +342,8 @@ function detailOf(item: AnswerableItem, before: FormAnswer, after: FormAnswer): 
       return { kind: 'milestone', from: was.reached, to: is.reached, remarkFrom: was.remark, remarkTo: is.remark }
     }
     case 'date': return { kind: 'date', from: dateOf(before), to: dateOf(after) }
+    case 'table': return tableDetail(item, before, after)
+    case 'checkbox': return { kind: 'checkbox', from: checkedOf(before), to: checkedOf(after) }
   }
 }
 

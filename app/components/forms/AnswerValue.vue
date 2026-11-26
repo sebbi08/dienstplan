@@ -7,7 +7,8 @@ import { isBlank } from '~/utils/forms'
 /**
  * One stored answer shown compactly to read (the comparison of two forms, the history): formatted text through
  * FormsRichText (sanitized again there), the ticked options, the rating's symbol, the milestone and the date, each with
- * its remark. `value` undefined: the item is not in that form („nicht im Bogen“).
+ * its remark, a table as a table, a Kästchen as angekreuzt / nicht angekreuzt. `value` undefined: the item is not in
+ * that form („nicht im Bogen“).
  */
 const props = defineProps<{ item: AnswerableItem | undefined; value: FormAnswer | undefined }>()
 const h = de.formHistory
@@ -49,4 +50,8 @@ const milestone = computed(() => props.value as MilestoneAnswer)
     <span v-if="milestone.remark" class="ml-2 break-words text-gray-700">{{ milestone.remark }}</span>
   </div>
   <p v-else-if="props.item.kind === 'date'" class="text-sm">{{ typeof props.value === 'string' && props.value ? formatDate(props.value) : h.noDate }}</p>
+  <FormsTableAnswer v-else-if="props.item.kind === 'table'" :item="props.item" :value="props.value" class="text-sm" />
+  <p v-else-if="props.item.kind === 'checkbox'" class="text-sm" :class="props.value === true ? 'font-medium text-green-800' : 'text-gray-600'">
+    {{ props.value === true ? `☒ ${h.checked}` : `☐ ${h.notChecked}` }}
+  </p>
 </template>

@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { itemLabel, type CompareRow, type CompareSection, type Trend } from '#shared/domain/formHistory'
+import { answerDiff, itemLabel, type AnswerDiff, type CompareRow, type CompareSection, type Trend } from '#shared/domain/formHistory'
 import { de } from '~/locales/de'
 
 /**
  * Two forms side by side (compareForms): per section and item the older answer left, the newer right, ratings and
- * milestones with a trend arrow (↑ better, ↓ weaker, = the same). On phones each item stacks both answers with their
- * labels; the printout always has the three columns.
+ * milestones with a trend arrow (↑ better, ↓ weaker, = the same); under a table in both forms what changed cell by cell
+ * (rows added and removed). On phones each item stacks both answers with their labels; the printout always has the
+ * three columns.
  */
 const props = defineProps<{ sections: CompareSection[]; olderLabel: string; newerLabel: string }>()
 const h = de.formHistory
+
+/** How a table differs from the older form to the newer one (read by the newer form's columns and rows); none if equal. */
+function tableDiff(row: CompareRow): AnswerDiff | undefined {
+  if (row.newerItem?.kind !== 'table' || row.olderItem?.kind !== 'table' || row.older === undefined || row.newer === undefined) return undefined
+  const diff = answerDiff(row.newerItem, row.older, row.newer)
+  return diff.status === 'same' ? undefined : diff
+}
 
 // A choices item without a question is named by its section (the options are listed in the answers).
 const rowLabel = (row: CompareRow, section: CompareSection) => itemLabel((row.newerItem ?? row.olderItem)!, section.title)
@@ -47,6 +55,9 @@ const columns = 'sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] prin
             v-if="row.trend" class="text-lg leading-none font-bold" :class="arrowClass[row.trend]" :title="h.trend[row.trend]"
             role="img" :aria-label="h.trend[row.trend]"
           >{{ arrow[row.trend] }}</span>
+        </div>
+        <div v-if="tableDiff(row)" class="min-w-0 sm:col-span-3 print:col-span-3">
+          <FormsItemHistory :item="row.newerItem!" :diff="tableDiff(row)" />
         </div>
       </div>
     </section>

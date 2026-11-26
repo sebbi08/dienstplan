@@ -37,23 +37,42 @@ export const PREFILL_KINDS = {
 export type PrefillKey = keyof typeof PREFILL_KINDS
 export const PREFILL_KEYS = Object.keys(PREFILL_KINDS) as PrefillKey[]
 
-export type ItemKind = 'note' | 'text' | 'choices' | 'rating' | 'milestone' | 'date'
-export const ITEM_KINDS: readonly ItemKind[] = ['note', 'text', 'choices', 'rating', 'milestone', 'date']
+export type ItemKind = 'note' | 'text' | 'choices' | 'rating' | 'milestone' | 'date' | 'table' | 'checkbox'
+export const ITEM_KINDS: readonly ItemKind[] = ['note', 'text', 'choices', 'rating', 'milestone', 'date', 'table', 'checkbox']
 
 export interface ChoiceOption { id: string; label: string }
+
+/** What a column of a table takes: a short plain text, a tick („Kästchen“) or a date. */
+export type TableColumnType = 'text' | 'checkbox' | 'date'
+export const TABLE_COLUMN_TYPES: readonly TableColumnType[] = ['text', 'checkbox', 'date']
+export interface TableColumn { id: string; heading: string; type: TableColumnType }
+/** A fixed row of a table, its label in the first column. */
+export interface TableRowLabel { id: string; label: string }
 
 export type FormItem =
   | { id: string; kind: 'note'; text: string }
   | { id: string; kind: 'text'; question: string; prefill?: PrefillKey }
-  | { id: string; kind: 'choices'; question: string; options: ChoiceOption[]; prefill?: PrefillKey }
+  /** `single`: at most one option may be ticked („nur eine Antwort“); absent = several („mehrere Antworten“). */
+  | { id: string; kind: 'choices'; question: string; options: ChoiceOption[]; single?: true; prefill?: PrefillKey }
   | { id: string; kind: 'rating'; criterion: string }
   | { id: string; kind: 'milestone'; text: string; ageLabel: string }
   | { id: string; kind: 'date'; question: string; prefill?: PrefillKey }
+  /**
+   * „Tabelle“: an optional question above, 1–8 columns, and either fixed rows with labels (`freeRows` false) or rows
+   * the person filling in adds and removes (`freeRows` true, `rows` empty).
+   */
+  | { id: string; kind: 'table'; question: string; columns: TableColumn[]; rows: TableRowLabel[]; freeRows: boolean }
+  /** „Kästchen“: a single tick with its label, e.g. „Impfpass gesehen“. */
+  | { id: string; kind: 'checkbox'; label: string }
 
-/** An item as typed in the editor: no item id yet, options may lack ids. */
+export type TableItem = Extract<FormItem, { kind: 'table' }>
+
+/** An item as typed in the editor: no item id yet, options, columns and rows may lack ids. */
 type Draft<T> = T extends { kind: 'choices' }
   ? Omit<T, 'id' | 'options'> & { options: { id?: string; label: string }[] }
-  : Omit<T, 'id'>
+  : T extends { kind: 'table' }
+    ? Omit<T, 'id' | 'columns' | 'rows'> & { columns: (Omit<TableColumn, 'id'> & { id?: string })[]; rows: { id?: string; label: string }[] }
+    : Omit<T, 'id'>
 export type ItemDraft = FormItem extends infer T ? (T extends FormItem ? Draft<T> : never) : never
 /** Items that take an answer (everything but notes). */
 export type AnswerableItem = Exclude<FormItem, { kind: 'note' }>
@@ -71,7 +90,17 @@ export type RatingValue = '+' | '~' | '-'
 export interface RatingAnswer { value: RatingValue | null; remark: string }
 export interface MilestoneAnswer { reached: boolean; remark: string }
 export type DateAnswer = IsoDate | null
-export type FormAnswer = TextAnswer | ChoicesAnswer | RatingAnswer | MilestoneAnswer | DateAnswer
+/** A cell of a table: a text ('' when empty), a tick (false when empty) or a date (null when empty). */
+export type TableCell = string | boolean | null
+/**
+ * One row of a table's answer: a fixed row by the template row's id, a free row by an id of its own (made when it is
+ * added, so the history follows it); `cells` by column id.
+ */
+export interface TableAnswerRow { id: string; cells: Record<string, TableCell> }
+/** A table's rows: a fixed table every row of its template in order, a free one the rows added (at most 50). */
+export type TableAnswer = TableAnswerRow[]
+export type CheckboxAnswer = boolean
+export type FormAnswer = TextAnswer | ChoicesAnswer | RatingAnswer | MilestoneAnswer | DateAnswer | TableAnswer | CheckboxAnswer
 
 export const FORM_LIMITS = {
   sections: 60,
@@ -92,6 +121,15 @@ export const FORM_LIMITS = {
   answersHtml: 200000,
   ratingRemark: 500,
   milestoneRemark: 200,
+  /** A table: the question above it, columns, a column's heading, fixed rows, a row's label, free rows, a text cell. */
+  tableQuestion: 200,
+  tableColumns: 8,
+  tableHeading: 60,
+  tableRows: 30,
+  tableRowLabel: 80,
+  tableFreeRows: 50,
+  tableCell: 500,
+  checkboxLabel: 200,
   templateName: 80,
   id: 100,
 } as const
@@ -170,12 +208,15 @@ function checkItem(raw: unknown, seen: Set<string>): FormItem {
       const question = text(raw.question ?? '', 0, L.question)
       const options = raw.options
       if (!Array.isArray(options) || options.length < 1 || options.length > L.options) invalidContent()
+      if (raw.single !== undefined && raw.single !== null && typeof raw.single !== 'boolean') invalidContent()
       return {
         id: itemId, kind: 'choices', question,
         options: options.map((option: unknown) => {
           if (!isObject(option)) invalidContent()
           return { id: id(option.id, seen), label: text(option.label, 1, L.optionLabel) }
         }),
+        // Stored only when set, so the lists from before stay exactly as they were („mehrere Antworten“).
+        ...(raw.single === true ? { single: true as const } : {}),
         ...prefillOf(raw, 'choices'),
       }
     }
@@ -184,6 +225,27 @@ function checkItem(raw: unknown, seen: Set<string>): FormItem {
       id: itemId, kind: 'milestone', text: text(raw.text, 1, L.question), ageLabel: text(raw.ageLabel, 1, L.ageLabel),
     }
     case 'date': return { id: itemId, kind: 'date', question: text(raw.question, 1, L.question), ...prefillOf(raw, 'date') }
+    case 'table': {
+      const question = text(raw.question ?? '', 0, L.tableQuestion)
+      const { columns, rows, freeRows } = raw
+      if (!Array.isArray(columns) || columns.length < 1 || columns.length > L.tableColumns) invalidContent()
+      if (typeof freeRows !== 'boolean' || !Array.isArray(rows)) invalidContent()
+      // A free table has no rows of its own, a fixed one 1–30.
+      if (freeRows ? rows.length !== 0 : rows.length < 1 || rows.length > L.tableRows) invalidContent()
+      return {
+        id: itemId, kind: 'table', question,
+        columns: columns.map((column: unknown) => {
+          if (!isObject(column) || !TABLE_COLUMN_TYPES.includes(column.type as TableColumnType)) invalidContent()
+          return { id: id(column.id, seen), heading: text(column.heading, 1, L.tableHeading), type: column.type as TableColumnType }
+        }),
+        rows: rows.map((row: unknown) => {
+          if (!isObject(row)) invalidContent()
+          return { id: id(row.id, seen), label: text(row.label, 1, L.tableRowLabel) }
+        }),
+        freeRows,
+      }
+    }
+    case 'checkbox': return { id: itemId, kind: 'checkbox', label: text(raw.label, 1, L.checkboxLabel) }
     default: return invalidContent()
   }
 }
@@ -244,6 +306,85 @@ function checkTextAnswer(value: unknown): TextAnswer {
   return html
 }
 
+/** A cell's empty value: '' for a text, false for a tick, null for a date. */
+export function emptyTableCell(type: TableColumnType): TableCell {
+  return type === 'text' ? '' : type === 'checkbox' ? false : null
+}
+
+/** Every column of the table with its empty value. */
+export const emptyTableCells = (columns: readonly TableColumn[]): Record<string, TableCell> =>
+  Object.fromEntries(columns.map((column) => [column.id, emptyTableCell(column.type)]))
+
+function checkCell(column: TableColumn, value: unknown): TableCell {
+  switch (column.type) {
+    case 'text':
+      if (typeof value !== 'string' || value.length > FORM_LIMITS.tableCell) invalidAnswer()
+      return value
+    case 'checkbox':
+      if (typeof value !== 'boolean') invalidAnswer()
+      return value
+    case 'date':
+      if (value === null) return null
+      if (typeof value !== 'string' || !isValidIsoDate(value)) invalidAnswer()
+      return value
+  }
+}
+
+/**
+ * A table's rows, each `{ id, cells }` with the cells by column id (a missing column counts as empty), each cell of its
+ * column's type (plain text of at most 500 characters, true/false, an ISO date or null). A fixed table takes only its own
+ * row ids, each once, and is stored with every row in the template's order; a free one takes at most 50 rows with ids
+ * of their own (1–100 characters, each once), stored in the order given.
+ */
+function checkTableAnswer(item: TableItem, value: unknown): TableAnswer {
+  if (!Array.isArray(value)) invalidAnswer()
+  if (value.length > (item.freeRows ? FORM_LIMITS.tableFreeRows : item.rows.length)) invalidAnswer()
+  const columns = new Map(item.columns.map((column) => [column.id, column]))
+  const fixed = new Set(item.rows.map((row) => row.id))
+  const given = new Map<string, TableAnswerRow>()
+  for (const row of value) {
+    if (!hasExactKeys(row, ['id', 'cells']) || !isObject(row.cells)) invalidAnswer()
+    const rowId = row.id
+    if (typeof rowId !== 'string' || rowId.length === 0 || rowId.length > FORM_LIMITS.id || given.has(rowId)) invalidAnswer()
+    if (!item.freeRows && !fixed.has(rowId)) invalidAnswer()
+    const cells = emptyTableCells(item.columns)
+    for (const [key, cell] of Object.entries(row.cells)) {
+      const column = columns.get(key)
+      if (!column) invalidAnswer()
+      cells[key] = checkCell(column, cell)
+    }
+    given.set(rowId, { id: rowId, cells })
+  }
+  if (item.freeRows) return [...given.values()]
+  return item.rows.map((row) => given.get(row.id) ?? { id: row.id, cells: emptyTableCells(item.columns) })
+}
+
+/**
+ * A table's answer as the views read it (tolerant of whatever is stored): a fixed table with every template row in
+ * order, a free one with its stored rows; every cell of its column's type, else empty.
+ */
+export function tableRowsOf(item: TableItem, value: unknown): TableAnswer {
+  const stored = Array.isArray(value)
+    ? value.filter((row): row is TableAnswerRow => isObject(row) && typeof row.id === 'string')
+    : []
+  const cellsOf = (row: TableAnswerRow | undefined): Record<string, TableCell> => Object.fromEntries(item.columns.map((column) => {
+    const cell: unknown = row && isObject(row.cells) ? row.cells[column.id] : undefined
+    const fits = column.type === 'checkbox' ? typeof cell === 'boolean'
+      : column.type === 'date' ? typeof cell === 'string' && cell !== ''
+        : typeof cell === 'string'
+    return [column.id, fits ? cell as TableCell : emptyTableCell(column.type)]
+  }))
+  if (item.freeRows) return stored.map((row) => ({ id: row.id, cells: cellsOf(row) }))
+  return item.rows.map((row) => ({ id: row.id, cells: cellsOf(stored.find((entry) => entry.id === row.id)) }))
+}
+
+/** Whether a cell says nothing: no text (or white space only), no tick, no date. */
+export const isEmptyTableCell = (cell: TableCell): boolean =>
+  cell === null || cell === false || (typeof cell === 'string' && cell.trim() === '')
+
+/** Whether a row of a table says nothing (every cell empty). */
+export const isEmptyTableRow = (row: TableAnswerRow): boolean => Object.values(row.cells).every(isEmptyTableCell)
+
 function checkAnswer(item: FormItem, value: unknown): FormAnswer {
   switch (item.kind) {
     case 'note': return invalidAnswer()
@@ -256,6 +397,8 @@ function checkAnswer(item: FormItem, value: unknown): FormAnswer {
         if (typeof entry !== 'string' || !allowed.has(entry) || picked.has(entry)) invalidAnswer()
         picked.add(entry)
       }
+      // „nur eine Antwort“: at most one ticked.
+      if (item.single && picked.size > 1) invalidAnswer()
       return [...picked]
     }
     case 'rating': {
@@ -270,6 +413,10 @@ function checkAnswer(item: FormItem, value: unknown): FormAnswer {
     case 'date':
       if (value === null) return null
       if (typeof value !== 'string' || !isValidIsoDate(value)) invalidAnswer()
+      return value
+    case 'table': return checkTableAnswer(item, value)
+    case 'checkbox':
+      if (typeof value !== 'boolean') invalidAnswer()
       return value
   }
 }
@@ -304,6 +451,8 @@ export function emptyAnswer(item: AnswerableItem): FormAnswer {
     case 'rating': return { value: null, remark: '' }
     case 'milestone': return { reached: false, remark: '' }
     case 'date': return null
+    case 'table': return item.freeRows ? [] : item.rows.map((row) => ({ id: row.id, cells: emptyTableCells(item.columns) }))
+    case 'checkbox': return false
   }
 }
 
@@ -334,6 +483,15 @@ function replaceSection(content: FormContent, index: number, section: FormSectio
 }
 
 function buildItem(draft: ItemDraft, itemId: string, newId: () => string): FormItem {
+  if (draft.kind === 'table') {
+    const given = [...draft.columns, ...draft.rows].flatMap((entry) => (entry.id === undefined ? [] : [entry.id]))
+    if (new Set(given).size !== given.length) throw new FormError('form_option_duplicate')
+    return {
+      ...draft, id: itemId,
+      columns: draft.columns.map((column) => ({ id: column.id ?? newId(), heading: column.heading, type: column.type })),
+      rows: draft.freeRows ? [] : draft.rows.map((row) => ({ id: row.id ?? newId(), label: row.label })),
+    }
+  }
   if (draft.kind === 'choices') {
     const given = draft.options.flatMap((option) => (option.id === undefined ? [] : [option.id]))
     if (new Set(given).size !== given.length) throw new FormError('form_option_duplicate')

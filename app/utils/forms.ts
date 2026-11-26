@@ -1,5 +1,6 @@
 import {
-  emptyAnswer, type AnswerableItem, type FormAnswer, type FormAnswers, type FormContent, type FormItem, type FormSection,
+  emptyAnswer, emptyTableCells, FORM_LIMITS, tableRowsOf, type AnswerableItem, type FormAnswer, type FormAnswers,
+  type FormContent, type FormItem, type FormSection, type TableAnswer, type TableCell, type TableItem, type TableRowLabel,
 } from '#shared/domain/forms'
 import { groupTemplateChoices, type TemplateChoice } from '#shared/domain/formCategories'
 import { richTextToPlain } from '#shared/domain/richText'
@@ -108,6 +109,46 @@ export async function saveAnswers(save: FormPanelSave, answers: FormAnswers, bas
 
 /** Whether a text answer is empty (then print shows writing lines); formatted text counts by its characters. */
 export const isBlank = (value: unknown) => typeof value !== 'string' || richTextToPlain(value).trim() === ''
+
+/**
+ * The ticked options after tapping one: a ticked option is unticked; otherwise it is ticked, in a list with „nur eine
+ * Antwort“ instead of the one ticked before (so the answer is cleared by tapping the ticked option again).
+ */
+export function toggledChoice(picked: readonly string[], optionId: string, single: boolean): string[] {
+  if (picked.includes(optionId)) return picked.filter(entry => entry !== optionId)
+  return single ? [optionId] : [...picked, optionId]
+}
+
+/** A table's answer with one cell set (the other rows and cells as they are). */
+export function withTableCell(item: TableItem, value: unknown, rowId: string, columnId: string, cell: TableCell): TableAnswer {
+  return tableRowsOf(item, value).map(row => (row.id === rowId ? { id: row.id, cells: { ...row.cells, [columnId]: cell } } : row))
+}
+
+/** A free table's answer with an empty row `id` added at the end (unchanged at 50 rows, and for a fixed table). */
+export function withTableRow(item: TableItem, value: unknown, id: string): TableAnswer {
+  const rows = tableRowsOf(item, value)
+  if (!item.freeRows || rows.length >= FORM_LIMITS.tableFreeRows) return rows
+  return [...rows, { id, cells: emptyTableCells(item.columns) }]
+}
+
+/** A free table's answer without the row `rowId` (a fixed table keeps its rows). */
+export function withoutTableRow(item: TableItem, value: unknown, rowId: string): TableAnswer {
+  const rows = tableRowsOf(item, value)
+  return item.freeRows ? rows.filter(row => row.id !== rowId) : rows
+}
+
+/**
+ * The editor switching a table between fixed rows and „Zeilen beim Ausfüllen hinzufügen“: a free table has no rows,
+ * the fixed rows are kept aside (`stash`) and come back when switched back; a fixed table without any starts with one
+ * empty row.
+ */
+export function switchedRowMode(
+  rows: readonly TableRowLabel[], freeRows: boolean, stash: readonly TableRowLabel[], newId: () => string,
+): { rows: TableRowLabel[]; stash: TableRowLabel[] } {
+  if (freeRows) return { rows: [], stash: rows.length ? [...rows] : [...stash] }
+  if (rows.length) return { rows: [...rows], stash: [] }
+  return { rows: stash.length ? [...stash] : [{ id: newId(), label: '' }], stash: [] }
+}
 
 /** An age label like „3;0“ or „3;0 Jahre“ (years;months), as on the paper forms. */
 const AGE_LABEL = /^\d{1,2};\d{1,2}(?:\s+Jahre?)?$/

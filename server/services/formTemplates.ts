@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { and, count, eq } from 'drizzle-orm'
 import { formCategoryRanks, formCategorySpot, type TemplateChoice } from '../../shared/domain/formCategories'
 import {
-  checkContent, FORM_KINDS, FORM_LIMITS, FORM_SUBJECTS, FormError, type FormContent, type FormKind, type FormSubject,
+  checkContent, FORM_KINDS, FORM_LIMITS, FORM_SUBJECTS, FormError, type FormContent, type FormItem, type FormKind,
+  type FormSubject,
 } from '../../shared/domain/forms'
 import { STARTERS, starterContent, type StarterKey } from '../../shared/domain/forms/starters'
 import type { FormTemplateDto, Role, SessionUser } from '../../shared/types/api'
@@ -86,12 +87,13 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 const lacksId = (value: Record<string, unknown>) => value.id === undefined || value.id === null || value.id === ''
 
 /**
- * The editor's content with an id for every section, item and choice option that has none yet (kept ids stay).
- * Anything that is not shaped like content is passed on unchanged for checkContent to reject.
+ * The editor's content with an id for every section, item, choice option and table column and row that has none yet
+ * (kept ids stay). Anything that is not shaped like content is passed on unchanged for checkContent to reject.
  */
 export function withIds(content: unknown, newId: () => string = randomUUID): unknown {
   if (!isObject(content) || !Array.isArray(content.sections)) return content
   const withId = (value: Record<string, unknown>) => (lacksId(value) ? { ...value, id: newId() } : value)
+  const listWithIds = (list: unknown) => (Array.isArray(list) ? list.map((entry: unknown) => (isObject(entry) ? withId(entry) : entry)) : list)
   return {
     ...content,
     sections: content.sections.map((section: unknown) => {
@@ -101,10 +103,9 @@ export function withIds(content: unknown, newId: () => string = randomUUID): unk
         items: Array.isArray(section.items)
           ? section.items.map((item: unknown) => {
               if (!isObject(item)) return item
-              const options = item.kind === 'choices' && Array.isArray(item.options)
-                ? { options: item.options.map((option: unknown) => (isObject(option) ? withId(option) : option)) }
-                : {}
-              return { ...withId(item), ...options }
+              const options = item.kind === 'choices' && Array.isArray(item.options) ? { options: listWithIds(item.options) } : {}
+              const table = item.kind === 'table' ? { columns: listWithIds(item.columns), rows: listWithIds(item.rows) } : {}
+              return { ...withId(item), ...options, ...table }
             })
           : section.items,
       }
@@ -114,14 +115,18 @@ export function withIds(content: unknown, newId: () => string = randomUUID): unk
 
 /** The same content with new ids throughout (for a copy). */
 function freshIds(content: FormContent, newId: () => string): FormContent {
+  const fresh = (item: FormItem): FormItem => {
+    switch (item.kind) {
+      case 'choices': return { ...item, id: newId(), options: item.options.map(option => ({ ...option, id: newId() })) }
+      case 'table': return {
+        ...item, id: newId(), columns: item.columns.map(column => ({ ...column, id: newId() })),
+        rows: item.rows.map(row => ({ ...row, id: newId() })),
+      }
+      default: return { ...item, id: newId() }
+    }
+  }
   return {
-    sections: content.sections.map(section => ({
-      ...section,
-      id: newId(),
-      items: section.items.map(item => (item.kind === 'choices'
-        ? { ...item, id: newId(), options: item.options.map(option => ({ ...option, id: newId() })) }
-        : { ...item, id: newId() })),
-    })),
+    sections: content.sections.map(section => ({ ...section, id: newId(), items: section.items.map(fresh) })),
   }
 }
 

@@ -76,6 +76,8 @@ const parts = [
               <p v-else-if="item.kind === 'choices'" class="flex flex-wrap gap-x-3">
                 <span v-for="option in item.options" :key="option.id" class="whitespace-nowrap">{{ box(picked(item.id, option.id)) }} {{ option.label }}</span>
               </p>
+              <p v-else-if="item.kind === 'checkbox'">{{ box(props.sheet.answers[item.id] === true) }}</p>
+              <FormsTableAnswer v-else-if="item.kind === 'table'" :item="item" :value="props.sheet.answers[item.id]" :write-rows="2" />
             </div>
           </template>
         </div>
@@ -91,6 +93,8 @@ const parts = [
               <p v-else-if="item.kind === 'choices'" class="flex flex-wrap gap-x-3">
                 <span v-for="option in item.options" :key="option.id">{{ box(picked(item.id, option.id)) }} {{ option.label }}</span>
               </p>
+              <p v-else-if="item.kind === 'checkbox'">{{ box(props.sheet.answers[item.id] === true) }}</p>
+              <FormsTableAnswer v-else-if="item.kind === 'table'" :item="item" :value="props.sheet.answers[item.id]" :write-rows="2" />
             </template>
           </div>
         </div>

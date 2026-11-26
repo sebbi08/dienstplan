@@ -53,7 +53,8 @@ export function itemLabel(item: FormItem): string {
     case 'note': return item.text
     case 'rating': return item.criterion
     case 'milestone': return item.text
-    default: return item.question
+    case 'checkbox': return item.label
+    case 'text': case 'choices': case 'date': case 'table': return item.question
   }
 }
 

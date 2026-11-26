@@ -8,8 +8,9 @@ import { isBlank, milestoneColumns, sectionBlocks, sectionHasRating, type FormSh
 
 /**
  * The printout of a form, A4 portrait like the paper form: title, the header fields (two per row), the sections
- * (ratings as a table + / ~ / − / Anmerkungen, choices with ☐/☒, milestones as a table by age — one column per age
- * when the ages are like „3;0 Jahre“ —, empty free texts as writing lines) and the signature lines (or, for a team
+ * (ratings as a table + / ~ / − / Anmerkungen, choices and Kästchen with ☐/☒, milestones as a table by age — one column
+ * per age when the ages are like „3;0 Jahre“ —, tables as tables (a free one without rows with empty rows to write in),
+ * empty free texts as writing lines) and the signature lines (or, for a team
  * meeting, „freigegeben am … von …“ in their place). Formatted free texts print with their formatting and lists. The sheet (see talkSheet, childSheet, teamSheet) says what goes
  * into the header and under the form.
  */
@@ -88,6 +89,13 @@ const cell = 'border border-gray-500 px-1.5 py-1 align-top'
               <span v-if="dateOf(block.item.id)">{{ formatDate(dateOf(block.item.id)!) }}</span>
               <span v-else class="inline-block h-5 w-40 border-b border-gray-400" aria-hidden="true" />
             </div>
+            <div v-else-if="block.item.kind === 'table'">
+              <p v-if="block.item.question" class="font-semibold break-after-avoid">{{ block.item.question }}</p>
+              <FormsTableAnswer :item="block.item" :value="answers[block.item.id]" :write-rows="props.sheet.blank ? 5 : 3" />
+            </div>
+            <p v-else-if="block.item.kind === 'checkbox'" class="break-inside-avoid">
+              <span class="text-base print:text-[13px]">{{ box(answers[block.item.id] === true) }}</span> {{ block.item.label }}
+            </p>
           </template>
 
           <table v-else-if="block.type === 'ratings'" class="w-full table-fixed border-collapse">

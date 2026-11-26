@@ -3234,9 +3234,32 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   ohne Vorlage zeigt einen Hinweis („Neue Vorlage“). Bestehende Einrichtungen behalten alle ihre Vorlagen.
 - **Vorlage bearbeiten:** Name, bei Mitarbeitergesprächen „Von der Person selbst auszufüllen“, dann **Bereiche** (Titel,
   Hinweistext) und darin **Punkte**: Hinweis, Freitext, Ankreuzliste (mit Möglichkeiten), Bewertung (+ / ~ / −),
-  Meilenstein (mit Altersstufe) und Datum. Mit den Pfeilen verschiebst du Bereiche und Punkte (Punkte auch in den
+  Meilenstein (mit Altersstufe), Datum, Tabelle und Kästchen. Mit den Pfeilen verschiebst du Bereiche und Punkte (Punkte auch in den
   nächsten Bereich). Die Art eines Punkts lässt sich nicht ändern – lösch ihn und leg ihn neu an. Erst **Vorlage
   speichern** übernimmt alles. Änderungen gelten nur für neue Bögen; schon angelegte Bögen behalten ihren Inhalt.
+  - **Ankreuzliste – „mehrere Antworten“ oder „nur eine Antwort“:** rechts über den Möglichkeiten. Voreingestellt (und
+    bei allen Listen von vor dem Update) sind **mehrere Antworten**. Bei **nur einer Antwort** wählt ein Tipp die
+    Möglichkeit und hebt die vorige auf; ein zweiter Tipp auf dieselbe nimmt die Antwort ganz zurück. Der Server nimmt
+    dann höchstens eine Antwort an. Umstellen geht jederzeit, auch wenn mit der Vorlage schon Bögen ausgefüllt wurden:
+    Jeder angelegte Bogen hat seine eigene Kopie der Liste samt Antworten – dort bleiben mehrere Kreuze so stehen, wie
+    sie gespeichert wurden (auch im Verlauf). Erst neue Bögen haben „nur eine Antwort“.
+  - **Kästchen:** ein einzelnes Ankreuzkästchen mit Beschriftung (bis 200 Zeichen), z. B. „Impfpass gesehen“. Im Druck
+    ☐ bzw. ☒, im Verlauf „damals → heute“ (angekreuzt / nicht angekreuzt).
+  - **Tabelle:** optional eine Überschrift oder Frage darüber (bis 200 Zeichen), **1 bis 8 Spalten** mit Überschrift
+    (bis 60 Zeichen) und Art **Text**, **Kästchen** oder **Datum**. Dazu entweder **feste Zeilen** (1 bis 30, je eine
+    Beschriftung bis 80 Zeichen, sie steht in der ersten Spalte) oder **Zeilen beim Ausfüllen hinzufügen** – dann fügt,
+    wer den Bogen ausfüllt, die Zeilen selbst hinzu (bis 50) und entfernt sie wieder (mit Rückfrage, wenn in der Zeile
+    etwas steht). Textzellen sind einfacher Text (bis 500 Zeichen, ohne Formatierung), Datumszellen wie der Punkt Datum.
+    Am Computer und am Tablet quer erscheint die Tabelle als Tabelle; auf dem Handy und am Tablet hochkant (schmaler als
+    768 Pixel) steht jede Zeile als eigene Karte mit den Spaltenüberschriften als Beschriftung. Im Druck (A4 hoch) ist
+    sie eine echte Tabelle; eine Zeile wird nicht auf zwei Seiten geteilt. Eine Tabelle zum Hinzufügen ohne Zeilen
+    druckt leere Zeilen zum Ausfüllen von Hand (beim Leer-Drucken 5, sonst 3). **Verlauf** und **Vergleichen** zeigen
+    jede geänderte Zelle mit Zeile und Spalte (z. B. „Masern · gesehen: nicht angekreuzt → angekreuzt“) und bei Tabellen
+    zum Hinzufügen die hinzugekommenen und weggefallenen Zeilen; leere Zeilen zählen nicht als Änderung.
+    Wechselst du in der Vorlage zwischen festen Zeilen und „Zeilen hinzufügen“, kommen die festen Zeilen beim
+    Zurückwechseln wieder, solange du die Vorlage nicht verlässt.
+  - Tabellen und Kästchen werden beim **Kopieren** einer Vorlage, bei **Für ein weiteres Gespräch verwenden** und beim
+    Übernehmen von Bögen (Infogespräch, Hospitation) wie alle anderen Punkte mitgenommen. Keine Datenbank-Migration.
 - **Gespräch anlegen:** Mitarbeitende → Person → Reiter **Gespräche** → **Gespräch anlegen**: Datum, Uhrzeit, Teilnehmer,
   Zeitraum und die Bögen (vorgeschlagen: Selbstbeurteilung und Beurteilungsbogen). **Öffnen** zeigt den Bogen zum
   Ausfüllen; **Speichern** nicht vergessen (ein Hinweis zeigt ungespeicherte Änderungen).

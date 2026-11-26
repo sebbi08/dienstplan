@@ -3,7 +3,7 @@ import type { AnswerDiff, ItemChange } from '#shared/domain/formHistory'
 import { FORM_LIMITS, RATING_LEGEND, type FormAnswer, type FormContent, type MilestoneAnswer, type RatingAnswer, type RatingValue } from '#shared/domain/forms'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
-import { isBlank, sectionBlocks, sectionHasRating } from '~/utils/forms'
+import { isBlank, sectionBlocks, sectionHasRating, toggledChoice } from '~/utils/forms'
 
 /**
  * A form's own content (its copy of the template) with the answers, to fill in (`readonly` false) or to read. The
@@ -40,9 +40,9 @@ const dateOf = (id: string) => (typeof answers.value[id] === 'string' ? answers.
 function setAnswer(id: string, value: FormAnswer) {
   answers.value[id] = value
 }
-function toggleChoice(id: string, optionId: string) {
-  const picked = choicesOf(id)
-  setAnswer(id, picked.includes(optionId) ? picked.filter(entry => entry !== optionId) : [...picked, optionId])
+/** „nur eine Antwort“: ticking an option unticks the other one; tapping the ticked one again clears the answer. */
+function toggleChoice(id: string, optionId: string, single: boolean) {
+  setAnswer(id, toggledChoice(choicesOf(id), optionId, single))
 }
 /** Tapping the chosen value again clears it (no rating). */
 function pickRating(id: string, value: RatingValue) {
@@ -106,15 +106,20 @@ const chip = (selected: boolean) => selected
 
           <fieldset v-else-if="block.item.kind === 'choices'" class="space-y-1.5" :class="historyClass(block.item.id)">
             <legend v-if="block.item.question" class="mb-1 text-sm font-medium break-words">{{ block.item.question }}</legend>
-            <div class="flex flex-wrap gap-1.5">
+            <!-- „nur eine Antwort“: like radio buttons, but tapping the chosen option again clears it. -->
+            <div class="flex flex-wrap gap-1.5" :role="block.item.single ? 'radiogroup' : undefined">
               <button
-                v-for="option in block.item.options" :key="option.id" type="button" role="checkbox"
+                v-for="option in block.item.options" :key="option.id" type="button" :role="block.item.single ? 'radio' : 'checkbox'"
                 :aria-checked="choicesOf(block.item.id).includes(option.id)" :disabled="props.readonly"
                 class="inline-flex max-w-full items-center gap-1 rounded-full px-3 py-1 text-left text-sm ring-1 break-words disabled:cursor-default"
                 :class="chip(choicesOf(block.item.id).includes(option.id))"
-                @click="toggleChoice(block.item.id, option.id)"
+                @click="toggleChoice(block.item.id, option.id, block.item.single === true)"
               >
-                <UIcon v-if="choicesOf(block.item.id).includes(option.id)" name="i-lucide-check" class="size-4 shrink-0" />
+                <UIcon
+                  v-if="choicesOf(block.item.id).includes(option.id)" :name="block.item.single ? 'i-lucide-circle-check' : 'i-lucide-check'"
+                  class="size-4 shrink-0"
+                />
+                <UIcon v-else-if="block.item.single" name="i-lucide-circle" class="size-4 shrink-0 text-gray-400" />
                 <span class="min-w-0">{{ option.label }}</span>
               </button>
             </div>
@@ -135,6 +140,32 @@ const chip = (selected: boolean) => selected
             <DateTextInput
               v-else :id="fieldId(block.item.id)" :model-value="dateOf(block.item.id)" :label="block.item.question" class="w-48"
               @update:model-value="setAnswer(block.item.id, $event || null)"
+            />
+            <FormsItemHistory
+              :item="block.item" :change="props.changes?.[block.item.id]" :origin="originOf(block.item.id)"
+              :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]"
+            />
+          </div>
+
+          <div
+            v-else-if="block.item.kind === 'table'" role="group" :aria-label="block.item.question || de.forms.itemKinds.table"
+            class="min-w-0 space-y-1" :class="historyClass(block.item.id)"
+          >
+            <p v-if="block.item.question" class="text-sm font-medium break-words">{{ block.item.question }}</p>
+            <FormsTableFill
+              :item="block.item" :value="answers[block.item.id]" :readonly="props.readonly"
+              @update="setAnswer(block.item.id, $event)"
+            />
+            <FormsItemHistory
+              :item="block.item" :change="props.changes?.[block.item.id]" :origin="originOf(block.item.id)"
+              :marked="isMarked(block.item.id)" :diff="props.diff?.[block.item.id]"
+            />
+          </div>
+
+          <div v-else-if="block.item.kind === 'checkbox'" class="space-y-1" :class="historyClass(block.item.id)">
+            <UCheckbox
+              :model-value="answers[block.item.id] === true" :disabled="props.readonly" :label="block.item.label"
+              :ui="{ label: 'break-words' }" @update:model-value="setAnswer(block.item.id, $event === true)"
             />
             <FormsItemHistory
               :item="block.item" :change="props.changes?.[block.item.id]" :origin="originOf(block.item.id)"

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import {
-  FORM_LIMITS, ITEM_KINDS, addItem, addSection, moveItem, moveSection, removeItem, removeSection,
-  type FormContent, type FormItem, type FormKind, type ItemDraft, type ItemKind,
+  FORM_LIMITS, ITEM_KINDS, TABLE_COLUMN_TYPES, addItem, addSection, moveItem, moveSection, removeItem, removeSection,
+  type FormContent, type FormItem, type FormKind, type ItemDraft, type ItemKind, type TableColumnType, type TableItem,
+  type TableRowLabel,
 } from '#shared/domain/forms'
 import type { FormTemplateDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorCode, errorMessage, errorTextOf } from '~/utils/errors'
 import { formatDateTime } from '~/utils/format'
+import { switchedRowMode } from '~/utils/forms'
 
 /**
  * „Dokumente“ → „Vorlagen“, the editor of one Bogen (form template), opened from the list (templates/Library.vue):
@@ -81,6 +83,10 @@ function emptyItem(itemKind: ItemKind): ItemDraft {
     case 'rating': return { kind: 'rating', criterion: '' }
     case 'milestone': return { kind: 'milestone', text: '', ageLabel: '' }
     case 'date': return { kind: 'date', question: '' }
+    case 'table': return {
+      kind: 'table', question: '', columns: [{ id: newId(), heading: '', type: 'text' }], rows: [{ id: newId(), label: '' }], freeRows: false,
+    }
+    case 'checkbox': return { kind: 'checkbox', label: '' }
   }
 }
 const addNewSection = () => edit(content => addSection(content, { title: de.forms.newSection, hint: '' }, newId))
@@ -99,6 +105,46 @@ function addOption(item: FormItem) {
 }
 function removeOptionAt(item: FormItem, index: number) {
   if (item.kind === 'choices' && item.options.length > 1) item.options.splice(index, 1)
+}
+/**
+ * „mehrere Antworten“ / „nur eine Antwort“ of an Ankreuzliste. Switching is always allowed: every Bogen made already
+ * keeps its own copy of the list with its answers, so only new Bögen take the change.
+ */
+const choiceModeItems = [
+  { label: de.forms.choiceModes.multiple, value: 'multiple' }, { label: de.forms.choiceModes.single, value: 'single' },
+]
+function setChoiceMode(item: FormItem, mode: string) {
+  if (item.kind !== 'choices') return
+  if (mode === 'single') item.single = true
+  else delete item.single
+}
+
+// ---- tables ---------------------------------------------------------------
+const columnTypeItems = TABLE_COLUMN_TYPES.map(value => ({ label: de.forms.table.columnTypes[value], value }))
+const rowModeItems = [
+  { label: de.forms.table.rowModes.fixed, value: 'fixed' }, { label: de.forms.table.rowModes.free, value: 'free' },
+]
+/** The fixed rows of a table switched to free rows, per item: back when switched back (until the editor closes). */
+const stashedRows: Record<string, TableRowLabel[]> = {}
+function setRowMode(item: TableItem, mode: string) {
+  const freeRows = mode === 'free'
+  if (freeRows === item.freeRows) return
+  const next = switchedRowMode(item.rows, freeRows, stashedRows[item.id] ?? [], newId)
+  stashedRows[item.id] = next.stash
+  item.rows = next.rows
+  item.freeRows = freeRows
+}
+function addColumn(item: TableItem) {
+  if (item.columns.length < FORM_LIMITS.tableColumns) item.columns.push({ id: newId(), heading: '', type: 'text' })
+}
+function removeColumnAt(item: TableItem, index: number) {
+  if (item.columns.length > 1) item.columns.splice(index, 1)
+}
+function addTableRow(item: TableItem) {
+  if (item.rows.length < FORM_LIMITS.tableRows) item.rows.push({ id: newId(), label: '' })
+}
+function removeTableRowAt(item: TableItem, index: number) {
+  if (item.rows.length > 1) item.rows.splice(index, 1)
 }
 
 async function save() {
@@ -223,9 +269,16 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
                 v-model="item.question" autoresize :rows="1" :maxlength="FORM_LIMITS.question" class="w-full"
                 :aria-label="de.forms.itemText.choices" :placeholder="de.forms.itemText.choices"
               />
-              <p class="text-xs text-gray-500">{{ de.forms.options }}</p>
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="text-xs text-gray-500">{{ de.forms.options }}</p>
+                <span class="flex-1" />
+                <USelect
+                  :model-value="item.single ? 'single' : 'multiple'" :items="choiceModeItems" size="xs" class="w-44"
+                  :aria-label="de.forms.choiceMode" @update:model-value="setChoiceMode(item, String($event))"
+                />
+              </div>
               <div v-for="(option, optionIndex) in item.options" :key="option.id" class="flex items-center gap-1 pl-2">
-                <UIcon name="i-lucide-square" class="size-4 shrink-0 text-gray-400" />
+                <UIcon :name="item.single ? 'i-lucide-circle' : 'i-lucide-square'" class="size-4 shrink-0 text-gray-400" />
                 <UInput v-model="option.label" required :maxlength="FORM_LIMITS.optionLabel" size="sm" class="min-w-0 flex-1" :aria-label="de.forms.options" />
                 <UButton
                   v-bind="iconButton" icon="i-lucide-x" :aria-label="de.forms.removeOption" :disabled="item.options.length <= 1"
@@ -236,6 +289,63 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
                 size="xs" color="neutral" variant="ghost" icon="i-lucide-plus" :label="de.forms.addOption"
                 :disabled="item.options.length >= FORM_LIMITS.options" @click="addOption(item)"
               />
+            </div>
+            <UInput
+              v-else-if="item.kind === 'checkbox'" v-model="item.label" required :maxlength="FORM_LIMITS.checkboxLabel" class="w-full"
+              :aria-label="de.forms.itemText.checkbox" :placeholder="de.forms.itemText.checkbox"
+            />
+            <div v-else-if="item.kind === 'table'" class="space-y-2">
+              <UTextarea
+                v-model="item.question" autoresize :rows="1" :maxlength="FORM_LIMITS.tableQuestion" class="w-full"
+                :aria-label="de.forms.itemText.table" :placeholder="de.forms.itemText.table"
+              />
+              <div class="space-y-1.5">
+                <p class="text-xs text-gray-500">{{ de.forms.table.columns }}</p>
+                <div v-for="(column, columnIndex) in item.columns" :key="column.id" class="flex flex-wrap items-center gap-1 pl-2">
+                  <UInput
+                    v-model="column.heading" required :maxlength="FORM_LIMITS.tableHeading" size="sm" class="min-w-0 flex-1 basis-40"
+                    :aria-label="de.forms.table.columnHeading" :placeholder="de.forms.table.columnHeading"
+                  />
+                  <USelect
+                    :model-value="column.type" :items="columnTypeItems" size="sm" class="w-32" :aria-label="de.forms.table.columnType"
+                    @update:model-value="column.type = $event as TableColumnType"
+                  />
+                  <UButton
+                    v-bind="iconButton" icon="i-lucide-x" :aria-label="de.forms.table.removeColumn" :disabled="item.columns.length <= 1"
+                    @click="removeColumnAt(item, columnIndex)"
+                  />
+                </div>
+                <UButton
+                  size="xs" color="neutral" variant="ghost" icon="i-lucide-plus" :label="de.forms.table.addColumn"
+                  :disabled="item.columns.length >= FORM_LIMITS.tableColumns" @click="addColumn(item)"
+                />
+              </div>
+              <div class="space-y-1.5">
+                <div class="flex flex-wrap items-center gap-2">
+                  <p class="text-xs text-gray-500">{{ de.forms.table.rowMode }}</p>
+                  <USelect
+                    :model-value="item.freeRows ? 'free' : 'fixed'" :items="rowModeItems" size="xs" class="w-72 max-w-full"
+                    :aria-label="de.forms.table.rowMode" @update:model-value="setRowMode(item, String($event))"
+                  />
+                </div>
+                <p v-if="item.freeRows" class="pl-2 text-xs text-gray-500">{{ de.forms.table.freeRowsHint(FORM_LIMITS.tableFreeRows) }}</p>
+                <template v-else>
+                  <div v-for="(row, rowIndex) in item.rows" :key="row.id" class="flex items-center gap-1 pl-2">
+                    <UInput
+                      v-model="row.label" required :maxlength="FORM_LIMITS.tableRowLabel" size="sm" class="min-w-0 flex-1"
+                      :aria-label="de.forms.table.rowLabel" :placeholder="de.forms.table.rowLabel"
+                    />
+                    <UButton
+                      v-bind="iconButton" icon="i-lucide-x" :aria-label="de.forms.table.removeFixedRow" :disabled="item.rows.length <= 1"
+                      @click="removeTableRowAt(item, rowIndex)"
+                    />
+                  </div>
+                  <UButton
+                    size="xs" color="neutral" variant="ghost" icon="i-lucide-plus" :label="de.forms.table.addFixedRow"
+                    :disabled="item.rows.length >= FORM_LIMITS.tableRows" @click="addTableRow(item)"
+                  />
+                </template>
+              </div>
             </div>
           </li>
         </ul>

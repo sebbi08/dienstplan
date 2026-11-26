@@ -2911,7 +2911,10 @@ export const de = {
   /** Form templates („Bögen“) and filling in a form. */
   forms: {
     kinds: { staff: 'Mitarbeitergespräch', child: 'Kind', team: 'Teamsitzung', accident: 'Unfall', info: 'Infogespräch', applicant: 'Hospitation' },
-    itemKinds: { note: 'Hinweis', text: 'Freitext', choices: 'Ankreuzliste', rating: 'Bewertung', milestone: 'Meilenstein', date: 'Datum' },
+    itemKinds: {
+      note: 'Hinweis', text: 'Freitext', choices: 'Ankreuzliste', rating: 'Bewertung', milestone: 'Meilenstein', date: 'Datum',
+      table: 'Tabelle', checkbox: 'Kästchen',
+    },
     templatesTitle: 'Vorlagen für Bögen',
     // The search over the names of every kind.
     search: 'Bögen-Vorlagen suchen', searchPlaceholder: 'Name der Vorlage', archivedBadge: 'archiviert',
@@ -2965,9 +2968,29 @@ export const de = {
     deleteSection: 'Bereich löschen', deleteSectionConfirm: (title: string) => `Bereich „${title}“ mit allen Punkten löschen?`,
     addItem: 'Punkt hinzufügen', deleteItem: 'Punkt löschen', deleteItemConfirm: 'Diesen Punkt löschen?',
     sectionUp: 'Bereich nach oben', sectionDown: 'Bereich nach unten', itemUp: 'Punkt nach oben', itemDown: 'Punkt nach unten',
-    itemText: { note: 'Text', text: 'Frage', choices: 'Frage (optional)', rating: 'Kriterium', milestone: 'Satz', date: 'Frage' },
+    itemText: {
+      note: 'Text', text: 'Frage', choices: 'Frage (optional)', rating: 'Kriterium', milestone: 'Satz', date: 'Frage',
+      table: 'Überschrift oder Frage über der Tabelle (optional)', checkbox: 'Beschriftung, z. B. „Impfpass gesehen“',
+    },
     ageLabel: 'Altersstufe', ageLabelPlaceholder: 'z. B. 3;0 Jahre',
     options: 'Möglichkeiten', addOption: 'Möglichkeit hinzufügen', removeOption: 'Möglichkeit entfernen',
+    // An Ankreuzliste: how many options may be ticked (lists from before: several).
+    choiceMode: 'Wie viele Antworten?', choiceModes: { multiple: 'mehrere Antworten', single: 'nur eine Antwort' },
+    // „Tabelle“: in the editor, when filling in, in print and in the history.
+    table: {
+      columns: 'Spalten', columnHeading: 'Spaltenüberschrift', columnType: 'Art der Spalte',
+      columnTypes: { text: 'Text', checkbox: 'Kästchen', date: 'Datum' },
+      addColumn: 'Spalte hinzufügen', removeColumn: 'Spalte entfernen',
+      rowMode: 'Zeilen', rowModes: { fixed: 'Feste Zeilen (mit Beschriftung)', free: 'Zeilen beim Ausfüllen hinzufügen' },
+      rowLabel: 'Beschriftung der Zeile', addFixedRow: 'Zeile hinzufügen', removeFixedRow: 'Zeile entfernen',
+      freeRowsHint: (max: number) => `Wer den Bogen ausfüllt, fügt die Zeilen selbst hinzu (bis zu ${max}).`,
+      rowNumber: (number: number) => `Zeile ${number}`, numberHeading: 'Nr.',
+      addRow: 'Zeile hinzufügen', removeRow: 'Zeile entfernen',
+      removeRowConfirm: (row: string) => `${row} mit ihren Einträgen entfernen?`,
+      noRows: 'Noch keine Zeilen.',
+      rowsFull: (max: number) => `Mehr als ${max} Zeilen gehen nicht.`,
+      cellLabel: (column: string, row: string) => `${column} – ${row}`,
+    },
     noItems: 'Noch keine Punkte in diesem Bereich.', noSections: 'Noch keine Bereiche. Lege mit „Bereich hinzufügen“ den ersten an.',
     saveTemplate: 'Vorlage speichern', discard: 'Änderungen verwerfen',
     kindFixedHint: 'Die Art eines Punkts lässt sich nachträglich nicht ändern (stattdessen löschen und neu anlegen).',
@@ -3230,6 +3253,9 @@ export const de = {
     then: 'damals', now: 'heute',
     added: 'hinzugekommen', dropped: 'weggefallen', kept: 'unverändert angekreuzt',
     reached: 'erreicht', notReached: 'nicht erreicht', noRating: 'keine Bewertung', noDate: 'kein Datum',
+    // A „Kästchen“ and a table's cells and rows.
+    checked: 'angekreuzt', notChecked: 'nicht angekreuzt',
+    rowAdded: 'Zeile hinzugekommen', rowRemoved: 'Zeile weggefallen', noRows: 'keine Zeilen',
     remark: 'Anmerkung',
     empty: '(leer)',
     compare: 'Vergleichen',
