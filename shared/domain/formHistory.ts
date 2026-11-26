@@ -68,12 +68,13 @@ const sameCell = (a: TableCell, b: TableCell): boolean =>
 const cellOf = (row: TableAnswerRow, column: { id: string; type: TableColumnType }): TableCell =>
   row.cells[column.id] ?? emptyTableCell(column.type)
 
+/** Two tables show the same: the same rows that count, in order, cell by cell (row ids aside). */
 function sameTable(item: TableItem, a: FormAnswer, b: FormAnswer): boolean {
   const left = countedRows(item, a)
   const right = countedRows(item, b)
   return left.length === right.length && left.every((row, index) => {
     const other = right[index]!
-    return row.id === other.id && item.columns.every(column => sameCell(cellOf(row, column), cellOf(other, column)))
+    return item.columns.every(column => sameCell(cellOf(row, column), cellOf(other, column)))
   })
 }
 
@@ -285,8 +286,9 @@ export interface TableRowChange { row: TableRowRef; cells: { column: string; typ
 
 /**
  * How a table differs, cell by cell: rows are matched by their id (a free row keeps its id, so removing one row does
- * not shift the others); a free row only on one side is added or removed (left out when it says nothing). A row's
- * number is its place in its own state.
+ * not shift the others). Two states without any free row in common (two Bögen filled in apart, for „Vergleichen“) match
+ * their rows that say something in order instead. A free row only on one side is added or removed (left out when it
+ * says nothing). A row's number is its place in its own state.
  */
 function tableDetail(item: TableItem, before: FormAnswer, after: FormAnswer): AnswerDiffDetail {
   const was = tableRowsOf(item, before)
@@ -296,12 +298,23 @@ function tableDetail(item: TableItem, before: FormAnswer, after: FormAnswer): An
     ({ label: item.freeRows ? null : labels.get(rows[index]!.id) ?? null, number: index + 1 })
   const filled = (row: TableAnswerRow) => item.columns.filter(column => !isEmptyTableCell(cellOf(row, column)))
     .map(column => ({ column: column.heading, type: column.type, value: cellOf(row, column) }))
-  const wasById = new Map(was.map(row => [row.id, row]))
   const isIds = new Set(is.map(row => row.id))
+  const partners = new Map<string, TableAnswerRow>()
+  if (!item.freeRows || was.some(row => isIds.has(row.id))) {
+    const wasById = new Map(was.map(row => [row.id, row]))
+    for (const row of is) if (wasById.has(row.id)) partners.set(row.id, wasById.get(row.id)!)
+  }
+  else {
+    const wasFilled = was.filter(row => !isEmptyTableRow(row))
+    is.filter(row => !isEmptyTableRow(row)).forEach((row, index) => {
+      if (index < wasFilled.length) partners.set(row.id, wasFilled[index]!)
+    })
+  }
+  const matched = new Set([...partners.values()])
   const cells: TableCellChange[] = []
   const addedRows: TableRowChange[] = []
   is.forEach((row, index) => {
-    const old = wasById.get(row.id)
+    const old = partners.get(row.id)
     if (!old) {
       if (!isEmptyTableRow(row)) addedRows.push({ row: ref(is, index), cells: filled(row) })
       return
@@ -313,7 +326,7 @@ function tableDetail(item: TableItem, before: FormAnswer, after: FormAnswer): An
     }
   })
   const removedRows = was.flatMap((row, index) =>
-    (isIds.has(row.id) || isEmptyTableRow(row) ? [] : [{ row: ref(was, index), cells: filled(row) }]))
+    (matched.has(row) || isEmptyTableRow(row) ? [] : [{ row: ref(was, index), cells: filled(row) }]))
   return { kind: 'table', cells, addedRows, removedRows }
 }
 

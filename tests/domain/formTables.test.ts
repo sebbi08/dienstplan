@@ -237,6 +237,22 @@ describe('history of tables and Kästchen', () => {
     })
   })
 
+  it('matches the rows of two Bögen filled in apart (no row in common) in order', () => {
+    const older = [{ id: 'x1', cells: { vT: 'U7', vD: null } }, { id: 'x2', cells: { vT: '', vD: null } }, { id: 'x3', cells: { vT: 'Logo', vD: null } }]
+    const newer = [{ id: 'y1', cells: { vT: 'U8', vD: null } }, { id: 'y2', cells: { vT: 'Logo', vD: null } }, { id: 'y3', cells: { vT: 'Ergo', vD: null } }]
+    expect(answerDiff(free, older, newer)).toEqual({
+      status: 'changed',
+      detail: {
+        kind: 'table',
+        cells: [{ row: { label: null, number: 1 }, column: 'Was', type: 'text', from: 'U7', to: 'U8' }],
+        addedRows: [{ row: { label: null, number: 3 }, cells: [{ column: 'Was', type: 'text', value: 'Ergo' }] }],
+        removedRows: [],
+      },
+    })
+    // The same rows under other ids show the same.
+    expect(sameAnswer(free, older, [{ id: 'z1', cells: { vT: 'U7', vD: null } }, { id: 'z3', cells: { vT: 'Logo', vD: null } }])).toBe(true)
+  })
+
   it('diffs a Kästchen like a milestone flag', () => {
     expect(answerDiff(box, false, true)).toEqual({ status: 'new', detail: { kind: 'checkbox', from: false, to: true } })
     expect(answerDiff(box, true, false)).toEqual({ status: 'removed', detail: { kind: 'checkbox', from: true, to: false } })

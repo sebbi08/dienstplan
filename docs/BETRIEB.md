@@ -3260,7 +3260,9 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
     sie eine echte Tabelle; eine Zeile wird nicht auf zwei Seiten geteilt. Eine Tabelle zum Hinzufügen ohne Zeilen
     druckt leere Zeilen zum Ausfüllen von Hand (beim Leer-Drucken 5, sonst 3). **Verlauf** und **Vergleichen** zeigen
     jede geänderte Zelle mit Zeile und Spalte (z. B. „Masern · gesehen: nicht angekreuzt → angekreuzt“) und bei Tabellen
-    zum Hinzufügen die hinzugekommenen und weggefallenen Zeilen; leere Zeilen zählen nicht als Änderung.
+    zum Hinzufügen die hinzugekommenen und weggefallenen Zeilen; leere Zeilen zählen nicht als Änderung. Im Verlauf
+    eines Bogens bleibt jede Zeile dieselbe, auch wenn darüber eine entfernt wird; beim Vergleichen zweier Bögen werden
+    die ausgefüllten Zeilen der Reihe nach nebeneinandergestellt.
     Wechselst du in der Vorlage zwischen festen Zeilen und „Zeilen hinzufügen“, kommen die festen Zeilen beim
     Zurückwechseln wieder, solange du die Vorlage nicht verlässt.
   - Tabellen und Kästchen werden beim **Kopieren** einer Vorlage, bei **Für ein weiteres Gespräch verwenden** und beim
