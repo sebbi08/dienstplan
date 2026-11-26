@@ -4,7 +4,7 @@ import {
   balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
   employeeTrainings, formAttachments, formEditors, formReads, forms, groupBookChanges, knowledgeConfirmations, knowledgeEntries, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, longAbsences, maternityCases, notifications, offlineStamps, parentalLeaveBirths, parentalLeaves,
-  signRequestRecipients, signRequests, signUnlocks, teamMeetingParticipants, infoVisits, applicantVisits,
+  requiredDocumentTypes, requiredInspections, signRequestRecipients, signRequests, signUnlocks, teamMeetingParticipants, infoVisits, applicantVisits,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
 import { createCalendarEvent } from '../../server/services/calendar'
@@ -105,6 +105,12 @@ export function fillEmployeeData(
       accountHolder: 'Tina Test', denomination: 'rk',
     }).run()
     for (const folder of ASSESSMENT_FOLDERS) addEmployeeDocument(db, id, folder, leitung.id)
+    // „Einsicht vermerkt“ of the Erweitertes Führungszeugnis (the example „nur Einsicht vermerken“).
+    const fz = db.select({ id: requiredDocumentTypes.id }).from(requiredDocumentTypes)
+      .where(eq(requiredDocumentTypes.mode, 'inspection')).limit(1).get()!.id
+    db.insert(requiredInspections).values({
+      employeeId: id, typeId: fz, inspectedOn: '2026-01-15', noRelevantEntry: true, recordedBy: leitung.id, recordedAt: now.toISOString(),
+    }).run()
     db.insert(warningAcks).values({
       facilityId: 1, key: `missing_entry|2026-10-09|${id}`, date: '2026-10-09', signature: '', acknowledgedAt: now.toISOString(),
     }).run()

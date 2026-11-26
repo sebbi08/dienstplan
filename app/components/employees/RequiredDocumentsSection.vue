@@ -3,7 +3,7 @@ import { todayIso } from '#shared/domain/dates'
 import type { EmployeeDocumentsDto, EmployeeRequiredDocumentDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
-import { formatDate } from '~/utils/format'
+import { formatDate, formatDateTime } from '~/utils/format'
 import { employeeDocumentUrl } from '~/utils/personnel'
 import { pickedFile, uploadSizeError } from '~/utils/uploads'
 
@@ -14,7 +14,10 @@ import { pickedFile, uploadSizeError } from '~/utils/uploads'
  * the type's folder and links it; „Vorhandenes Dokument zuordnen“ links one of that folder (asking first if it is another
  * type's); „Ausfüllen“ fills the type's template, saved into its folder and linked in the same request; „Zum
  * Unterschreiben senden“ sends the template to the
- * person (signRequests.manage), its signed copy linked by itself. Loaded once the tab is opened.
+ * person (signRequests.manage), its signed copy linked by itself. A type „nur Einsicht vermerken“ (the Führungszeugnis,
+ * § 72a Abs. 5 SGB VIII) has none of these: „Einsicht vermerken“ records the day and „keine einschlägige Eintragung“
+ * (without the tick: „Eintragung vorhanden – bitte prüfen“); a file still kept from before is shown with „Datei jetzt
+ * löschen“. Loaded once the tab is opened.
  */
 const props = defineProps<{ employeeId: number; employeeName: string; active: boolean }>()
 const t = de.requiredDocuments
@@ -29,13 +32,21 @@ watch(() => props.active, (active) => { if (active) void execute() }, { immediat
 const { busy, run } = useBusyAction(() => refresh())
 
 const tone: Record<EmployeeRequiredDocumentDto['state'], 'success' | 'warning' | 'error'> = {
-  present: 'success', expiring: 'warning', expired: 'error', missing: 'error',
+  present: 'success', expiring: 'warning', expired: 'error', missing: 'error', entry: 'error',
 }
 function stateText(row: EmployeeRequiredDocumentDto): string {
   if (row.state === 'missing') return t.states.missing
+  if (row.state === 'entry') return t.entryState
   if (row.state === 'expired') return t.expiredOn(formatDate(row.expiresOn!))
   if (row.state === 'expiring') return t.expiresOn(formatDate(row.expiresOn!))
   return t.presentOn(formatDate(row.date!))
+}
+/** „eingesehen am … · vermerkt von … am …“ under the name of a type „nur Einsicht vermerken“. */
+function inspectionText(row: EmployeeRequiredDocumentDto): string {
+  const record = row.inspection
+  if (!record) return ''
+  const at = formatDateTime(record.recordedAt)
+  return [t.inspectedOn(formatDate(record.inspectedOn)), record.recordedBy ? t.recordedBy(record.recordedBy, at) : t.recordedByUnknown(at)].join(' · ')
 }
 const templateUrl = (templateId: number) => `/api/print-templates/${templateId}/file`
 
@@ -112,6 +123,33 @@ function afterFill(result: { id: number | null; linked: boolean }) {
   void refresh()
 }
 
+// „Einsicht vermerken“: the day (not in the future) and „keine einschlägige Eintragung“; nothing else is stored.
+const recording = ref<EmployeeRequiredDocumentDto | null>(null)
+const recordOpen = ref(false)
+const record = reactive({ inspectedOn: todayIso(), noRelevantEntry: true })
+function openRecord(row: EmployeeRequiredDocumentDto) {
+  recording.value = row
+  Object.assign(record, { inspectedOn: row.inspection?.inspectedOn ?? todayIso(), noRelevantEntry: row.inspection?.noRelevantEntry ?? true })
+  recordOpen.value = true
+}
+async function saveRecord() {
+  const row = recording.value
+  if (!row) return
+  const ok = await run(() => $fetch<{ ok: boolean }>(`/api/employees/${props.employeeId}/required-inspections/${row.typeId}`, {
+    method: 'PUT', body: { inspectedOn: record.inspectedOn, noRelevantEntry: record.noRelevantEntry },
+  }), t.recorded)
+  if (ok) recordOpen.value = false
+}
+async function removeRecord(row: EmployeeRequiredDocumentDto) {
+  if (!await confirm(t.removeRecordConfirm(row.name))) return
+  await run(() => $fetch<{ ok: boolean }>(`/api/employees/${props.employeeId}/required-inspections/${row.typeId}`, { method: 'DELETE' }), t.recordRemoved)
+}
+/** „Datei jetzt löschen“: a file kept from before for a type „nur Einsicht vermerken“ (the folder's key, as every delete). */
+async function deleteFile(file: EmployeeRequiredDocumentDto['storedFiles'][number]) {
+  if (!await confirm(t.deleteFileConfirm(file.title || de.personnel.documents.untitled), { danger: true })) return
+  await run(() => $fetch<unknown>(`/api/employee-documents/${file.id}`, { method: 'DELETE' }), t.fileDeleted)
+}
+
 // „Zum Unterschreiben senden“: the type's template to this person, the signed copy filed as the type.
 const sending = ref<EmployeeRequiredDocumentDto | null>(null)
 const sendOpen = ref(false)
@@ -130,10 +168,28 @@ function openSend(row: EmployeeRequiredDocumentDto) {
       <li v-for="row in rows" :key="row.typeId" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">
         <div class="min-w-0 flex-1">
           <div class="font-medium">{{ row.name }}</div>
-          <div class="text-xs text-gray-500">{{ de.personnel.folders[row.folder] }}</div>
+          <div class="text-xs text-gray-500">
+            {{ de.personnel.folders[row.folder] }}<template v-if="row.mode === 'inspection'"> · {{ t.inspectionOnly }}</template>
+          </div>
+          <div v-if="row.inspection" class="text-xs text-gray-600">{{ inspectionText(row) }}</div>
         </div>
         <UBadge size="sm" variant="soft" :color="tone[row.state]" :label="stateText(row)" />
-        <div class="flex flex-wrap gap-1">
+        <div v-if="row.mode === 'inspection'" class="flex flex-wrap gap-1">
+          <UButton
+            size="xs" color="neutral" variant="outline" icon="i-lucide-eye" :label="row.inspection ? t.recordAgain : t.record" :disabled="busy"
+            @click="openRecord(row)"
+          />
+          <UButton v-if="row.inspection" size="xs" color="neutral" variant="ghost" icon="i-lucide-x" :label="t.removeRecord" :disabled="busy" @click="removeRecord(row)" />
+        </div>
+        <div v-if="row.mode === 'inspection' && row.storedFiles.length" class="w-full space-y-1 rounded-md bg-amber-50 p-2 text-xs text-amber-900 ring-1 ring-amber-200">
+          <p>{{ t.storedFile }}</p>
+          <div v-for="file in row.storedFiles" :key="file.id" class="flex flex-wrap items-center gap-2">
+            <span class="min-w-0 break-words">{{ file.title || de.personnel.documents.untitled }} · {{ formatDate(file.documentDate) }}</span>
+            <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-external-link" :label="t.openFile" :to="employeeDocumentUrl(file.id)" target="_blank" />
+            <UButton size="xs" color="error" variant="outline" icon="i-lucide-trash-2" :label="t.deleteFile" :disabled="busy" @click="deleteFile(file)" />
+          </div>
+        </div>
+        <div v-if="row.mode === 'file'" class="flex flex-wrap gap-1">
           <UButton
             v-if="row.documentId !== null" size="xs" color="neutral" variant="outline" icon="i-lucide-external-link" :label="t.open"
             :to="employeeDocumentUrl(row.documentId)" target="_blank"
@@ -180,6 +236,24 @@ function openSend(row: EmployeeRequiredDocumentDto) {
           <div class="flex gap-2">
             <UButton type="submit" :label="t.link" :loading="busy" :disabled="busy || !chosenDocument" />
             <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="linkOpen = false" />
+          </div>
+        </form>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="recordOpen" :title="recording ? t.recordTitle(recording.name) : t.record">
+      <template #body>
+        <form class="space-y-3" @submit.prevent="saveRecord">
+          <p class="text-xs text-gray-500">{{ t.recordHint }}</p>
+          <UFormField :label="t.inspectionDate" :description="t.inspectionDateHint" required>
+            <DateTextInput v-model="record.inspectedOn" :label="t.inspectionDate" class="w-full" />
+          </UFormField>
+          <UFormField :description="t.noRelevantEntryHint">
+            <UCheckbox v-model="record.noRelevantEntry" :label="t.noRelevantEntry" />
+          </UFormField>
+          <div class="flex gap-2">
+            <UButton type="submit" :label="t.record" :loading="busy" :disabled="busy || !record.inspectedOn || record.inspectedOn > todayIso()" />
+            <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="recordOpen = false" />
           </div>
         </form>
       </template>

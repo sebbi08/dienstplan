@@ -20,6 +20,7 @@ import { MAX_REQUIREMENT_INTERVAL_MONTHS } from '../shared/domain/requirements'
 import { DISTRICT_FLAGS, DISTRICT_SIDES, SCHOOL_DISTRICT_LIMITS } from '../shared/domain/schoolDistricts'
 import { DECLINE_REASON_MAX, SIGN_REQUEST_NOTE_MAX, SIGN_REQUEST_TITLE_MAX, parseRecipientIds } from '../shared/domain/signRequests'
 import { QUALIFICATIONS } from '../shared/domain/staffing/types'
+import { REQUIRED_DOCUMENT_MODES } from '../shared/domain/requiredDocuments'
 import { BREAK_MODES, STAMP_CHANNELS } from '../shared/domain/stamping'
 import { TEMPLATE_VISIBILITIES } from '../shared/domain/templateCategories'
 import { TEMPLATE_ENTRY_TYPES } from '../shared/domain/templateEntries'
@@ -617,7 +618,10 @@ export const requiredDocumentTypeSchema = z.object({
   validityMonths: z.number().int().nullable(),
   templateId: z.number().int().positive().nullable(),
   active: z.boolean(),
+  mode: z.enum(REQUIRED_DOCUMENT_MODES).default('file'),
 })
+/** „Einsicht vermerken“ (a type „nur Einsicht vermerken“): the day (the service refuses one after today) and the box. */
+export const requiredInspectionSchema = z.object({ inspectedOn: isoDate, noRelevantEntry: z.boolean() })
 /** „Hochladen“ of a Pflichtdokument (multipart; the folder comes from the type). */
 export const requiredDocumentUploadFields = z.object({
   title: z.string().max(200).default(''),

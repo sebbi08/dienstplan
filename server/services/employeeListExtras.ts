@@ -48,7 +48,7 @@ export function listEmployeeListExtras(db: Db, facilityId: number, today: IsoDat
     .map((employee) => {
       const row: EmployeeListExtrasDto = { employeeId: employee.id, requirements: open.get(employee.id) ?? [] }
       if (required) {
-        row.requiredDocuments = (required.get(employee.id) ?? []).map(({ typeId, name, state }) => ({ typeId, name, state: state === 'expired' ? 'expired' : 'missing' }))
+        row.requiredDocuments = (required.get(employee.id) ?? []).map(({ typeId, name, state }) => ({ typeId, name, state: state === 'expired' || state === 'entry' ? state : 'missing' }))
       }
       if (withLevel) {
         row.level = levelOf(employee, today)

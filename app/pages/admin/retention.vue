@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RetentionDeleteResult, RetentionItemDto } from '#shared/types/api'
+import type { RequiredInspectionFileDto, RetentionDeleteResult, RetentionItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
@@ -16,6 +16,8 @@ import { areaPath, privacyPath, requestedPrivacyTab, sectionAnchor, visiblePriva
  *   of staff, applicants and cash boxes of ONE facility – the one chosen in „Einstellungen für“ (this page counts as a
  *   settings page for it, so a choice made in the settings is kept and sent along), named above them; links to the other
  *   privacy-relevant settings.
+ *   Above it, a notice on Führungszeugnisse still kept as files (§ 72a Abs. 5 SGB VIII: not to be kept), with links to
+ *   the person and the file – only files in folders the viewer may use, so only for those who may delete them.
  * - „Datensicherung“ (backup.download, one for all).
  * `?tab=periods` / `?tab=backup` open a tab; the old settings anchors lead here (MOVED_SECTIONS). Unsaved edits ask
  * before the page or a tab is left, as on the settings pages.
@@ -71,6 +73,12 @@ async function chooseFacility(facilityId: number) {
 const { data, error, refresh } = await useFetch<RetentionItemDto[]>('/api/retention', {
   key: 'retention-overview', default: () => [], immediate: canDeleteDue.value,
 })
+
+// Führungszeugnisse kept as files (a type „nur Einsicht vermerken“): to be deleted after recording the inspection.
+const { data: inspectionFiles } = await useFetch<RequiredInspectionFileDto[]>('/api/required-inspection-files', {
+  key: 'required-inspection-files', default: () => [], immediate: canDeleteDue.value,
+})
+const rd = de.requiredDocuments
 
 const ALL = 'all'
 const facilityFilter = ref(ALL)
@@ -245,6 +253,18 @@ async function deleteAll() {
       {{ t.intro }}
       <NuxtLink :to="privacyPath('backup')" class="font-medium text-sky-700 hover:underline">{{ t.backupLink }}</NuxtLink>
     </p>
+
+    <section v-if="inspectionFiles.length" class="space-y-2 rounded-lg bg-amber-50 p-4 text-sm ring-1 ring-amber-200">
+      <h2 class="font-semibold text-amber-900">{{ rd.filesTitle }} ({{ inspectionFiles.length }})</h2>
+      <p class="text-amber-900">{{ rd.filesHint }}</p>
+      <ul class="space-y-1">
+        <li v-for="file in inspectionFiles" :key="file.documentId" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span class="min-w-0 break-words">{{ rd.fileRow(file.employeeName, file.typeName, formatDate(file.documentDate)) }}</span>
+          <NuxtLink :to="`/admin/employees/${file.employeeId}?tab=records`" class="font-medium text-sky-700 hover:underline">{{ rd.toPerson }}</NuxtLink>
+          <a :href="`/api/employee-documents/${file.documentId}`" target="_blank" rel="noopener" class="font-medium text-sky-700 hover:underline">{{ rd.openFile }}</a>
+        </li>
+      </ul>
+    </section>
 
     <p v-if="error" class="rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">{{ errorMessage(error) }}</p>
     <p v-else-if="!data.length" class="text-sm text-gray-500">{{ t.empty }}</p>

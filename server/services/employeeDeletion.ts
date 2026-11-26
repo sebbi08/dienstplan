@@ -13,7 +13,7 @@ import {
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
   formAttachments, formEditors, forms, knowledgeConfirmations, longAbsences, maternityCases, signRequestRecipients, signUnlocks, parentalLeaveBirths, parentalLeaves,
   groupBookChanges, helpOuts, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
-  formReads, releaseSnapshots,
+  formReads, releaseSnapshots, requiredInspections,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
   weekTemplateEntries, applicantVisits, infoVisits,
 } from '../db/schema'
@@ -142,9 +142,11 @@ function removeEmployee(tx: Db, employeeId: number, before: Set<string>): void {
  * its helper here deletes all of them, as „Endgültig löschen“ does. „Mutterschutz-Unterlagen“ (`maternity`) the same from
  * the end of each case (server/services/maternity.ts). „Lohn und Steuer“ (`payroll`) is due with the personal data while a
  * Lohnbüro keeps the payroll records (the facility's retention setting, the default; the overview then lists and deletes
- * it as part of `immediate`), otherwise 6 years after the end of the leaving year (retentionDueDates).
+ * it as part of `immediate`), otherwise 6 years after the end of the leaving year (retentionDueDates). „Einsicht in das
+ * Führungszeugnis“ (`inspection`, § 72a Abs. 5 SGB VIII) is due 3 months after leaving (at once if the activity was not
+ * taken up: inspectionDeletableFrom).
  */
-export const RETENTION_CATEGORIES = ['immediate', 'payroll', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'] as const
+export const RETENTION_CATEGORIES = ['immediate', 'inspection', 'payroll', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'] as const
 export type RetentionCategory = typeof RETENTION_CATEGORIES[number]
 
 /**
@@ -261,6 +263,14 @@ export function deleteImmediateData(tx: Db, employeeId: number): number {
     changed += tx.delete(users).where(eq(users.id, account.id)).run().changes
   }
   return changed
+}
+
+/** The recorded inspections of Pflichtdokumente „nur Einsicht vermerken“ (Führungszeugnis: day and box, no file). */
+const INSPECTION_ROWS: readonly EmployeeRows[] = [{ table: requiredInspections, column: requiredInspections.employeeId }]
+
+/** „Einsicht in das Führungszeugnis“: the person's recorded inspections (§ 72a Abs. 5 SGB VIII). */
+export function deleteInspectionData(tx: Db, employeeId: number): number {
+  return deleteRows(tx, employeeId, INSPECTION_ROWS)
 }
 
 /** „Lohn und Steuer“ of the personnel file (Steuer-ID, Steuerklasse, SV-Nummer, Krankenkasse, Bankverbindung, Konfession). */
@@ -420,6 +430,7 @@ export function categoryHasData(db: Db, employeeId: number): Record<RetentionCat
     immediate: db.select({ id: employees.id }).from(employees).where(immediateFieldsSet(employeeId)).get() !== undefined
       || anyRows(db, employeeId, [...IMMEDIATE_ROWS, ...IMMEDIATE_CLEARED, ACCOUNT])
       || db.select({ id: entries.id }).from(entries).where(specialLeaveReasonsOf(employeeId)).limit(1).get() !== undefined,
+    inspection: anyRows(db, employeeId, INSPECTION_ROWS),
     payroll: anyRows(db, employeeId, PAYROLL_ROWS),
     time: anyRows(db, employeeId, TIME_ROWS) || warningAckIds(db, employeeId).length > 0,
     assessment: anyRows(db, employeeId, ASSESSMENT_ROWS),
@@ -430,7 +441,7 @@ export function categoryHasData(db: Db, employeeId: number): Record<RetentionCat
 }
 
 const DELETE_CATEGORY: Record<RetentionCategory, (tx: Db, employeeId: number) => number> = {
-  immediate: deleteImmediateData, payroll: deletePayrollData, time: deleteTimeData, assessment: deleteAssessmentData, bem: deleteBemData,
+  immediate: deleteImmediateData, inspection: deleteInspectionData, payroll: deletePayrollData, time: deleteTimeData, assessment: deleteAssessmentData, bem: deleteBemData,
   maternity: deleteMaternityData, paidOvertime: deletePaidOvertimeData,
 }
 
@@ -439,7 +450,7 @@ export function deleteCategories(
   tx: Db, employeeId: number, categories: readonly RetentionCategory[],
 ): Record<RetentionCategory, number> {
   const counts: Record<RetentionCategory, number> = {
-    immediate: 0, payroll: 0, time: 0, assessment: 0, bem: 0, maternity: 0, paidOvertime: 0,
+    immediate: 0, inspection: 0, payroll: 0, time: 0, assessment: 0, bem: 0, maternity: 0, paidOvertime: 0,
   }
   for (const category of RETENTION_CATEGORIES) {
     if (categories.includes(category)) counts[category] = DELETE_CATEGORY[category](tx, employeeId)

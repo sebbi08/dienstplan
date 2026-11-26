@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION, type EmployeeDocumentFolder } from '#shared/domain/personnel'
-import { REQUIRED_DOCUMENT_LIMITS, defaultRequiredFolder } from '#shared/domain/requiredDocuments'
+import { REQUIRED_DOCUMENT_LIMITS, REQUIRED_DOCUMENT_MODES, defaultRequiredFolder, type RequiredDocumentMode } from '#shared/domain/requiredDocuments'
 import { QUALIFICATIONS, type Qualification } from '#shared/domain/staffing/types'
 import type { PrintTemplateDto, RequiredDocumentTypeDto, RequiredDocumentTypeInput } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -8,8 +8,9 @@ import { de } from '~/locales/de'
 /**
  * Einstellungen → Mitarbeitende → Pflichtdokumente (Leitung and Träger): the documents every employee – or those of chosen
  * qualifications – must have in the personnel file, each filed in a folder the editor may use (the list shows only
- * those), optionally valid for some months and filled from a print template. ▲/▼ orders them; deleting keeps the
- * documents.
+ * those), optionally valid for some months and filled from a print template. „Nachweis“ chooses a file of the personnel
+ * file or „nur Einsicht vermerken“ (no file, no template: the Führungszeugnis, § 72a Abs. 5 SGB VIII). ▲/▼ orders them;
+ * deleting keeps the documents.
  */
 const t = de.requiredDocuments
 const { can } = useCan()
@@ -23,15 +24,19 @@ const folders = computed(() => EMPLOYEE_DOCUMENT_FOLDERS.filter(folder => can(FO
 const folderItems = computed(() => folders.value.map(folder => ({ label: de.personnel.folders[folder], value: folder })))
 const qualificationItems = QUALIFICATIONS.map(key => ({ label: de.staffing.qualifications[key], value: key }))
 const appliesItems = [{ label: t.appliesAll, value: 'all' }, { label: t.appliesChosen, value: 'chosen' }]
+const modeItems = REQUIRED_DOCUMENT_MODES.map(mode => ({ label: t.modes[mode], value: mode }))
 
 // The print templates to fill from (loaded when the dialog opens; without them the choice offers „keine“ only).
 const templates = ref<PrintTemplateDto[]>([])
 const templateItems = computed(() => [{ label: t.noTemplate, value: 0 }, ...templates.value.map(template => ({ label: template.title, value: template.id }))])
 
-interface Form { name: string; folder: EmployeeDocumentFolder; applies: 'all' | 'chosen'; qualifications: Qualification[]; validity: string; templateId: number; active: boolean }
+interface Form {
+  name: string; folder: EmployeeDocumentFolder; applies: 'all' | 'chosen'; qualifications: Qualification[]; validity: string; templateId: number
+  active: boolean; mode: RequiredDocumentMode
+}
 const editing = ref<RequiredDocumentTypeDto | null>(null)
 const open = ref(false)
-const form = reactive<Form>({ name: '', folder: 'required', applies: 'all', qualifications: [], validity: '', templateId: 0, active: true })
+const form = reactive<Form>({ name: '', folder: 'required', applies: 'all', qualifications: [], validity: '', templateId: 0, active: true, mode: 'file' })
 
 async function openDialog(type: RequiredDocumentTypeDto | null) {
   editing.value = type
@@ -39,9 +44,12 @@ async function openDialog(type: RequiredDocumentTypeDto | null) {
     ? {
         name: type.name, folder: type.folder, applies: type.appliesTo === 'all' ? 'all' : 'chosen',
         qualifications: type.appliesTo === 'all' ? [] : [...type.appliesTo], validity: type.validityMonths === null ? '' : String(type.validityMonths),
-        templateId: type.templateId ?? 0, active: type.active,
+        templateId: type.templateId ?? 0, active: type.active, mode: type.mode,
       }
-    : { name: '', folder: defaultRequiredFolder(folders.value) ?? 'required', applies: 'all', qualifications: [], validity: '', templateId: 0, active: true })
+    : {
+        name: '', folder: defaultRequiredFolder(folders.value) ?? 'required', applies: 'all', qualifications: [], validity: '', templateId: 0,
+        active: true, mode: 'file',
+      })
   open.value = true
   templates.value = await $fetch<PrintTemplateDto[]>('/api/print-templates').catch(() => [])
 }
@@ -49,7 +57,8 @@ async function openDialog(type: RequiredDocumentTypeDto | null) {
 const body = (): RequiredDocumentTypeInput => ({
   name: form.name, folder: form.folder,
   appliesTo: form.applies === 'all' || form.qualifications.length === 0 ? 'all' : form.qualifications,
-  validityMonths: form.validity.trim() === '' ? null : Number(form.validity), templateId: form.templateId || null, active: form.active,
+  validityMonths: form.validity.trim() === '' ? null : Number(form.validity),
+  templateId: form.mode === 'inspection' ? null : form.templateId || null, active: form.active, mode: form.mode,
 })
 
 async function save() {
@@ -72,6 +81,7 @@ const move = (type: RequiredDocumentTypeDto, direction: 'up' | 'down') =>
 function details(type: RequiredDocumentTypeDto): string {
   return [
     de.personnel.folders[type.folder],
+    type.mode === 'inspection' ? t.inspectionOnly : '',
     type.validityMonths === null ? '' : t.validFor(type.validityMonths),
     type.appliesTo === 'all' ? '' : t.forQualifications(type.appliesTo.map(key => de.staffing.qualifications[key])),
     type.templateTitle ?? '',
@@ -135,7 +145,10 @@ function details(type: RequiredDocumentTypeDto): string {
           <UFormField :label="t.validity" :description="t.validityHint">
             <UInput v-model="form.validity" type="number" min="1" :max="REQUIRED_DOCUMENT_LIMITS.validityMonths" step="1" class="w-28" />
           </UFormField>
-          <UFormField :label="t.template">
+          <UFormField :label="t.mode" :description="t.modeHint">
+            <URadioGroup v-model="form.mode" :items="modeItems" />
+          </UFormField>
+          <UFormField v-if="form.mode === 'file'" :label="t.template">
             <USelect v-model="form.templateId" :items="templateItems" class="w-full" />
           </UFormField>
           <UCheckbox v-model="form.active" :label="t.active" />

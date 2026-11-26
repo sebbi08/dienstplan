@@ -95,7 +95,10 @@ const recordsLink = (employee: EmployeeListItemDto) => ({ path: `/admin/employee
 const seesRequiredDocs = computed(() => (extras.value ?? []).some(row => row.requiredDocuments !== undefined))
 const missingDocsOf = (id: number) => extrasOf.value.get(id)?.requiredDocuments ?? []
 /** The names for the tooltip, the expired ones marked. */
-const missingDocNames = (id: number) => missingDocsOf(id).map(row => (row.state === 'expired' ? de.requiredDocuments.expiredName(row.name) : row.name))
+const missingDocNames = (id: number) => missingDocsOf(id).map((row) => {
+  if (row.state === 'expired') return de.requiredDocuments.expiredName(row.name)
+  return row.state === 'entry' ? de.requiredDocuments.entryName(row.name) : row.name
+})
 const onlyMissingDocs = ref(false)
 const shownRow = (id: number) => !onlyMissingDocs.value || missingDocsOf(id).length > 0
 

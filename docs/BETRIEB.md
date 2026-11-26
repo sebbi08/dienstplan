@@ -1028,6 +1028,7 @@ ist ab dem 1. Januar danach. Beispiel: ausgeschieden am 15.03.2026, Frist 2 Jahr
 | „Beurteilungen und Zeugnisse“ (3 Jahre) | Mitarbeitergespräche mit allen Bögen, Fortbildungsnachweise, Pflichttermine (Belehrung Infektionsschutz, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masernnachweis, Untersuchungen nach dem Jugendarbeitsschutzgesetz) als Nachweis, dass die Pflichten erfüllt wurden, Lesebestätigungen aus „Wissen“, die Nachweise der Unterschriften in der App („Zum Unterschreiben senden“: Zeitpunkt, Prüfsumme, Grund einer Ablehnung); Dokumente der Personalakte in den Fächern Bewerbung, Pflichtdokumente, Qualifikationen und Fortbildungen, Korrespondenz, Arbeitsrechtliche Maßnahmen |
 | „Ausgezahlte Überstunden“ (voreingestellt und mindestens 8 Jahre) | Stundenkonto-Buchungen mit dem Häkchen **„ausgezahlt“** (setzt du beim Anlegen der Buchung oder später in der Liste der Buchungen); Dokumente der Personalakte in den Fächern Vertrag und Nachträge und Gehalt; die Unfallanzeigen über die Person. Unter „Jetzt löschbar“ heißt die Zeile „ausgezahlte Überstunden, Verträge, Gehalt“. 8 Jahre, weil Buchungsbelege seit 01.01.2025 so lange aufzubewahren sind (§ 147 Abs. 3 AO, § 257 Abs. 4 HGB, geändert durch das Bürokratieentlastungsgesetz IV; vorher 10 Jahre). Lohnkonto (§ 41 EStG), Geschäftsbriefe und sonstige Unterlagen: 6 Jahre; Bücher und Jahresabschlüsse: 10 Jahre (führt die App nicht). Bestehende Einrichtungen mit der alten Vorgabe 10 bekamen beim Update 8; eine selbst gewählte andere Zahl blieb. Weniger als 8 Jahre lassen sich nicht mehr speichern; war vorher weniger gespeichert, rechnet die App trotzdem mit 8 Jahren, und die Einstellungen weisen darauf hin. Die Unfallanzeigen (5 Jahre, DGUV Vorschrift 1 § 24 Abs. 6) sind damit ebenfalls abgedeckt. „Endgültig löschen“ im Archiv der Seite *Mitarbeitende* beachtet die Fristen nicht (siehe oben). Stand 19.11.2026 |
 | „Lohn und Steuer“ (nur ohne Lohnbüro: 6 Jahre) | Steuer-ID, Steuerklasse, Sozialversicherungsnummer, Krankenkasse, Bankverbindung, Konfession – wenn der Haken **„Lohnunterlagen bewahrt ein Lohnbüro/Steuerbüro auf“** fehlt, also die Einrichtung die Lohnunterlagen selbst aufbewahrt (Lohnkonto nach § 41 EStG, § 147 AO): löschbar ab dem 1. Januar nach dem Ende des 6. Jahres (ausgeschieden 2026 → ab 01.01.2033). Mit dem Haken (voreingestellt, wie bisher) gehören sie zu den „Persönlichen Daten“ |
+| „Einsicht in das Führungszeugnis“ (3 Monate) | der Vermerk zum erweiterten Führungszeugnis (Tag der Einsicht, „keine einschlägige Eintragung“, wer und wann vermerkt) – **3 Monate nach dem Ausscheiden** (§ 72a Abs. 5 SGB VIII: spätestens drei Monate nach Ende der Tätigkeit löschen); wurde die Tätigkeit gar nicht aufgenommen (Austritt vor „beschäftigt seit“ bzw. vor den ersten Wochenstunden, z. B. nach „Einstellen“ aus den Bewerbungen), schon am Tag nach dem Ausscheiden. Eine Datei gibt es dazu nicht (siehe *Pflichtdokumente*) |
 | „BEM-Unterlagen“ (3 Jahre) | jedes BEM mit Gesprächen, Maßnahmen und Notizen – **anders als die anderen Fristen ab dem Ende des BEM** (abgeschlossen, abgelehnt, keine Antwort; Tag genau), auch bei Mitarbeitern, die noch da sind. Ein noch laufendes BEM zählt ab dem Austritt. Siehe Abschnitt 21, „BEM“ |
 | „Betriebliche Altersvorsorge“ (30 Jahre) | nur zur Information, die App speichert dazu nichts |
 | zuletzt | der Mitarbeiter-Eintrag selbst (Name, Kürzel, Gruppe), sobald alle anderen Daten der Person gelöscht sind |
@@ -1282,9 +1283,36 @@ und was bald abläuft.
   Gruppenleitung und Mitarbeiter). Nur der **Arbeitsvertrag** bleibt im Fach „Vertrag und Nachträge, Stellenbeschreibung“, weil er
   Gehaltsangaben enthält.
 - **Beispiele:** Jede Einrichtung – auch jede neu angelegte – startet mit sieben aktiven Beispielen, die du ändern oder
-  löschen kannst: Arbeitsvertrag (Fach Vertrag), Erweitertes Führungszeugnis (60 Monate), Masernnachweis, Belehrung
-  Infektionsschutz, Verpflichtung auf den Datenschutz, Erste-Hilfe-Nachweis (24 Monate) und Schweigepflichterklärung
-  (alle im Fach Pflichtdokumente).
+  löschen kannst: Arbeitsvertrag (Fach Vertrag), Erweitertes Führungszeugnis (60 Monate, nur Einsicht vermerken, siehe
+  unten), Masernnachweis, Belehrung Infektionsschutz, Verpflichtung auf den Datenschutz, Erste-Hilfe-Nachweis
+  (24 Monate) und Schweigepflichterklärung (alle im Fach Pflichtdokumente).
+- **Nachweis: Datei oder „nur Einsicht vermerken“:** Je Pflichtdokument stellst du ein, ob eine **Datei in der
+  Personalakte** abgelegt wird (wie bisher) oder **nur die Einsicht vermerkt** wird (keine Datei, keine Vorlage). Das
+  Beispiel „Erweitertes Führungszeugnis“ ist „nur Einsicht vermerken“. Grund (keine Rechtsberatung): Nach § 72a Abs. 5
+  SGB VIII darf der Träger beim erweiterten Führungszeugnis nur speichern, **dass** und **wann** es eingesehen wurde und
+  ob eine einschlägige Verurteilung (§ 72a Abs. 1) vorliegt; eine Kopie darf nicht aufbewahrt werden, und die Daten sind
+  spätestens drei Monate nach Ende der Tätigkeit zu löschen (wird sie nicht aufgenommen: sofort). Im Zweifel mit der
+  Datenschutzbeauftragten klären.
+  - **Bei der Person:** Statt Hochladen, Zuordnen, Ausfüllen und Senden gibt es **Einsicht vermerken**: „Eingesehen am“
+    (nicht in der Zukunft) und das Häkchen **„keine einschlägige Eintragung (§ 72a Abs. 1 SGB VIII)“**. Gespeichert
+    werden nur diese beiden Angaben und wer sie wann vermerkt hat. Mit Häkchen gilt das Pflichtdokument als vorhanden;
+    die Gültigkeit (beim Führungszeugnis 60 Monate) läuft ab dem Tag der Einsicht, „läuft ab“ und „abgelaufen“ wie bei
+    Dokumenten. Ohne Häkchen steht dort **„Eintragung vorhanden – bitte prüfen“** (rot, zählt wie „fehlt“ in der
+    Mitarbeiterliste und unter „Was noch fehlt“); mehr wird nicht gespeichert. **Neu vermerken** ersetzt den Vermerk,
+    **Vermerk löschen** nimmt ihn zurück. Sehen und vermerken darf, wer das Fach des Pflichtdokuments sehen darf (beim
+    Führungszeugnis „Dokumente: Pflichtdokumente“, voreingestellt Leitung und Träger). Die App lehnt Hochladen,
+    Zuordnen, Ausfüllen und „Zum Unterschreiben senden“ für so ein Pflichtdokument ab.
+  - **Alte Dateien:** Beim Update am 26.11.2026 wurde nur das Beispiel „Erweitertes Führungszeugnis“ (am Namen erkannt,
+    verglichen wie in der App, in jedem Fach) auf „nur Einsicht vermerken“ umgestellt; selbst angelegte Pflichtdokumente
+    blieben bei „Datei“. Schon hochgeladene Führungszeugnisse löscht die App **nicht** von selbst; sie zählen auch nicht
+    mehr. Sie stehen bei der Person gelb markiert („Als Datei gespeichert – nach § 72a Abs. 5 SGB VIII nicht
+    aufbewahren …“) mit **Datei ansehen** und **Datei jetzt löschen**, und unter **Mehr → Datenschutz & Löschen → Jetzt
+    löschbar** (Träger) oben als Hinweis „Führungszeugnisse als Datei gespeichert“ mit Links zur Person und zur Datei
+    (nur Dateien in Fächern, die man sehen darf). Aufräumen: bei der Person die Einsicht vermerken (Datum aus der Datei), dann „Datei jetzt
+    löschen“. Ältere Datensicherungen enthalten die Datei noch (siehe Abschnitt 8).
+  - **Löschfrist:** Der Vermerk einer ausgeschiedenen Person ist 3 Monate nach dem Ausscheiden löschbar (bei nicht
+    aufgenommener Tätigkeit am Tag danach), siehe *Löschfristen*, Zeile „Einsicht in das Führungszeugnis“. Gelöscht wird
+    wie immer von Hand. Die Pflichttermine behalten ihren Eintrag „Erweitertes Führungszeugnis“ unverändert.
 - **Umstellung am 26.11.2026:** Beim Update kamen die vorhandenen Pflichtdokumente ins Fach „Pflichtdokumente“ – samt
   den ihnen zugeordneten Dokumenten, damit nichts auf „fehlt“ springt. Umgezogen sind nur Pflichtdokumente mit
   bekanntem Inhalt: alle aus dem Fach Qualifikationen, aus den Fächern Bewerbung und Korrespondenz nur die Beispiele

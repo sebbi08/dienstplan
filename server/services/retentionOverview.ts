@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull, lt, ne } from 'drizzle-orm'
 import { childPurgeDate, childStatus, purgeDate } from '../../shared/domain/children'
 import { can } from '../../shared/domain/permissions'
+import { inspectionDeletableFrom } from '../../shared/domain/requiredDocuments'
 import { retentionDueDates, type RetentionSettings } from '../../shared/domain/retention'
 import type { IsoDate } from '../../shared/domain/types'
 import {
@@ -8,7 +9,7 @@ import {
 } from '../../shared/domain/visits'
 import type { RetentionDeleteResult, RetentionItemCategory, RetentionItemDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { applicantVisitDays, applicantVisits, cashBoxes, children, employees, facilities, infoVisits } from '../db/schema'
+import { applicantVisitDays, applicantVisits, cashBoxes, children, employeeHours, employees, facilities, infoVisits } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { getChildRetentionYears } from './appSettings'
 import { bemDeletableDates, deleteDueBemProcesses, employeesWithBem } from './bem'
@@ -111,10 +112,26 @@ function employeeItems(db: Db, employee: EmployeeRow, ctx: Context): RetentionIt
         const maternity = maternityItem(db, employee, ctx)
         return maternity ? [maternity] : []
       }
+      if (category === 'inspection') {
+        const from = inspectionDeletableFrom(employee.leftOn, startedOn(db, employee.id))
+        return [item(category, from, left && from <= ctx.today)]
+      }
       return [item(category, dueDates[category], left && dueDates[category] <= ctx.today)]
     }),
     item('record', null, left && RETENTION_CATEGORIES.every(category => !hasData[category])),
   ]
+}
+
+/**
+ * The day the activity began, for „not taken up“ (inspectionDeletableFrom): „beschäftigt seit“ of the contract data,
+ * else the first weekly hours (as „Einstellen“ of an applicant enters them); null without either.
+ */
+function startedOn(db: Db, employeeId: number): IsoDate | null {
+  const employed = db.select({ since: employees.employedSince }).from(employees).where(eq(employees.id, employeeId)).get()?.since ?? null
+  if (employed !== null) return employed
+  const first = db.select({ validFrom: employeeHours.validFrom }).from(employeeHours).where(eq(employeeHours.employeeId, employeeId))
+    .orderBy(employeeHours.validFrom).limit(1).get()
+  return first?.validFrom ?? null
 }
 
 /**

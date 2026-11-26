@@ -115,14 +115,17 @@ describe(TAG, () => {
     expect({ types: count('required_document_types'), documents: count('employee_documents'), requests: count('sign_requests') }).toEqual(before)
     expect(sqlite.prepare(`SELECT name FROM sqlite_temp_master WHERE name = 'moved_required_types'`).all()).toEqual([])
 
-    // Nothing flipped to „fehlt“: the moved documents still count for their types.
+    // Nothing flipped to „fehlt“: the moved documents still count for their types – apart from the Führungszeugnis, which
+    // a later migration makes „nur Einsicht vermerken“ (its file is then only listed for deletion).
     const traeger = {
       id: 1, role: 'provider' as const,
       permissions: new Set<PermissionKey>(['employees.view', 'employees.docs.contract', 'employees.docs.required', 'employees.docs.correspondence']),
     }
-    const states = Object.fromEntries(employeeRequiredDocuments(db, traeger, 1, 1, '2026-11-26').map(row => [row.name, row.state]))
+    const rows = employeeRequiredDocuments(db, traeger, 1, 1, '2026-11-26')
+    const states = Object.fromEntries(rows.map(row => [row.name, row.state]))
+    expect(rows.find(row => row.name === 'Erweitertes Führungszeugnis')).toMatchObject({ mode: 'inspection', state: 'missing', storedFiles: [{ id: 2 }, { id: 8 }] })
     expect(states).toMatchObject({
-      'Arbeitsvertrag': 'present', 'Erweitertes Führungszeugnis': 'present', 'Erste-Hilfe-Nachweis': 'present',
+      'Arbeitsvertrag': 'present', 'Erste-Hilfe-Nachweis': 'present',
       'Verpflichtung auf den Datenschutz': 'present', 'Schweigepflichterklärung': 'present', 'Hygieneschulung': 'present',
       'Nebentätigkeit': 'present', 'Masernnachweis': 'missing',
     })

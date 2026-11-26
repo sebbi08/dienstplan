@@ -2,16 +2,16 @@ import { and, asc, eq, inArray, isNotNull, ne } from 'drizzle-orm'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION, type EmployeeDocumentFolder } from '../../shared/domain/personnel'
 import {
-  REQUIRED_DOCUMENT_EXAMPLES, REQUIRED_DOCUMENT_LIMITS, appliesToEmployee, needsDocument, parseAppliesTo, requiredDocumentStatus,
-  serializeAppliesTo, type RequiredDocumentState,
+  REQUIRED_DOCUMENT_EXAMPLES, REQUIRED_DOCUMENT_LIMITS, REQUIRED_DOCUMENT_MODES, appliesToEmployee, inspectionDateError, inspectionStatus,
+  needsDocument, parseAppliesTo, requiredDocumentStatus, serializeAppliesTo, type RequiredDocumentState,
 } from '../../shared/domain/requiredDocuments'
 import { QUALIFICATIONS } from '../../shared/domain/staffing/types'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  EmployeeRequiredDocumentDto, RequiredDocumentTypeDto, RequiredDocumentTypeInput, Role,
+  EmployeeRequiredDocumentDto, RequiredDocumentTypeDto, RequiredDocumentTypeInput, RequiredInspectionFileDto, RequiredInspectionInput, Role,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employeeDocuments, employees, requiredDocumentTypes } from '../db/schema'
+import { employeeDocuments, employees, requiredDocumentTypes, requiredInspections, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { dayOf, uploadEmployeeDocument } from './employeeDocuments'
 import { assertEmployee } from './employees'
@@ -22,7 +22,9 @@ import { listTemplates } from './printTemplates'
  * personnel file, each filed in a folder. Everything follows the folder's key (FOLDER_PERMISSION): a type in a folder
  * the person may not use is left out everywhere (settings, the employee's box, the list, „Was noch fehlt“), so neither
  * its existence nor the status of a person's document leaks. The settings change with settings.facility; the routes
- * read with employees.view. Another facility's type, employee or document is 404.
+ * read with employees.view. Another facility's type, employee or document is 404. A type „nur Einsicht vermerken“
+ * (mode 'inspection', § 72a Abs. 5 SGB VIII) takes no file at all – no upload, link, fill or sign request (400
+ * required_type_inspection_only) – only the recorded inspection (recordInspection), with the same folder key.
  */
 
 /** Whoever works with the Pflichtdokumente: the session user's id, role (templates) and permissions (folders). */
@@ -44,7 +46,7 @@ const typesOf = (db: Db, facilityId: number): TypeRow[] =>
 /** Gives a facility the example types (a new facility; existing ones got them from the migration). */
 export function seedRequiredDocumentTypes(db: Db, facilityId: number): void {
   db.insert(requiredDocumentTypes).values(REQUIRED_DOCUMENT_EXAMPLES.map((example, sortOrder) => ({
-    facilityId, name: example.name, folder: example.folder, validityMonths: example.validityMonths, sortOrder,
+    facilityId, name: example.name, folder: example.folder, validityMonths: example.validityMonths, mode: example.mode, sortOrder,
   }))).run()
 }
 
@@ -57,6 +59,7 @@ export function listRequiredTypes(db: Db, actor: RequiredDocsActor, facilityId: 
   return rows.map(row => ({
     id: row.id, name: row.name, folder: row.folder, appliesTo: parseAppliesTo(row.appliesTo), validityMonths: row.validityMonths,
     templateId: row.templateId, templateTitle: row.templateId === null ? null : titles.get(row.templateId) ?? null, active: row.active,
+    mode: row.mode,
   }))
 }
 
@@ -89,12 +92,15 @@ function checkedInput(db: Db, actor: RequiredDocsActor, facilityId: number, inpu
   if (validity !== null && (!Number.isInteger(validity) || validity < 1 || validity > REQUIRED_DOCUMENT_LIMITS.validityMonths)) {
     throw new ServiceError(400, 'required_type_invalid')
   }
-  if (input.templateId !== null && !listTemplates(db, { ...actor, facilityId }).some(template => template.id === input.templateId)) {
+  if (!(REQUIRED_DOCUMENT_MODES as readonly string[]).includes(input.mode)) throw new ServiceError(400, 'required_type_invalid')
+  // Nothing is filled from a template for a type that keeps no file.
+  const templateId = input.mode === 'inspection' ? null : input.templateId
+  if (templateId !== null && !listTemplates(db, { ...actor, facilityId }).some(template => template.id === templateId)) {
     throw new ServiceError(400, 'required_type_template_invalid')
   }
   return {
-    name, folder: input.folder, appliesTo: serializeAppliesTo(appliesTo), validityMonths: validity, templateId: input.templateId,
-    active: input.active,
+    name, folder: input.folder, appliesTo: serializeAppliesTo(appliesTo), validityMonths: validity, templateId,
+    active: input.active, mode: input.mode,
   }
 }
 
@@ -168,7 +174,7 @@ export function moveRequiredType(db: Db, actor: RequiredDocsActor, facilityId: n
 function newestLinked(db: Db, employeeIds: readonly number[], types: readonly TypeRow[]): Map<string, { id: number; date: IsoDate }> {
   const newest = new Map<string, { id: number; date: IsoDate }>()
   if (employeeIds.length === 0 || types.length === 0) return newest
-  const folderOf = new Map(types.map(type => [type.id, type.folder]))
+  const folderOf = new Map(types.filter(type => type.mode === 'file').map(type => [type.id, type.folder]))
   const rows = db.select({
     id: employeeDocuments.id, employeeId: employeeDocuments.employeeId, typeId: employeeDocuments.requiredTypeId, folder: employeeDocuments.folder,
     documentDate: employeeDocuments.documentDate, uploadedAt: employeeDocuments.uploadedAt,
@@ -181,6 +187,27 @@ function newestLinked(db: Db, employeeIds: readonly number[], types: readonly Ty
     if (!known || date > known.date || (date === known.date && row.id > known.id)) newest.set(key, { id: row.id, date })
   }
   return newest
+}
+
+/** The recorded inspections per employee and type (`${employeeId}:${typeId}`), of the given types only. */
+function inspectionsOf(db: Db, employeeIds: readonly number[], types: readonly TypeRow[]) {
+  const ids = types.filter(type => type.mode === 'inspection').map(type => type.id)
+  const found = new Map<string, typeof requiredInspections.$inferSelect>()
+  if (employeeIds.length === 0 || ids.length === 0) return found
+  for (const row of db.select().from(requiredInspections)
+    .where(and(inArray(requiredInspections.employeeId, [...employeeIds]), inArray(requiredInspections.typeId, ids))).all()) {
+    found.set(`${row.employeeId}:${row.typeId}`, row)
+  }
+  return found
+}
+
+/** The status of a type for an employee: from the newest linked document, or for 'inspection' from the record. */
+function stateOf(
+  type: TypeRow, employeeId: number, newest: ReturnType<typeof newestLinked>, inspections: ReturnType<typeof inspectionsOf>, today: IsoDate,
+) {
+  const key = `${employeeId}:${type.id}`
+  if (type.mode === 'inspection') return inspectionStatus(type.validityMonths, inspections.get(key) ?? null, today)
+  return requiredDocumentStatus(type.validityMonths, newest.get(key)?.date ?? null, today)
 }
 
 /** The active types of the facility that apply to the qualification and lie in folders the actor may use. */
@@ -199,16 +226,33 @@ export function employeeRequiredDocuments(
   const { qualification } = db.select({ qualification: employees.qualification }).from(employees).where(eq(employees.id, employeeId)).get()!
   const types = applicableTypes(typesOf(db, facilityId), actor, qualification)
   const newest = newestLinked(db, [employeeId], types)
+  const inspections = inspectionsOf(db, [employeeId], types)
+  // Only files in folders the actor may use (their titles too).
+  const files = storedInspectionFiles(db, [employeeId], types).filter(file => mayUse(actor, file.folder))
+  const recorders = new Map(db.select({ id: users.id, username: users.username, name: employees.name }).from(users)
+    .leftJoin(employees, eq(employees.id, users.employeeId))
+    .where(inArray(users.id, [...inspections.values()].flatMap(row => (row.recordedBy === null ? [] : [row.recordedBy])).concat(0))).all()
+    .map(row => [row.id, row.name ?? row.username]))
   const templates = types.some(type => type.templateId !== null)
     ? new Set(listTemplates(db, { ...actor, facilityId }).map(template => template.id))
     : new Set<number>()
   return types.map((type) => {
     const linked = newest.get(`${employeeId}:${type.id}`) ?? null
-    const status = requiredDocumentStatus(type.validityMonths, linked?.date ?? null, today)
+    const status = stateOf(type, employeeId, newest, inspections, today)
+    const inspection = inspections.get(`${employeeId}:${type.id}`) ?? null
     return {
-      typeId: type.id, name: type.name, folder: type.folder, validityMonths: type.validityMonths,
-      templateId: type.templateId !== null && templates.has(type.templateId) ? type.templateId : null,
+      typeId: type.id, name: type.name, folder: type.folder, validityMonths: type.validityMonths, mode: type.mode,
+      templateId: type.mode === 'file' && type.templateId !== null && templates.has(type.templateId) ? type.templateId : null,
       state: status.state, date: status.date, expiresOn: status.expiresOn, documentId: linked?.id ?? null,
+      inspection: inspection === null
+        ? null
+        : {
+            inspectedOn: inspection.inspectedOn, noRelevantEntry: inspection.noRelevantEntry, recordedAt: inspection.recordedAt,
+            recordedBy: inspection.recordedBy === null ? null : recorders.get(inspection.recordedBy) ?? null,
+          },
+      storedFiles: type.mode === 'inspection'
+        ? files.filter(file => file.typeId === type.id).map(file => ({ id: file.id, title: file.title, documentDate: file.documentDate }))
+        : [],
     }
   })
 }
@@ -226,6 +270,7 @@ export function uploadRequiredDocument(
 ): number {
   const type = loadType(db, actor, facilityId, typeId)
   if (!type.active) throw new ServiceError(404, 'required_type_not_found')
+  assertFileType(type)
   if (meta.folder !== undefined && meta.folder !== type.folder) throw new ServiceError(400, 'required_type_folder_mismatch')
   return db.transaction((tx) => {
     const id = uploadEmployeeDocument(tx, actor, facilityId, employeeId, {
@@ -246,7 +291,11 @@ export function linkRequiredDocument(db: Db, actor: RequiredDocsActor, facilityI
     .innerJoin(employees, eq(employees.id, employeeDocuments.employeeId)).where(eq(employeeDocuments.id, documentId)).get()
   if (!row || row.facilityId !== facilityId) throw new ServiceError(404, 'document_not_found')
   if (!mayUse(actor, row.folder)) throw new ServiceError(403, 'forbidden')
-  if (typeId !== null && loadType(db, actor, facilityId, typeId).folder !== row.folder) throw new ServiceError(400, 'required_type_folder_mismatch')
+  if (typeId !== null) {
+    const type = loadType(db, actor, facilityId, typeId)
+    assertFileType(type)
+    if (type.folder !== row.folder) throw new ServiceError(400, 'required_type_folder_mismatch')
+  }
   db.update(employeeDocuments).set({ requiredTypeId: typeId }).where(eq(employeeDocuments.id, documentId)).run()
 }
 
@@ -260,6 +309,7 @@ export function checkedSignRequestType(
   if (typeId === null) return null
   const type = loadType(db, actor, facilityId, typeId)
   if (!type.active) throw new ServiceError(404, 'required_type_not_found')
+  assertFileType(type)
   if (type.folder !== folder) throw new ServiceError(400, 'required_type_folder_mismatch')
   return type.id
 }
@@ -277,12 +327,80 @@ export function missingRequiredDocuments(
   const staff = db.select({ id: employees.id, qualification: employees.qualification, leftOn: employees.leftOn }).from(employees)
     .where(eq(employees.facilityId, facilityId)).all().filter(person => person.leftOn === null || person.leftOn >= today)
   const newest = newestLinked(db, staff.map(person => person.id), types)
+  const inspections = inspectionsOf(db, staff.map(person => person.id), types)
   for (const person of staff) {
     const rows = applicableTypes(types, viewer, person.qualification).flatMap((type) => {
-      const state = requiredDocumentStatus(type.validityMonths, newest.get(`${person.id}:${type.id}`)?.date ?? null, today).state
+      const state = stateOf(type, person.id, newest, inspections, today).state
       return needsDocument(state) ? [{ typeId: type.id, name: type.name, state }] : []
     })
     missing.set(person.id, rows)
   }
   return missing
+}
+
+/** A type „nur Einsicht vermerken“ takes no file (400 required_type_inspection_only). */
+function assertFileType(type: TypeRow): void {
+  if (type.mode === 'inspection') throw new ServiceError(400, 'required_type_inspection_only')
+}
+
+/** The files still linked to the given types „nur Einsicht vermerken“ (an old upload of the Führungszeugnis), per employee. */
+function storedInspectionFiles(db: Db, employeeIds: readonly number[], types: readonly TypeRow[]) {
+  const folders = new Map(types.filter(type => type.mode === 'inspection').map(type => [type.id, type.folder]))
+  if (employeeIds.length === 0 || folders.size === 0) return []
+  return db.select({
+    id: employeeDocuments.id, employeeId: employeeDocuments.employeeId, typeId: employeeDocuments.requiredTypeId,
+    folder: employeeDocuments.folder, title: employeeDocuments.title, documentDate: employeeDocuments.documentDate,
+    uploadedAt: employeeDocuments.uploadedAt,
+  }).from(employeeDocuments)
+    .where(and(inArray(employeeDocuments.employeeId, [...employeeIds]), inArray(employeeDocuments.requiredTypeId, [...folders.keys()]))).all()
+    .map(row => ({ ...row, typeId: row.typeId!, documentDate: dayOf(row) }))
+}
+
+/**
+ * „Einsicht vermerken“: for an employee of the facility (404 employee_not_found) and an active type „nur Einsicht
+ * vermerken“ of it (404 required_type_not_found, 400 required_type_not_inspection) in a folder the actor may use (403):
+ * the day of inspection (a date, not after today: 400 inspection_date_invalid / inspection_date_future) and whether
+ * there is no relevant conviction (§ 72a Abs. 1 SGB VIII), with who recorded it and when. Replaces an earlier record.
+ */
+export function recordInspection(
+  db: Db, actor: RequiredDocsActor, facilityId: number, employeeId: number, typeId: number, input: RequiredInspectionInput,
+  today: IsoDate, now: Date = new Date(),
+): void {
+  const type = loadType(db, actor, facilityId, typeId)
+  if (!type.active) throw new ServiceError(404, 'required_type_not_found')
+  if (type.mode !== 'inspection') throw new ServiceError(400, 'required_type_not_inspection')
+  assertEmployee(db, facilityId, employeeId)
+  const error = inspectionDateError(input.inspectedOn, today)
+  if (error) throw new ServiceError(400, error)
+  const values = { inspectedOn: input.inspectedOn, noRelevantEntry: input.noRelevantEntry, recordedBy: actor.id, recordedAt: now.toISOString() }
+  db.insert(requiredInspections).values({ employeeId, typeId, ...values })
+    .onConflictDoUpdate({ target: [requiredInspections.employeeId, requiredInspections.typeId], set: values }).run()
+}
+
+/** Removes the recorded inspection (a correction), with the same checks as recordInspection; nothing there is fine. */
+export function deleteInspection(db: Db, actor: RequiredDocsActor, facilityId: number, employeeId: number, typeId: number): void {
+  const type = loadType(db, actor, facilityId, typeId)
+  if (type.mode !== 'inspection') throw new ServiceError(400, 'required_type_not_inspection')
+  assertEmployee(db, facilityId, employeeId)
+  db.delete(requiredInspections).where(and(eq(requiredInspections.employeeId, employeeId), eq(requiredInspections.typeId, typeId))).run()
+}
+
+/**
+ * The files still kept for types „nur Einsicht vermerken“ (Führungszeugnis uploaded before § 72a Abs. 5 SGB VIII was
+ * followed), for „Datenschutz & Löschen“: every employee of the facility, also those who left, only in folders the
+ * viewer may use (whoever may delete them), oldest first.
+ */
+export function storedInspectionFileList(db: Db, viewer: Pick<RequiredDocsActor, 'permissions'>, facilityId: number): RequiredInspectionFileDto[] {
+  const types = typesOf(db, facilityId).filter(row => row.mode === 'inspection' && mayUse(viewer, row.folder))
+  if (types.length === 0) return []
+  const staff = new Map(db.select({ id: employees.id, name: employees.name }).from(employees).where(eq(employees.facilityId, facilityId)).all()
+    .map(row => [row.id, row.name]))
+  const names = new Map(types.map(type => [type.id, type.name]))
+  return storedInspectionFiles(db, [...staff.keys()], types)
+    .filter(file => mayUse(viewer, file.folder))
+    .map(file => ({
+      documentId: file.id, employeeId: file.employeeId, employeeName: staff.get(file.employeeId) ?? '', typeName: names.get(file.typeId) ?? '',
+      title: file.title, documentDate: file.documentDate,
+    }))
+    .sort((a, b) => a.documentDate.localeCompare(b.documentDate) || a.documentId - b.documentId)
 }

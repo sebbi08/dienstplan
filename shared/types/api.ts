@@ -23,7 +23,7 @@ import type { BundleArea, BundleId, BundleScope, RightsRole } from '../domain/pe
 import type { PermissionKey } from '../domain/permissions'
 import type { EmployeeDocumentFolder } from '../domain/personnel'
 import type { DocSettings, ReminderKind } from '../domain/reminders'
-import type { RequiredAppliesTo, RequiredDocumentState } from '../domain/requiredDocuments'
+import type { RequiredAppliesTo, RequiredDocumentMode, RequiredDocumentState } from '../domain/requiredDocuments'
 import type { RequirementState } from '../domain/requirements'
 import type { DistrictLegendEntry, DistrictRow } from '../domain/schoolDistricts'
 import type { BreakMode, StampChannel } from '../domain/stamping'
@@ -1019,7 +1019,7 @@ export interface ArchivedChildDto {
 }
 
 /** What an item of the Träger's retention overview deletes of a left employee: a category, or the employee row itself. */
-export type RetentionItemCategory = 'immediate' | 'payroll' | 'time' | 'assessment' | 'bem' | 'maternity' | 'paidOvertime' | 'record'
+export type RetentionItemCategory = 'immediate' | 'payroll' | 'time' | 'assessment' | 'bem' | 'maternity' | 'paidOvertime' | 'inspection' | 'record'
 
 /**
  * An item of the Träger's retention overview (spec Löschübersicht §2), across every facility. `key` names it for the
@@ -1737,9 +1737,11 @@ export interface RequiredDocumentTypeInput {
   appliesTo: RequiredAppliesTo
   /** Valid for this many months from the document's date (null = no end). */
   validityMonths: number | null
-  /** A print template to fill it from („Ausfüllen“); null = none. */
+  /** A print template to fill it from („Ausfüllen“); null = none (always for 'inspection'). */
   templateId: number | null
   active: boolean
+  /** 'file': a document of the personnel file; 'inspection': „nur Einsicht vermerken“, no file (§ 72a Abs. 5 SGB VIII). */
+  mode: RequiredDocumentMode
 }
 
 /** A Pflichtdokument of the facility, in its order (only those in folders the viewer may use). */
@@ -1762,6 +1764,27 @@ export interface EmployeeRequiredDocumentDto {
   /** The end of validity of that document (null without a validity or a document). */
   expiresOn: IsoDate | null
   documentId: number | null
+  mode: RequiredDocumentMode
+  /** 'inspection': the recorded inspection (null = none); recordedBy the name of the account, null once it is deleted. */
+  inspection: { inspectedOn: IsoDate; noRelevantEntry: boolean; recordedBy: string | null; recordedAt: string } | null
+  /** 'inspection': files still linked to it from before (to be deleted, § 72a Abs. 5 SGB VIII); [] otherwise. */
+  storedFiles: { id: number; title: string; documentDate: IsoDate }[]
+}
+
+/** „Einsicht vermerken“: the day of inspection and whether there is no relevant conviction (§ 72a Abs. 1 SGB VIII). */
+export interface RequiredInspectionInput {
+  inspectedOn: IsoDate
+  noRelevantEntry: boolean
+}
+
+/** A file still kept for a type „nur Einsicht vermerken“ (Datenschutz & Löschen: to be deleted). */
+export interface RequiredInspectionFileDto {
+  documentId: number
+  employeeId: number
+  employeeName: string
+  typeName: string
+  title: string
+  documentDate: IsoDate
 }
 
 /**
@@ -2465,7 +2488,7 @@ export interface EmployeeListExtrasDto {
    * The Pflichtdokumente missing or expired (only types in folders the viewer may use; absent without any folder right;
    * empty = nothing missing).
    */
-  requiredDocuments?: { typeId: number; name: string; state: 'missing' | 'expired' }[]
+  requiredDocuments?: { typeId: number; name: string; state: 'missing' | 'expired' | 'entry' }[]
   /**
    * The notice on remaining leave: only with leave.overview (otherwise the key is absent); null outside the notice
    * window (1 October until the forfeiture date) or when the person has no leave left. `year` is the year whose

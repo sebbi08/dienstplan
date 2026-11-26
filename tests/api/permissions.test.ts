@@ -660,7 +660,9 @@ describe('API route permissions', () => {
     const settings = ['required-document-types.post.ts', 'required-document-types/[id].delete.ts', 'required-document-types/[id].put.ts',
       'required-document-types/[id]/move.post.ts']
     expect(touching).toEqual(['employee-documents/[id]/required-type.put.ts', 'employees/[id]/documents.post.ts',
-      'employees/[id]/required-documents.get.ts', 'employees/[id]/required-documents/[typeId].post.ts', 'required-document-types.get.ts', ...settings])
+      'employees/[id]/required-documents.get.ts', 'employees/[id]/required-documents/[typeId].post.ts',
+      'employees/[id]/required-inspections/[typeId].delete.ts', 'employees/[id]/required-inspections/[typeId].put.ts', 'required-document-types.get.ts',
+      ...settings, 'required-inspection-files.get.ts'])
     for (const route of touching) {
       const editor = settings.includes(route)
       expect(permissionCalls(route), route).toEqual([{ key: editor ? 'settings.facility' : 'employees.view', options: '' }])

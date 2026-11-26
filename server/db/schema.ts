@@ -4,6 +4,7 @@ import { EVENT_VISIBILITIES } from '../../shared/domain/calendarEvents'
 import type { OverviewColumnRef } from '../../shared/domain/childConsents'
 import type { RightsRole } from '../../shared/domain/permissionBundles'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../../shared/domain/personnel'
+import { REQUIRED_DOCUMENT_MODES } from '../../shared/domain/requiredDocuments'
 import type { GermanState } from '../../shared/domain/states'
 import { QUALIFICATIONS } from '../../shared/domain/staffing/types'
 import { TEMPLATE_VISIBILITIES } from '../../shared/domain/templateCategories'
@@ -855,7 +856,25 @@ export const requiredDocumentTypes = sqliteTable('required_document_types', {
   templateId: integer('template_id').references((): AnySQLiteColumn => printTemplates.id, { onDelete: 'set null' }),
   sortOrder: integer('sort_order').notNull().default(0),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  /** 'file': a document of the personnel file; 'inspection': only the inspection is recorded (requiredInspections). */
+  mode: text('mode', { enum: REQUIRED_DOCUMENT_MODES }).notNull().default('file'),
 }, table => [index('required_document_types_facility').on(table.facilityId)])
+
+/**
+ * „Einsicht vermerkt“ of a Pflichtdokument „nur Einsicht vermerken“ (the Erweitertes Führungszeugnis, § 72a Abs. 5 SGB
+ * VIII): per person and type only the day of inspection, whether there is no relevant conviction, and who recorded it
+ * when – no file, no further detail. One per person and type (recording again replaces it). Deletable 3 months after
+ * leaving (retention category 'inspection'); goes with the person or the type.
+ */
+export const requiredInspections = sqliteTable('required_inspections', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  typeId: integer('type_id').notNull().references(() => requiredDocumentTypes.id, { onDelete: 'cascade' }),
+  inspectedOn: text('inspected_on').notNull(),
+  noRelevantEntry: integer('no_relevant_entry', { mode: 'boolean' }).notNull(),
+  recordedBy: integer('recorded_by').references(() => users.id, { onDelete: 'set null' }),
+  recordedAt: text('recorded_at').notNull(),
+}, table => [uniqueIndex('required_inspections_employee_type').on(table.employeeId, table.typeId), index('required_inspections_type').on(table.typeId)])
 
 /**
  * An uploaded document (PDF, JPEG or PNG) in an employee's personnel file, in one of the folders (each with its own

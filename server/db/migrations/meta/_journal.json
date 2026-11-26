@@ -967,6 +967,13 @@
       "when": 1795711362153,
       "tag": "0137_employee_counts_only",
       "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "6",
+      "when": 1795719374713,
+      "tag": "0138_required_inspections",
+      "breakpoints": true
     }
   ]
 }

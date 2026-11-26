@@ -8,7 +8,7 @@ import { createFacility } from '../../server/services/facilities'
 import { uploadTemplate } from '../../server/services/printTemplates'
 import {
   createRequiredType, deleteRequiredType, employeeRequiredDocuments, linkRequiredDocument, listRequiredTypes, moveRequiredType,
-  updateRequiredType, uploadRequiredDocument, type RequiredDocsActor,
+  recordInspection, updateRequiredType, uploadRequiredDocument, type RequiredDocsActor,
 } from '../../server/services/requiredDocuments'
 import { getSetupChecklist } from '../../server/services/setupChecklist'
 import { createSignRequest, signMyRequest } from '../../server/services/signRequests'
@@ -40,7 +40,7 @@ describe('Pflichtdokumente', () => {
   const typeId = (name: string, facilityId = 1) => db.select().from(requiredDocumentTypes)
     .where(eq(requiredDocumentTypes.facilityId, facilityId)).all().find(row => row.name === name)!.id
   const input = (overrides: Partial<RequiredDocumentTypeInput> = {}): RequiredDocumentTypeInput => ({
-    name: 'Hygieneschulung', folder: 'qualifications', appliesTo: 'all', validityMonths: null, templateId: null, active: true, ...overrides,
+    name: 'Hygieneschulung', folder: 'qualifications', appliesTo: 'all', validityMonths: null, templateId: null, active: true, mode: 'file', ...overrides,
   })
   const states = (employeeId: number, viewer = actor(traeger)) =>
     employeeRequiredDocuments(db, viewer, 1, employeeId, TODAY).map(row => [row.name, row.state])
@@ -158,9 +158,11 @@ describe('Pflichtdokumente', () => {
 
   it('counts what is missing or expired per active employee for the list and „Was noch fehlt“', () => {
     keepInQualifications()
-    for (const name of ['Arbeitsvertrag', 'Erweitertes Führungszeugnis', 'Masernnachweis', 'Belehrung Infektionsschutz', 'Verpflichtung auf den Datenschutz', 'Schweigepflichterklärung']) {
+    for (const name of ['Arbeitsvertrag', 'Masernnachweis', 'Belehrung Infektionsschutz', 'Verpflichtung auf den Datenschutz', 'Schweigepflichterklärung']) {
       uploadRequiredDocument(db, actor(traeger), 1, anna, typeId(name), { title: '', documentDate: '2026-01-01', note: '' }, file, NOW)
     }
+    // The Führungszeugnis: only the inspection is recorded (§ 72a Abs. 5 SGB VIII).
+    recordInspection(db, actor(traeger), 1, anna, typeId('Erweitertes Führungszeugnis'), { inspectedOn: '2026-01-01', noRelevantEntry: true }, TODAY, NOW)
     uploadRequiredDocument(db, actor(traeger), 1, anna, typeId('Erste-Hilfe-Nachweis'), { title: '', documentDate: '2024-01-01', note: '' }, file, NOW)
     // Someone who left before today does not count.
     db.update(employees).set({ leftOn: '2026-10-31' }).where(eq(employees.id, ben)).run()
