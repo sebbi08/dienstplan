@@ -27,7 +27,7 @@ const IMMEDIATE = [
   'form_attachments.uploaded_by_employee_id',
   'child_attendance_changes.changed_by_employee_id', 'group_book_changes.changed_by_employee_id', 'users.employee_id',
   'info_visits.guided_by_employee_id', 'applicant_visits.mentor_employee_id',
-  'employee_children.employee_id',
+  'employee_children.employee_id', 'calendar_event_employees.employee_id',
 ]
 /** „Lohn und Steuer“: a category of its own (due with the personal data while a Lohnbüro keeps the payroll records). */
 const PAYROLL = 'employee_payroll.employee_id'

@@ -45,6 +45,7 @@
   "bem/[id]/steps.post.ts": ["provider","admin"],
   "calendar-events/[id].delete.ts": ["provider","admin"],
   "calendar-events/[id].put.ts": ["provider","admin"],
+  "calendar-events/audience.get.ts": ["provider","admin"],
   "calendar-events/index.post.ts": ["provider","admin"],
   "calendar.get.ts": ["provider","admin"],
   "care-types/[id].delete.ts": ["provider","admin"],

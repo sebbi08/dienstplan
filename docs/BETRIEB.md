@@ -21,7 +21,7 @@ Du brauchst dafür einen Linux-Server mit installiertem **Docker** (inklusive �
 - [14. Übersicht der Kinder (wie die Excel-Liste)](#14-übersicht-der-kinder-wie-die-excel-liste)
 - [15. Mitarbeitende](#15-mitarbeitende)
 - [16. Erinnerungen](#16-erinnerungen)
-- [17. Automatische Ereignisse im Dienstplan und Jahreskalender](#17-automatische-ereignisse-im-dienstplan-und-jahreskalender)
+- [17. Termine und automatische Ereignisse im Dienstplan und Jahreskalender](#17-termine-und-automatische-ereignisse-im-dienstplan-und-jahreskalender)
 - [18. Zeiterfassung: zu spät und früher gegangen](#18-zeiterfassung-zu-spät-und-früher-gegangen)
 - [19. Dokumente: Vorlagen (Bögen und PDF-Formulare)](#19-dokumente-vorlagen-bögen-und-pdf-formulare)
 - [20. Personalschlüssel](#20-personalschlüssel)
@@ -1805,7 +1805,58 @@ Den **Geburtstag eines Mitarbeiters** (Tag und Monat, ohne Jahr) tragen Leitung 
 Stammdaten unter *Mitarbeitende* ein. Wer am 29. Februar Geburtstag hat, wird in Nicht-Schaltjahren am 28. Februar
 erinnert (bei Kindern ebenso).
 
-## 17. Automatische Ereignisse im Dienstplan und Jahreskalender
+## 17. Termine und automatische Ereignisse im Dienstplan und Jahreskalender
+
+### Eingetragene Termine
+
+Ein Termin (Elternabend, Teamtag, Fortbildungstage …) steht **an einer Stelle eingetragen und an beiden zu sehen**: im
+**Jahreskalender** (Zeile „Termine“ und Terminliste) und im **Dienstplan** an seinem Tag bzw. seinen Tagen (Spalte
+„Info 2“, unter dem eigenen Text, gelb mit Kalender-Symbol, z. B. „Elternabend 19:00–21:00“), ebenso in „Mein
+Dienstplan“, „Mein Kalender“, am Tablet und in den Ausdrucken von Dienstplan und Jahreskalender.
+
+- **Eintragen und ändern** (wer den Kalender bearbeiten darf, also Leitung und Träger und wem das Recht „Termine und
+  Schließzeiten bearbeiten“ gegeben wurde): im Jahreskalender auf die Tageszahl in der Kopfzeile klicken, im Dienstplan
+  auf das Datum klicken und im Tagesüberblick **„Termin eintragen“** wählen. Ein Klick auf einen Termin (im Kalender
+  oder im Dienstplan) öffnet ihn zum Ändern oder Löschen – beides im selben Fenster. Am Tablet werden Termine nur
+  angezeigt, nicht bearbeitet.
+- **Mehrere Tage**: Das Feld **„bis einschließlich“** ist freiwillig. Leer bleibt der Termin ein Tag; mit einem
+  Datum steht er an **jedem Tag** dieses Zeitraums (im Kalender als durchgehender Balken, auch über Wochenenden, im
+  Dienstplan an jedem Tag des Monats). Die Uhrzeit „von“ gilt dann am ersten Tag, „bis“ am letzten. Angezeigt wird
+  z. B. „Fortbildungstage 10.–12.3.“, am ersten Tag mit „ab 9:00“, am letzten mit „bis 16:00“; in der Terminliste
+  steht „Beginn 9:00 · Ende 16:00“. Höchstens 366 Tage.
+- **„Wer sieht den Termin?“** muss bei jedem Termin beantwortet werden:
+  - **Alle** – alle Mitarbeitenden der Einrichtung, das Tablet und die Ausdrucke.
+  - **Bestimmte Gruppen** – nur Mitarbeitende, deren **Stammgruppe** eine der gewählten Gruppen ist (Gruppen, die
+    jemand nur lesen darf, zählen nicht; ein Gruppenwechsel gilt sofort).
+  - **Bestimmte Personen** – nur die gewählten Mitarbeitenden.
+  - **Nur Leitung und Träger** – sonst niemand.
+
+  **Leitung, Träger und wer den Kalender bearbeiten darf, sehen immer alle Termine** ihrer Einrichtung. Alle anderen
+  sehen nur, was für sie bestimmt ist – überall gleich: Kalender, Dienstplan, „Mein Dienstplan“, „Mein Kalender“,
+  Ausdrucke und Tablet. Gefiltert wird auf dem Server; von anderen Terminen kommt nichts beim Handy an, auch keine
+  Anzahl. Wer außer einem selbst noch eingeladen ist, sehen Mitarbeitende nicht.
+- **Tablet**: Ohne Entsperren zeigt das Tablet nur Termine für **Alle**. Bearbeitet jemand nach dem PIN den Dienstplan
+  am Tablet („Dienstplan bearbeiten“), sieht er die Termine so, wie er sie mit seinem eigenen Konto sieht.
+- **Gruppe oder Person gelöscht**: Sie fällt aus der Liste des Termins. Wird die Liste dadurch leer, gilt der Termin
+  ab dann als **„Nur Leitung und Träger“** – er wird nie für mehr Leute sichtbar. Wer ausscheidet und endgültig
+  gelöscht wird (Abschnitt 15, „Sofort“-Daten), verschwindet ebenso aus den Listen; wer in eine andere Einrichtung
+  wechselt, sieht die Termine der alten Einrichtung nicht mehr.
+- **Nicht Teil der Freigabe**: Termine werden wie die automatischen Ereignisse immer so gezeigt, wie sie gerade
+  eingetragen sind, auch in einem schon freigegebenen Monat. Ein neuer oder geänderter Termin macht den Monat nicht
+  „geändert“, löst keine Benachrichtigung aus und braucht kein erneutes Freigeben (anders als die Info-Texte, die zum
+  Plan gehören).
+- **Aus der früheren Ja/Nein-Frage**: Termine, die „auch für Mitarbeitende sichtbar“ waren, gelten als **Alle**, die
+  übrigen als **Nur Leitung und Träger** – niemand sieht mehr als vorher.
+
+### Info-Spalten: der ganze Text
+
+Die Info-Texte im Dienstplan (Info 1 und Info 2, bis 200 Zeichen) stehen **immer vollständig** da: Der Text bricht in
+der Spalte um, statt abgeschnitten zu werden – beim Bearbeiten wächst das Feld mit dem Text mit, ebenso in der
+Ansicht ohne Bearbeiten, am Tablet, im Ausdruck und in „Mein Dienstplan“ auf dem Handy. Gespeichert wird beim
+Verlassen des Feldes; **Enter** speichert ebenfalls (ein Info-Text hat keine Zeilenumbrüche), **Esc** stellt den
+gespeicherten Text wieder her. Die Termine darunter brechen genauso um.
+
+### Automatische Ereignisse
 
 Der Dienstplan (Spalte „Info 2“, unter dem eigenen Text; in „Mein Dienstplan“ auf dem Handy unter dem Datum, weil
 die Info-Spalten dort rechts außerhalb des Bildschirms liegen) und der Jahreskalender (Zeile „Termine“, nach den eigenen

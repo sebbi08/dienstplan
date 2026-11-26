@@ -2,7 +2,7 @@
 import { cellFillColor, cellKey, noteKey } from '#shared/domain/cells'
 import { formatDuration, formatSignedDuration, formatTime } from '#shared/domain/time'
 import { dayWarnings, type DayWarning } from '#shared/domain/warningList'
-import type { DayRowDto, EmployeeColumnDto, EntryDto, MonthPlanDto, NoteField, WeekSummaryDto } from '#shared/types/api'
+import type { CalendarEventDto, DayRowDto, EmployeeColumnDto, EntryDto, MonthPlanDto, NoteField, WeekSummaryDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass, cellFillClasses } from '~/utils/colors'
 import { pendingChangeText, releasedChangeText } from '~/utils/changes'
@@ -27,6 +27,8 @@ const props = defineProps<{
   groupFilter?: number | null
   /** The recorded times as plain text, not as links to the time records (the plan editor at the tablet, which has none). */
   plainActuals?: boolean
+  /** The appointments in Info 2 open on click (whoever manages the calendar; never in print). */
+  eventsEditable?: boolean
 }>()
 const emit = defineEmits<{
   cellClick: [employeeId: number, date: string, event: MouseEvent]
@@ -42,6 +44,8 @@ const emit = defineEmits<{
   warningsChanged: []
   /** Double click, long press, Enter or F2 on an editable cell: the quick time entry opens at `cell`. */
   quickEntry: [employeeId: number, date: string, cell: HTMLElement, afterDoubleClick: boolean]
+  /** An appointment in Info 2 was clicked (eventsEditable). */
+  eventClick: [event: CalendarEventDto]
 }>()
 
 /**
@@ -344,8 +348,8 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
           >
             {{ block.label }}
           </th>
-          <th rowspan="2" class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
-          <th rowspan="2" class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
+          <th rowspan="2" class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
+          <th rowspan="2" class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
           <th v-if="plan.admin" rowspan="2" class="w-8 border border-gray-200 bg-gray-100 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
         </tr>
         <tr>
@@ -388,8 +392,8 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
             </th>
           </template>
           <template v-if="!showBlocks">
-            <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
-            <th class="min-w-32 border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
+            <th class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
+            <th class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
             <th v-if="plan.admin" class="w-8 border border-gray-200 bg-gray-100 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
           </template>
         </tr>
@@ -490,18 +494,24 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
             </template>
             <td
               v-for="note in row.notes" :key="note.field"
-              class="border border-gray-200 px-1 py-1 align-top"
+              class="border border-gray-200 px-1 py-1 align-top break-words whitespace-normal"
               :class="markClass(note)"
               :title="note.title"
             >
-              <input
-                v-if="editable" :value="note.value" maxlength="200"
-                class="w-full rounded border border-transparent bg-transparent px-1 text-xs hover:border-gray-300 focus:border-sky-500 focus:outline-none"
-                @change="emit('noteSave', row.day.date, note.field, ($event.target as HTMLInputElement).value)"
-              >
-              <span v-else class="text-xs">{{ note.value }}</span>
-              <!-- After the own Info texts, outside the input: the day's automatic events, read-only. -->
-              <PlanAutoEvents v-if="note.field === 'info2'" :events="row.day.autoEvents" class="mt-0.5 px-1" />
+              <!-- The whole text, wrapped (also in print, at the tablet and on phones); the field grows with it. -->
+              <div class="w-52 print:w-44">
+                <PlanInfoField
+                  v-if="editable" :value="note.value" :label="`${de.plan[note.field]} ${formatDayShort(row.day.date, row.day.weekday)}`"
+                  @save="emit('noteSave', row.day.date, note.field, $event)"
+                />
+                <span v-else class="block text-xs break-words whitespace-pre-wrap">{{ note.value }}</span>
+                <!-- After the own Info texts, outside the field: the day's appointments, then its automatic events (read-only). -->
+                <PlanDayEvents
+                  v-if="note.field === 'info2'" :events="row.day.events" :date="row.day.date" :editable="eventsEditable && !print"
+                  class="mt-0.5 px-1" @event-click="emit('eventClick', $event)"
+                />
+                <PlanAutoEvents v-if="note.field === 'info2'" :events="row.day.autoEvents" class="mt-0.5 px-1" />
+              </div>
             </td>
             <td v-if="plan.admin" class="border border-gray-200 px-1 py-1 text-center align-top print:hidden">
               <template v-if="row.warnings.state !== 'none'">

@@ -1,7 +1,7 @@
 import type { YearCalendarDto } from '../../shared/types/api'
 import { seesProtectedCodes } from '../lib/protectedCodes'
 import { yearQuery } from '../schemas'
-import { getYearCalendar } from '../services/calendar'
+import { eventAudienceOf, getYearCalendar } from '../services/calendar'
 import { calendarLeaveRequests } from '../services/leaveRequests'
 
 export default defineServiceHandler(async (event): Promise<YearCalendarDto> => {
@@ -10,9 +10,9 @@ export default defineServiceHandler(async (event): Promise<YearCalendarDto> => {
   const db = useDb()
   // Open leave requests only for the Leitung, the Träger and the leave planners (null for anyone else with the calendar).
   // Mutterschutz and Beschäftigungsverbot only for whoever may see the case (else „abwesend“).
-  // A full Elternzeit as in the plan: „Elternzeit“ or „abwesend“ for this viewer.
+  // A full Elternzeit as in the plan: „Elternzeit“ or „abwesend“ for this viewer. Every appointment (calendar.edit sees all).
   const calendar = getYearCalendar(db, admin.facilityId, year, {
-    showsProtected: seesProtectedCodes(admin), parentalLeaveViewer: admin,
+    showsProtected: seesProtectedCodes(admin), parentalLeaveViewer: admin, eventAudience: eventAudienceOf(db, admin),
   })
   return { ...calendar, requests: calendarLeaveRequests(db, admin, admin.facilityId, year) }
 })

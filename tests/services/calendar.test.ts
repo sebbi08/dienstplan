@@ -62,22 +62,22 @@ describe('year calendar and sick days', () => {
     expect(calendar.absenceCodes.map(code => code.key)).toEqual(['vacation', 'overtime_off', 'special_leave', 'sick', 'child_sick', 'maternity', 'employment_ban', 'training', 'school'])
   })
   it('manages appointments of the year', () => {
-    const elternabend = createCalendarEvent(db, 1, { date: '2026-10-14', start: 1140, end: 1260, title: '  Elternabend ', visibleToStaff: true })
-    createCalendarEvent(db, 1, { date: '2026-10-02', start: null, end: null, title: 'Teamtag', visibleToStaff: false })
-    createCalendarEvent(db, 1, { date: '2027-01-05', start: null, end: null, title: 'später', visibleToStaff: false })
+    const elternabend = createCalendarEvent(db, 1, { date: '2026-10-14', start: 1140, end: 1260, title: '  Elternabend ', endDate: null, visibility: 'all', groupIds: [], employeeIds: [] })
+    createCalendarEvent(db, 1, { date: '2026-10-02', start: null, end: null, title: 'Teamtag', endDate: null, visibility: 'leaders', groupIds: [], employeeIds: [] })
+    createCalendarEvent(db, 1, { date: '2027-01-05', start: null, end: null, title: 'später', endDate: null, visibility: 'leaders', groupIds: [], employeeIds: [] })
     expect(listCalendarEvents(db, 1, 2026).map(e => [e.date, e.start, e.end, e.title])).toEqual([
       ['2026-10-02', null, null, 'Teamtag'], ['2026-10-14', 1140, 1260, 'Elternabend'],
     ])
-    updateCalendarEvent(db, 1, elternabend.id, { date: '2026-10-15', start: 1140, end: null, title: 'Elternabend', visibleToStaff: true })
+    updateCalendarEvent(db, 1, elternabend.id, { date: '2026-10-15', start: 1140, end: null, title: 'Elternabend', endDate: null, visibility: 'all', groupIds: [], employeeIds: [] })
     expect(getYearCalendar(db, 1, 2026).events.find(e => e.id === elternabend.id)).toMatchObject({ date: '2026-10-15', end: null })
     deleteCalendarEvent(db, 1, elternabend.id)
     expect(listCalendarEvents(db, 1, 2026)).toHaveLength(1)
   })
   it('validates appointments', () => {
-    expect(errorCode(() => createCalendarEvent(db, 1, { date: '2026-10-14', start: null, end: null, title: ' ', visibleToStaff: false }))).toBe('title_required')
-    expect(errorCode(() => createCalendarEvent(db, 1, { date: '2026-10-14', start: null, end: 600, title: 'x', visibleToStaff: false }))).toBe('span_end_before_start')
-    expect(errorCode(() => createCalendarEvent(db, 1, { date: '2026-10-14', start: 600, end: 600, title: 'x', visibleToStaff: false }))).toBe('span_end_before_start')
-    expect(errorCode(() => updateCalendarEvent(db, 1, 999, { date: '2026-10-14', start: null, end: null, title: 'x', visibleToStaff: false }))).toBe('event_not_found')
+    expect(errorCode(() => createCalendarEvent(db, 1, { date: '2026-10-14', start: null, end: null, title: ' ', endDate: null, visibility: 'leaders', groupIds: [], employeeIds: [] }))).toBe('title_required')
+    expect(errorCode(() => createCalendarEvent(db, 1, { date: '2026-10-14', start: null, end: 600, title: 'x', endDate: null, visibility: 'leaders', groupIds: [], employeeIds: [] }))).toBe('span_end_before_start')
+    expect(errorCode(() => createCalendarEvent(db, 1, { date: '2026-10-14', start: 600, end: 600, title: 'x', endDate: null, visibility: 'leaders', groupIds: [], employeeIds: [] }))).toBe('span_end_before_start')
+    expect(errorCode(() => updateCalendarEvent(db, 1, 999, { date: '2026-10-14', start: null, end: null, title: 'x', endDate: null, visibility: 'leaders', groupIds: [], employeeIds: [] }))).toBe('event_not_found')
   })
 })
 
@@ -108,8 +108,8 @@ describe('year calendar for employees', () => {
     enter(berta, '2026-10-08', 'sick')
     enter(berta, '2026-10-12', 'training')
     enter(berta, '2026-10-13', 'special_leave')
-    createCalendarEvent(db, 1, { date: '2026-10-14', start: null, end: null, title: 'Elternabend', visibleToStaff: true })
-    createCalendarEvent(db, 1, { date: '2026-10-15', start: null, end: null, title: 'Personalgespräch', visibleToStaff: false })
+    createCalendarEvent(db, 1, { date: '2026-10-14', start: null, end: null, title: 'Elternabend', endDate: null, visibility: 'all', groupIds: [], employeeIds: [] })
+    createCalendarEvent(db, 1, { date: '2026-10-15', start: null, end: null, title: 'Personalgespräch', endDate: null, visibility: 'leaders', groupIds: [], employeeIds: [] })
 
     const forAnna = getStaffYearCalendar(db, 1, 2026, anna)
     expect(forAnna.days[anna]).toEqual({ '2026-10-08': 'sick', '2026-10-09': 'vacation' })

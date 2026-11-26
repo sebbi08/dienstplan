@@ -1,6 +1,6 @@
 import { daysInMonth, toIsoDate } from '#shared/domain/dates'
 import type { YearCalendarDto } from '#shared/types/api'
-import { calendarEventText, calendarLanes, eventRowHeight } from './calendarLanes'
+import { calendarEventText, calendarLanes, eventRowHeight, eventsInDays } from './calendarLanes'
 
 type CalendarEmployee = YearCalendarDto['employees'][number]
 
@@ -61,7 +61,7 @@ export function monthEventHeights(calendar: YearCalendarDto): number[] {
   return Array.from({ length: 12 }, (_, index) => {
     const month = index + 1
     const dates = Array.from({ length: daysInMonth(calendar.year, month) }, (_, day) => toIsoDate(calendar.year, month, day + 1))
-    const events = calendar.events.filter(event => Number(event.date.slice(5, 7)) === month)
+    const events = eventsInDays(calendar.events, dates)
     return eventRowHeight(calendarLanes(dates, events, calendarEventText, calendar.autoEvents).laneCount, true)
   })
 }

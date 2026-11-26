@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BEM_ANSWERS, BEM_LIMITS, BEM_MEASURE_STATUSES, BEM_STEP_KINDS } from '../shared/domain/bem'
+import { EVENT_VISIBILITIES } from '../shared/domain/calendarEvents'
 import {
   CONSENT_AREA_MAX, CONSENT_SHORT_MAX, CONSENT_TEXT_MAX, OVERVIEW_FIELD_KEYS, SHEET_COLUMNS_MAX, SHEET_NAME_MAX,
 } from '../shared/domain/childConsents'
@@ -201,8 +202,11 @@ export const appSettingsSchema = z.object({ timeTrackingFrom: isoDate.nullable()
 export const timeRecordCreateSchema = z.object({ employeeId: z.number().int(), date: isoDate, start: minutes, end: minutes })
 export const timeRecordUpdateSchema = z.object({ start: minutes, end: minutes })
 export const earlyClosureSchema = z.object({ date: isoDate, closedFrom: minutes, reason: z.string().max(200) })
+/** An appointment: endDate null = one day; groupIds / employeeIds only count for „Bestimmte Gruppen“ / „Bestimmte Personen“. */
 export const calendarEventSchema = z.object({
-  date: isoDate, start: minutes.nullable(), end: minutes.nullable(), title: z.string().max(200), visibleToStaff: z.boolean(),
+  date: isoDate, endDate: isoDate.nullable(), start: minutes.nullable(), end: minutes.nullable(), title: z.string().max(200),
+  visibility: z.enum(EVENT_VISIBILITIES), groupIds: z.array(z.number().int().positive()).max(100),
+  employeeIds: z.array(z.number().int().positive()).max(500),
 })
 /** leftAt is checked by the service (invalid_time), so a wrong time gets its own message. */
 export const earlySickLeaveSchema = z.object({

@@ -1,17 +1,13 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso } from '#shared/domain/dates'
-import { formatTime } from '#shared/domain/time'
-import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
+import type { YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
-import { formatDate } from '~/utils/format'
+import { eventListDateText, eventListTimeText } from '~/utils/calendarLanes'
 
-/** Read-only year calendar for employees: everyone's leave and training, own sick days, shared appointments. */
+/** Read-only year calendar for employees: everyone's leave and training, own sick days, the appointments meant for them. */
 const year = ref(parseIsoDate(todayIso()).year)
 const { data: calendar, error } = await useFetch<YearCalendarDto>('/api/my/calendar', { query: { year } })
-
-const eventTime = (event: CalendarEventDto) =>
-  event.start === null ? '' : `${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
 </script>
 
 <template>
@@ -34,10 +30,10 @@ const eventTime = (event: CalendarEventDto) =>
     <section v-if="calendar?.events.length" class="max-w-3xl space-y-2">
       <h2 class="text-lg font-semibold">{{ de.calendar.eventList }}</h2>
       <ul class="divide-y divide-gray-100 rounded-lg bg-white text-sm ring-1 ring-gray-200">
-        <li v-for="event in calendar.events" :key="event.id" class="flex gap-3 px-3 py-2">
-          <span class="whitespace-nowrap">{{ formatDate(event.date) }}</span>
-          <span class="whitespace-nowrap text-gray-500">{{ eventTime(event) }}</span>
-          <span>{{ event.title }}</span>
+        <li v-for="event in calendar.events" :key="event.id" class="flex flex-wrap gap-x-3 px-3 py-2">
+          <span class="whitespace-nowrap">{{ eventListDateText(event) }}</span>
+          <span class="whitespace-nowrap text-gray-500">{{ eventListTimeText(event) }}</span>
+          <span class="break-words">{{ event.title }}</span>
         </li>
       </ul>
     </section>

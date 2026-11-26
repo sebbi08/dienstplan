@@ -7,6 +7,7 @@ import {
   signRequestRecipients, signRequests, signUnlocks, teamMeetingParticipants, infoVisits, applicantVisits,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
+import { createCalendarEvent } from '../../server/services/calendar'
 import { applyToCells } from '../../server/services/entries'
 import { listTemplates } from '../../server/services/formTemplates'
 import { releaseMonth } from '../../server/services/release'
@@ -206,6 +207,10 @@ export function fillEmployeeData(
   }, now)
   employeeIds.forEach((employeeId, sortOrder) => {
     db.insert(teamMeetingParticipants).values({ meetingId, employeeId, name: `Teilnehmer ${employeeId}`, sortOrder }).run()
+  })
+  // An appointment („Bestimmte Personen“) for each of them.
+  createCalendarEvent(db, 1, {
+    date: '2026-10-14', endDate: null, start: null, end: null, title: 'Fortbildung', visibility: 'employees', groupIds: [], employeeIds,
   })
   // October released, then a draft change of each (change log).
   releaseMonth(db, leitung, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))

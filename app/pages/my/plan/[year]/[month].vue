@@ -106,8 +106,9 @@ function rowClass(day: MyPlanDayDto): string {
             </span>
             <span class="font-semibold">{{ de.time.recorded }}: {{ formatDuration(recordedOf(day.date)!.recordedMinutes) }}</span>
           </div>
-          <div v-if="day.info1" class="text-xs">{{ day.info1 }}</div>
-          <div v-if="day.info2" class="text-xs">{{ day.info2 }}</div>
+          <div v-if="day.info1" class="text-xs break-words">{{ day.info1 }}</div>
+          <div v-if="day.info2" class="text-xs break-words">{{ day.info2 }}</div>
+          <PlanDayEvents :events="day.events" :date="day.date" />
           <PlanAutoEvents :events="day.autoEvents" />
         </div>
       </template>
@@ -148,10 +149,11 @@ function rowClass(day: MyPlanDayDto): string {
               {{ de.time.recorded }}: {{ formatDuration(recordedOf(day.date)!.recordedMinutes) }}
             </div>
           </td>
-          <td class="px-3 py-1.5 text-xs">{{ day.info1 }}</td>
-          <td class="px-3 py-1.5 text-xs">
+          <td class="min-w-40 px-3 py-1.5 text-xs break-words">{{ day.info1 }}</td>
+          <td class="min-w-40 px-3 py-1.5 text-xs break-words">
             {{ day.info2 }}
-            <PlanAutoEvents :events="day.autoEvents" :class="day.info2 ? 'mt-0.5' : ''" />
+            <PlanDayEvents :events="day.events" :date="day.date" :class="day.info2 ? 'mt-0.5' : ''" />
+            <PlanAutoEvents :events="day.autoEvents" :class="day.info2 || day.events.length ? 'mt-0.5' : ''" />
           </td>
         </tr>
       </tbody>

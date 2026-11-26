@@ -4,7 +4,9 @@ import { holidayIn, isHolidayIn } from '#shared/domain/holidays'
 import type { CalendarEventDto, CalendarKind, CalendarRequestsDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { REQUEST_CLASSES, requestCells, requestText } from '~/utils/calendarRequests'
-import { type CalendarLabelItem, LANE_HEIGHT, PRINT_LANE_HEIGHT, calendarEventText, calendarLanes, eventRowHeight } from '~/utils/calendarLanes'
+import {
+  type CalendarLabelItem, LANE_HEIGHT, PRINT_LANE_HEIGHT, calendarEventText, calendarEventTitle, calendarLanes, eventRowHeight, eventsInDays,
+} from '~/utils/calendarLanes'
 import { groupColorClasses } from '~/utils/groups'
 
 /** One month of the year calendar: rows = employees, columns = days, coloured by absence; a last row marks appointments. */
@@ -32,7 +34,8 @@ const KIND_CLASSES: Record<CalendarKind, string> = {
 
 const dates = computed(() => Array.from({ length: daysInMonth(props.calendar.year, props.month) },
   (_, index) => toIsoDate(props.calendar.year, props.month, index + 1)))
-const events = computed(() => props.calendar.events.filter(event => event.date.slice(5, 7) === String(props.month).padStart(2, '0')))
+/** The appointments touching the month (also those over several days that began earlier or end later). */
+const events = computed(() => eventsInDays(props.calendar.events, dates.value))
 /** Written appointments, then the day's automatic events (read-only), in lanes; see calendarLanes. */
 const eventLayout = computed(() => {
   const { labels, laneCount } = calendarLanes(dates.value, events.value, calendarEventText, props.calendar.autoEvents)
@@ -52,8 +55,12 @@ const weekdayStyle = computed(() => (props.rowHeight ? { fontSize: '8px', lineHe
 const dayNumberStyle = computed(() => (props.rowHeight ? { fontSize: '11px', lineHeight: 1 } : undefined))
 const eventsLabelStyle = computed(() => (props.rowHeight ? { fontSize: '10px', lineHeight: 1 } : undefined))
 const laneHeight = computed(() => (props.rowHeight ? PRINT_LANE_HEIGHT : LANE_HEIGHT))
-function labelStyle(label: { start: number; width: number; lane: number }) {
-  const place = { left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * laneHeight.value + (props.rowHeight ? 1 : 2)}px` }
+function labelStyle(label: { start: number; width: number; lane: number; days: number }) {
+  // An appointment over several days fills all its days (its bar), a longer text may run on to `width`.
+  const place = {
+    left: percent(label.start), maxWidth: percent(label.width), top: `${label.lane * laneHeight.value + (props.rowHeight ? 1 : 2)}px`,
+    ...(label.days > 1 ? { minWidth: percent(label.days) } : {}),
+  }
   return props.rowHeight ? { ...place, fontSize: '10px', lineHeight: `${PRINT_LANE_HEIGHT}px` } : place
 }
 function onLabelClick(item: CalendarLabelItem) {
@@ -187,7 +194,7 @@ function headerTitle(date: string): string | undefined {
             <div
               v-if="label.item.kind === 'event'"
               class="absolute truncate rounded-sm bg-yellow-300 px-0.5 leading-[14px]" :class="editable ? 'cursor-pointer hover:bg-yellow-400' : ''"
-              :title="label.text"
+              :title="[calendarEventTitle(label.item.event), editable ? de.calendar.editEventHint : ''].filter(Boolean).join('\n')"
               :style="labelStyle(label)"
               @click="onLabelClick(label.item)"
             >

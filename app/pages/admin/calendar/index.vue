@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
-import { formatTime } from '#shared/domain/time'
-import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
+import type { CalendarEventDto, CalendarEventSaveDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { absenceDates } from '~/utils/calendarKinds'
+import { eventListDateText, eventListTimeText, eventVisibilityText } from '~/utils/calendarLanes'
 import { calendarPrintItems } from '~/utils/calendarPrint'
 import { SHOW_REQUESTS_KEY, requestCells, requestText, showRequestsFrom } from '~/utils/calendarRequests'
-import { formatDate, formatDayShort } from '~/utils/format'
+import { formatDayShort } from '~/utils/format'
 import { calendarTabs } from '~/utils/areaTabs'
 
 /**
@@ -20,8 +20,8 @@ const run = useAction(refresh)
 const confirm = useConfirm()
 const toast = useToast()
 
-const eventTime = (event: CalendarEventDto) =>
-  event.start === null ? '' : `${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
+/** „Wer sieht ihn?“ of the list, with the names of the chosen groups / people. */
+const visibilityOf = (event: CalendarEventDto) => eventVisibilityText(event, calendar.value)
 
 /**
  * The group the print button opens ("all": every group one after another, "none": the people without a group). A
@@ -117,7 +117,7 @@ function openEvent(event: CalendarEventDto) {
   Object.assign(eventDialog, { open: true, event, date: event.date })
 }
 
-async function saveEvent(value: { date: string; start: number | null; end: number | null; title: string; visibleToStaff: boolean }) {
+async function saveEvent(value: CalendarEventSaveDto) {
   const event = eventDialog.event
   const ok = await run(() => event
     ? $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'PUT', body: value })
@@ -182,10 +182,10 @@ const { can: canTab } = useCan()
         </thead>
         <tbody>
           <tr v-for="event in calendar.events" :key="event.id" class="border-t border-gray-100">
-            <td class="whitespace-nowrap px-3 py-2">{{ formatDate(event.date) }}</td>
-            <td class="whitespace-nowrap px-3 py-2">{{ eventTime(event) }}</td>
+            <td class="whitespace-nowrap px-3 py-2">{{ eventListDateText(event) }}</td>
+            <td class="whitespace-nowrap px-3 py-2">{{ eventListTimeText(event) }}</td>
             <td class="px-3 py-2">{{ event.title }}</td>
-            <td class="px-3 py-2">{{ event.visibleToStaff ? de.calendar.visibleYes : '–' }}</td>
+            <td class="px-3 py-2">{{ visibilityOf(event) }}</td>
             <td class="whitespace-nowrap px-3 py-2 text-right">
               <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="openEvent(event)" />
               <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeEvent(event)" />

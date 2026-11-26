@@ -11,6 +11,7 @@ import { can } from '../../shared/domain/permissions'
 import { dayCreditedMinutes } from '../../shared/domain/stamping'
 import { countsForBalance, isEmployedInRange, isEmployedOn } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate } from '../../shared/domain/types'
+import type { EventAudience } from '../../shared/domain/calendarEvents'
 import { dayWarnings, timeWarnings, type DayHoursContext, type EmployeeDay, type Warning } from '../../shared/domain/warnings'
 import { plannedLawWarnings, recordedLawWarnings, usesStampedHints } from '../../shared/domain/workingTimeLaw'
 import { isMinorOn } from '../../shared/domain/youthProtection'
@@ -25,6 +26,7 @@ import { maskSnapshot, seesProtectedCodes, withoutPrivateCodes } from '../lib/pr
 import { activeTrackingFrom } from './appSettings'
 import { autoEventsFor } from './autoEvents'
 import { computeBalances } from './balances'
+import { eventAudienceOf, eventsByDay, loadCalendarEvents } from './calendar'
 import { loadSickLeaves, sickLeavesByCell } from './earlySickLeaves'
 import { childSickWarnings } from './employeeChildren'
 import { groupNames, snapshotGroupNames } from './groups'
@@ -284,14 +286,17 @@ function releasedStates(db: Db, facilityId: number, releases: StoredRelease[]): 
 /**
  * The month's day rows with the shown plan's closures and Info fields (none when no plan is shown); holidays are those
  * of the given rules (a facility's plan: the facility; a person's own plan: their home facility). The automatic events
- * are those of that facility as they are now, also for a released month: they are not part of a release.
+ * and the appointments (those `audience` may see, on each of their days) are those of that facility as they are now,
+ * also for a released month: they are not part of a release.
  */
 function dayRows(
   db: Db, facilityId: number, year: number, month: number, shownDays: SnapshotData['days'], holidays: HolidayRules,
+  audience: EventAudience,
 ): DayRowDto[] {
   const byDate = new Map(shownDays.map(day => [day.date, day]))
   const { monthStart, monthEnd } = monthBounds(year, month)
   const events = autoEventsFor(db, facilityId, monthStart, monthEnd)
+  const appointments = eventsByDay(loadCalendarEvents(db, facilityId, monthStart, monthEnd, audience), monthStart, monthEnd)
   return monthDates(year, month).map(date => ({
     date,
     weekday: weekday(date),
@@ -301,6 +306,7 @@ function dayRows(
     info1: byDate.get(date)?.info1 ?? '',
     info2: byDate.get(date)?.info2 ?? '',
     autoEvents: events.get(date) ?? [],
+    events: appointments.get(date) ?? [],
   }))
 }
 
@@ -341,7 +347,10 @@ export function getMonthPlan(
 
   // Opening hours: a closed weekday suppresses the rules, entered days add the edge warnings (none entered: nothing changes).
   const hours = loadHoursContext(db, facilityId)
-  const days = withOpeningHours(dayRows(db, facilityId, year, month, shown.days, facilityHolidayRules(db, facilityId)), hours)
+  // The appointments the viewer may see (the tablet: only „Alle“; the plan editor there: as their own account).
+  const days = withOpeningHours(
+    dayRows(db, facilityId, year, month, shown.days, facilityHolidayRules(db, facilityId), eventAudienceOf(db, viewer)), hours,
+  )
 
   const { monthStart, monthEnd } = monthBounds(year, month)
   const staff = loadEmployees(db, facilityId).filter(employee => isEmployedInRange(employee.info, monthStart, monthEnd))
@@ -461,7 +470,8 @@ export function getMyPlan(db: Db, viewer: SessionUser, year: number, month: numb
   const ownLeave = new Set(fullParentalLeaveDates(record.info, monthStart, monthEnd))
   // The person's own long absence: „Längere Abwesenheit“ on its working days without an entry (no reason).
   const ownAbsence = ownLongAbsenceDates(db, record, monthStart, monthEnd)
-  const days: MyPlanDayDto[] = dayRows(db, employee.facilityId, year, month, home?.data.days ?? [], homeHolidays).map((day) => {
+  const audience = eventAudienceOf(db, viewer)
+  const days: MyPlanDayDto[] = dayRows(db, employee.facilityId, year, month, home?.data.days ?? [], homeHolidays, audience).map((day) => {
     const key = cellKey(employee.id, day.date)
     // One day, one plan: when two releases disagree (one is not re-released yet), the newer release wins.
     const candidates = sources

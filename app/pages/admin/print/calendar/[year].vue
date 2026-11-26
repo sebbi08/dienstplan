@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { todayIso, weekday } from '#shared/domain/dates'
-import { formatTime } from '#shared/domain/time'
-import type { CalendarEventDto, YearCalendarDto } from '#shared/types/api'
+import { todayIso } from '#shared/domain/dates'
+import type { YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { calendarPrintChoice, calendarPrintItems, calendarPrintLayout, calendarPrintSections, monthEventHeights } from '~/utils/calendarPrint'
 import { errorMessage } from '~/utils/errors'
-import { formatDate, formatDayShort } from '~/utils/format'
+import { eventListDateText, eventListTimeText } from '~/utils/calendarLanes'
+import { formatDate } from '~/utils/format'
 
 /**
  * Year calendar for printing, A4 landscape: per group (all groups one after another, or the one in "?group=3") its
@@ -19,8 +19,6 @@ const route = useRoute()
 const router = useRouter()
 const year = Number(route.params.year)
 const { data: calendar, error } = await useFetch<YearCalendarDto>('/api/calendar', { query: { year } })
-const eventTime = (event: CalendarEventDto) =>
-  event.start === null ? '' : `${formatTime(event.start)}${event.end === null ? '' : `–${formatTime(event.end)}`}`
 
 // "?group=3" or "?group=none"; a group without people (or deleted) prints, and shows in the select, all groups.
 const printChoice = computed(() => (calendar.value ? calendarPrintChoice(calendar.value, route.query.group) : 'all'))
@@ -96,8 +94,8 @@ const fileName = computed(() => {
           </thead>
           <tbody>
             <tr v-for="event in calendar.events" :key="event.id" class="break-inside-avoid">
-              <td class="whitespace-nowrap border border-gray-400 px-2 py-1">{{ formatDayShort(event.date, weekday(event.date)) }}{{ year }}</td>
-              <td class="whitespace-nowrap border border-gray-400 px-2 py-1">{{ eventTime(event) }}</td>
+              <td class="whitespace-nowrap border border-gray-400 px-2 py-1">{{ eventListDateText(event) }}</td>
+              <td class="whitespace-nowrap border border-gray-400 px-2 py-1">{{ eventListTimeText(event) }}</td>
               <td class="border border-gray-400 px-2 py-1">{{ event.title }}</td>
             </tr>
           </tbody>

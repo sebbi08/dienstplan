@@ -10,7 +10,7 @@ const timeDay = (patch: Partial<TimeDayDto> = {}): TimeDayDto => ({
 })
 
 const planDay = (patch: Partial<MyPlanDayDto> = {}): MyPlanDayDto => ({
-  date: '2026-10-24', weekday: 6, isWeekend: true, holidayKey: null, closureLabel: null, info1: '', info2: '', autoEvents: [],
+  date: '2026-10-24', weekday: 6, isWeekend: true, holidayKey: null, closureLabel: null, info1: '', info2: '', autoEvents: [], events: [],
   entries: [], changes: [], ...patch,
 })
 
@@ -50,6 +50,7 @@ describe('isCompactMyPlanDay', () => {
     expect(isCompactMyPlanDay(planDay({ info1: 'Ausflug' }), 0)).toBe(false)
     expect(isCompactMyPlanDay(planDay({ info2: 'Team' }), 0)).toBe(false)
     expect(isCompactMyPlanDay(planDay({ autoEvents: ['Geburtstag'] }), 0)).toBe(false)
+    expect(isCompactMyPlanDay(planDay({ events: [{} as MyPlanDayDto['events'][number]] }), 0)).toBe(false)
     expect(isCompactMyPlanDay(planDay({ changes: [{} as MyPlanDayDto['changes'][number]] }), 0)).toBe(false)
   })
 })

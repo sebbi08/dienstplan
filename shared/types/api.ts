@@ -1,4 +1,5 @@
 import type { BemMeasureStatus, BemStatus, BemStepKind } from '../domain/bem'
+import type { EventVisibility } from '../domain/calendarEvents'
 import type { CashKind, CashSheetRow, YearMonth } from '../domain/cash'
 import type { OverviewColumnRef } from '../domain/childConsents'
 import type { AdmissionStatus, ChildStatus } from '../domain/children'
@@ -1222,6 +1223,11 @@ export interface DayRowDto {
    * birthday), shown after the Info texts; computed when read, never part of a release (none = []).
    */
   autoEvents: string[]
+  /**
+   * The facility's appointments on that day the viewer may see (shared/domain/calendarEvents.ts), shown after the Info
+   * texts and before the automatic events; read as they are now, never part of a release (none = []).
+   */
+  events: CalendarEventDto[]
 }
 
 /** A day of the facility's plan: with the opening hours entered for it (null = none entered). */
@@ -2201,14 +2207,32 @@ export type CalendarKind = 'sick' | 'maternity' | 'absent' | 'vacation' | 'overt
   /** A working day of a full Elternzeit (no stored entry; „abwesend“ for viewers who see it masked). */
   | 'parental_leave'
 
-/** Admin's own appointment in the year calendar. */
+/**
+ * The facility's own appointment, in the year calendar and on its days in the plan (shared/domain/calendarEvents.ts).
+ * `endDate`: the last day of a longer appointment (null = one day); `start` is then the time on the first day, `end`
+ * the time on the last.
+ */
 export interface CalendarEventDto {
   id: number
   date: IsoDate
+  endDate: IsoDate | null
   start: Minutes | null
   end: Minutes | null
   title: string
-  visibleToStaff: boolean
+  /** „Wer sieht den Termin?“ */
+  visibility: EventVisibility
+  /** The chosen groups / employees: only for whoever manages the calendar (empty for everybody else). */
+  groupIds: number[]
+  employeeIds: number[]
+}
+
+/** An appointment as the dialog saves it (POST/PUT /api/calendar-events); the lists only count for their choice. */
+export type CalendarEventSaveDto = Omit<CalendarEventDto, 'id'>
+
+/** What the appointment dialog offers for „Bestimmte Gruppen“ / „Bestimmte Personen“: the facility's groups and staff. */
+export interface CalendarEventAudienceDto {
+  groups: { id: number; name: string }[]
+  employees: { id: number; name: string; groupId: number | null }[]
 }
 
 export interface YearCalendarDto {

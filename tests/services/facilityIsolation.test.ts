@@ -295,7 +295,7 @@ describe('facility isolation', () => {
     })
 
     it('calendar events stay in their facility', () => {
-      const input = { date, start: null, end: null, title: 'Elternabend', visibleToStaff: true }
+      const input = { date, start: null, end: null, title: 'Elternabend', endDate: null, visibility: 'all', groupIds: [], employeeIds: [] }
       const other = createCalendarEvent(db, facility2, input)
       expect(other).toEqual({ id: other.id, ...input })
       expect(errorCode(() => updateCalendarEvent(db, 1, other.id, { ...input, title: 'Laternenfest' }))).toBe('event_not_found')
@@ -370,7 +370,7 @@ describe('facility isolation', () => {
     })
 
     it('the own calendar is the one of the employee\'s facility', () => {
-      const input = { date, start: null, end: null, title: 'Elternabend', visibleToStaff: true }
+      const input = { date, start: null, end: null, title: 'Elternabend', endDate: null, visibility: 'all', groupIds: [], employeeIds: [] }
       createCalendarEvent(db, facility2, input)
       const kimAccount = addUser(db, 'kim', 'observer', kim)
       expect(getMyYearCalendar(db, kimAccount, 2026).employees.map(e => e.name)).toEqual(['Kim'])
@@ -451,7 +451,7 @@ describe('facility isolation', () => {
       const kimAccount = addUser(db, 'kim', 'observer', kim)
       createClosure(db, leitungA, 1, { startDate: '2026-12-24', endDate: '2026-12-24', label: 'Heiligabend', mode: 'closure_day' })
       createEarlyClosure(db, 1, { date, closedFrom: 780, reason: 'Wasserschaden' })
-      createCalendarEvent(db, facility2, { date, start: null, end: null, title: 'Elternabend', visibleToStaff: true })
+      createCalendarEvent(db, facility2, { date, start: null, end: null, title: 'Elternabend', endDate: null, visibility: 'all', groupIds: [], employeeIds: [] })
       for (const [actor, facility, employeeId] of [[leitungA, 1, anna], [leitungB, facility2, kim]] as const) {
         applyToCells(db, actor, facility, [{ employeeId, date }], 'replace', { kind: 'special', start: 480, end: 720 })
         applyToCells(db, actor, facility, [{ employeeId, date: '2026-10-07' }], 'replace', { kind: 'code', codeId: codeId(db, 'sick') })
@@ -506,7 +506,7 @@ describe('facility isolation', () => {
       const early = createEarlyClosure(db, facility2, { date, closedFrom: 780, reason: 'Wasserschaden' })
       expect(db.select().from(earlyClosures).where(eq(earlyClosures.id, early.id)).get()!.facilityId).toBe(facility2)
 
-      const event = createCalendarEvent(db, facility2, { date, start: null, end: null, title: 'Elternabend', visibleToStaff: true })
+      const event = createCalendarEvent(db, facility2, { date, start: null, end: null, title: 'Elternabend', endDate: null, visibility: 'all', groupIds: [], employeeIds: [] })
       expect(db.select().from(calendarEvents).where(eq(calendarEvents.id, event.id)).get()!.facilityId).toBe(facility2)
 
       const template = createTemplate(db, facility2, {

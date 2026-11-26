@@ -1,14 +1,20 @@
-import { and, asc, eq, gte, lte } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
+import {
+  eventDayCount, eventLastDay, eventVisibleTo, MAX_EVENT_DAYS, PUBLIC_AUDIENCE, type EventAudience, type EventVisibility,
+} from '../../shared/domain/calendarEvents'
 import { groupLeaveRanges } from '../../shared/domain/leave'
 import { dateRange, isWeekend, todayIso } from '../../shared/domain/dates'
 import { isHolidayIn } from '../../shared/domain/holidays'
 import { countsAsSick, spanCovers } from '../../shared/domain/longAbsence'
 import { isPrivateCode } from '../../shared/domain/maternity'
+import { can } from '../../shared/domain/permissions'
 import { isEmployedInRange, isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
-import type { CalendarEventDto, CalendarKind, SessionUser, SickYearRowDto, YearCalendarDto } from '../../shared/types/api'
+import type {
+  CalendarEventAudienceDto, CalendarEventDto, CalendarKind, SessionUser, SickYearRowDto, YearCalendarDto,
+} from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { calendarEvents, employees } from '../db/schema'
+import { calendarEventEmployees, calendarEventGroups, calendarEvents, employees, groups } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { autoEventsFor } from './autoEvents'
 import { listGroups } from './groups'
@@ -35,14 +41,6 @@ const ABSENCE_KEYS: CodeKey[] = [
 ]
 /** Health data the staff calendar shows only of the viewer themselves: Krank, Kind krank, Mutterschutz, Beschäftigungsverbot. */
 const HEALTH_KEYS: CodeKey[] = ['sick', 'child_sick', 'maternity', 'employment_ban']
-
-export interface CalendarEventInput {
-  date: IsoDate
-  start: Minutes | null
-  end: Minutes | null
-  title: string
-  visibleToStaff: boolean
-}
 
 const yearBounds = (year: number) => ({ from: `${year}-01-01`, to: `${year}-12-31` })
 
@@ -72,13 +70,15 @@ export function getSickYear(db: Db, facilityId: number, year: number, today: Iso
 
 /**
  * The year calendar as employees see it (read-only): everyone's leave, special leave, training and school, closures
- * and holidays, but sick days only of the viewer themselves (health data), and only appointments shared with staff.
+ * and holidays, but sick days only of the viewer themselves (health data), and only the appointments meant for the
+ * viewer (`audience`; by default as the employee `viewerEmployeeId` in their home group, see eventAudienceOf).
  */
 export function getStaffYearCalendar(
   db: Db, facilityId: number, year: number, viewerEmployeeId: number | null, parentalLeaveLabel: ParentalLeaveLabel = 'absent',
+  audience: EventAudience = staffAudience(db, viewerEmployeeId),
 ): YearCalendarDto {
-  const calendar = getYearCalendar(db, facilityId, year, { sickOnlyOf: viewerEmployeeId, parentalLeaveLabel })
-  return { ...calendar, otherEntries: {}, absenceCodes: [], events: calendar.events.filter(event => event.visibleToStaff) }
+  const calendar = getYearCalendar(db, facilityId, year, { sickOnlyOf: viewerEmployeeId, parentalLeaveLabel, eventAudience: audience })
+  return { ...calendar, otherEntries: {}, absenceCodes: [] }
 }
 
 /** The staff year calendar of the viewer's own employee's (home) facility. */
@@ -87,7 +87,9 @@ export function getMyYearCalendar(db: Db, viewer: SessionUser, year: number): Ye
     ? undefined
     : db.select({ id: employees.id, facilityId: employees.facilityId }).from(employees).where(eq(employees.id, viewer.employeeId)).get()
   if (!employee) throw new ServiceError(403, 'no_employee')
-  return getStaffYearCalendar(db, employee.facilityId, year, employee.id, parentalLeaveLabel(db, viewer, employee.facilityId))
+  return getStaffYearCalendar(
+    db, employee.facilityId, year, employee.id, parentalLeaveLabel(db, viewer, employee.facilityId), eventAudienceOf(db, viewer),
+  )
 }
 
 /**
@@ -116,7 +118,8 @@ function groupedRows(db: Db, facilityId: number, staff: EmployeeRecord[]) {
  * `showsProtected` false (a viewer without employees.sickness): Krank, Kind krank, Mutterschutz and Beschäftigungsverbot
  * show alike as „abwesend“ and are not offered for entering. The working days of a full Elternzeit (no stored entry) show
  * as `parentalLeaveLabel` („Elternzeit“, default, or „abwesend“ as in the plan; the viewer's own – `sickOnlyOf` – always
- * „Elternzeit“) where no entry says otherwise, and are no free days.
+ * „Elternzeit“) where no entry says otherwise, and are no free days. The appointments touching the year are those
+ * `eventAudience` may see (by default only „Alle“).
  */
 export function getYearCalendar(
   db: Db, facilityId: number, year: number,
@@ -124,6 +127,8 @@ export function getYearCalendar(
     sickOnlyOf?: number | null; showsProtected?: boolean; parentalLeaveLabel?: ParentalLeaveLabel
     /** The viewer the label follows (parentalLeaveLabel), instead of a fixed `parentalLeaveLabel`. */
     parentalLeaveViewer?: Pick<SessionUser, 'role' | 'permissions'>
+    /** Whose appointments: eventAudienceOf the viewer (default: only those for „Alle“). */
+    eventAudience?: EventAudience
   } = {},
 ): YearCalendarDto {
   const leaveLabel = options.parentalLeaveViewer ? parentalLeaveLabel(db, options.parentalLeaveViewer, facilityId) : options.parentalLeaveLabel
@@ -179,37 +184,164 @@ export function getYearCalendar(
       .filter(date => !isWeekend(date) && !isHolidayIn(date, employee.info.holidays) && isEmployedOn(employee.info, date) && !isWorkday(employee.info, date)
         && !leaveDays.get(employee.id)!.has(date) && !absenceDays.get(employee.id)!.has(date))])),
     absenceCodes: loadCodes(db).filter(code => ABSENCE_KEYS.includes(code.key) && (showsProtected || !isPrivateCode(code.key))),
-    events: listCalendarEvents(db, facilityId, year),
+    events: loadCalendarEvents(db, facilityId, `${year}-01-01`, `${year}-12-31`, options.eventAudience ?? PUBLIC_AUDIENCE),
     // Anonymous (no child names), so the staff calendar keeps them all.
     autoEvents: Object.fromEntries(autoEventsFor(db, facilityId, `${year}-01-01`, `${year}-12-31`)),
   }
 }
 
+// --- appointments („Termine“) ---------------------------------------------------------------------------------
+
 const eventColumns = {
-  id: calendarEvents.id, date: calendarEvents.date, start: calendarEvents.start, end: calendarEvents.end,
-  title: calendarEvents.title, visibleToStaff: calendarEvents.visibleToStaff,
+  id: calendarEvents.id, date: calendarEvents.date, endDate: calendarEvents.endDate, start: calendarEvents.start,
+  end: calendarEvents.end, title: calendarEvents.title, visibility: calendarEvents.visibility,
 }
 
+/**
+ * How the viewer sees the facility's appointments: Träger, Leitung and whoever manages the calendar (calendar.edit) every
+ * one; anybody else as their employee in the employee's home group (eventVisibleTo). The tablet (also unlocked: it
+ * reads the plan as the tablet, see planReader) and an account without employee see only „Alle“.
+ */
+export function eventAudienceOf(db: Db, viewer: Pick<SessionUser, 'role' | 'permissions' | 'employeeId'>): EventAudience {
+  if (viewer.role === 'terminal') return PUBLIC_AUDIENCE
+  if (viewer.role === 'provider' || viewer.role === 'admin' || can(viewer.permissions, 'calendar.edit')) {
+    return { seesAll: true, employeeId: viewer.employeeId, groupId: null }
+  }
+  return staffAudience(db, viewer.employeeId)
+}
+
+/** An employee's view (null = none: only „Alle“): their own appointments and those of their home group. */
+export function staffAudience(db: Db, employeeId: number | null): EventAudience {
+  const employee = employeeId === null
+    ? undefined
+    : db.select({ groupId: employees.groupId }).from(employees).where(eq(employees.id, employeeId)).get()
+  return employee ? { seesAll: false, employeeId, groupId: employee.groupId } : PUBLIC_AUDIENCE
+}
+
+/**
+ * The facility's appointments touching from–to (also those that start before or end after), by first day, time and
+ * id, with their chosen groups and employees. Only what `audience` may see; the lists only for an audience that sees
+ * all (the others get them empty: whom else an appointment is for is none of their business).
+ */
+export function loadCalendarEvents(db: Db, facilityId: number, from: IsoDate, to: IsoDate, audience: EventAudience): CalendarEventDto[] {
+  const rows = db.select(eventColumns).from(calendarEvents)
+    .where(and(
+      eq(calendarEvents.facilityId, facilityId), lte(calendarEvents.date, to),
+      gte(sql`coalesce(${calendarEvents.endDate}, ${calendarEvents.date})`, from),
+    ))
+    .orderBy(asc(calendarEvents.date), asc(calendarEvents.start), asc(calendarEvents.id)).all()
+  if (rows.length === 0) return []
+  const ids = rows.map(row => row.id)
+  const groupsOf = new Map<number, number[]>()
+  for (const row of db.select().from(calendarEventGroups).where(inArray(calendarEventGroups.eventId, ids)).orderBy(asc(calendarEventGroups.groupId)).all()) {
+    groupsOf.set(row.eventId, [...(groupsOf.get(row.eventId) ?? []), row.groupId])
+  }
+  const employeesOf = new Map<number, number[]>()
+  for (const row of db.select().from(calendarEventEmployees).where(inArray(calendarEventEmployees.eventId, ids)).orderBy(asc(calendarEventEmployees.employeeId)).all()) {
+    employeesOf.set(row.eventId, [...(employeesOf.get(row.eventId) ?? []), row.employeeId])
+  }
+  return rows
+    .map(row => ({ ...row, groupIds: groupsOf.get(row.id) ?? [], employeeIds: employeesOf.get(row.id) ?? [] }))
+    .filter(event => eventVisibleTo(event, audience))
+    .map(event => (audience.seesAll ? event : { ...event, groupIds: [], employeeIds: [] }))
+}
+
+/** Every appointment of the facility touching the year, with the chosen groups and employees (for the managers). */
 export function listCalendarEvents(db: Db, facilityId: number, year: number): CalendarEventDto[] {
   const { from, to } = yearBounds(year)
-  return db.select(eventColumns).from(calendarEvents)
-    .where(and(eq(calendarEvents.facilityId, facilityId), gte(calendarEvents.date, from), lte(calendarEvents.date, to)))
-    .orderBy(asc(calendarEvents.date), asc(calendarEvents.start), asc(calendarEvents.id)).all()
+  return loadCalendarEvents(db, facilityId, from, to, { seesAll: true, employeeId: null, groupId: null })
 }
 
-/** Title required; a time is optional, an end needs a start and must lie after it. */
-function normalizeEvent(input: CalendarEventInput): CalendarEventInput {
+/** Per day of from–to: the appointments on it (only days that have some). */
+export function eventsByDay(events: CalendarEventDto[], from: IsoDate, to: IsoDate): Map<IsoDate, CalendarEventDto[]> {
+  const byDay = new Map<IsoDate, CalendarEventDto[]>()
+  for (const event of events) {
+    const first = event.date > from ? event.date : from
+    const last = eventLastDay(event) < to ? eventLastDay(event) : to
+    for (const date of dateRange(first, last)) byDay.set(date, [...(byDay.get(date) ?? []), event])
+  }
+  return byDay
+}
+
+/** What the appointment dialog offers: the facility's groups and its staff who have not left before today. */
+export function calendarEventAudience(db: Db, facilityId: number, today: IsoDate = todayIso()): CalendarEventAudienceDto {
+  return {
+    groups: listGroups(db, facilityId).map(group => ({ id: group.id, name: group.name })),
+    employees: loadEmployees(db, facilityId).filter(employee => employee.leftOn === null || employee.leftOn >= today)
+      .map(employee => ({ id: employee.id, name: employee.name, groupId: employee.groupId })),
+  }
+}
+
+export interface CalendarEventInput {
+  date: IsoDate
+  endDate: IsoDate | null
+  start: Minutes | null
+  end: Minutes | null
+  title: string
+  visibility: EventVisibility
+  groupIds: number[]
+  employeeIds: number[]
+}
+
+/**
+ * Title required. A last day must not lie before the first (the same day = one day), the appointment at most
+ * MAX_EVENT_DAYS days long. A time is optional; on a one-day appointment an end needs a start and must lie after it (on
+ * a longer one the start is on the first day and the end on the last, so each stands alone). „Bestimmte Gruppen“ needs
+ * at least one group of the facility, „Bestimmte Personen“ at least one employee of it (400 otherwise); the other
+ * choices keep no list.
+ */
+function normalizeEvent(db: Db, facilityId: number, input: CalendarEventInput): CalendarEventInput {
   const title = input.title.trim()
   if (!title) throw new ServiceError(400, 'title_required')
-  if (input.end !== null && (input.start === null || input.end <= input.start)) throw new ServiceError(400, 'span_end_before_start')
-  return { ...input, title }
+  const endDate = input.endDate === null || input.endDate === input.date ? null : input.endDate
+  if (endDate !== null && endDate < input.date) throw new ServiceError(400, 'event_end_before_start')
+  const event = { ...input, title, endDate }
+  if (eventDayCount(event) > MAX_EVENT_DAYS) throw new ServiceError(400, 'event_too_long')
+  if (endDate === null && input.end !== null && (input.start === null || input.end <= input.start)) {
+    throw new ServiceError(400, 'span_end_before_start')
+  }
+  const groupIds = input.visibility === 'groups' ? [...new Set(input.groupIds)] : []
+  const employeeIds = input.visibility === 'employees' ? [...new Set(input.employeeIds)] : []
+  if (input.visibility === 'groups') {
+    const own = groupIds.length === 0
+      ? []
+      : db.select({ id: groups.id }).from(groups).where(and(eq(groups.facilityId, facilityId), inArray(groups.id, groupIds))).all()
+    if (groupIds.length === 0 || own.length !== groupIds.length) throw new ServiceError(400, 'event_groups_required')
+  }
+  if (input.visibility === 'employees') {
+    const own = employeeIds.length === 0
+      ? []
+      : db.select({ id: employees.id }).from(employees)
+        .where(and(eq(employees.facilityId, facilityId), inArray(employees.id, employeeIds))).all()
+    if (employeeIds.length === 0 || own.length !== employeeIds.length) throw new ServiceError(400, 'event_employees_required')
+  }
+  return { ...event, groupIds, employeeIds }
 }
 
 /** Matches the facility's appointment with this id. */
 const ownEvent = (facilityId: number, id: number) => and(eq(calendarEvents.id, id), eq(calendarEvents.facilityId, facilityId))
 
+/** Writes the appointment's lists (after the old rows went: see the triggers of the migration calendar_event_audience). */
+function writeAudience(tx: Db, id: number, event: CalendarEventInput): void {
+  if (event.groupIds.length) tx.insert(calendarEventGroups).values(event.groupIds.map(groupId => ({ eventId: id, groupId }))).run()
+  if (event.employeeIds.length) {
+    tx.insert(calendarEventEmployees).values(event.employeeIds.map(employeeId => ({ eventId: id, employeeId }))).run()
+  }
+}
+
+/** The columns of the appointment's own row. */
+function eventRow(event: CalendarEventInput) {
+  const { date, endDate, start, end, title, visibility } = event
+  return { date, endDate, start, end, title, visibility }
+}
+
 export function createCalendarEvent(db: Db, facilityId: number, input: CalendarEventInput): CalendarEventDto {
-  return db.insert(calendarEvents).values({ ...normalizeEvent(input), facilityId }).returning(eventColumns).get()
+  const event = normalizeEvent(db, facilityId, input)
+  return db.transaction((tx) => {
+    const row = tx.insert(calendarEvents).values({ ...eventRow(event), facilityId }).returning(eventColumns).get()
+    writeAudience(tx, row.id, event)
+    return { ...row, groupIds: event.groupIds, employeeIds: event.employeeIds }
+  })
 }
 
 /** Another facility's appointment gives event_not_found. */
@@ -217,10 +349,17 @@ export function updateCalendarEvent(db: Db, facilityId: number, id: number, inpu
   if (!db.select({ id: calendarEvents.id }).from(calendarEvents).where(ownEvent(facilityId, id)).get()) {
     throw new ServiceError(404, 'event_not_found')
   }
-  db.update(calendarEvents).set(normalizeEvent(input)).where(eq(calendarEvents.id, id)).run()
+  const event = normalizeEvent(db, facilityId, input)
+  db.transaction((tx) => {
+    // The lists first: emptying one turns the appointment into „Nur Leitung und Träger“, the update then sets the choice.
+    tx.delete(calendarEventGroups).where(eq(calendarEventGroups.eventId, id)).run()
+    tx.delete(calendarEventEmployees).where(eq(calendarEventEmployees.eventId, id)).run()
+    tx.update(calendarEvents).set(eventRow(event)).where(eq(calendarEvents.id, id)).run()
+    writeAudience(tx, id, event)
+  })
 }
 
-/** Deletes the facility's appointment; other ids are ignored. */
+/** Deletes the facility's appointment (its lists go along); other ids are ignored. */
 export function deleteCalendarEvent(db: Db, facilityId: number, id: number): void {
   db.delete(calendarEvents).where(ownEvent(facilityId, id)).run()
 }

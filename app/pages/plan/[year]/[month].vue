@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import type { ApplyEntriesResultDto, ApplyMode, CodeDto, EntryDto, EntryInput, EntryTimesInput, MonthPlanDto, NoteField, TemplateDto } from '#shared/types/api'
+import type {
+  ApplyEntriesResultDto, ApplyMode, CalendarEventDto, CalendarEventSaveDto, CodeDto, EntryDto, EntryInput, EntryTimesInput, MonthPlanDto, NoteField,
+  TemplateDto,
+} from '#shared/types/api'
 import { hasPlannedDuty } from '#shared/domain/balance'
 import { cellKey } from '#shared/domain/cells'
 import { todayIso } from '#shared/domain/dates'
@@ -71,6 +74,28 @@ watch(editingPlan, (now, before) => {
   void navigateTo('/terminal')
 })
 const run = useAction(refresh)
+
+// --- appointments (the same dialog as in the year calendar; whoever manages the calendar, not at the tablet) ------
+const canEditEvents = computed(() => !onTablet.value && can('calendar.edit'))
+const eventDialog = reactive<{ open: boolean; event: CalendarEventDto | null; date: string }>({ open: false, event: null, date: '' })
+function openNewEvent(date: string) {
+  Object.assign(eventDialog, { open: true, event: null, date })
+}
+function openEvent(event: CalendarEventDto) {
+  Object.assign(eventDialog, { open: true, event, date: event.date })
+}
+async function saveEvent(value: CalendarEventSaveDto) {
+  const event = eventDialog.event
+  const ok = await run(() => event
+    ? $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'PUT', body: value })
+    : $fetch<unknown>('/api/calendar-events', { method: 'POST', body: value }), de.common.saved)
+  if (ok) eventDialog.open = false
+}
+async function removeEvent(event: CalendarEventDto) {
+  if (!await confirm(de.calendar.confirmDelete)) return
+  if (await run(() => $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'DELETE' }), de.common.deleted)) eventDialog.open = false
+}
+
 const selection = usePlanSelection()
 const selectedDate = ref<string | null>(null)
 const modalOpen = ref(false)
@@ -406,13 +431,16 @@ function navigate(nextYear: number, nextMonth: number) {
           </div>
           <PlanGrid
             :plan="gridPlan ?? plan" :group-filter="activeGroup" :plain-actuals="onTablet"
-            :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate"
-            @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
+            :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate" :events-editable="canEditEvents"
+            @event-click="openEvent" @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
             @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
             @remove-helper="onRemoveHelper" @sick-leave="openSickLeave" @warnings-changed="refresh" @quick-entry="onQuickEntry"
           />
           <PlanLongAbsences :plan="plan" :group-filter="activeGroup" :revealed="revealed" @toggle="toggleRevealed" />
-          <PlanDayOverviewPanel v-if="selectedDate" :plan="gridPlan ?? plan" :date="selectedDate" :group-id="activeGroup" @close="selectedDate = null" />
+          <PlanDayOverviewPanel
+            v-if="selectedDate" :plan="gridPlan ?? plan" :date="selectedDate" :group-id="activeGroup" :can-edit-events="canEditEvents"
+            @close="selectedDate = null" @add-event="openNewEvent" @event-click="openEvent"
+          />
         </div>
       </div>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" :day-entries="selectedDayEntries" @submit="onEntry" />
@@ -429,6 +457,10 @@ function navigate(nextYear: number, nextMonth: number) {
         v-model:open="editOpen" :entry="editEntry" :plan="plan"
         :can-mark-sick="editEntry !== null && canMarkSick(editEntry.employeeId, editEntry.date)"
         @submit="onEditSubmit" @sick-leave="openSickLeave($event.employeeId, $event.date)"
+      />
+      <CalendarEventDialog
+        v-if="canEditEvents" v-model:open="eventDialog.open" :event="eventDialog.event" :date="eventDialog.date"
+        @save="saveEvent" @remove="eventDialog.event && removeEvent(eventDialog.event)"
       />
       <SickLeaveModal v-if="isAdmin" v-model:open="sickLeave.open" :target="sickLeave.target" @done="refresh" />
       <PlanWeekTemplateModal

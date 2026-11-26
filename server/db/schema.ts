@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { blob, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
+import { EVENT_VISIBILITIES } from '../../shared/domain/calendarEvents'
 import type { OverviewColumnRef } from '../../shared/domain/childConsents'
 import type { RightsRole } from '../../shared/domain/permissionBundles'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../../shared/domain/personnel'
@@ -542,17 +543,36 @@ export const earlyClosures = sqliteTable('early_closures', {
   reason: text('reason').notNull(),
 }, table => [uniqueIndex('early_closures_facility_date').on(table.facilityId, table.date)])
 
-/** Admin's own appointments for the year calendar (Elternabend, Teamsitzung …); no effect on plan or hours. */
+/**
+ * The facility's own appointments (Elternabend, Teamsitzung, Fortbildungstage …), shown in the year calendar and on
+ * their days in the plan (Info 2); no effect on plan or hours. `endDate`: the last day of a longer appointment (null =
+ * one day; always after `date`), `start` then is the time on the first day and `end` the time on the last.
+ * `visibility`: „Wer sieht den Termin?“ (shared/domain/calendarEvents.ts); 'groups' and 'employees' name theirs in
+ * calendar_event_groups / calendar_event_employees. A list that loses its last row (group or employee deleted) turns
+ * the appointment into 'leaders' (triggers of the migration calendar_event_audience), never into something wider.
+ */
 export const calendarEvents = sqliteTable('calendar_events', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   facilityId: facilityId(),
   date: text('date').notNull(),
+  endDate: text('end_date'),
   start: integer('start'),
   end: integer('end'),
   title: text('title').notNull(),
-  /** Shown to the employees in their year calendar (the Leitung decides per appointment). */
-  visibleToStaff: integer('visible_to_staff', { mode: 'boolean' }).notNull().default(false),
+  visibility: text('visibility', { enum: EVENT_VISIBILITIES }).notNull().default('leaders'),
 }, table => [index('calendar_events_date').on(table.date)])
+
+/** The groups an appointment „Bestimmte Gruppen“ is meant for (their members by home group see it). */
+export const calendarEventGroups = sqliteTable('calendar_event_groups', {
+  eventId: integer('event_id').notNull().references(() => calendarEvents.id, { onDelete: 'cascade' }),
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+}, table => [primaryKey({ columns: [table.eventId, table.groupId] }), index('calendar_event_groups_group').on(table.groupId)])
+
+/** The employees an appointment „Bestimmte Personen“ is meant for. */
+export const calendarEventEmployees = sqliteTable('calendar_event_employees', {
+  eventId: integer('event_id').notNull().references(() => calendarEvents.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+}, table => [primaryKey({ columns: [table.eventId, table.employeeId] }), index('calendar_event_employees_employee').on(table.employeeId)])
 
 /** Saved plan weeks (Mo–Fr for all employees) that the admin can insert into any week of the plan. */
 export const weekTemplates = sqliteTable('week_templates', {

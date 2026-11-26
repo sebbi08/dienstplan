@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { buildDayOverview, type SlotState } from '#shared/domain/dayOverview'
 import { formatTime } from '#shared/domain/time'
-import type { MonthPlanDto } from '#shared/types/api'
+import type { CalendarEventDto, MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { slotClasses } from '~/utils/colors'
 import { formatDate } from '~/utils/format'
@@ -12,10 +12,11 @@ import { parentalLeaveCells } from '~/utils/parentalLeave'
 
 /**
  * groupId: the group chosen above the plan. Then the overview shows the same people as the plan (the group, the
- * Springer and the helpers), plus anyone whose duty of this day counts for that group.
+ * Springer and the helpers), plus anyone whose duty of this day counts for that group. `canEditEvents` (whoever manages
+ * the calendar): the day's appointments open on click, and „Termin eintragen“ adds one for the day.
  */
-const props = defineProps<{ plan: MonthPlanDto; date: string; groupId?: number | null }>()
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<{ plan: MonthPlanDto; date: string; groupId?: number | null; canEditEvents?: boolean }>()
+const emit = defineEmits<{ close: []; addEvent: [date: string]; eventClick: [event: CalendarEventDto] }>()
 
 const LEGEND: SlotState[] = ['work', 'support', 'break', 'absent', 'prep_time', 'office', 'doctor', 'office_day', 'home_office', 'holiday', 'other']
 const names = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.name])))
@@ -52,8 +53,19 @@ const gridStyle = computed(() => ({
   <section class="rounded-lg bg-white p-3 ring-1 ring-gray-200">
     <div class="mb-2 flex items-center">
       <h2 class="font-semibold">{{ de.overview.title(formatDate(date)) }}</h2>
-      <UButton class="ml-auto" size="xs" color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="de.common.close" @click="emit('close')" />
+      <UButton
+        v-if="canEditEvents" class="ml-auto" size="xs" color="neutral" variant="outline" icon="i-lucide-calendar-plus"
+        :label="de.calendar.addEvent" @click="emit('addEvent', date)"
+      />
+      <UButton
+        :class="canEditEvents ? 'ml-1' : 'ml-auto'" size="xs" color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="de.common.close"
+        @click="emit('close')"
+      />
     </div>
+    <PlanDayEvents
+      v-if="day?.events.length" :events="day.events" :date="date" :editable="canEditEvents" class="mb-2"
+      @event-click="emit('eventClick', $event)"
+    />
     <div class="overflow-x-auto">
       <div class="grid gap-px text-xs" :style="gridStyle">
         <div />

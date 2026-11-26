@@ -6,7 +6,7 @@ import {
 } from '../../app/utils/calendarPrint'
 
 const event = (id: number, date: string, title: string, start: number | null = null, end: number | null = null): CalendarEventDto =>
-  ({ id, date, start, end, title, visibleToStaff: true })
+  ({ id, date, start, end, title, endDate: null, visibility: 'all', groupIds: [], employeeIds: [] })
 
 function calendar(employees: YearCalendarDto['employees'], groups: YearCalendarDto['groups'] = [], events: CalendarEventDto[] = []): YearCalendarDto {
   return { year: 2026, employees, groups, events, autoEvents: {} } as unknown as YearCalendarDto

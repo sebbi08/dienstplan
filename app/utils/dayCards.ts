@@ -13,5 +13,5 @@ export function isCompactTimeDay(day: TimeDayDto): boolean {
 /** "Mein Dienstplan" on phones: a day without entries, stamped times, info texts, events or changes is one slim line. */
 export function isCompactMyPlanDay(day: MyPlanDayDto, recordCount: number): boolean {
   return day.entries.length === 0 && recordCount === 0 && day.info1 === '' && day.info2 === ''
-    && day.autoEvents.length === 0 && day.changes.length === 0
+    && day.autoEvents.length === 0 && day.events.length === 0 && day.changes.length === 0
 }
