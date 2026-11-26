@@ -8,8 +8,8 @@ import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
 import { errorMessage } from '~/utils/errors'
 import {
-  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, FOOTER_STORAGE_KEY, footerAnnotation, isEditorLayer, isEditorManager, FONT_SIZES, fontSizeName, MARK_LINES, MARK_POINTS, nextEditorState, nextZoom,
-  SIGNATURE_POINTS, stampSize, ZOOMS, type AnnotateTool, type EditorState, type FontSizeName, type MarkKind,
+  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, FOOTER_STORAGE_KEY, footerAnnotation, isEditorLayer, isEditorManager, isTypingTarget, FONT_SIZES, fontSizeName, MARK_LINES, MARK_POINTS,
+  nextEditorState, nextZoom, shouldRefit, SIGNATURE_POINTS, stampSize, ZOOMS, type AnnotateTool, type EditorState, type FontSizeName, type MarkKind,
 } from '~/utils/pdfAnnotate'
 import { pdfjsFileOptions } from '~/utils/pdfjsFiles'
 import { defaultDocumentType, fillSaveRequest, fillTitle, usableFolders, type FillKind, type FillSave, type FillSource, type FillTarget } from '~/utils/pdfFill'
@@ -129,6 +129,8 @@ let l10n: ReturnType<typeof createPdfjsL10n> | null = null
 let abort: AbortController | null = null
 /** The scale of zoom 1. */
 let baseScale = 1
+/** The width of the view when the pages were last fitted to it (zoom 1), see onResize. */
+let fittedWidth: number | null = null
 /** The pictures of tick and cross (made once per opened document, shared by all marks: one image in the PDF). */
 let marks = new Map<MarkKind, File>()
 /** Counts loads; work that finds a newer number stops (closed or opened again). */
@@ -203,6 +205,7 @@ function release() {
   pdf = null
   marks = new Map()
   pageCount.value = 0
+  fittedWidth = null
 }
 
 async function load() {
@@ -399,6 +402,7 @@ function fitWidth() {
   baseScale = Math.min(view.currentScale, MAX_FIT_SCALE)
   if (view.currentScale !== baseScale) view.currentScale = baseScale
   zoom.value = 1
+  fittedWidth = containerEl.value?.clientWidth ?? null
 }
 
 function goTo(number: number) {
@@ -415,13 +419,21 @@ function zoomFit() {
   fitWidth()
 }
 
-// A turned phone or a resized window: zoom 1 fits the new width again, another zoom stays relative to it.
+// A turned phone or a resized window: zoom 1 fits the new width again, another zoom stays relative to it. Not when only
+// the height changed (the on-screen keyboard opened) nor while typing: the scale change would end the text box being
+// typed in and close the keyboard (shouldRefit).
 let resizeTimer: ReturnType<typeof setTimeout> | undefined
+/** A text box or a form field of the pages is being typed in. */
+function typingInView(): boolean {
+  const active = document.activeElement as HTMLElement | null
+  return !!active && !!containerEl.value?.contains(active) && isTypingTarget(active)
+}
 function onResize() {
   clearTimeout(resizeTimer)
   resizeTimer = setTimeout(() => {
     const view = viewer
     if (!view?.pagesCount) return
+    if (!shouldRefit({ width: containerEl.value?.clientWidth ?? 0, fittedWidth, typing: typingInView() })) return
     const wanted = zoom.value
     fitWidth()
     if (wanted !== 1) view.currentScale = baseScale * wanted
@@ -625,7 +637,7 @@ function onViewKeydown(event: KeyboardEvent) {
   if ((event.key !== 'Enter' && event.key !== ' ') || !['select', 'check', 'cross'].includes(tool.value)) return
   const target = event.target as HTMLElement | null
   if (!target || !containerEl.value?.contains(target)) return
-  if (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
+  if (isTypingTarget(target)) return
   event.preventDefault()
   event.stopPropagation()
 }

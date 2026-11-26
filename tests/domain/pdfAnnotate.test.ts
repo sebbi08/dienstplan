@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, isEditorLayer, isEditorManager, tolerant, fontSizeName, MARK_LINES, nextEditorState, nextZoom, pdfjsTexts, stampSize,
-  strokeBounds, TAP_SLOP, ZOOMS,
+  annotateTools, createPdfjsL10n, createTapTracker, editorModeFor, isEditorLayer, isEditorManager, isTypingTarget, tolerant, fontSizeName, MARK_LINES, nextEditorState, nextZoom, pdfjsTexts,
+  shouldRefit, stampSize, strokeBounds, TAP_SLOP, ZOOMS,
 } from '../../app/utils/pdfAnnotate'
 
 const MODES = { NONE: 0, FREETEXT: 3, STAMP: 13 }
@@ -134,6 +134,26 @@ describe('filling any PDF: the tools of the fill view', () => {
     expect(state).toEqual({ canUndo: true, hasSelection: true })
     state = nextEditorState(state, { hasSomethingToUndo: false, hasSelectedEditor: false })
     expect(state).toEqual({ canUndo: false, hasSelection: false })
+  })
+
+  it('fits the pages again only when the view got wider or narrower, never while typing (the keyboard stays open)', () => {
+    // The on-screen keyboard (or a browser bar) changes only the height: no refit, which would end the text box.
+    expect(shouldRefit({ width: 800, fittedWidth: 800, typing: false })).toBe(false)
+    expect(shouldRefit({ width: 800.4, fittedWidth: 800, typing: false })).toBe(false)
+    // A turned tablet, a resized window, a scroll bar that came or went: fitted again.
+    expect(shouldRefit({ width: 1280, fittedWidth: 800, typing: false })).toBe(true)
+    expect(shouldRefit({ width: 785, fittedWidth: 800, typing: false })).toBe(true)
+    expect(shouldRefit({ width: 800, fittedWidth: null, typing: false })).toBe(true)
+    // While a text box or a field is typed in nothing is refitted (fitted at the next resize after typing).
+    expect(shouldRefit({ width: 1280, fittedWidth: 800, typing: true })).toBe(false)
+    expect(shouldRefit({ width: 800, fittedWidth: null, typing: true })).toBe(false)
+  })
+
+  it('counts text boxes and form fields as typing, not the page or a picture', () => {
+    expect(isTypingTarget({ isContentEditable: true, tagName: 'DIV' })).toBe(true)
+    for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT']) expect(isTypingTarget({ isContentEditable: false, tagName }), tagName).toBe(true)
+    expect(isTypingTarget({ isContentEditable: false, tagName: 'DIV' })).toBe(false)
+    expect(isTypingTarget(null)).toBe(false)
   })
 
   it('gives pdf.js German labels for what the fill view shows', async () => {

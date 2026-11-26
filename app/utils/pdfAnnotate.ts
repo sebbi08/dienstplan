@@ -188,6 +188,22 @@ export function createTapTracker() {
   }
 }
 
+/** Whether the element takes typing: a text box (pdf.js's editable div) or a form field. */
+export function isTypingTarget(element: { isContentEditable: boolean; tagName: string } | null): boolean {
+  return !!element && (element.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName))
+}
+
+/**
+ * Whether a resized window fits the pages to the view's width again (zoom 1): only when the view got wider or narrower
+ * (a turned tablet, a resized window, a scroll bar), not when only its height changed (the on-screen keyboard opening).
+ * Never while a text box or a field is typed in: every scale change makes pdf.js finish the text box being typed in (an
+ * empty one is removed), which takes the focus and closes the keyboard. Fitted at the next resize after typing.
+ */
+export function shouldRefit({ width, fittedWidth, typing }: { width: number; fittedWidth: number | null; typing: boolean }): boolean {
+  if (typing) return false
+  return fittedWidth === null || Math.abs(width - fittedWidth) >= 1
+}
+
 /** What the editors' state event of pdf.js („editingstateschanged“) says, as far as the bar needs it. */
 export interface EditorState { canUndo: boolean; hasSelection: boolean }
 
