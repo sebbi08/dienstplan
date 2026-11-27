@@ -174,7 +174,7 @@ async function create() {
         <input v-model="countsOnlyChecked" type="checkbox" class="size-4" :disabled="!countsOnly.editable" @change="saveCountsOnly">
         {{ de.employees.access.countsOnly }}
       </label>
-      <p class="text-xs text-gray-500">{{ de.employees.access.countsOnlyHint }}</p>
+      <MoreHint class="text-xs text-gray-500" :text="de.employees.access.countsOnlyHint" :more="de.employees.access.countsOnlyHintMore" />
       <p v-if="!countsOnly.editable" class="text-xs text-gray-500">{{ de.employees.access.countsOnlyByProvider }}</p>
       <p v-if="countsOnly.countsOnly && account" class="text-xs text-amber-800">{{ de.employees.access.countsOnlyRightsNote }}</p>
     </div>

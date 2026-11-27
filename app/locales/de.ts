@@ -915,7 +915,8 @@ export const de = {
       usersPage: 'Alle Benutzer ansehen',
       // „Nur Kinderzahlen“: a setting of the person, with or without an own account (not for Leitung and Träger).
       countsOnly: 'Nur Kinderzahlen (keine Namen, keine Akten)',
-      countsOnlyHint: 'Die Person sieht keine Kinder (keine Liste, Akten, Bögen, Anwesenheit) – weder am Tablet noch mit eigenem Zugang. Am Tablet bekommt sie nach der PIN nur „Kinder heute“: wie viele Kinder da, noch nicht da, abwesend und abgeholt sind und je Essen mitessen. Stempeln, Dienstplan und Eigenes bleiben. Zur Sicherheit fallen auch weg: Hospitationen und Bewerbungen führen, Unfallanzeigen der Mitarbeiter und Bogen-Vorlagen verwalten.',
+      countsOnlyHint: 'Die Person sieht keine Kinder – weder am Tablet noch mit eigenem Zugang – und am Tablet nur „Kinder heute“ mit Zahlen ohne Namen.',
+      countsOnlyHintMore: 'Keine Liste, Akten, Bögen oder Anwesenheit. „Kinder heute“ zeigt nach der PIN, wie viele Kinder da, noch nicht da, abwesend und abgeholt sind und je Essen mitessen. Stempeln, Dienstplan und Eigenes bleiben. Zur Sicherheit fallen auch weg: Hospitationen und Bewerbungen führen, Unfallanzeigen der Mitarbeiter und Bogen-Vorlagen verwalten.',
       countsOnlyByProvider: 'Das stellt bei einer Gruppenleitung der Träger ein.',
       countsOnlyRightsNote: 'Solange das eingeschaltet ist, hat die Person keine Kinder-Rechte – auch wenn die Rolle oder eine Ausnahme sie vorsieht.',
       countsOnlyOn: '„Nur Kinderzahlen“ ist eingeschaltet.',

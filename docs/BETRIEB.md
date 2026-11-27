@@ -1794,7 +1794,7 @@ Mitarbeiter sehen in ihrem Kalender keine Anträge anderer.
   Kinderzahlen“). Es wird beim Antippen gleich gespeichert. Die Leitung setzt es für Mitarbeiter und Personen ohne Konto,
   bei einer Gruppenleitung nur der Träger; bei aktiven Leitungs- und Träger-Konten gibt es das Häkchen nicht. Zur
   Sicherheit fallen damit auch das Führen von Hospitationen und Bewerbungen, die Unfallanzeigen der Mitarbeiter und das
-  Verwalten der Bogen-Vorlagen weg (der Hinweis unter dem Häkchen sagt es).
+  Verwalten der Bogen-Vorlagen weg (der Hinweis unter dem Häkchen sagt es unter **Mehr erfahren**).
 
 ### Die Seite *Benutzer*
 
