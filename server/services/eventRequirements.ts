@@ -1,5 +1,6 @@
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 import { eventLastDay, type EventVisibility } from '../../shared/domain/calendarEvents'
+import { retentionDueDates, type RetentionSettings } from '../../shared/domain/retention'
 import { employmentStart } from '../../shared/domain/targets'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
@@ -11,6 +12,7 @@ import { ServiceError } from '../lib/errors'
 import { listGroups } from './groups'
 import { loadEmployees, type EmployeeRecord } from './queries'
 import { addRequirementRecord } from './requirements'
+import { getRetentionSettings } from './retentionSettings'
 
 /**
  * Pflichttermine as appointments („Pflichttermin“ in the appointment dialog): an appointment names a kind of mandatory
@@ -102,28 +104,42 @@ function handEnteredOn(db: Db, employeeIds: number[], typeId: number, date: IsoD
   )).all().map(row => row.employeeId))
 }
 
-/** The people of „Teilnahme bestätigen“: the intended ones now, and anyone an earlier confirmation recorded. */
-function attendanceRoster(db: Db, facilityId: number, event: RequirementEvent & { requirementTypeId: number }) {
+/**
+ * Someone who left and whose Pflichttermine may be deleted by now (Löschfristen: „Beurteilungen und Zeugnisse“, the
+ * category of these entries, deleteAssessmentData). The app does not note which categories were deleted, so it goes by
+ * the period: a confirmation must not bring back entries the retention removed.
+ */
+function pastRetention(employee: EmployeeRecord, settings: RetentionSettings, today: IsoDate): boolean {
+  return employee.leftOn !== null && retentionDueDates(employee.leftOn, settings).assessment <= today
+}
+
+/**
+ * The people of „Teilnahme bestätigen“: the intended ones now, and anyone an earlier confirmation recorded – without
+ * those past the retention (pastRetention; counted in `skipped`, their entries are left as they are).
+ */
+function attendanceRoster(db: Db, facilityId: number, event: RequirementEvent & { requirementTypeId: number }, today: IsoDate) {
   const staff = loadEmployees(db, facilityId)
   const linked = linkedEntries(db, facilityId, event.id)
   const linkedIds = new Set(linked.map(entry => entry.employeeId))
   const intended = new Set(intendedParticipants(staff, event).map(employee => employee.id))
-  const people = staff.filter(employee => intended.has(employee.id) || linkedIds.has(employee.id))
+  const settings = getRetentionSettings(db, facilityId)
+  const meant = staff.filter(employee => intended.has(employee.id) || linkedIds.has(employee.id))
+  const people = meant.filter(employee => !pastRetention(employee, settings, today))
   const recordDate = eventLastDay(event)
   const hand = handEnteredOn(db, people.map(employee => employee.id), event.requirementTypeId, recordDate)
-  return { people, linked, linkedIds, hand, recordDate }
+  return { people, linked, linkedIds, hand, recordDate, skipped: meant.length - people.length }
 }
 
 /** „Teilnahme bestätigen“: the appointment and its people, ticked as they would be saved now. */
 export function getEventAttendance(db: Db, facilityId: number, eventId: number, today: IsoDate): EventAttendanceDto {
   const event = requirementEvent(db, facilityId, eventId)
   const type = db.select({ name: requirementTypes.name }).from(requirementTypes).where(eq(requirementTypes.id, event.requirementTypeId)).get()!
-  const { people, linkedIds, hand, recordDate } = attendanceRoster(db, facilityId, event)
+  const { people, linkedIds, hand, recordDate, skipped } = attendanceRoster(db, facilityId, event, today)
   const groupNames = new Map(listGroups(db, facilityId).map(group => [group.id, group.name]))
   const confirmed = event.attendanceConfirmedAt !== null
   return {
     eventId: event.id, title: event.title, date: event.date, endDate: event.endDate, typeName: type.name, recordDate,
-    canConfirm: recordDate <= today, confirmedAt: event.attendanceConfirmedAt,
+    canConfirm: recordDate <= today, confirmedAt: event.attendanceConfirmedAt, retentionSkipped: skipped,
     people: people.map(employee => ({
       employeeId: employee.id, name: employee.name,
       groupName: employee.groupId === null ? null : groupNames.get(employee.groupId) ?? null,
@@ -135,15 +151,17 @@ export function getEventAttendance(db: Db, facilityId: number, eventId: number, 
 
 /**
  * Saves „Teilnahme bestätigen“: every ticked person (`attended`) of the roster gets an entry of the kind on the last day
- * (an earlier one from this appointment is kept or moved to that day and kind; a hand-entered one on that day stays and
- * none is added); for everyone else of the roster the entries from this appointment go – hand-entered ones never. Only
- * from the (last) day on (400 event_not_over); a person not on the roster: 400 attendance_person_invalid.
+ * (an earlier one from this appointment is kept or moved to that day and kind); for everyone else of the roster the
+ * entries from this appointment go – hand-entered ones never. A hand-entered entry of the kind on that day counts for
+ * the appointment: none is added, and one from this appointment goes (no two entries of a day; the hand-entered one
+ * stays unlinked). Only from the (last) day on (400 event_not_over); a person not on the roster (also one past the
+ * retention): 400 attendance_person_invalid.
  */
 export function confirmEventAttendance(
   db: Db, facilityId: number, eventId: number, attended: readonly number[], today: IsoDate, now: Date = new Date(),
 ): void {
   const event = requirementEvent(db, facilityId, eventId)
-  const { people, linked, hand, recordDate } = attendanceRoster(db, facilityId, event)
+  const { people, linked, hand, recordDate } = attendanceRoster(db, facilityId, event, today)
   if (recordDate > today) throw new ServiceError(400, 'event_not_over')
   const roster = new Set(people.map(employee => employee.id))
   const ticked = new Set(attended)
@@ -151,8 +169,8 @@ export function confirmEventAttendance(
   db.transaction((tx) => {
     for (const employee of people) {
       const own = linked.filter(entry => entry.employeeId === employee.id)
-      if (hand.has(employee.id)) continue
-      if (!ticked.has(employee.id)) {
+      // Unticked, or the day entered by hand (that entry counts): the entries from this appointment go.
+      if (!ticked.has(employee.id) || hand.has(employee.id)) {
         if (own.length) tx.delete(employeeRequirements).where(inArray(employeeRequirements.id, own.map(entry => entry.id))).run()
         continue
       }
@@ -171,7 +189,8 @@ export function confirmEventAttendance(
 
 /**
  * A Pflichttermin appointment changed (updateCalendarEvent, in its transaction): the entries its confirmation created
- * follow it – to the new last day and kind; with „Pflichttermin“ taken off they stay as entered by hand (no link) and
+ * follow it – to the new last day and kind (where that day and kind are entered by hand already, the one from here goes:
+ * no two entries of a day, as on confirming); with „Pflichttermin“ taken off they stay as entered by hand (no link) and
  * the confirmation goes. A confirmed appointment cannot move ahead of today (400 event_confirmed_future): its entries
  * would lie in the future. Nothing to do before a confirmation.
  */
@@ -189,9 +208,29 @@ export function followConfirmedEvent(
   }
   const last = eventLastDay(after)
   if (last > today) throw new ServiceError(400, 'event_confirmed_future')
+  const linked = tx.select({ id: employeeRequirements.id, employeeId: employeeRequirements.employeeId }).from(employeeRequirements)
+    .where(eq(employeeRequirements.calendarEventId, eventId)).all()
+  const hand = handEnteredOn(tx, linked.map(entry => entry.employeeId), after.requirementTypeId, last)
+  const repeated = linked.filter(entry => hand.has(entry.employeeId)).map(entry => entry.id)
+  if (repeated.length) tx.delete(employeeRequirements).where(inArray(employeeRequirements.id, repeated)).run()
   tx.update(employeeRequirements).set({ date: last, typeId: after.requirementTypeId })
     .where(eq(employeeRequirements.calendarEventId, eventId)).run()
   return { attendanceConfirmedAt: before.attendanceConfirmedAt }
+}
+
+/**
+ * An entry entered by hand (POST /api/employees/:id/requirements, in its transaction): an entry of the same person, kind
+ * and day from a confirmed appointment goes – the hand-entered one counts for it (as on confirming: no two entries of a
+ * day). The appointment's „Teilnahme bestätigen“ then shows the person as entered by hand.
+ */
+export function dropLinkedRepeats(tx: Db, recordId: number): void {
+  const record = tx.select({ employeeId: employeeRequirements.employeeId, typeId: employeeRequirements.typeId, date: employeeRequirements.date })
+    .from(employeeRequirements).where(eq(employeeRequirements.id, recordId)).get()
+  if (!record) return
+  tx.delete(employeeRequirements).where(and(
+    eq(employeeRequirements.employeeId, record.employeeId), eq(employeeRequirements.typeId, record.typeId),
+    eq(employeeRequirements.date, record.date), isNotNull(employeeRequirements.calendarEventId),
+  )).run()
 }
 
 /** The facility's Pflichttermin appointments not confirmed whose last day is on or after `from` and first day on or before `to`. */

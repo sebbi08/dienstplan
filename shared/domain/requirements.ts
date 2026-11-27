@@ -87,6 +87,18 @@ export function isYouthExamKey(key: string | null): key is YouthExamKey {
   return key !== null && (YOUTH_EXAM_KEYS as readonly string[]).includes(key)
 }
 
+/**
+ * The kinds a Pflichttermin appointment („Pflichttermin“ im Termin) may not have: the Führungszeugnis (an entry says
+ * „Einsicht genommen am …“ for one person, § 72a SGB VIII, with its own retention) and the examinations of the
+ * JArbSchG (one doctor, one young person). Ticking a whole group would record proofs nobody saw.
+ */
+export const NOT_EVENT_REQUIREMENT_KEYS = [CRIMINAL_RECORD_KEY, ...YOUTH_EXAM_KEYS] as const
+
+/** Whether a kind (its built-in key, null for an own kind) can be the kind of a Pflichttermin appointment. */
+export function isEventRequirementKind(key: string | null): boolean {
+  return key === null || !(NOT_EVENT_REQUIREMENT_KEYS as readonly string[]).includes(key)
+}
+
 /** Longest interval of a recurring kind (20 years). */
 export const MAX_REQUIREMENT_INTERVAL_MONTHS = 240
 

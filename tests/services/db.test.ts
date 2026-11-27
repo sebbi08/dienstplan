@@ -2935,6 +2935,35 @@ Zeile 2', '2026-01-01T08:00:00.000Z', 'Lea', NULL, NULL);
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
+  it('0140 adds the Pflichttermin of an appointment and the link of an entry, both cleared (not deleted) when their row goes', () => {
+    const { db, sqlite } = databaseAt('0139')
+    sqlite.exec(`INSERT INTO employees (id, name, short_name) VALUES (1, 'Anna', 'An')`)
+    sqlite.exec(`INSERT INTO requirement_types (id, facility_id, name) VALUES (50, 1, 'Hygiene'), (51, 1, 'Brandschutz')`)
+    sqlite.exec(`INSERT INTO calendar_events (id, facility_id, date, title) VALUES (7, 1, '2026-10-14', 'Kurs')`)
+    sqlite.exec(`INSERT INTO employee_requirements (id, employee_id, type_id, date) VALUES (3, 1, 51, '2026-09-01')`)
+    migrateThrough(db, '0140')
+    // Existing rows: ordinary appointments, entries entered by hand.
+    expect(sqlite.prepare('SELECT requirement_type_id, attendance_confirmed_at FROM calendar_events').all())
+      .toEqual([{ requirement_type_id: null, attendance_confirmed_at: null }])
+    expect(sqlite.prepare('SELECT id, calendar_event_id FROM employee_requirements').all()).toEqual([{ id: 3, calendar_event_id: null }])
+    const foreignKey = (table: string, column: string) => (sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all() as { from: string; table: string; on_delete: string }[])
+      .filter(key => key.from === column).map(key => [key.table, key.on_delete])
+    expect(foreignKey('calendar_events', 'requirement_type_id')).toEqual([['requirement_types', 'SET NULL']])
+    expect(foreignKey('employee_requirements', 'calendar_event_id')).toEqual([['calendar_events', 'SET NULL']])
+    expect((sqlite.prepare('PRAGMA index_list(employee_requirements)').all() as { name: string }[]).map(index => index.name))
+      .toContain('employee_requirements_event')
+    // The link must name an existing appointment; deleting the appointment keeps the entry, unlinked.
+    sqlite.exec(`UPDATE calendar_events SET requirement_type_id = 51, attendance_confirmed_at = 'x' WHERE id = 7`)
+    sqlite.exec('UPDATE employee_requirements SET calendar_event_id = 7 WHERE id = 3')
+    expect(() => sqlite.exec('UPDATE employee_requirements SET calendar_event_id = 99 WHERE id = 3')).toThrow(/FOREIGN KEY/)
+    sqlite.exec('DELETE FROM calendar_events WHERE id = 7')
+    expect(sqlite.prepare('SELECT id, calendar_event_id FROM employee_requirements').all()).toEqual([{ id: 3, calendar_event_id: null }])
+    // Deleting a kind makes its appointments ordinary ones again.
+    sqlite.exec(`INSERT INTO calendar_events (id, facility_id, date, title, requirement_type_id) VALUES (8, 1, '2026-11-02', 'Hygiene', 50)`)
+    sqlite.exec('DELETE FROM requirement_types WHERE id = 50')
+    expect(sqlite.prepare('SELECT id, requirement_type_id FROM calendar_events').all()).toEqual([{ id: 8, requirement_type_id: null }])
+  })
+
   it('0131 only adds the empty long absences (open end allowed), gone with the employee, and keeps every existing row', () => {
     const { db, sqlite } = databaseAt('0130')
     sqlite.exec(`INSERT INTO employees (id, name, short_name) VALUES (1, 'Anna', 'An')`)

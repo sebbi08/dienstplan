@@ -4,9 +4,10 @@ import { de } from '~/locales/de'
 import { formatDate, formatDateSpan, formatDateTime } from '~/utils/format'
 
 /**
- * „Teilnahme bestätigen“ of a Pflichttermin appointment (Leitung and Träger: employees.edit and calendar.edit): everyone
- * it is meant for, ticked – the first time all of them, later as saved. Saving enters the Pflichttermin for the ticked
- * people on the last day and takes it from the others where this appointment entered it (hand-entered ones stay).
+ * „Teilnahme bestätigen“ of a Pflichttermin appointment (whoever may enter Pflichttermine, employees.edit; the dialog is
+ * opened from the calendar and the plan): everyone it is meant for, ticked – the first time all of them, later as saved.
+ * Saving enters the Pflichttermin for the ticked people on the last day and takes it from the others where this
+ * appointment entered it (hand-entered ones stay). People past the retention are not listed; a line says how many.
  */
 const props = defineProps<{ eventId: number | null }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -93,6 +94,7 @@ async function save() {
             />
           </div>
         </fieldset>
+        <p v-if="data.retentionSkipped" class="text-xs text-gray-500">{{ de.eventRequirements.retentionSkipped(data.retentionSkipped) }}</p>
         <div class="flex gap-2">
           <UButton class="ml-auto" color="neutral" variant="ghost" :label="de.common.cancel" @click="open = false" />
           <UButton v-if="data.canConfirm" icon="i-lucide-user-check" :label="de.eventRequirements.confirm" @click="save" />

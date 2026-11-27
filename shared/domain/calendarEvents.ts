@@ -44,6 +44,13 @@ interface EventSpan { date: IsoDate; endDate: IsoDate | null }
 /** The last day of the appointment (the first for a one-day appointment). */
 export const eventLastDay = (event: EventSpan): IsoDate => event.endDate ?? event.date
 
+/**
+ * Whether the viewer may change or delete the appointment: a Pflichttermin only whoever may enter Pflichttermine
+ * (`mayRecord`: employees.edit), any other appointment whoever manages the calendar. The server refuses the rest (403),
+ * the dialog and the Terminliste offer nothing.
+ */
+export const mayChangeEvent = (isRequirement: boolean, mayRecord: boolean): boolean => !isRequirement || mayRecord
+
 /** Whether the appointment is on that day. */
 export const eventCovers = (event: EventSpan, date: IsoDate): boolean => event.date <= date && date <= eventLastDay(event)
 

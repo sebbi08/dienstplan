@@ -400,6 +400,9 @@ export const de = {
     notYet: (date: string) => `Bestätigen geht ab dem ${date}, dem letzten Tag des Termins.`,
     reconfirmHint: 'Die Teilnahme ist schon bestätigt. Änderst du die Haken, werden nur die Einträge aus diesem Termin angepasst. Von Hand eingetragene bleiben.',
     handEntered: 'an diesem Tag schon von Hand eingetragen',
+    retentionSkipped: (count: number) => (count === 1
+      ? '1 Person steht nicht in der Liste: Sie ist ausgeschieden, und die Löschfrist für ihre Pflichttermine ist abgelaufen. Für sie wird nichts mehr eingetragen oder entfernt.'
+      : `${count} Personen stehen nicht in der Liste: Sie sind ausgeschieden, und die Löschfrist für ihre Pflichttermine ist abgelaufen. Für sie wird nichts mehr eingetragen oder entfernt.`),
     nobody: 'Für diesen Termin ist niemand (mehr) vorgesehen. Speichern bestätigt ihn trotzdem.',
     loading: 'Teilnehmende werden geladen …', loadError: 'Die Liste konnte nicht geladen werden. Bitte noch einmal öffnen.',
     tickAll: 'Alle anhaken', untickAll: 'Alle Haken entfernen',
@@ -3948,6 +3951,7 @@ export const de = {
     event_employees_required: 'Bitte mindestens eine Person dieser Einrichtung wählen.',
     event_page_outdated: 'Die Seite ist nicht mehr aktuell. Bitte neu laden (F5) und den Termin noch einmal speichern.',
     event_requirement_audience: 'Ein Pflichttermin braucht Teilnehmende: bitte „Alle Mitarbeitenden“, Gruppen oder Personen wählen.',
+    event_requirement_kind: 'Führungszeugnis und Untersuchungen nach dem Jugendarbeitsschutzgesetz gibt es nicht als Pflichttermin im Kalender. Bitte bei der Person eintragen.',
     event_not_requirement: 'Dieser Termin ist kein Pflichttermin (mehr).',
     event_not_over: 'Die Teilnahme kann erst ab dem letzten Tag des Termins bestätigt werden.',
     event_confirmed_future: 'Die Teilnahme ist schon bestätigt. Der Termin kann deshalb nicht in die Zukunft verlegt werden, sonst lägen die Einträge in der Zukunft.',

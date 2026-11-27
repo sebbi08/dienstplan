@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import {
-  eventDayCount, eventLastDay, eventVisibleTo, MAX_EVENT_DAYS, PUBLIC_AUDIENCE, seesAllEvents, type EventAudience,
+  eventDayCount, eventLastDay, eventVisibleTo, MAX_EVENT_DAYS, mayChangeEvent, PUBLIC_AUDIENCE, seesAllEvents, type EventAudience,
   type EventVisibility,
 } from '../../shared/domain/calendarEvents'
 import { groupLeaveRanges } from '../../shared/domain/leave'
@@ -9,6 +9,7 @@ import { isHolidayIn } from '../../shared/domain/holidays'
 import { countsAsSick, spanCovers } from '../../shared/domain/longAbsence'
 import { isPrivateCode } from '../../shared/domain/maternity'
 import { can } from '../../shared/domain/permissions'
+import { isEventRequirementKind } from '../../shared/domain/requirements'
 import { isEmployedInRange, isEmployedOn, isWorkday } from '../../shared/domain/targets'
 import type { CodeKey, IsoDate, Minutes } from '../../shared/domain/types'
 import type {
@@ -399,12 +400,14 @@ function normalizeEvent(db: Db, facilityId: number, input: CalendarEventInput): 
         .where(and(eq(employees.facilityId, facilityId), inArray(employees.id, employeeIds))).all()
     if (employeeIds.length === 0 || own.length !== employeeIds.length) throw new ServiceError(400, 'event_employees_required')
   }
-  // A Pflichttermin is for the people it names, who see it: never „Nur Leitung und Träger“; a kind of the facility.
+  // A Pflichttermin is for the people it names, who see it: never „Nur Leitung und Träger“; a kind of the facility,
+  // not the Führungszeugnis nor a JArbSchG examination (400 event_requirement_kind; isEventRequirementKind).
   const requirementTypeId = input.requirementTypeId ?? null
   if (requirementTypeId !== null) {
-    const own = db.select({ id: requirementTypes.id }).from(requirementTypes)
+    const own = db.select({ id: requirementTypes.id, builtinKey: requirementTypes.builtinKey }).from(requirementTypes)
       .where(and(eq(requirementTypes.id, requirementTypeId), eq(requirementTypes.facilityId, facilityId))).get()
     if (!own) throw new ServiceError(404, 'requirement_type_not_found')
+    if (!isEventRequirementKind(own.builtinKey)) throw new ServiceError(400, 'event_requirement_kind')
     if (input.visibility === 'leaders') throw new ServiceError(400, 'event_requirement_audience')
   }
   return { ...event, groupIds, employeeIds, requirementTypeId }
@@ -449,7 +452,7 @@ function requirementName(db: Db, typeId: number | null): string | null {
 export function createCalendarEvent(
   db: Db, facilityId: number, input: CalendarEventInput, options: CalendarEventOptions = {},
 ): CalendarEventDto {
-  if ((input.requirementTypeId ?? null) !== null && !options.mayRecord) throw new ServiceError(403, 'forbidden')
+  if (!mayChangeEvent((input.requirementTypeId ?? null) !== null, !!options.mayRecord)) throw new ServiceError(403, 'forbidden')
   const event = normalizeEvent(db, facilityId, input)
   return db.transaction((tx) => {
     const row = tx.insert(calendarEvents).values({ ...eventRow(event), facilityId }).returning(eventColumns).get()
@@ -473,7 +476,7 @@ export function updateCalendarEvent(
     .from(calendarEvents).where(ownEvent(facilityId, id)).get()
   if (!before) throw new ServiceError(404, 'event_not_found')
   const requirementTypeId = input.requirementTypeId === undefined ? before.requirementTypeId : input.requirementTypeId
-  if ((before.requirementTypeId !== null || requirementTypeId !== null) && !options.mayRecord) throw new ServiceError(403, 'forbidden')
+  if (!mayChangeEvent(before.requirementTypeId !== null || requirementTypeId !== null, !!options.mayRecord)) throw new ServiceError(403, 'forbidden')
   const event = normalizeEvent(db, facilityId, { ...input, requirementTypeId })
   db.transaction((tx) => {
     const confirmation = followConfirmedEvent(tx, id, before, event, options.today ?? todayIso())
@@ -491,6 +494,6 @@ export function updateCalendarEvent(
  */
 export function deleteCalendarEvent(db: Db, facilityId: number, id: number, options: CalendarEventOptions = {}): void {
   const row = db.select({ requirementTypeId: calendarEvents.requirementTypeId }).from(calendarEvents).where(ownEvent(facilityId, id)).get()
-  if (row && row.requirementTypeId !== null && !options.mayRecord) throw new ServiceError(403, 'forbidden')
+  if (row && !mayChangeEvent(row.requirementTypeId !== null, !!options.mayRecord)) throw new ServiceError(403, 'forbidden')
   db.delete(calendarEvents).where(ownEvent(facilityId, id)).run()
 }

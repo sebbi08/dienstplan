@@ -8,14 +8,17 @@ import {
 } from '../../server/services/calendar'
 import { listEmployeeListExtras } from '../../server/services/employeeListExtras'
 import { moveEmployeeToFacility } from '../../server/services/employees'
+import { deleteAssessmentData } from '../../server/services/employeeDeletion'
 import {
-  confirmEventAttendance, getEventAttendance, intendedParticipants, plannedRequirements, withPlannedRequirements,
+  confirmEventAttendance, dropLinkedRepeats, getEventAttendance, intendedParticipants, plannedRequirements, withPlannedRequirements,
 } from '../../server/services/eventRequirements'
 import { myOpenItems } from '../../server/services/openItems'
 import { loadEmployees } from '../../server/services/queries'
 import {
   addRequirementRecord, createRequirementType, deleteRequirementType, getEmployeeRequirements,
 } from '../../server/services/requirements'
+import { setRetentionSettings } from '../../server/services/retentionSettings'
+import { RETENTION_DEFAULTS } from '../../shared/domain/retention'
 import { PERMISSION_KEYS } from '../../shared/domain/permissions'
 import type { SessionUser } from '../../shared/types/api'
 import { addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, requirementTypeId } from '../helpers/fixtures'
@@ -95,6 +98,20 @@ describe('„Pflichttermin“ on an appointment', () => {
     expect(seen.map(event => event.title)).toEqual(['Erste Hilfe'])
     expect(seen[0]!.requirement).toEqual({ typeId: firstAid, typeName: 'Erste-Hilfe-Kurs', confirmedAt: null })
     expect(getMyYearCalendar(db, benUser, 2026).events).toEqual([])
+  })
+
+  it('is never the Führungszeugnis nor a JArbSchG examination (proofs of one person each)', () => {
+    for (const key of ['criminal_record', 'youth_initial', 'youth_followup']) {
+      expect(errorCode(() => createCalendarEvent(db, 1, input({ requirementTypeId: requirementTypeId(db, key) }), MAY)), key)
+        .toBe('event_requirement_kind')
+    }
+    const plain = createCalendarEvent(db, 1, input({ title: 'Elternabend' }))
+    expect(errorCode(() => updateCalendarEvent(db, 1, plain.id, input({ requirementTypeId: requirementTypeId(db, 'criminal_record') }), MAY)))
+      .toBe('event_requirement_kind')
+    const event = createCalendarEvent(db, 1, input({ requirementTypeId: firstAid }), MAY)
+    expect(errorCode(() => updateCalendarEvent(db, 1, event.id, input({ requirementTypeId: requirementTypeId(db, 'youth_followup') }), MAY)))
+      .toBe('event_requirement_kind')
+    expect(listCalendarEvents(db, 1, 2026).find(item => item.id === event.id)!.requirement?.typeId).toBe(firstAid)
   })
 
   it('becomes an ordinary appointment when its own kind is deleted', () => {
@@ -213,11 +230,62 @@ describe('„Teilnahme bestätigen“', () => {
     expect(entries(anna)).toEqual([])
   })
 
-  it('stores no note on the Führungszeugnis', () => {
-    const criminal = requirementTypeId(db, 'criminal_record')
-    const event = createCalendarEvent(db, 1, input({ requirementTypeId: criminal, visibility: 'employees', employeeIds: [ben] }), MAY)
+  it('lets a hand-entered entry of the day count for it: never two entries of a day (M2)', () => {
+    const event = createCalendarEvent(db, 1, input({ requirementTypeId: firstAid, visibility: 'employees', employeeIds: [anna, ben] }), MAY)
+    confirmEventAttendance(db, 1, event.id, [anna, ben], AFTER, NOW)
+    // A colleague enters the same day by hand afterwards (the route: addRequirementRecord + dropLinkedRepeats).
+    db.transaction(tx => dropLinkedRepeats(tx, addRequirementRecord(tx, 1, anna, { typeId: firstAid, date: '2026-10-14', note: 'DRK' }, AFTER)))
+    expect(entries(anna)).toEqual([{ date: '2026-10-14', eventId: null, note: 'DRK' }])
+    // Another day or kind by hand leaves the entry from the appointment be.
+    db.transaction(tx => dropLinkedRepeats(tx, addRequirementRecord(tx, 1, ben, { typeId: firstAid, date: '2026-10-13' }, AFTER)))
+    expect(entries(ben)).toEqual([{ date: '2026-10-13', eventId: null, note: null }, { date: '2026-10-14', eventId: event.id, note: null }])
+    expect(people(event.id)).toEqual([['Anna', true], ['Ben', true]])
+    expect(getEventAttendance(db, 1, event.id, AFTER).people[0]!.handEntered).toBe(true)
+    // An older duplicate (entered before this rule) goes on the next confirmation, ticked or not; the hand entry stays.
+    db.insert(employeeRequirements).values({ employeeId: anna, typeId: firstAid, date: '2026-10-14', calendarEventId: event.id }).run()
     confirmEventAttendance(db, 1, event.id, [ben], AFTER, NOW)
-    expect(entries(ben, criminal)).toEqual([{ date: '2026-10-14', eventId: event.id, note: null }])
+    expect(entries(anna)).toEqual([{ date: '2026-10-14', eventId: null, note: 'DRK' }])
+    db.insert(employeeRequirements).values({ employeeId: anna, typeId: firstAid, date: '2026-10-14', calendarEventId: event.id }).run()
+    confirmEventAttendance(db, 1, event.id, [anna, ben], AFTER, NOW)
+    expect(entries(anna)).toEqual([{ date: '2026-10-14', eventId: null, note: 'DRK' }])
+    expect(entries(ben)).toEqual([{ date: '2026-10-13', eventId: null, note: null }, { date: '2026-10-14', eventId: event.id, note: null }])
+  })
+
+  it('leaves out who left beyond the retention, so deleted entries do not come back (M5)', () => {
+    // Confirmed in 2022: Dora took part and left that summer; her Pflichttermine may go from 1.1.2026 (3 years).
+    const dora = addEmployee(db, 'Dora', { validFrom: '2020-01-01', leftOn: '2022-06-30' })
+    const emil = addEmployee(db, 'Emil', { validFrom: '2020-01-01', leftOn: '2026-06-30' })
+    const event = createCalendarEvent(db, 1, input({ date: '2022-05-10', requirementTypeId: firstAid, visibility: 'employees', employeeIds: [dora, emil] }), MAY)
+    confirmEventAttendance(db, 1, event.id, [dora, emil], '2022-05-20', NOW)
+    expect(entries(dora)).toEqual([{ date: '2022-05-10', eventId: event.id, note: null }])
+    // Before the period ran: listed as recorded.
+    expect(getEventAttendance(db, 1, event.id, '2025-12-31')).toMatchObject({ retentionSkipped: 0 })
+    // The Träger deletes her „Beurteilungen und Zeugnisse“ (Löschfristen).
+    deleteAssessmentData(db, dora)
+    expect(entries(dora)).toEqual([])
+    const attendance = getEventAttendance(db, 1, event.id, AFTER)
+    expect(attendance.retentionSkipped).toBe(1)
+    expect(attendance.people.map(person => person.name)).toEqual(['Emil'])
+    // „Alle anhaken“ and save: nothing comes back; naming her is refused.
+    confirmEventAttendance(db, 1, event.id, [emil], AFTER, NOW)
+    expect(entries(dora)).toEqual([])
+    expect(entries(emil)).toEqual([{ date: '2022-05-10', eventId: event.id, note: null }])
+    expect(errorCode(() => confirmEventAttendance(db, 1, event.id, [dora, emil], AFTER, NOW))).toBe('attendance_person_invalid')
+    // An entry still there (not deleted yet) is left as it is, neither removed nor added.
+    const fritz = addEmployee(db, 'Fritz', { validFrom: '2020-01-01', leftOn: '2022-06-30' })
+    db.insert(employeeRequirements).values({ employeeId: fritz, typeId: firstAid, date: '2022-05-10', calendarEventId: event.id }).run()
+    confirmEventAttendance(db, 1, event.id, [], AFTER, NOW)
+    expect(entries(fritz)).toEqual([{ date: '2022-05-10', eventId: event.id, note: null }])
+    expect(getEventAttendance(db, 1, event.id, AFTER).retentionSkipped).toBe(2)
+    // The period follows the Träger's setting (here 10 years: listed again).
+    setRetentionSettings(db, 1, { ...RETENTION_DEFAULTS, assessmentYears: 10 })
+    expect(getEventAttendance(db, 1, event.id, AFTER)).toMatchObject({ retentionSkipped: 0 })
+  })
+
+  it('refuses another facility\'s appointment on saving too', () => {
+    const event = createCalendarEvent(db, 1, input({ requirementTypeId: firstAid }), MAY)
+    expect(errorCode(() => confirmEventAttendance(db, addFacility(db, 'Hort'), event.id, [], AFTER, NOW))).toBe('event_not_found')
+    expect(entries(anna)).toEqual([])
   })
 })
 
@@ -241,6 +309,24 @@ describe('changing or deleting a confirmed appointment', () => {
     updateCalendarEvent(db, 1, event, { ...changed, requirementTypeId: doctor }, { ...MAY, today: AFTER })
     expect(entries(ben)).toEqual([])
     expect(entries(ben, doctor)).toEqual([{ date: '2026-10-13', eventId: event, note: null }])
+  })
+
+  it('drops the entry from the appointment where the new day or kind is entered by hand already (M3)', () => {
+    // Ben has a hand entry on 12.10.: moving the appointment there leaves only that one.
+    addRequirementRecord(db, 1, ben, { typeId: firstAid, date: '2026-10-12', note: 'extern' }, AFTER)
+    const moved = input({ requirementTypeId: firstAid, visibility: 'employees', employeeIds: [anna, ben], date: '2026-10-12' })
+    updateCalendarEvent(db, 1, event, moved, { ...MAY, today: AFTER })
+    expect(entries(ben)).toEqual([{ date: '2026-10-12', eventId: null, note: 'extern' }])
+    expect(entries(anna)).toEqual([{ date: '2026-09-01', eventId: null, note: null }, { date: '2026-10-12', eventId: event, note: null }])
+    // A new kind with a hand entry on that day: the same.
+    const doctor = requirementTypeId(db, 'company_doctor')
+    addRequirementRecord(db, 1, anna, { typeId: doctor, date: '2026-10-12' }, AFTER)
+    updateCalendarEvent(db, 1, event, { ...moved, requirementTypeId: doctor }, { ...MAY, today: AFTER })
+    expect(entries(anna, doctor)).toEqual([{ date: '2026-10-12', eventId: null, note: null }])
+    expect(entries(anna)).toEqual([{ date: '2026-09-01', eventId: null, note: null }])
+    expect(entries(ben, doctor)).toEqual([])
+    // The appointment stays confirmed; both show as entered by hand.
+    expect(getEventAttendance(db, 1, event, AFTER).people.map(person => [person.name, person.handEntered])).toEqual([['Anna', true], ['Ben', false]])
   })
 
   it('keeps the entries as entered by hand when „Pflichttermin“ is taken off or the appointment deleted', () => {
@@ -277,6 +363,22 @@ describe('„Offen für dich“', () => {
     expect(myOpenItems(db, annaUser, '2026-10-15').attendance).toBeUndefined()
     confirmEventAttendance(db, 1, event.id, [anna], '2026-10-15', NOW)
     expect(myOpenItems(db, leitung, '2026-10-15').attendance).toBeUndefined()
+  })
+})
+
+describe('the Terminliste and the dialog (M6)', () => {
+  it('offer changing and deleting a Pflichttermin only to whoever may enter Pflichttermine, as the server allows it', async () => {
+    const { mayChangeEvent } = await import('../../shared/domain/calendarEvents')
+    expect(mayChangeEvent(true, false)).toBe(false)
+    expect(mayChangeEvent(true, true)).toBe(true)
+    expect(mayChangeEvent(false, false)).toBe(true)
+    const event = createCalendarEvent(db, 1, input({ requirementTypeId: firstAid }), MAY)
+    expect(errorCode(() => deleteCalendarEvent(db, 1, event.id, { mayRecord: false }))).toBe('forbidden')
+    expect(listCalendarEvents(db, 1, 2026)).toHaveLength(1)
+    const plain = createCalendarEvent(db, 1, input({ title: 'Elternabend' }))
+    deleteCalendarEvent(db, 1, plain.id, { mayRecord: false })
+    deleteCalendarEvent(db, 1, event.id, MAY)
+    expect(listCalendarEvents(db, 1, 2026)).toEqual([])
   })
 })
 

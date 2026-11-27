@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { EVENT_VISIBILITIES, eventLastDay, type EventVisibility } from '#shared/domain/calendarEvents'
+import { EVENT_VISIBILITIES, eventLastDay, mayChangeEvent, type EventVisibility } from '#shared/domain/calendarEvents'
 import { todayIso } from '#shared/domain/dates'
+import { isEventRequirementKind } from '#shared/domain/requirements'
 import { formatTime, parseTime } from '#shared/domain/time'
 import type { CalendarEventAudienceDto, CalendarEventDto, CalendarEventSaveDto, RequirementTypeDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -13,7 +14,8 @@ import { de } from '~/locales/de'
  * „Pflichttermin“ (only for whoever may enter Pflichttermine, employees.edit): the kind, and „Für wen gilt er?“ in place
  * of „Wer sieht den Termin?“ – the participants see it, so „Nur Leitung und Träger“ is not offered. From the last day on
  * „Teilnahme bestätigen“ opens the attendance dialog (emit `attendance`). Without the right a Pflichttermin is shown,
- * not changed (the server refuses it too).
+ * not changed (the server refuses it too). The kinds offered leave out the Führungszeugnis and the JArbSchG
+ * examinations (isEventRequirementKind: a proof of one person each; the server refuses them too).
  */
 const props = defineProps<{ event: CalendarEventDto | null; date: string }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -22,7 +24,7 @@ const emit = defineEmits<{ save: [value: CalendarEventSaveDto]; remove: []; atte
 const { can } = useCan()
 const mayRecord = computed(() => can('employees.edit'))
 /** A Pflichttermin someone without the right opened: shown, not changed. */
-const locked = computed(() => !!props.event?.requirement && !mayRecord.value)
+const locked = computed(() => !!props.event && !mayChangeEvent(!!props.event.requirement, mayRecord.value))
 
 interface Form {
   date: string; endDate: string; start: string; end: string; title: string; visibility: EventVisibility | null
@@ -81,7 +83,7 @@ const visibilityItems = computed(() => (form.requirement
       description: de.eventRequirements.participantHints[value as Exclude<EventVisibility, 'leaders'>], value,
     }))
   : EVENT_VISIBILITIES.map(value => ({ label: de.calendar.visibilityLabels[value], description: de.calendar.visibilityHints[value], value }))))
-const kindItems = computed(() => (kinds.value ?? []).map(kind => ({ label: kind.name, value: kind.id })))
+const kindItems = computed(() => (kinds.value ?? []).filter(kind => isEventRequirementKind(kind.builtinKey)).map(kind => ({ label: kind.name, value: kind.id })))
 const requirementTypeId = computed({
   get: () => form.requirementTypeId ?? undefined,
   set: (value: number | undefined) => { form.requirementTypeId = value ?? null },

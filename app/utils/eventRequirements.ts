@@ -13,3 +13,12 @@ export function plannedText(planned: Pick<PlannedRequirementDto, 'date' | 'endDa
 export function attendanceLink(attendance: { eventId: number; year: number }): string {
   return `/admin/calendar?year=${attendance.year}&attendance=${attendance.eventId}`
 }
+
+/**
+ * The appointment `?attendance=<id>` asks to confirm (attendanceLink), or null for none or anything else. The year
+ * calendar watches the query, so a link followed on the page itself opens the dialog too.
+ */
+export function attendanceIdOf(value: unknown): number | null {
+  const id = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : Number.NaN
+  return Number.isSafeInteger(id) && id > 0 ? id : null
+}

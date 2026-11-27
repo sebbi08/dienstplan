@@ -2446,6 +2446,11 @@ export interface EventAttendanceDto {
   /** From the (last) day of the appointment on. */
   canConfirm: boolean
   confirmedAt: string | null
+  /**
+   * People meant for it (or recorded by it before) who left so long ago that their Pflichttermine may be deleted
+   * (Löschfristen): not listed, and the confirmation neither adds nor removes anything for them.
+   */
+  retentionSkipped: number
   people: EventAttendancePersonDto[]
 }
 

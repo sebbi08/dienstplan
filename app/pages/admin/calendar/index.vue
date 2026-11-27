@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { eventLastDay } from '#shared/domain/calendarEvents'
+import { eventLastDay, mayChangeEvent } from '#shared/domain/calendarEvents'
 import { parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
 import type { CalendarEventDto, CalendarEventSaveDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { absenceDates } from '~/utils/calendarKinds'
 import { eventListDateText, eventListTimeText, eventVisibilityText } from '~/utils/calendarLanes'
 import { calendarPrintItems } from '~/utils/calendarPrint'
+import { attendanceIdOf } from '~/utils/eventRequirements'
 import { SHOW_REQUESTS_KEY, requestCells, requestText, showRequestsFrom } from '~/utils/calendarRequests'
 import { formatDateTime, formatDayShort } from '~/utils/format'
 import { calendarTabs } from '~/utils/areaTabs'
@@ -145,9 +146,14 @@ function openAttendance(eventId: number) {
 }
 /** From its last day on (the button; the server checks it as well). */
 const confirmable = (event: CalendarEventDto) => !!event.requirement && mayConfirm.value && eventLastDay(event) <= todayIso()
+/** The Terminliste's delete button: a Pflichttermin only for whoever may enter Pflichttermine, as in the dialog (and the server). */
+const deletable = (event: CalendarEventDto) => mayChangeEvent(!!event.requirement, canTab('employees.edit'))
+// On the client, at once and whenever the query changes (a link followed on this page reuses it).
 onMounted(() => {
-  const id = Number(route.query.attendance)
-  if (Number.isInteger(id) && id > 0 && mayConfirm.value) openAttendance(id)
+  watch(() => route.query.attendance, (value) => {
+    const id = attendanceIdOf(value)
+    if (id !== null && mayConfirm.value) openAttendance(id)
+  }, { immediate: true })
 })
 async function attendanceSaved() {
   await refresh()
@@ -223,7 +229,10 @@ async function attendanceSaved() {
                   :label="de.eventRequirements.confirm" @click="openAttendance(event.id)"
                 />
                 <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="openEvent(event)" />
-                <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeEvent(event)" />
+                <UButton
+                  v-if="deletable(event)" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete"
+                  @click="removeEvent(event)"
+                />
               </td>
             </tr>
           </tbody>
