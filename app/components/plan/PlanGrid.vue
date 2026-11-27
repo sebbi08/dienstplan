@@ -12,6 +12,8 @@ import { busyCellKeys, isMarker } from '~/utils/helpOuts'
 import { dayHoursText } from '~/utils/openingHours'
 import { longAbsenceCells } from '~/utils/longAbsence'
 import { parentalLeaveCells } from '~/utils/parentalLeave'
+import { dayInfoLines } from '~/utils/planCompact'
+import { PRINT_WIDTHS, type PrintPart } from '~/utils/planPrint'
 import { gridStep, quickEntryHandlers, rovingStop } from '~/utils/quickEntry'
 import { templateUseHint } from '~/utils/templateUses'
 import { indexWarnings, warningText } from '~/utils/warnings'
@@ -29,6 +31,17 @@ const props = defineProps<{
   plainActuals?: boolean
   /** The appointments in Info 2 open on click (whoever manages the calendar; never in print). */
   eventsEditable?: boolean
+  /**
+   * „Info-Spalten ausblenden“: no Info columns; a day with Info texts or appointments gets a small marker at its date that
+   * shows them.
+   */
+  infoHidden?: boolean
+  /**
+   * The print view's part of a plan split for the page (planPrint.ts): only these columns, the Info columns only in the
+   * last part; `printZoom` < 1: the part is printed at its fixed width, scaled down to the page.
+   */
+  printPart?: PrintPart | null
+  printZoom?: number
 }>()
 const emit = defineEmits<{
   cellClick: [employeeId: number, date: string, event: MouseEvent]
@@ -85,16 +98,39 @@ const employeeNames = computed(() => new Map(props.plan.employees.map(employee =
  * Columns in blocks (see planBlocks): each group's members and then its "anwesend" column, the Springer, the helpers.
  * Without groups there is one block of all employees, no header row above the names and no attendance column.
  */
-type Column = { kind: 'employee'; employee: EmployeeColumnDto } | { kind: 'attendance'; groupId: number }
+type Column = ({ kind: 'employee'; employee: EmployeeColumnDto } | { kind: 'attendance'; groupId: number }) & { block: string; label: string | null }
 const blocks = computed(() => planBlocks(props.plan, props.groupFilter ?? null))
 const showBlocks = computed(() => props.plan.groups.length > 0)
-const columns = computed((): Column[] => blocks.value.flatMap(block => [
-  ...block.employees.map(employee => ({ kind: 'employee' as const, employee })),
-  ...(block.groupId !== null ? [{ kind: 'attendance' as const, groupId: block.groupId }] : []),
-]))
-const blockHeaders = computed(() => blocks.value
-  .map(block => ({ key: block.key, label: block.label, span: block.employees.length + (block.groupId !== null ? 1 : 0) }))
-  .filter(block => block.span > 0))
+/** The print view's part (printPart): only its columns; on screen all of them. */
+const part = computed(() => (props.print ? props.printPart ?? null : null))
+const columns = computed((): Column[] => {
+  const all = blocks.value.flatMap(block => [
+    ...block.employees.map(employee => ({ kind: 'employee' as const, employee, block: block.key, label: block.label })),
+    ...(block.groupId !== null ? [{ kind: 'attendance' as const, groupId: block.groupId, block: block.key, label: block.label }] : []),
+  ])
+  return part.value ? all.slice(part.value.from, part.value.to) : all
+})
+/** The block names above the shown columns (a block split between two printed parts is named in both). */
+const blockHeaders = computed(() => {
+  const headers: { key: string; label: string | null; span: number }[] = []
+  for (const column of columns.value) {
+    const last = headers.at(-1)
+    if (last?.key === column.block) last.span += 1
+    else headers.push({ key: column.block, label: column.label, span: 1 })
+  }
+  return headers
+})
+/** Info 1 and Info 2: not when hidden („Info-Spalten ausblenden“, on screen) and not in a printed part before the last. */
+const showInfo = computed(() => (props.print ? part.value?.withInfo ?? true : !props.infoHidden))
+/** The cell after the KW and total rows' columns: Info 1, Info 2 and the warnings column, as far as they are shown. */
+const trailingSpan = computed(() => (showInfo.value ? 2 : 0) + (props.plan.admin ? 1 : 0))
+/** Printed: fixed column widths (planPrint.ts); a part wider than the page keeps them and is scaled down (printZoom). */
+const printWidths = PRINT_WIDTHS
+const printStyle = computed(() => {
+  if (!props.print) return undefined
+  const zoom = props.printZoom ?? 1
+  return { '--print-zoom': String(zoom), '--print-width': zoom < 1 && part.value ? `${part.value.width}px` : '100%' }
+})
 const groupNames = computed(() => new Map(props.plan.groups.map(group => [group.id, group.name])))
 const homeGroups = computed(() => new Map(props.plan.employees.map(employee => [employee.id, employee.groupId ?? null])))
 /** The group a duty counts for when it is not the person's home group ("→ Mäuse"); null otherwise. */
@@ -218,7 +254,7 @@ const totals = computed(() => {
   ]
 })
 
-const columnCount = computed(() => columns.value.length + (props.plan.admin ? 4 : 3))
+const columnCount = computed(() => columns.value.length + 1 + trailingSpan.value)
 
 /** A blank separator row closes every week (after its KW row for admins, after Sunday for observers), except at month end. */
 function endsWeek(row: { day: DayRowDto; week: unknown }, index: number): boolean {
@@ -298,6 +334,8 @@ const rows = computed(() => props.plan.days.map((day) => {
     day,
     cells,
     notes,
+    // With the Info columns hidden: what they hold, for the marker at the date.
+    infoLines: props.infoHidden && !props.print ? dayInfoLines(day) : [],
     warnings: dayWarnings(dayWarningList, ackSignatures.value),
     warningTitle: joinLines(dayWarningList.map(warning => warningText(warning, employeeNames.value))),
     week: week
@@ -334,10 +372,20 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
 <template>
   <!-- Own scroll area so the name row (top) and the date column (left) stay visible while scrolling. -->
   <div
-    ref="scroller" class="max-h-(--grid-max-h) overflow-auto rounded-lg ring-1 ring-gray-200 print:max-h-none print:overflow-visible print:ring-0"
-    :style="{ '--grid-max-h': gridMaxHeight ?? 'calc(100dvh - 10rem)' }"
+    ref="scroller" class="max-h-(--grid-max-h) overflow-auto rounded-lg ring-1 ring-gray-200 print:max-h-none print:overflow-visible print:ring-0 print:[zoom:var(--print-zoom)]"
+    :style="{ '--grid-max-h': gridMaxHeight ?? 'calc(100dvh - 10rem)', ...printStyle }"
   >
-    <table class="w-full border-collapse text-sm">
+    <table class="w-full border-collapse text-sm print:w-(--print-width) print:table-fixed">
+      <!-- Printed: fixed widths, so the plan's width is known (planPrint.ts) and long texts wrap inside their column (the
+           warnings column is not printed). -->
+      <colgroup v-if="print">
+        <col :style="{ width: `${printWidths.date}px` }">
+        <col v-for="(column, index) in columns" :key="index" :style="{ width: `${column.kind === 'attendance' ? printWidths.attendance : printWidths.employee}px` }">
+        <template v-if="showInfo">
+          <col :style="{ width: `${printWidths.info}px` }">
+          <col :style="{ width: `${printWidths.info}px` }">
+        </template>
+      </colgroup>
       <thead class="sticky top-0 z-20 bg-gray-100 text-xs text-gray-600 shadow-[0_1px_0_var(--color-gray-300)] print:static print:table-header-group print:shadow-none">
         <!-- With groups: the block names above the names; date and info columns span both rows. -->
         <tr v-if="showBlocks">
@@ -348,8 +396,10 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
           >
             {{ block.label }}
           </th>
-          <th rowspan="2" class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
-          <th rowspan="2" class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
+          <template v-if="showInfo">
+            <th rowspan="2" class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
+            <th rowspan="2" class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
+          </template>
           <th v-if="plan.admin" rowspan="2" class="w-8 border border-gray-200 bg-gray-100 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
         </tr>
         <tr>
@@ -361,7 +411,7 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
             >
               {{ de.groups.present }}
             </th>
-            <th v-else class="min-w-28 border border-gray-200 bg-gray-100 px-2 py-1">
+            <th v-else class="min-w-28 border border-gray-200 bg-gray-100 px-2 py-1 print:min-w-0 print:break-words">
               <div>{{ column.employee.name }}</div>
               <template v-if="column.employee.helpFrom">
                 <div v-if="print" class="font-normal">{{ de.plan.helperPrint }}</div>
@@ -383,17 +433,19 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
               <template v-if="headerBalances.has(column.employee.id)">
                 <div
                   v-for="line in headerBalances.get(column.employee.id)" :key="line.label"
-                  class="whitespace-nowrap font-normal" :title="line.hint"
+                  class="whitespace-nowrap font-normal print:whitespace-normal" :title="line.hint"
                 >
                   <span class="text-gray-500">{{ line.label }}</span>
-                  <span class="ml-1" :class="balanceClass(line.minutes)">{{ formatSignedDuration(line.minutes) }} h</span>
+                  <span class="ml-1 whitespace-nowrap" :class="balanceClass(line.minutes)">{{ formatSignedDuration(line.minutes) }} h</span>
                 </div>
               </template>
             </th>
           </template>
           <template v-if="!showBlocks">
-            <th class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
-            <th class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
+            <template v-if="showInfo">
+              <th class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info1 }}</th>
+              <th class="border border-gray-200 bg-gray-100 px-2 py-1">{{ de.plan.info2 }}</th>
+            </template>
             <th v-if="plan.admin" class="w-8 border border-gray-200 bg-gray-100 px-1 py-1 print:hidden"><UIcon name="i-lucide-triangle-alert" /></th>
           </template>
         </tr>
@@ -403,14 +455,30 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
           <!-- Printed across pages, a day (and its KW row) is never cut in half; the name rows repeat on each page. -->
           <tr :class="[rowClass(row.day), 'break-inside-avoid']" :data-date="row.day.date">
             <td
-              class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top print:whitespace-nowrap"
+              class="sticky left-0 z-10 border border-gray-200 px-2 py-1 align-top print:overflow-hidden print:whitespace-nowrap"
               :class="[rowClass(row.day), selectedDate === row.day.date ? 'ring-2 ring-inset ring-sky-500' : '']"
             >
-              <button type="button" class="text-left font-medium hover:underline" @click="emit('dateClick', row.day.date)">
-                {{ formatDayShort(row.day.date, row.day.weekday) }}
-              </button>
-              <div v-if="row.day.holidayKey" class="text-xs text-blue-700 print:ml-1 print:inline-block print:max-w-48 print:truncate print:align-bottom">{{ de.holidays[row.day.holidayKey] }}</div>
-              <div v-else-if="row.day.closureLabel" class="text-xs text-blue-700 print:ml-1 print:inline-block print:max-w-48 print:truncate print:align-bottom">{{ row.day.closureLabel }}</div>
+              <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                <button type="button" class="text-left font-medium hover:underline" @click="emit('dateClick', row.day.date)">
+                  {{ formatDayShort(row.day.date, row.day.weekday) }}
+                </button>
+                <!-- Info columns hidden: the day's Info texts and appointments behind a small marker beside the date. -->
+                <UPopover v-if="row.infoLines.length" :content="{ side: 'right', align: 'start' }">
+                  <button
+                    type="button" class="inline-flex rounded text-sky-700 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-sky-500"
+                    :title="row.infoLines.join('\n')" :aria-label="de.planCompact.infoMarker(formatDayLong(row.day.date, row.day.weekday))"
+                  >
+                    <UIcon name="i-lucide-message-square-text" class="size-4" />
+                  </button>
+                  <template #content>
+                    <ul class="max-w-72 space-y-1 p-3 text-xs break-words whitespace-normal">
+                      <li v-for="(line, lineIndex) in row.infoLines" :key="lineIndex">{{ line }}</li>
+                    </ul>
+                  </template>
+                </UPopover>
+              </span>
+              <div v-if="row.day.holidayKey" class="text-xs text-blue-700 print:truncate">{{ de.holidays[row.day.holidayKey] }}</div>
+              <div v-else-if="row.day.closureLabel" class="text-xs text-blue-700 print:truncate">{{ row.day.closureLabel }}</div>
               <div v-if="dayHoursText(row.day.opening)" class="text-xs font-normal text-gray-500">{{ dayHoursText(row.day.opening) }}</div>
             </td>
             <template v-for="cell in row.cells" :key="cell.key">
@@ -425,7 +493,7 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
               </td>
               <td
                 v-else
-                class="border border-gray-200 px-1 py-1 align-top print:py-0!"
+                class="border border-gray-200 px-1 py-1 align-top print:overflow-hidden print:py-0!"
                 :class="[
                   editable && !cell.busy ? 'cursor-pointer hover:bg-sky-50' : '',
                   cell.quick ? '[-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-600' : '',
@@ -457,10 +525,10 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
                     <span v-for="(line, lineIndex) in cell.marker.lines" :key="lineIndex">{{ line }}</span>
                   </span>
                   <span
-                    v-if="cell.parentalLeave" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 ring-1 ring-gray-300 print:ring-0"
+                    v-if="cell.parentalLeave" class="whitespace-nowrap print:whitespace-normal rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 ring-1 ring-gray-300 print:ring-0"
                   >{{ cell.parentalLeave }}</span>
                   <span
-                    v-if="cell.longAbsence" class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 ring-1 ring-gray-300 print:ring-0"
+                    v-if="cell.longAbsence" class="whitespace-nowrap print:whitespace-normal rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 ring-1 ring-gray-300 print:ring-0"
                   >{{ cell.longAbsence }}</span>
                   <!-- A double click on a chip that opens its edit dialog stays with the dialog (data-quick-skip). -->
                   <PlanEntryChip
@@ -493,18 +561,18 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
               </td>
             </template>
             <td
-              v-for="note in row.notes" :key="note.field"
+              v-for="note in showInfo ? row.notes : []" :key="note.field"
               class="border border-gray-200 px-1 py-1 align-top break-words whitespace-normal"
               :class="markClass(note)"
               :title="note.title"
             >
-              <!-- The whole text, wrapped (also in print, at the tablet and on phones); the field grows with it. -->
-              <div class="w-52 print:w-32">
+              <!-- At most two lines with „…“ (a click shows the whole text, editing it in the field); the whole text in print. -->
+              <div class="w-52 print:w-auto">
                 <PlanInfoField
                   v-if="editable" :value="note.value" :label="`${de.plan[note.field]} ${formatDayShort(row.day.date, row.day.weekday)}`"
                   @save="emit('noteSave', row.day.date, note.field, $event)"
                 />
-                <span v-else class="block text-xs break-words whitespace-normal">{{ note.value }}</span>
+                <PlanInfoText v-else-if="note.value" :text="note.value" />
                 <!-- After the own Info texts, outside the field: the day's appointments, then its automatic events (read-only). -->
                 <PlanDayEvents
                   v-if="note.field === 'info2'" :events="row.day.events" :date="row.day.date" :editable="eventsEditable && !print"
@@ -558,7 +626,7 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
             </td>
           </tr>
           <tr v-if="row.week" class="break-inside-avoid bg-gray-50 text-xs">
-            <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium print:whitespace-nowrap">
+            <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 font-medium print:overflow-hidden print:text-ellipsis print:whitespace-nowrap">
               {{ de.plan.week(row.week.number) }}
               <div
                 v-if="row.week.templateName" class="font-normal text-sky-700 print:ml-1 print:inline print:whitespace-nowrap"
@@ -583,8 +651,25 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
               </td>
               <td v-else class="border border-gray-200" />
             </template>
-            <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200 px-2 py-1 text-gray-500">
-              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <td :colspan="trailingSpan" class="border border-gray-200 px-2 py-1 text-gray-500" :class="showInfo ? '' : 'print:hidden'">
+              <!-- Info columns hidden: only the warnings column is left here, so the texts become tooltips and the links icons. -->
+              <div v-if="!showInfo" class="flex items-center justify-center gap-1" :title="[row.week.templateUse?.text, de.plan.weekHint].filter(Boolean).join('\n')">
+                <template v-if="editable">
+                  <button
+                    type="button" class="inline-flex rounded text-sky-700 hover:bg-sky-50" :title="de.weekTemplates.saveWeek" :aria-label="de.weekTemplates.saveWeek"
+                    @click="emit('saveWeek', row.week.start)"
+                  >
+                    <UIcon name="i-lucide-save" class="size-4" />
+                  </button>
+                  <button
+                    type="button" class="inline-flex rounded text-sky-700 hover:bg-sky-50" :title="de.weekTemplates.applyWeek" :aria-label="de.weekTemplates.applyWeek"
+                    @click="emit('applyWeek', row.week.start)"
+                  >
+                    <UIcon name="i-lucide-calendar-plus" class="size-4" />
+                  </button>
+                </template>
+              </div>
+              <div v-else class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span v-if="row.week.templateUse" class="text-gray-500 print:hidden" :title="row.week.templateUse.title">{{ row.week.templateUse.text }}</span>
                 <span>{{ de.plan.weekHint }}</span>
                 <template v-if="editable">
@@ -609,14 +694,14 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
           <td :colspan="columnCount" class="h-4 border-x-0 bg-white print:h-1" />
         </tr>
         <tr v-for="(row, index) in totals" :key="row.label" class="break-inside-avoid break-before-avoid" :class="index === totals.length - 1 ? 'font-semibold' : ''">
-          <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 print:whitespace-nowrap">{{ row.label }}</td>
+          <td class="sticky left-0 z-10 border border-gray-200 bg-gray-50 px-2 py-1 print:overflow-hidden print:whitespace-nowrap">{{ row.label }}</td>
           <td
             v-for="(minutes, column) in row.values" :key="column"
             class="border border-gray-200 px-2 py-1 text-center" :class="minutes === null ? '' : balanceClass(minutes)"
           >
             <template v-if="minutes !== null">{{ formatSignedDuration(minutes) }}</template>
           </td>
-          <td :colspan="plan.admin ? 3 : 2" class="border border-gray-200" />
+          <td :colspan="trailingSpan" class="border border-gray-200" :class="showInfo ? '' : 'print:hidden'" />
         </tr>
       </tfoot>
     </table>

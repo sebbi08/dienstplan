@@ -37,6 +37,7 @@ Du brauchst dafür einen Linux-Server mit installiertem **Docker** (inklusive �
 - [30. Wissen (Dokumente → Wissen) mit „Gelesen und verstanden“](#30-wissen-dokumente--wissen-mit-gelesen-und-verstanden)
 - [31. Schulbezirke (Straßenliste der Stadt)](#31-schulbezirke-straßenliste-der-stadt)
 - [32. Infogespräche, Bewerbungen und Hospitationen](#32-infogespräche-bewerbungen-und-hospitationen)
+- [33. Dienstplan bearbeiten: Aufbau der Seite und Ausdruck](#33-dienstplan-bearbeiten-aufbau-der-seite-und-ausdruck)
 
 ## 1. Dateien auf den Server bringen
 
@@ -2083,15 +2084,23 @@ Haus …, die Arten aus *Einstellungen → Mitarbeitende → Pflichttermine*).
   eingetragen.
 - **Löschfristen**: Die Einträge sind ganz normale Pflichttermine und folgen deren Löschfrist (Abschnitt 15).
 
-### Info-Spalten: der ganze Text
+### Info-Spalten: zwei Zeilen, der ganze Text auf Klick
 
-Die Info-Texte im Dienstplan (Info 1 und Info 2, bis 200 Zeichen) stehen **immer vollständig** da: Der Text bricht in
-der Spalte um, statt abgeschnitten zu werden – beim Bearbeiten wächst das Feld mit dem Text mit, ebenso in der
-Ansicht ohne Bearbeiten, am Tablet, im Ausdruck und in „Mein Dienstplan“ auf dem Handy. Gespeichert wird beim
-Verlassen des Feldes; **Enter** speichert ebenfalls (ein Info-Text hat keine Zeilenumbrüche; während eine
-Eingabehilfe ein Wort zusammensetzt, gehört Enter noch zu ihr), **Esc** stellt den gespeicherten Text wieder her.
-Die Termine darunter brechen genauso um. Im Ausdruck sind die beiden Info-Spalten schmaler (8 rem), damit auch ein
-Plan mit vielen Personen nicht breiter wird; der Text bricht dort öfter um, bleibt aber vollständig.
+Die Info-Texte im Dienstplan (Info 1 und Info 2, bis 200 Zeichen) zeigen im Plan **höchstens zwei Zeilen**; geht der
+Text weiter, steht am Ende „…“, und beim Zeigen mit der Maus erscheint der ganze Text. So werden lange Texte die Zeilen
+nicht hoch. **Beim Bearbeiten** öffnet ein Klick in das Feld (oder Tab dorthin) den ganzen Text, das Feld wächst beim
+Tippen mit; nach dem Verlassen ist es wieder zwei Zeilen hoch. Gespeichert wird beim Verlassen des Feldes; **Enter**
+speichert ebenfalls (ein Info-Text hat keine Zeilenumbrüche; während eine Eingabehilfe ein Wort zusammensetzt, gehört
+Enter noch zu ihr), **Esc** stellt den gespeicherten Text wieder her. **Ohne Bearbeiten** (Mitarbeitende, Kachel
+„Dienstplan“ am Tablet) gilt dasselbe: zwei Zeilen, ein Klick oder Antippen zeigt den ganzen Text, ein zweiter Klick
+macht ihn wieder kurz. **Ganz** stehen die Texte weiter im **Ausdruck** und im PDF und in **„Mein Dienstplan“** (dort
+steht nur ein Tag pro Zeile, die Zeilen werden nicht zu hoch). Die Termine und automatischen Ereignisse unter dem Text
+bleiben immer ganz sichtbar.
+
+**„Info-Spalten ausblenden“** (Knopf oben rechts beim Dienstplan, auf schmaleren Bildschirmen nur das Symbol) blendet
+beide Info-Spalten aus und gibt den Diensten den Platz; die Wahl merkt sich das Gerät (der Browser), bis sie wieder
+zurückgestellt wird. Tage mit Info-Text, Termin oder automatischem Ereignis haben dann ein kleines **Sprechblasen-Symbol
+am Datum**; ein Klick darauf zeigt, was dort steht. Im Ausdruck stehen die Info-Spalten immer.
 
 ### Automatische Ereignisse
 
@@ -3298,7 +3307,8 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
     **Benutzer & Rechte**. Alte Lesezeichen (`/admin/closures`, `/admin/sick-days`, `/admin/rights`,
     `/documents?tab=signatures`, `/admin/accidents`) führen automatisch zum passenden Reiter.
   - **Offen für dich**: Wer einen eigenen Mitarbeiter-Eintrag hat, sieht oben auf **Mein Dienstplan** (Leitung und Träger
-    auf ihrem Dienstplan) einen Kasten mit dem, was für die Person selbst wartet – jeweils mit Zahl und Link: Dokumente zu
+    auf ihrem Dienstplan als Knopf **„Offen (n)“** in der Kopfzeile, der die Liste seitlich öffnet – n zählt alles
+    zusammen, was die Zeilen zählen) einen Kasten mit dem, was für die Person selbst wartet – jeweils mit Zahl und Link: Dokumente zu
     unterschreiben (davon überfällige), Einträge „Gelesen und verstanden“, Selbstbeurteilungen zum Ausfüllen, der Hinweis
     zum Resturlaub, Rückmeldungen zu eigenen Urlaubsanträgen (der letzten 14 Tage) und überfällige Pflichttermine (ein
     noch nie eingetragener zählt erst nach den ersten 4 Wochen der Beschäftigung). Ist nichts offen, fehlt der Kasten. Er
@@ -4164,3 +4174,38 @@ den übernommenen Bögen).
   vergessen werden.
 Löschen entfernt den Eintrag mit Terminen, Dokumenten und Bögen; die Datenbank schreibt die Löschung sofort fest (wie bei
 den anderen Dokumenten). Auch die Leitung kann einen Eintrag jederzeit selbst löschen („Eintrag löschen“).
+
+## 33. Dienstplan bearbeiten: Aufbau der Seite und Ausdruck
+
+Beim Bearbeiten (Leitung, Träger, wer den Dienstplan bearbeiten darf, auch am Tablet nach „Dienstplan bearbeiten“) soll
+möglichst viel vom Plan zu sehen sein. Darum steht über dem Plan nur noch wenig:
+
+- **Eine Kopfzeile** für Monat (mit Pfeilen), Stand („Freigegeben“ bzw. „Entwurf“, die Zahl der Änderungen), die
+  Knöpfe zum Eintragen (Dienste, Codes, „Sonderdienst…“, „Leeren“, „Aushilfe hinzufügen“), die Gruppe („alle Gruppen“
+  oder eine Gruppe), **„Info-Spalten ausblenden“**, **„Offen (n)“**, „Änderungen verwerfen…“, „Freigeben“ und „Drucken“.
+  Auf schmaleren Bildschirmen (Tablet, kleiner Laptop) bricht sie in eine zweite Zeile um; kein Knopf fällt weg. Der
+  Hinweis zum Auswählen („Zelle anklicken · Umschalt+Klick …“) steht als Symbol mit Tooltip da (auf sehr breiten
+  Bildschirmen als Text); sind Zellen ausgewählt, steht dort „n Zellen ausgewählt“.
+- **„Offen (n)“** (nicht am Tablet): die eigenen offenen Sachen wie im Kasten „Offen für dich“ auf „Mein Dienstplan“
+  (Abschnitt 23, mit den Pflichtterminen zum Bestätigen), seitlich geöffnet. Der Knopf fehlt, solange nichts offen ist.
+- **Eine schmale Hinweiszeile** (nur wenn es etwas zu sagen gibt), z. B. „Was noch fehlt: 2 Punkte · Freigegeben am
+  27.11.2026, 08:44 von … · Benachrichtigt: 5 (2 ungelesen, 3 gelesen)“. Ein Klick klappt sie auf: der Link zu „Was
+  noch fehlt“ in den Einstellungen und wer bei der letzten Freigabe benachrichtigt wurde und ob gelesen. („Was noch
+  fehlt“ zeigt die Zeile nicht am Tablet.)
+- **Kopfzeile und Datumsspalte bleiben stehen**: Beim Blättern im Plan bleiben die Namen oben und die Tage links
+  sichtbar (im Büro wie am Tablet).
+- **Tagesübersicht seitlich**: Ein Klick auf ein Datum öffnet die Tagesübersicht rechts neben dem Plan (statt darunter);
+  ein Klick auf ein anderes Datum zeigt diesen Tag, das Kreuz schließt sie. Der Plan bleibt dabei bedienbar.
+- **Info-Spalten** zwei Zeilen hoch, ganz auf Klick, oder ganz ausgeblendet: siehe Abschnitt 17, „Info-Spalten“.
+
+Am Bearbeiten selbst (Auswählen, Eintragen, Warnungen, Freigeben) und an den Rechten ändert sich nichts.
+
+### Ausdruck und PDF auf A4 quer
+
+Im Ausdruck (und im PDF, „PDF herunterladen“) haben die Spalten feste Breiten; lange Einträge brechen in ihrer Spalte
+um. Ist der Plan breiter als die Seite, wird er auf Seitenbreite **verkleinert**, höchstens auf 80 %. Braucht ein Plan
+mit vielen Personen mehr, wird er **in Teile geteilt**: jeder Teil beginnt auf einer neuen Seite mit Monat und „Teil 2
+von 2“, die Datumsspalte und die Namenszeile stehen in jedem Teil, die Info-Spalten im letzten. Alle Teile haben dieselbe
+Größe. Ein Plan mit 25 Personen passt so in zwei Teile. Mit **„Interne Termine mitdrucken“** heißt die PDF-Datei am Ende
+„-intern“ (z. B. „Dienstplan-2026-12-intern.pdf“), ebenso beim Jahreskalender („Jahreskalender-2027-intern.pdf“), damit
+man sie nicht mit dem Aushang verwechselt.

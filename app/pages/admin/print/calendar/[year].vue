@@ -7,6 +7,7 @@ import { calendarPrintChoice, calendarPrintItems, calendarPrintLayout, calendarP
 import { errorMessage } from '~/utils/errors'
 import { eventListDateText, eventListTimeText } from '~/utils/calendarLanes'
 import { formatDate } from '~/utils/format'
+import { printFileName } from '~/utils/printFileName'
 
 /**
  * Year calendar for printing, A4 landscape: per group (all groups one after another, or the one in "?group=3") its
@@ -64,10 +65,10 @@ const pageTitle = (label: string | null, months: number[]) =>
   [de.calendar.printTitle(year), label, `${de.months[months[0]! - 1]}–${de.months[months.at(-1)! - 1]}`, internal.value ? de.calendar.printInternalNote : '']
     .filter(Boolean).join(' – ')
 
-const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss' }
+// „-intern“ at the end with „Interne Termine mitdrucken“ (printFileName).
 const fileName = computed(() => {
   const name = printChoice.value === 'none' ? de.calendar.printNoGroup : calendar.value?.groups.find(group => group.id === printChoice.value)?.name
-  return `Jahreskalender-${year}${name ? `-${name.replace(/[äöüÄÖÜß]/g, letter => UMLAUTS[letter]!)}` : ''}`
+  return printFileName(['Jahreskalender', year, name], internal.value)
 })
 </script>
 

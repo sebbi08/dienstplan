@@ -6,8 +6,10 @@ import { de } from '~/locales/de'
 import { chipClasses } from '~/utils/colors'
 import { errorCode, errorMessage } from '~/utils/errors'
 import { formatDateTime, monthTitle } from '~/utils/format'
-import { shownGroup } from '~/utils/groups'
+import { planBlocks, shownGroup } from '~/utils/groups'
 import { planWithoutHidden } from '~/utils/longAbsence'
+import { planColumnKinds, printLayout } from '~/utils/planPrint'
+import { printFileName } from '~/utils/printFileName'
 
 definePageMeta({ layout: false })
 
@@ -34,15 +36,20 @@ const { data: plan, error } = await useFetch<MonthPlanDto>(`/api/plan/${year}/${
 const errorText = computed(() => (errorCode(error.value) === 'month_not_released' ? de.plan.notReleasedMonth(monthTitle(year, month)) : errorMessage(error.value)))
 const group = computed(() => (plan.value ? shownGroup(plan.value, Number(route.query.group) || null) : null))
 const groupName = computed(() => plan.value?.groups.find(candidate => candidate.id === group.value)?.name ?? null)
-const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss' }
-const fileGroup = computed(() => groupName.value?.replace(/[äöüÄÖÜß]/g, letter => UMLAUTS[letter]!) ?? null)
-const fileName = computed(() => `Dienstplan-${year}-${String(month).padStart(2, '0')}${fileGroup.value ? `-${fileGroup.value}` : ''}`)
+// „-intern“ at the end with „Interne Termine mitdrucken“ (printFileName).
+const fileName = computed(() => printFileName(['Dienstplan', year, String(month).padStart(2, '0'), groupName.value], internal.value))
 /** What the PDF page needs too: the group and „Interne Termine mitdrucken“. */
 const search = computed(() => {
   const query = new URLSearchParams({ ...(group.value ? { group: String(group.value) } : {}), ...(internal.value ? { [INTERNAL_QUERY]: '1' } : {}) })
   return query.size ? `?${query}` : ''
 })
 
+/**
+ * A4 landscape: the plan in its fixed print widths, scaled down to the page width; a plan too wide for that (many people)
+ * is printed in parts, each from a new page with the dates again, the Info columns in the last (planPrint.ts).
+ */
+const printed = computed(() => (plan.value ? planWithoutHidden(plan.value) : null))
+const layout = computed(() => (printed.value ? printLayout(planColumnKinds(planBlocks(printed.value, group.value))) : null))
 </script>
 
 <template>
@@ -66,7 +73,13 @@ const search = computed(() => {
     </div>
     <p v-if="error" class="text-red-700">{{ errorText }}</p>
     <template v-if="plan">
-      <PlanGrid :plan="planWithoutHidden(plan)" :group-filter="group" print />
+      <template v-for="(part, index) in layout?.parts ?? []" :key="index">
+        <p v-if="index > 0" class="mt-4 mb-1 break-before-page text-sm font-semibold print:mt-0">
+          {{ monthTitle(year, month) }}<template v-if="plan.facilityName"> – {{ plan.facilityName }}</template><template v-if="groupName"> – {{ groupName }}</template>
+          · {{ de.plan.printPart(index + 1, layout!.parts.length) }}
+        </p>
+        <PlanGrid :plan="printed ?? plan" :group-filter="group" :print-part="part" :print-zoom="layout!.zoom" print />
+      </template>
       <PlanLongAbsences :plan="plan" :group-filter="group" print class="mt-2 print:mt-1" />
       <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs print:mt-1 print:break-inside-avoid">
         <span class="font-semibold">{{ de.plan.legend }}:</span>

@@ -7,7 +7,8 @@ import {
 import { navMenu } from '../../app/utils/navMenu'
 import { accountRedirect, pageKeys } from '../../app/utils/routeAccess'
 import { tabletStartTiles } from '../../app/utils/tabletStart'
-import { openItemLinks } from '../../app/utils/openItems'
+import { de } from '../../app/locales/de'
+import { openItemLinks, openItemsCount } from '../../app/utils/openItems'
 import { effectivePermissions } from '../../shared/domain/permissionBundles'
 import type { PermissionKey } from '../../shared/domain/permissions'
 import type { MyOpenItemsDto, Role } from '../../shared/types/api'
@@ -128,10 +129,21 @@ describe('„Offen für dich“', () => {
     expect(openItemLinks({ ...NOTHING, sign: 1 })[0]!.label).toBe('1 Dokument zu unterschreiben')
   })
 
-  it('sits on „Mein Dienstplan“ and on the Leitung\'s plan', () => {
+  it('sits on „Mein Dienstplan“ and, as „Offen (n)“ with a side panel, on the Leitung\'s plan', () => {
     expect(page('my/plan/[year]/[month].vue')).toContain('<OpenItemsCard />')
     // Not in the plan editor at the tablet: the to-dos belong to the person's own account, not the shared screen.
-    expect(page('plan/[year]/[month].vue')).toContain('<OpenItemsCard v-if="isAdmin && !onTablet" />')
+    expect(page('plan/[year]/[month].vue')).toContain('<PlanOpenItemsButton v-if="isAdmin && !onTablet" />')
+    expect(page('plan/[year]/[month].vue')).not.toContain('<OpenItemsCard')
+  })
+
+  it('„Offen (n)“ counts what the card\'s lines count', () => {
+    expect(openItemsCount(openItemLinks(NOTHING))).toBe(0)
+    const items = { knowledge: 2, sign: 3, signOverdue: 1, selfAssessments: 1, leaveDecisions: 2, leaveNotice: true, requirements: 2 }
+    expect(openItemLinks(items).map(link => link.count)).toEqual([3, 2, 1, 1, 2, 2])
+    expect(openItemsCount(openItemLinks(items))).toBe(11)
+    expect(de.openItems.button(11)).toBe('Offen (11)')
+    // Pflichttermine to confirm (Leitung, Träger – also without a linked employee) count too.
+    expect(openItemsCount(openItemLinks({ ...NOTHING, attendance: { count: 3, eventId: 9, year: 2026 } }))).toBe(3)
   })
 })
 

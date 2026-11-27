@@ -101,6 +101,29 @@ export const de = {
     leaveDecisions: (count: number) => (count === 1 ? 'Rückmeldung zu deinem Urlaubsantrag' : `${count} Rückmeldungen zu deinen Urlaubsanträgen`),
     leaveNotice: 'Hinweis zu deinem Resturlaub lesen',
     requirements: (count: number) => (count === 1 ? '1 Pflichttermin überfällig' : `${count} Pflichttermine überfällig`),
+    // On the plan page: a button in the header row, the list in a side panel.
+    button: (count: number) => `Offen (${count})`,
+    buttonLabel: (count: number) => `Offen für dich: ${count}`,
+    panelHint: 'Was für dich selbst wartet – jeweils mit Link zur Seite, auf der es erledigt wird.',
+  },
+  /** The one slim line above the plan (Leitung): „Was noch fehlt“, the release and its notifications. */
+  planNotices: {
+    setup: (count: number) => `Was noch fehlt: ${count === 1 ? '1 Punkt' : `${count} Punkte`}`,
+    notifications: (total: number, unread: number, noAccount: number) => {
+      const read = total - unread - noAccount
+      const parts = [unread > 0 ? `${unread} ungelesen` : '', read > 0 ? `${read} gelesen` : '', noAccount > 0 ? `${noAccount} ohne Konto` : '']
+      return `Benachrichtigt: ${total} (${parts.filter(Boolean).join(', ')})`
+    },
+    expand: 'Aufklappen: Einzelheiten und Links', collapse: 'Zuklappen',
+  },
+  /** The compact plan page: Info columns (two lines, hide), the day overview beside the plan. */
+  planCompact: {
+    hideInfo: 'Info-Spalten ausblenden', showInfo: 'Info-Spalten einblenden',
+    infoToggleHint: 'Auf diesem Gerät gemerkt. Tage mit Info-Text oder Termin haben dann ein Symbol am Datum, das sie zeigt.',
+    infoMarker: (day: string) => `Info und Termine am ${day}`,
+    infoExpand: 'Klicken: ganzer Text', infoCollapse: 'Klicken: wieder zwei Zeilen',
+    infoEditHint: 'Klicken: ganzen Text lesen und bearbeiten',
+    overviewHint: 'Ein Klick auf ein anderes Datum im Plan zeigt diesen Tag.',
   },
   leavePlanning: {
     title: 'Urlaubsplanung', countRow: 'im Urlaub',
@@ -447,9 +470,11 @@ export const de = {
     releasedChangeTooltip: (at: string, by: string, before: string, after: string) => `Freigabe ${at} (${by}): ${before} → ${after}`,
     pendingTooltip: (before: string, after: string) => `Noch nicht freigegeben: ${before} → ${after}`,
     printDraftNote: (count: number) => `Entwurf – ${count === 1 ? '1 Änderung' : `${count} Änderungen`} noch nicht freigegeben`,
-    release: 'Freigeben', rerelease: 'Erneut freigeben',
+    release: 'Freigeben', rerelease: 'Erneut freigeben', released: 'Freigegeben',
     releaseConfirm: 'Monat freigeben? Alle Mitarbeitenden sehen danach diesen Stand. Eine Freigabe kann nicht zurückgenommen werden; spätere Änderungen werden nach der nächsten Freigabe als Änderung markiert.',
     print: 'Drucken', printNow: 'Jetzt drucken',
+    // A plan too wide for one A4 page is printed in parts (app/utils/planPrint.ts).
+    printPart: (part: number, parts: number) => `Teil ${part} von ${parts}`,
     week: (number: number) => `KW ${number}`, weekHint: 'Soll/Ist-Differenz der Woche',
     headerToday: 'heute', headerPlanned: 'mit Plan',
     balanceTodayHint: 'Überstunden: Stand heute (nur bis heute geleistete bzw. geplante Tage)',
@@ -459,6 +484,7 @@ export const de = {
     selected: (count: number) => (count === 1 ? '1 Zelle ausgewählt' : `${count} Zellen ausgewählt`),
     selectHint: 'Zelle anklicken · Umschalt+Klick: Bereich · Strg+Klick: mehrere Zellen · Doppelklick (am Handy lange drücken): Zeit eintippen',
     selectFirst: 'Bitte zuerst eine oder mehrere Zellen auswählen.',
+    toolbarLabel: 'Eintragen in die ausgewählten Zellen',
     discard: 'Änderungen verwerfen…', discarded: 'Änderungen verworfen',
     addBreak: 'Zusätzliche Pause…',
     breakEntry: (times: string) => `Pause ${times}`,

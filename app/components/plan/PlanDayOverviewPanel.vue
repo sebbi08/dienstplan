@@ -13,9 +13,10 @@ import { parentalLeaveCells } from '~/utils/parentalLeave'
 /**
  * groupId: the group chosen above the plan. Then the overview shows the same people as the plan (the group, the
  * Springer and the helpers), plus anyone whose duty of this day counts for that group. `canEditEvents` (whoever manages
- * the calendar): the day's appointments open on click, and „Termin eintragen“ adds one for the day.
+ * the calendar): the day's appointments open on click, and „Termin eintragen“ adds one for the day. `embedded`: inside
+ * the plan's side panel, which has the title and the close button.
  */
-const props = defineProps<{ plan: MonthPlanDto; date: string; groupId?: number | null; canEditEvents?: boolean }>()
+const props = defineProps<{ plan: MonthPlanDto; date: string; groupId?: number | null; canEditEvents?: boolean; embedded?: boolean }>()
 const emit = defineEmits<{ close: []; addEvent: [date: string]; eventClick: [event: CalendarEventDto] }>()
 
 const LEGEND: SlotState[] = ['work', 'support', 'break', 'absent', 'prep_time', 'office', 'doctor', 'office_day', 'home_office', 'holiday', 'other']
@@ -50,15 +51,15 @@ const gridStyle = computed(() => ({
 </script>
 
 <template>
-  <section class="rounded-lg bg-white p-3 ring-1 ring-gray-200">
-    <div class="mb-2 flex items-center">
-      <h2 class="font-semibold">{{ de.overview.title(formatDate(date)) }}</h2>
+  <section :class="embedded ? '' : 'rounded-lg bg-white p-3 ring-1 ring-gray-200'">
+    <div v-if="!embedded || canEditEvents" class="mb-2 flex items-center">
+      <h2 v-if="!embedded" class="font-semibold">{{ de.overview.title(formatDate(date)) }}</h2>
       <UButton
         v-if="canEditEvents" class="ml-auto" size="xs" color="neutral" variant="outline" icon="i-lucide-calendar-plus"
         :label="de.calendar.addEvent" @click="emit('addEvent', date)"
       />
       <UButton
-        :class="canEditEvents ? 'ml-1' : 'ml-auto'" size="xs" color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="de.common.close"
+        v-if="!embedded" :class="canEditEvents ? 'ml-1' : 'ml-auto'" size="xs" color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="de.common.close"
         @click="emit('close')"
       />
     </div>

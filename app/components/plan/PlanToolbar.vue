@@ -6,7 +6,11 @@ import { de } from '~/locales/de'
 import { buttonCodes, codeButtonLabel } from '~/utils/codes'
 import { type CellScope, codesForScope, takesAbsences } from '~/utils/helpOuts'
 
-/** Buttons for the selected cells (those that do not fit the selection's scope are disabled) and "Aushilfe hinzufügen". */
+/**
+ * Buttons for the selected cells (those that do not fit the selection's scope are disabled) and "Aushilfe hinzufügen".
+ * `inline`: the plan's editing view – no box of its own, the buttons flow in the header row (PlanHeader) and the long
+ * selection hint becomes an info icon with the hint as tooltip and name (on very wide screens the text itself).
+ */
 const props = withDefaults(defineProps<{
   templates: TemplateDto[]
   codes: CodeDto[]
@@ -16,7 +20,8 @@ const props = withDefaults(defineProps<{
   severalFacilities?: boolean
   /** „Krank melden“ for an editor without the sick days right (the private codes are not among `codes`). */
   reportSick?: boolean
-}>(), { scope: 'normal', severalFacilities: false, reportSick: false })
+  inline?: boolean
+}>(), { scope: 'normal', severalFacilities: false, reportSick: false, inline: false })
 const codeButtons = computed(() => buttonCodes(props.codes))
 const allowedCodes = computed(() => new Set(codesForScope(codeButtons.value, props.scope).map(code => code.id)))
 /** Tooltip of a shift button: its name plus the working time of its fixed times and whether its break meets the law. */
@@ -32,9 +37,21 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="space-y-2 rounded-lg bg-white p-2 ring-1 ring-gray-200 print:hidden">
-    <div class="flex flex-wrap items-center gap-1">
-      <span class="mr-2 text-xs text-gray-500">{{ selectedCount ? de.plan.selected(selectedCount) : de.plan.selectHint }}</span>
+  <div
+    :class="inline ? 'contents' : 'block space-y-2 rounded-lg bg-white p-2 ring-1 ring-gray-200'" class="print:hidden"
+    role="toolbar" :aria-label="de.plan.toolbarLabel"
+  >
+    <div :class="inline ? 'contents' : 'flex flex-wrap items-center gap-1'">
+      <span v-if="!inline || selectedCount" class="mr-2 text-xs text-gray-500" :class="inline && selectedCount ? 'font-medium text-sky-800' : ''">
+        {{ selectedCount ? de.plan.selected(selectedCount) : de.plan.selectHint }}
+      </span>
+      <template v-else>
+        <span class="hidden max-w-md text-xs text-gray-500 min-[1800px]:inline">{{ de.plan.selectHint }}</span>
+        <UIcon
+          name="i-lucide-mouse-pointer-click" class="size-4 shrink-0 text-gray-400 min-[1800px]:hidden" role="img"
+          :aria-label="de.plan.selectHint" :title="de.plan.selectHint"
+        />
+      </template>
       <UButton
         v-for="template in templates" :key="template.id" size="xs" color="neutral" variant="outline"
         :title="templateTitle(template)" :disabled="!withShifts"
@@ -43,11 +60,11 @@ const emit = defineEmits<{
         @click="emit('template', template)"
       />
       <UButton
-        v-if="severalFacilities" size="xs" color="neutral" variant="outline" icon="i-lucide-user-plus" class="ml-auto"
+        v-if="!inline && severalFacilities" size="xs" color="neutral" variant="outline" icon="i-lucide-user-plus" class="ml-auto"
         :label="de.plan.addHelper" @click="emit('addHelper')"
       />
     </div>
-    <div class="flex flex-wrap items-center gap-1">
+    <div :class="inline ? 'contents' : 'flex flex-wrap items-center gap-1'">
       <UButton
         v-for="code in codeButtons" :key="code.id" size="xs" color="neutral" variant="soft"
         :disabled="!allowedCodes.has(code.id)" :label="codeButtonLabel(code)" @click="emit('code', code)"
@@ -60,6 +77,10 @@ const emit = defineEmits<{
       <UButton
         size="xs" color="error" variant="ghost" icon="i-lucide-eraser" :disabled="!withShifts"
         :label="de.plan.clear" @click="emit('clear')"
+      />
+      <UButton
+        v-if="inline && severalFacilities" size="xs" color="neutral" variant="outline" icon="i-lucide-user-plus"
+        :label="de.plan.addHelper" @click="emit('addHelper')"
       />
     </div>
   </div>

@@ -14,6 +14,8 @@ import type { SickLeaveTarget } from '~/components/sick/SickLeaveModal.vue'
 import { de } from '~/locales/de'
 import { entryApplyMode } from '~/utils/applyMode'
 import { errorMessage } from '~/utils/errors'
+import { formatDate } from '~/utils/format'
+import { readInfoHidden, writeInfoHidden } from '~/utils/planCompact'
 import { isPlanEditorView } from '~/utils/routeAccess'
 import { readGroupFilter, shownGroup, writeGroupFilter } from '~/utils/groups'
 import { busyCellKeys, type CellScope, cellScope, isMarker } from '~/utils/helpOuts'
@@ -147,6 +149,16 @@ onMounted(() => {
   groupFilter.value = readGroupFilter()
 })
 const activeGroup = computed(() => (plan.value ? shownGroup(plan.value, groupFilter.value) : null))
+
+/** „Info-Spalten ausblenden“: remembered per device; read after mounting, like the group filter. */
+const infoHidden = ref(false)
+onMounted(() => {
+  infoHidden.value = readInfoHidden()
+})
+function toggleInfo() {
+  infoHidden.value = !infoHidden.value
+  writeInfoHidden(infoHidden.value)
+}
 const groupItems = computed(() => [
   { label: de.groups.filterAll, value: 0 },
   ...(plan.value?.groups ?? []).map(group => ({ label: group.name, value: group.id })),
@@ -409,46 +421,66 @@ function navigate(nextYear: number, nextMonth: number) {
 </script>
 
 <template>
-  <div class="space-y-3">
+  <div class="space-y-2">
     <template v-if="plan && !error && !lockedOut">
-      <PlanSetupNotice v-if="isAdmin && !onTablet" />
-      <!-- The Leitung's own to-dos (with a linked employee), as on „Mein Dienstplan“; hidden while nothing is open. -->
-      <OpenItemsCard v-if="isAdmin && !onTablet" />
+      <!--
+        One row for month, release, print, the toolbar and the group filter (wraps on narrower screens); the Leitung's own
+        to-dos behind „Offen (n)“ and the notices in one slim line, so the plan keeps the room.
+      -->
       <PlanHeader
         :plan="plan" :is-admin="isAdmin" :can-release="canRelease" :printable="!(onTablet && isAdmin)" :group-filter="activeGroup"
-        @navigate="navigate" @release="release" @discard="discardOpen = true"
-      />
-      <PlanReleaseNotifications v-if="isAdmin && plan.release.releasedAt" :key="`${year}-${month}-${releaseStatusKey}`" :year="year" :month="month" />
+        :compact="isAdmin" @navigate="navigate" @release="release" @discard="discardOpen = true"
+      >
+        <PlanToolbar
+          v-if="isAdmin" inline
+          :templates="plan.templates" :codes="plan.codes"
+          :selected-count="selection.cells.value.length" :scope="scope" :several-facilities="plan.facilityName !== null"
+          :report-sick="plan.reportSickCodeId !== null"
+          @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @add-helper="helperOpen = true"
+          @report-sick="onReportSick"
+        />
+        <USelect
+          v-if="plan.groups.length" v-model="groupSelect" :items="groupItems" size="sm" class="w-36 print:hidden" :aria-label="de.groups.filter"
+          :title="de.groups.filter"
+        />
+        <template #actions>
+          <!-- The label only on wide screens; narrower ones show the icon (name and tooltip stay). -->
+          <UButton
+            size="sm" color="neutral" variant="ghost" :icon="infoHidden ? 'i-lucide-panel-right-open' : 'i-lucide-panel-right-close'"
+            :aria-label="de.planCompact.hideInfo" :aria-pressed="infoHidden" class="print:hidden"
+            :title="`${infoHidden ? de.planCompact.showInfo : de.planCompact.hideInfo} – ${de.planCompact.infoToggleHint}`" @click="toggleInfo"
+          >
+            <span class="hidden 2xl:inline">{{ infoHidden ? de.planCompact.showInfo : de.planCompact.hideInfo }}</span>
+          </UButton>
+          <!-- The Leitung's own to-dos (with a linked employee), as on „Mein Dienstplan“; hidden while nothing is open. -->
+          <PlanOpenItemsButton v-if="isAdmin && !onTablet" />
+        </template>
+      </PlanHeader>
+      <PlanNoticesLine v-if="isAdmin" :key="`${year}-${month}-${releaseStatusKey}`" :plan="plan" :setup="!onTablet" />
       <PlanDiscardModal v-if="isAdmin" v-model:open="discardOpen" :plan="plan" @submit="onDiscard" />
-      <PlanToolbar
-        v-if="isAdmin"
-        :templates="plan.templates" :codes="plan.codes"
-        :selected-count="selection.cells.value.length" :scope="scope" :several-facilities="plan.facilityName !== null"
-        :report-sick="plan.reportSickCodeId !== null"
-        @template="onTemplate" @code="onCode" @special="openModal(null)" @clear="onClear" @add-helper="helperOpen = true"
-        @report-sick="onReportSick"
-      />
       <PlanHelperModal v-if="isAdmin && plan.facilityName !== null" v-model:open="helperOpen" :year="year" :month="month" @done="refresh" />
-      <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
-        <div class="min-w-0 flex-1 space-y-3">
-          <div v-if="plan.groups.length" class="flex items-center gap-2 print:hidden">
-            <span class="text-sm text-gray-600">{{ de.groups.filter }}:</span>
-            <USelect v-model="groupSelect" :items="groupItems" class="w-48" :aria-label="de.groups.filter" />
-          </div>
-          <PlanGrid
-            :plan="gridPlan ?? plan" :group-filter="activeGroup" :plain-actuals="onTablet"
-            :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate" :events-editable="canEditEvents"
-            @event-click="openEvent" @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
-            @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
-            @remove-helper="onRemoveHelper" @sick-leave="openSickLeave" @warnings-changed="refresh" @quick-entry="onQuickEntry"
-          />
-          <PlanLongAbsences :plan="plan" :group-filter="activeGroup" :revealed="revealed" @toggle="toggleRevealed" />
+      <PlanGrid
+        :plan="gridPlan ?? plan" :group-filter="activeGroup" :plain-actuals="onTablet" :info-hidden="infoHidden"
+        :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate" :events-editable="canEditEvents"
+        @event-click="openEvent" @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
+        @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
+        @remove-helper="onRemoveHelper" @sick-leave="openSickLeave" @warnings-changed="refresh" @quick-entry="onQuickEntry"
+      />
+      <PlanLongAbsences :plan="plan" :group-filter="activeGroup" :revealed="revealed" @toggle="toggleRevealed" />
+      <!-- The day overview beside the plan (not below it); the plan stays usable, another date shows that day. -->
+      <USlideover
+        :open="selectedDate !== null" :modal="false" :overlay="false" :dismissible="false"
+        :title="selectedDate ? de.overview.title(formatDate(selectedDate)) : ''" :description="de.planCompact.overviewHint"
+        :ui="{ content: 'w-full max-w-3xl', body: 'p-3 sm:p-4' }" class="print:hidden"
+        @update:open="(open: boolean) => { if (!open) selectedDate = null }"
+      >
+        <template #body>
           <PlanDayOverviewPanel
             v-if="selectedDate" :plan="gridPlan ?? plan" :date="selectedDate" :group-id="activeGroup" :can-edit-events="canEditEvents"
-            @close="selectedDate = null" @add-event="openNewEvent" @event-click="openEvent"
+            embedded @close="selectedDate = null" @add-event="openNewEvent" @event-click="openEvent"
           />
-        </div>
-      </div>
+        </template>
+      </USlideover>
       <PlanTimeEntryModal v-model:open="modalOpen" :code="modalCode" :day-entries="selectedDayEntries" @submit="onEntry" />
       <PlanQuickTimeEntry
         v-if="isAdmin" v-model:open="quickEntry.open" :reference="quickEntry.reference" :day-entries="selectedDayEntries"

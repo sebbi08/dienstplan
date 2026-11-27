@@ -29,7 +29,7 @@ const title = computed(() => {
 
 <template>
   <span
-    class="group inline-flex items-start gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xs"
+    class="group inline-flex max-w-full items-start gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xs print:whitespace-normal print:break-words"
     :class="[chipClasses[entry.color], editable ? 'cursor-pointer ring-1 ring-sky-400 hover:ring-2' : '']" :title="title"
   >
     <span class="flex flex-col">
