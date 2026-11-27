@@ -6,11 +6,15 @@ import { openItemLinks } from '~/utils/openItems'
 /**
  * „Offen für dich“: what waits for the signed-in person (their linked employee), one line per kind with its count and a
  * link to the page where it is done – „Gelesen und verstanden“, Zu unterschreiben, Selbstbeurteilung, Rückmeldungen zu
- * Urlaubsanträgen, Hinweis zum Resturlaub, fällige Pflichttermine. Hidden while nothing is open, for accounts without a
- * linked employee and at the tablet. Loaded again on every page change, like the menu's counts.
+ * Urlaubsanträgen, Hinweis zum Resturlaub, fällige Pflichttermine; for Leitung and Träger the Pflichttermine whose
+ * attendance is to be confirmed. Hidden while nothing is open, at the tablet and for accounts with neither a linked
+ * employee nor that right. Loaded again on every page change, like the menu's counts.
  */
 const { user } = useUserSession()
-const enabled = computed(() => !!user.value && user.value.role !== 'terminal' && user.value.employeeId != null)
+// Also for whoever confirms the attendance of Pflichttermine (Leitung, Träger), with or without a linked employee.
+const { can } = useCan()
+const enabled = computed(() => !!user.value && user.value.role !== 'terminal'
+  && (user.value.employeeId != null || (can('employees.edit') && can('calendar.edit'))))
 const { data, refresh } = useFetch<MyOpenItemsDto>('/api/my/open-items', { key: 'my-open-items', watch: false, immediate: enabled.value, server: false })
 const route = useRoute()
 watch(() => route.fullPath, () => { if (enabled.value) refresh() })

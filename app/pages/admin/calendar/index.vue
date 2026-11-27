@@ -193,39 +193,42 @@ async function attendanceSaved() {
     <section class="max-w-4xl space-y-3">
       <h2 class="text-lg font-semibold">{{ de.calendar.eventList }}</h2>
       <p v-if="!calendar?.events.length" class="text-sm text-gray-500">{{ de.calendar.noEvents }}</p>
-      <table v-else class="w-full overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
-        <thead class="bg-gray-100 text-left text-xs text-gray-600">
-          <tr>
-            <th class="px-3 py-2">{{ de.calendar.date }}</th><th class="px-3 py-2">{{ de.calendar.time }}</th>
-            <th class="px-3 py-2">{{ de.calendar.title2 }}</th><th class="px-3 py-2">{{ de.calendar.staffColumn }}</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="event in calendar.events" :key="event.id" class="border-t border-gray-100">
-            <td class="whitespace-nowrap px-3 py-2">{{ eventListDateText(event) }}</td>
-            <td class="whitespace-nowrap px-3 py-2">{{ eventListTimeText(event) }}</td>
-            <td class="px-3 py-2">
-              {{ event.title }}
-              <span v-if="event.requirement" class="mt-0.5 flex flex-wrap items-center gap-1">
-                <UBadge size="sm" variant="soft" color="warning" :label="de.eventRequirements.badge(event.requirement.typeName)" />
-                <span v-if="event.requirement.confirmedAt" class="text-xs text-green-700">
-                  {{ de.eventRequirements.confirmedOn(formatDateTime(event.requirement.confirmedAt)) }}
+      <!-- Scrolls sideways on its own on a phone, the page does not. -->
+      <div v-else class="overflow-x-auto rounded-lg bg-white ring-1 ring-gray-200">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-100 text-left text-xs text-gray-600">
+            <tr>
+              <th class="px-3 py-2">{{ de.calendar.date }}</th><th class="px-3 py-2">{{ de.calendar.time }}</th>
+              <th class="px-3 py-2">{{ de.calendar.title2 }}</th><th class="px-3 py-2">{{ de.calendar.staffColumn }}</th><th />
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="event in calendar.events" :key="event.id" class="border-t border-gray-100">
+              <td class="whitespace-nowrap px-3 py-2">{{ eventListDateText(event) }}</td>
+              <td class="whitespace-nowrap px-3 py-2">{{ eventListTimeText(event) }}</td>
+              <td class="px-3 py-2">
+                {{ event.title }}
+                <span v-if="event.requirement" class="mt-0.5 flex flex-wrap items-center gap-1">
+                  <UBadge size="sm" variant="soft" color="warning" :label="de.eventRequirements.badge(event.requirement.typeName)" />
+                  <span v-if="event.requirement.confirmedAt" class="text-xs text-green-700">
+                    {{ de.eventRequirements.confirmedOn(formatDateTime(event.requirement.confirmedAt)) }}
+                  </span>
+                  <span v-else-if="eventLastDay(event) <= todayIso()" class="text-xs text-amber-800">{{ de.eventRequirements.unconfirmed }}</span>
                 </span>
-                <span v-else-if="eventLastDay(event) <= todayIso()" class="text-xs text-amber-800">{{ de.eventRequirements.unconfirmed }}</span>
-              </span>
-            </td>
-            <td class="px-3 py-2">{{ visibilityOf(event) }}</td>
-            <td class="whitespace-nowrap px-3 py-2 text-right">
-              <UButton
-                v-if="confirmable(event)" size="xs" color="primary" variant="ghost" icon="i-lucide-user-check"
-                :label="de.eventRequirements.confirm" @click="openAttendance(event.id)"
-              />
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="openEvent(event)" />
-              <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeEvent(event)" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              </td>
+              <td class="px-3 py-2">{{ visibilityOf(event) }}</td>
+              <td class="whitespace-nowrap px-3 py-2 text-right">
+                <UButton
+                  v-if="confirmable(event)" size="xs" color="primary" variant="ghost" icon="i-lucide-user-check"
+                  :label="de.eventRequirements.confirm" @click="openAttendance(event.id)"
+                />
+                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="openEvent(event)" />
+                <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeEvent(event)" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <CalendarAbsenceDialog

@@ -1,5 +1,6 @@
 import type { MyOpenItemsDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { attendanceLink } from '~/utils/eventRequirements'
 
 /** One line of „Offen für dich“: what is open, where it is done. */
 export interface OpenItemLink {
@@ -19,6 +20,8 @@ export function openItemLinks(items: MyOpenItemsDto): OpenItemLink[] {
     items.leaveNotice && { key: 'leaveNotice', label: t.leaveNotice, to: '/my/leave', icon: 'i-lucide-info' },
     items.leaveDecisions > 0 && { key: 'leave', label: t.leaveDecisions(items.leaveDecisions), to: '/my/leave', icon: 'i-lucide-plane' },
     items.requirements > 0 && { key: 'requirements', label: t.requirements(items.requirements), to: '/my/requirements', icon: 'i-lucide-calendar-check' },
+    // Leitung and Träger: Pflichttermin appointments whose attendance is still to be confirmed (opens the first one).
+    !!items.attendance && { key: 'attendance', label: de.eventRequirements.openItem(items.attendance.count), to: attendanceLink(items.attendance), icon: 'i-lucide-user-check' },
   ]
   return lines.filter((line): line is OpenItemLink => line !== false)
 }
