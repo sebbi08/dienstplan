@@ -6,11 +6,12 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { EmployeeListExtrasDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import type { EmployeeViewer } from './employees'
+import { plannedRequirements } from './eventRequirements'
 import { getLeaveForfeitStatuses } from './leaveForfeit'
 import { shiftedLevelStep } from './parentalLeave'
 import { loadEmployees, type EmployeeRecord } from './queries'
 import { missingRequiredDocuments } from './requiredDocuments'
-import { listDueRequirements } from './requirements'
+import { listDueRequirements, listRequirementTypes } from './requirements'
 
 /** The next level step of one employee, moved by Elternzeit (null without a level or a start of employment). */
 function levelOf(employee: EmployeeRecord, today: IsoDate): EmployeeListExtrasDto['level'] {
@@ -39,6 +40,13 @@ export function listEmployeeListExtras(db: Db, facilityId: number, today: IsoDat
     rows.push({ typeId: due.typeId, typeName: due.typeName, state: due.state, dueOn: due.dueOn })
     open.set(due.employeeId, rows)
   }
+  // „geplant am …“: the Pflichttermin appointments ahead, per person in the order of the kinds.
+  const planned = plannedRequirements(db, facilityId, today)
+  const kinds = planned.size ? listRequirementTypes(db, facilityId) : []
+  const plannedOf = (employeeId: number) => kinds.flatMap((kind) => {
+    const next = planned.get(`${employeeId}:${kind.id}`)
+    return next ? [{ ...next, typeId: kind.id, typeName: kind.name }] : []
+  })
   const forfeit = withForfeit ? getLeaveForfeitStatuses(db, facilityId, today) : null
   const required = EMPLOYEE_DOCUMENT_FOLDERS.some(folder => can(viewer, FOLDER_PERMISSION[folder]))
     ? missingRequiredDocuments(db, { permissions: viewer }, facilityId, today)
@@ -47,6 +55,8 @@ export function listEmployeeListExtras(db: Db, facilityId: number, today: IsoDat
     .filter(employee => employee.leftOn === null || employee.leftOn >= today)
     .map((employee) => {
       const row: EmployeeListExtrasDto = { employeeId: employee.id, requirements: open.get(employee.id) ?? [] }
+      const ahead = plannedOf(employee.id)
+      if (ahead.length) row.plannedRequirements = ahead
       if (required) {
         row.requiredDocuments = (required.get(employee.id) ?? []).map(({ typeId, name, state }) => ({ typeId, name, state: state === 'expired' || state === 'entry' ? state : 'missing' }))
       }

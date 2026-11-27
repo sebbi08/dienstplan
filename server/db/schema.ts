@@ -567,6 +567,13 @@ export const calendarEvents = sqliteTable('calendar_events', {
   end: integer('end'),
   title: text('title').notNull(),
   visibility: text('visibility', { enum: EVENT_VISIBILITIES }).notNull().default('leaders'),
+  /**
+   * „Pflichttermin“: the kind of mandatory appointment the participants (the people `visibility` names, never 'leaders'
+   * when saved) keep by attending; null = an ordinary appointment. The kind deleted: an ordinary appointment again.
+   */
+  requirementTypeId: integer('requirement_type_id').references(() => requirementTypes.id, { onDelete: 'set null' }),
+  /** When the Leitung last confirmed who took part („Teilnahme bestätigen“; null = not yet). */
+  attendanceConfirmedAt: text('attendance_confirmed_at'),
 }, table => [index('calendar_events_date').on(table.date)])
 
 /** The groups an appointment „Bestimmte Gruppen“ is meant for (their members by home group see it). */
@@ -752,9 +759,15 @@ export const employeeRequirements = sqliteTable('employee_requirements', {
   /** Day of the appointment, or the day the proof was shown. */
   date: text('date').notNull(),
   note: text('note'),
+  /**
+   * The Pflichttermin appointment whose confirmed attendance created the entry (null = entered by hand, or the
+   * appointment was deleted): a new confirmation changes or removes only these entries, never hand-entered ones.
+   */
+  calendarEventId: integer('calendar_event_id').references(() => calendarEvents.id, { onDelete: 'set null' }),
 }, table => [
   index('employee_requirements_employee').on(table.employeeId),
   index('employee_requirements_type').on(table.typeId),
+  index('employee_requirements_event').on(table.calendarEventId),
 ])
 
 /** A training (Fortbildung) an employee took part in; it stays with the employee in whatever facility they work. */

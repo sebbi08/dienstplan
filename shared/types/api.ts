@@ -2342,10 +2342,51 @@ export interface CalendarEventDto {
   /** The chosen groups / employees: only for whoever manages the calendar (empty for everybody else). */
   groupIds: number[]
   employeeIds: number[]
+  /** Only on a „Pflichttermin“: the kind its participants (the people „Wer sieht den Termin?“ names) keep by attending. */
+  requirement?: CalendarEventRequirementDto
 }
 
-/** An appointment as the dialog saves it (POST/PUT /api/calendar-events); the lists only count for their choice. */
-export type CalendarEventSaveDto = Omit<CalendarEventDto, 'id'>
+export interface CalendarEventRequirementDto {
+  typeId: number
+  typeName: string
+  /** When the attendance was last confirmed (null = not yet; always null for whoever does not see every appointment). */
+  confirmedAt: string | null
+}
+
+/**
+ * An appointment as the dialog saves it (POST/PUT /api/calendar-events); the lists only count for their choice.
+ * `requirementTypeId`: „Pflichttermin“ of that kind (null = none; left out = unchanged on a change, none when new).
+ */
+export type CalendarEventSaveDto = Omit<CalendarEventDto, 'id' | 'requirement'> & { requirementTypeId?: number | null }
+
+/**
+ * „Teilnahme bestätigen“ of a Pflichttermin appointment (whoever enters Pflichttermine, employees.edit): the
+ * people it is meant for, resolved now (`visibility`: everyone / the home groups / the chosen people; not those who left
+ * before its first day or start after its last), plus anyone an earlier confirmation recorded.
+ */
+export interface EventAttendanceDto {
+  eventId: number
+  title: string
+  date: IsoDate
+  endDate: IsoDate | null
+  typeName: string
+  /** The day the entries get: the appointment's last day. */
+  recordDate: IsoDate
+  /** From the (last) day of the appointment on. */
+  canConfirm: boolean
+  confirmedAt: string | null
+  people: EventAttendancePersonDto[]
+}
+
+export interface EventAttendancePersonDto {
+  employeeId: number
+  name: string
+  groupName: string | null
+  /** Ticked: never confirmed → everyone; confirmed → those with an entry from this appointment. */
+  attended: boolean
+  /** An entry of the kind on that day was entered by hand: it stays as it is, the confirmation adds none. */
+  handEntered: boolean
+}
 
 /** What the appointment dialog offers for „Bestimmte Gruppen“ / „Bestimmte Personen“: the facility's groups and staff. */
 export interface CalendarEventAudienceDto {
@@ -2530,6 +2571,8 @@ export interface EmployeeListExtrasDto {
   probationUntil?: IsoDate | null
   /** Mandatory appointments that are overdue, missing or due soon (empty = nothing open). */
   requirements: { typeId: number; typeName: string; state: DueRequirementDto['state']; dueOn: IsoDate | null }[]
+  /** The Pflichttermin appointments ahead the person is meant for, one per kind („geplant am …“; absent without any). */
+  plannedRequirements?: (PlannedRequirementDto & { typeId: number; typeName: string })[]
   /**
    * The Pflichtdokumente missing or expired (only types in folders the viewer may use; absent without any folder right;
    * empty = nothing missing).
@@ -2877,6 +2920,15 @@ export interface EmployeeRequirementKindDto {
    * after the start, under 18, no record): the ban's first day.
    */
   employmentBanFrom?: IsoDate
+  /** The next Pflichttermin appointment of this kind the employee is meant for („geplant am …“; absent without one). */
+  planned?: PlannedRequirementDto
+}
+
+/** A Pflichttermin appointment not yet over (its last day today or later) and not confirmed: „geplant am …“. */
+export interface PlannedRequirementDto {
+  eventId: number
+  date: IsoDate
+  endDate: IsoDate | null
 }
 
 /** Mandatory appointments (every kind of the employee's facility) and trainings (newest first) of one employee. */
@@ -4886,6 +4938,11 @@ export interface MyOpenItemsDto {
   leaveNotice: boolean
   /** Own mandatory appointments overdue (one never entered only after the first 4 weeks of employment). */
   requirements: number
+  /**
+   * Pflichttermin appointments of the active facility from their (last) day on whose attendance is not confirmed yet
+   * (only with employees.edit and calendar.edit; absent when there are none): how many, and the first to open.
+   */
+  attendance?: { count: number; eventId: number; year: number }
 }
 
 export interface MySignRequestsDto {

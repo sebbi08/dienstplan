@@ -1,5 +1,6 @@
 import type { EmployeeListExtrasDto } from '#shared/types/api'
 import { de } from '~/locales/de'
+import { plannedText } from './eventRequirements'
 import { formatDate, formatDateTime, formatDayMonth } from './format'
 
 /** Colors of the small badges and texts in the employee list. */
@@ -40,6 +41,22 @@ export function requirementBadge(row: EmployeeListExtrasDto['requirements'][numb
   if (row.state === 'overdue') return { text: de.employees.requirementOverdue(row.typeName), tone: 'error' }
   if (row.state === 'missing') return { text: de.employees.requirementMissing(row.typeName), tone: 'error' }
   return { text: de.employees.requirementSoon(row.typeName, row.dueOn ? dueMonthYear(row.dueOn) : ''), tone: 'warning' }
+}
+
+/**
+ * The badges of the column „Pflichttermine“: one per open kind (requirementBadge), with „geplant am …“ when a
+ * Pflichttermin appointment ahead is planned for it, then the kinds not open with one planned (blue).
+ */
+export function requirementBadges(extras: Pick<EmployeeListExtrasDto, 'requirements' | 'plannedRequirements'>): { key: number; text: string; tone: ExtraTone | 'info' }[] {
+  const planned = extras.plannedRequirements ?? []
+  const open = extras.requirements.map((row) => {
+    const badge = requirementBadge(row)
+    const next = planned.find(item => item.typeId === row.typeId)
+    return { key: row.typeId, text: next ? `${badge.text} · ${plannedText(next)}` : badge.text, tone: badge.tone }
+  })
+  const ahead = planned.filter(item => !extras.requirements.some(row => row.typeId === item.typeId))
+    .map(item => ({ key: item.typeId, text: de.eventRequirements.plannedKind(item.typeName, plannedText(item)), tone: 'info' as const }))
+  return [...open, ...ahead]
 }
 
 /**

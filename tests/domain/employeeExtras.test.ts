@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { dueMonthYear, forfeitText, levelText, levelToTake, levelTone, probationText, requirementBadge } from '../../app/utils/employeeExtras'
+import {
+  dueMonthYear, forfeitText, levelText, levelToTake, levelTone, probationText, requirementBadge, requirementBadges,
+} from '../../app/utils/employeeExtras'
+import { attendanceLink } from '../../app/utils/eventRequirements'
 
 describe('the texts of the employee list columns', () => {
   it('shows „in Probezeit bis …“ only while the server sends the day (a running probation period)', () => {
@@ -31,6 +34,19 @@ describe('the texts of the employee list columns', () => {
       .toEqual({ text: 'Masernimpfung (Nachweis) fehlt', tone: 'error' })
     expect(requirementBadge({ typeId: 2, typeName: 'Erste-Hilfe-Kurs', state: 'soon', dueOn: '2026-12-20' }))
       .toEqual({ text: 'Erste-Hilfe-Kurs bis 12.2026', tone: 'warning' })
+  })
+  it('adds „geplant am …“ of a Pflichttermin appointment ahead, also to a kind that is not open', () => {
+    const planned = [
+      { eventId: 7, date: '2026-12-03', endDate: null, typeId: 2, typeName: 'Erste-Hilfe-Kurs' },
+      { eventId: 8, date: '2027-01-11', endDate: '2027-01-12', typeId: 5, typeName: 'Belehrung' },
+    ]
+    expect(requirementBadges({ requirements: [{ typeId: 2, typeName: 'Erste-Hilfe-Kurs', state: 'overdue', dueOn: '2026-10-01' }], plannedRequirements: planned }))
+      .toEqual([
+        { key: 2, text: 'Erste-Hilfe-Kurs überfällig · geplant am 03.12.2026', tone: 'error' },
+        { key: 5, text: 'Belehrung geplant vom 11.01.2027 bis 12.01.2027', tone: 'info' },
+      ])
+    expect(requirementBadges({ requirements: [] })).toEqual([])
+    expect(attendanceLink({ eventId: 7, year: 2026 })).toBe('/admin/calendar?year=2026&attendance=7')
   })
   it('words the leave notice, nothing outside the window', () => {
     expect(forfeitText(undefined, 2026)).toBeNull()

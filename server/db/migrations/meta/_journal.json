@@ -981,6 +981,13 @@
       "when": 1795763513838,
       "tag": "0139_inspection_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "6",
+      "when": 1795765474104,
+      "tag": "0140_event_requirements",
+      "breakpoints": true
     }
   ]
 }

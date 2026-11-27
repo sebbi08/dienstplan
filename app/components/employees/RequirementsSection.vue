@@ -4,6 +4,7 @@ import { CRIMINAL_RECORD_KEY, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, t
 import type { EmployeeRequirementKindDto, EmployeeRequirementsDto, RequirementRecordDto, TrainingDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
+import { plannedText } from '~/utils/eventRequirements'
 import { formatDate } from '~/utils/format'
 import { intervalText } from '~/utils/requirements'
 
@@ -111,6 +112,10 @@ async function deleteTraining(item: TrainingDto) {
               <td class="whitespace-nowrap py-1.5 pr-3">{{ kind.dueOn ? formatDate(kind.dueOn) : de.requirements.none }}</td>
               <td class="py-1.5 pr-3">
                 <UBadge :color="STATE_BADGE[kind.state].color" :variant="STATE_BADGE[kind.state].variant" :label="de.requirements.states[kind.state]" />
+                <!-- A Pflichttermin appointment ahead the person is meant for (Jahreskalender). -->
+                <span v-if="kind.planned" class="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs text-sky-800">
+                  <UIcon name="i-lucide-calendar-clock" class="size-3.5 shrink-0" aria-hidden="true" />{{ plannedText(kind.planned) }}
+                </span>
               </td>
               <td class="whitespace-nowrap py-1.5 text-right">
                 <UButton

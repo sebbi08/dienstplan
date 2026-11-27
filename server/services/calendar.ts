@@ -15,9 +15,10 @@ import type {
   CalendarEventAudienceDto, CalendarEventDto, CalendarKind, SessionUser, SickYearRowDto, YearCalendarDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { calendarEventEmployees, calendarEventGroups, calendarEvents, employees, groups } from '../db/schema'
+import { calendarEventEmployees, calendarEventGroups, calendarEvents, employeeRequirements, employees, groups, requirementTypes } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { autoEventsFor } from './autoEvents'
+import { followConfirmedEvent } from './eventRequirements'
 import { listGroups } from './groups'
 import { facilityHolidayRules } from './holidayRules'
 import { absenceSpansOf, contractWorkday, sickDatesWithLongAbsences } from './longAbsence'
@@ -198,6 +199,23 @@ const eventColumns = {
   end: calendarEvents.end, title: calendarEvents.title, visibility: calendarEvents.visibility,
 }
 
+/** The „Pflichttermin“ of an appointment row: its kind, the kind's name, the confirmation. */
+const requirementColumns = {
+  requirementTypeId: calendarEvents.requirementTypeId, requirementName: requirementTypes.name,
+  attendanceConfirmedAt: calendarEvents.attendanceConfirmedAt,
+}
+
+interface RequirementColumns { requirementTypeId: number | null; requirementName: string | null; attendanceConfirmedAt: string | null }
+
+/** The DTO's `requirement`: only on a Pflichttermin; the confirmation only for an audience that sees all. */
+function withRequirement<T extends object>(event: T, row: RequirementColumns, seesAll: boolean): T & Pick<CalendarEventDto, 'requirement'> {
+  if (row.requirementTypeId === null || row.requirementName === null) return event
+  return {
+    ...event,
+    requirement: { typeId: row.requirementTypeId, typeName: row.requirementName, confirmedAt: seesAll ? row.attendanceConfirmedAt : null },
+  }
+}
+
 /**
  * How the viewer sees the facility's appointments: Träger, Leitung and whoever manages the calendar (calendar.edit) every
  * one; anybody else as their employee in the employee's home group (eventVisibleTo). The tablet (also unlocked: it
@@ -243,7 +261,8 @@ export function staffAudience(db: Db, employeeId: number | null): EventAudience 
  * all (the others get them empty: whom else an appointment is for is none of their business).
  */
 export function loadCalendarEvents(db: Db, facilityId: number, from: IsoDate, to: IsoDate, audience: EventAudience): CalendarEventDto[] {
-  const rows = db.select(eventColumns).from(calendarEvents)
+  const rows = db.select({ ...eventColumns, ...requirementColumns }).from(calendarEvents)
+    .leftJoin(requirementTypes, eq(requirementTypes.id, calendarEvents.requirementTypeId))
     .where(and(
       eq(calendarEvents.facilityId, facilityId), lte(calendarEvents.date, to),
       gte(sql`coalesce(${calendarEvents.endDate}, ${calendarEvents.date})`, from),
@@ -260,9 +279,13 @@ export function loadCalendarEvents(db: Db, facilityId: number, from: IsoDate, to
     employeesOf.set(row.eventId, [...(employeesOf.get(row.eventId) ?? []), row.employeeId])
   }
   return rows
-    .map(row => ({ ...row, groupIds: groupsOf.get(row.id) ?? [], employeeIds: employeesOf.get(row.id) ?? [] }))
-    .filter(event => eventVisibleTo(event, audience))
-    .map(event => (audience.seesAll ? event : { ...event, groupIds: [], employeeIds: [] }))
+    .map(({ requirementTypeId, requirementName, attendanceConfirmedAt, ...row }) => ({
+      event: { ...row, groupIds: groupsOf.get(row.id) ?? [], employeeIds: employeesOf.get(row.id) ?? [] },
+      requirement: { requirementTypeId, requirementName, attendanceConfirmedAt },
+    }))
+    .filter(({ event }) => eventVisibleTo(event, audience))
+    .map(({ event, requirement }) =>
+      withRequirement(audience.seesAll ? event : { ...event, groupIds: [], employeeIds: [] }, requirement, audience.seesAll))
 }
 
 /** Every appointment of the facility touching the year, with the chosen groups and employees (for the managers). */
@@ -312,10 +335,13 @@ export function calendarEventAudience(
  * brings none of them back.
  */
 export function dropEventLinksOnMove(tx: Db, employeeId: number, oldFacilityId: number): void {
+  const oldEvents = () => tx.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.facilityId, oldFacilityId))
   tx.delete(calendarEventEmployees).where(and(
-    eq(calendarEventEmployees.employeeId, employeeId),
-    inArray(calendarEventEmployees.eventId,
-      tx.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.facilityId, oldFacilityId))),
+    eq(calendarEventEmployees.employeeId, employeeId), inArray(calendarEventEmployees.eventId, oldEvents()),
+  )).run()
+  // Entries from a confirmed Pflichttermin there go along as entered by hand: a new confirmation there leaves them be.
+  tx.update(employeeRequirements).set({ calendarEventId: null }).where(and(
+    eq(employeeRequirements.employeeId, employeeId), inArray(employeeRequirements.calendarEventId, oldEvents()),
   )).run()
 }
 
@@ -328,6 +354,17 @@ export interface CalendarEventInput {
   visibility: EventVisibility
   groupIds: number[]
   employeeIds: number[]
+  /** „Pflichttermin“ of that kind of the facility (null = none; left out = unchanged on a change, none when new). */
+  requirementTypeId?: number | null
+}
+
+/**
+ * Who changes the appointment: `mayRecord` – may enter Pflichttermine (employees.edit); only then may an appointment be
+ * made a Pflichttermin, or a Pflichttermin be changed or deleted (403 forbidden otherwise). `today`: the Berlin date.
+ */
+export interface CalendarEventOptions {
+  mayRecord?: boolean
+  today?: IsoDate
 }
 
 /**
@@ -337,7 +374,7 @@ export interface CalendarEventInput {
  * at least one group of the facility, „Bestimmte Personen“ at least one employee of it (400 otherwise); the other
  * choices keep no list.
  */
-function normalizeEvent(db: Db, facilityId: number, input: CalendarEventInput): CalendarEventInput {
+function normalizeEvent(db: Db, facilityId: number, input: CalendarEventInput): NormalizedEvent {
   const title = input.title.trim()
   if (!title) throw new ServiceError(400, 'title_required')
   const endDate = input.endDate === null || input.endDate === input.date ? null : input.endDate
@@ -362,8 +399,18 @@ function normalizeEvent(db: Db, facilityId: number, input: CalendarEventInput): 
         .where(and(eq(employees.facilityId, facilityId), inArray(employees.id, employeeIds))).all()
     if (employeeIds.length === 0 || own.length !== employeeIds.length) throw new ServiceError(400, 'event_employees_required')
   }
-  return { ...event, groupIds, employeeIds }
+  // A Pflichttermin is for the people it names, who see it: never „Nur Leitung und Träger“; a kind of the facility.
+  const requirementTypeId = input.requirementTypeId ?? null
+  if (requirementTypeId !== null) {
+    const own = db.select({ id: requirementTypes.id }).from(requirementTypes)
+      .where(and(eq(requirementTypes.id, requirementTypeId), eq(requirementTypes.facilityId, facilityId))).get()
+    if (!own) throw new ServiceError(404, 'requirement_type_not_found')
+    if (input.visibility === 'leaders') throw new ServiceError(400, 'event_requirement_audience')
+  }
+  return { ...event, groupIds, employeeIds, requirementTypeId }
 }
+
+type NormalizedEvent = CalendarEventInput & { requirementTypeId: number | null }
 
 /**
  * A page still open from before „Wer sieht den Termin?“ sends the old yes/no (`visibleToStaff`) and no choice: 400
@@ -388,36 +435,62 @@ function writeAudience(tx: Db, id: number, event: CalendarEventInput): void {
 }
 
 /** The columns of the appointment's own row. */
-function eventRow(event: CalendarEventInput) {
-  const { date, endDate, start, end, title, visibility } = event
-  return { date, endDate, start, end, title, visibility }
+function eventRow(event: NormalizedEvent) {
+  const { date, endDate, start, end, title, visibility, requirementTypeId } = event
+  return { date, endDate, start, end, title, visibility, requirementTypeId }
 }
 
-export function createCalendarEvent(db: Db, facilityId: number, input: CalendarEventInput): CalendarEventDto {
+/** The name of the facility's kind (null for none). */
+function requirementName(db: Db, typeId: number | null): string | null {
+  if (typeId === null) return null
+  return db.select({ name: requirementTypes.name }).from(requirementTypes).where(eq(requirementTypes.id, typeId)).get()?.name ?? null
+}
+
+export function createCalendarEvent(
+  db: Db, facilityId: number, input: CalendarEventInput, options: CalendarEventOptions = {},
+): CalendarEventDto {
+  if ((input.requirementTypeId ?? null) !== null && !options.mayRecord) throw new ServiceError(403, 'forbidden')
   const event = normalizeEvent(db, facilityId, input)
   return db.transaction((tx) => {
     const row = tx.insert(calendarEvents).values({ ...eventRow(event), facilityId }).returning(eventColumns).get()
     writeAudience(tx, row.id, event)
-    return { ...row, groupIds: event.groupIds, employeeIds: event.employeeIds }
+    return withRequirement(
+      { ...row, groupIds: event.groupIds, employeeIds: event.employeeIds },
+      { requirementTypeId: event.requirementTypeId, requirementName: requirementName(tx, event.requirementTypeId), attendanceConfirmedAt: null },
+      true,
+    )
   })
 }
 
-/** Another facility's appointment gives event_not_found. */
-export function updateCalendarEvent(db: Db, facilityId: number, id: number, input: CalendarEventInput): void {
-  if (!db.select({ id: calendarEvents.id }).from(calendarEvents).where(ownEvent(facilityId, id)).get()) {
-    throw new ServiceError(404, 'event_not_found')
-  }
-  const event = normalizeEvent(db, facilityId, input)
+/**
+ * Another facility's appointment gives event_not_found. A Pflichttermin whose attendance was confirmed takes the entries
+ * along (followConfirmedEvent): to its new last day and kind, or – „Pflichttermin“ taken off – they stay as entered.
+ */
+export function updateCalendarEvent(
+  db: Db, facilityId: number, id: number, input: CalendarEventInput, options: CalendarEventOptions = {},
+): void {
+  const before = db.select({ requirementTypeId: calendarEvents.requirementTypeId, attendanceConfirmedAt: calendarEvents.attendanceConfirmedAt })
+    .from(calendarEvents).where(ownEvent(facilityId, id)).get()
+  if (!before) throw new ServiceError(404, 'event_not_found')
+  const requirementTypeId = input.requirementTypeId === undefined ? before.requirementTypeId : input.requirementTypeId
+  if ((before.requirementTypeId !== null || requirementTypeId !== null) && !options.mayRecord) throw new ServiceError(403, 'forbidden')
+  const event = normalizeEvent(db, facilityId, { ...input, requirementTypeId })
   db.transaction((tx) => {
+    const confirmation = followConfirmedEvent(tx, id, before, event, options.today ?? todayIso())
     // The lists first: emptying one turns the appointment into „Nur Leitung und Träger“, the update then sets the choice.
     tx.delete(calendarEventGroups).where(eq(calendarEventGroups.eventId, id)).run()
     tx.delete(calendarEventEmployees).where(eq(calendarEventEmployees.eventId, id)).run()
-    tx.update(calendarEvents).set(eventRow(event)).where(eq(calendarEvents.id, id)).run()
+    tx.update(calendarEvents).set({ ...eventRow(event), ...confirmation }).where(eq(calendarEvents.id, id)).run()
     writeAudience(tx, id, event)
   })
 }
 
-/** Deletes the facility's appointment (its lists go along); other ids are ignored. */
-export function deleteCalendarEvent(db: Db, facilityId: number, id: number): void {
+/**
+ * Deletes the facility's appointment (its lists go along); other ids are ignored. The entries a confirmation of a
+ * Pflichttermin created stay with the people (their link becomes null). A Pflichttermin only with `mayRecord` (403).
+ */
+export function deleteCalendarEvent(db: Db, facilityId: number, id: number, options: CalendarEventOptions = {}): void {
+  const row = db.select({ requirementTypeId: calendarEvents.requirementTypeId }).from(calendarEvents).where(ownEvent(facilityId, id)).get()
+  if (row && row.requirementTypeId !== null && !options.mayRecord) throw new ServiceError(403, 'forbidden')
   db.delete(calendarEvents).where(ownEvent(facilityId, id)).run()
 }

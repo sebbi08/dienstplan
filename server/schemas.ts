@@ -208,7 +208,11 @@ export const calendarEventSchema = z.object({
   date: isoDate, endDate: isoDate.nullable(), start: minutes.nullable(), end: minutes.nullable(), title: z.string().max(200),
   visibility: z.enum(EVENT_VISIBILITIES), groupIds: z.array(z.number().int().positive()).max(100),
   employeeIds: z.array(z.number().int().positive()).max(500),
+  /** „Pflichttermin“ of this kind (null = none; left out = unchanged on a change, none when new). */
+  requirementTypeId: z.number().int().positive().nullable().optional(),
 })
+/** „Teilnahme bestätigen“: the people ticked as having taken part. */
+export const eventAttendanceSchema = z.object({ employeeIds: z.array(z.number().int().positive()).max(1000) })
 /** The print view of the plan and the year calendar: `?print=1`, `&internal=1` „Interne Termine mitdrucken“. */
 export const printViewQuery = z.object({ print: z.literal('1').optional(), internal: z.literal('1').optional() })
   .transform(query => ({ print: query.print === '1', internal: query.internal === '1' }))

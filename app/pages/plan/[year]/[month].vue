@@ -92,11 +92,17 @@ async function saveEvent(value: CalendarEventSaveDto) {
   if (ok) eventDialog.open = false
 }
 async function removeEvent(event: CalendarEventDto) {
-  if (!await confirm(de.calendar.confirmDelete)) return
+  if (!await confirm(event.requirement ? de.eventRequirements.deleteConfirm : de.calendar.confirmDelete)) return
   if (await run(() => $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'DELETE' }), de.common.deleted)) eventDialog.open = false
 }
 
 const selection = usePlanSelection()
+/** „Teilnahme bestätigen“ of a Pflichttermin, from the appointment dialog. */
+const attendance = reactive<{ open: boolean; eventId: number | null }>({ open: false, eventId: null })
+function openAttendance(eventId: number) {
+  eventDialog.open = false
+  Object.assign(attendance, { open: true, eventId })
+}
 const selectedDate = ref<string | null>(null)
 const modalOpen = ref(false)
 const modalCode = ref<CodeDto | null>(null)
@@ -482,3 +488,7 @@ function navigate(nextYear: number, nextMonth: number) {
     </template>
   </div>
 </template>
+        @attendance="eventDialog.event && openAttendance(eventDialog.event.id)"
+      />
+      <CalendarEventAttendanceDialog
+        v-if="canEditEvents" v-model:open="attendance.open" :event-id="attendance.eventId" @saved="refresh"

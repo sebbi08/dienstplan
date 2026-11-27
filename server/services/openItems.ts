@@ -6,6 +6,7 @@ import type { IsoDate } from '../../shared/domain/types'
 import type { MyOpenItemsDto, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employees, leaveRequests } from '../db/schema'
+import { unconfirmedAttendance } from './eventRequirements'
 import { openKnowledgeCount } from './knowledge'
 import { getMyLeaveForfeitNotice } from './leaveForfeit'
 import { loadEmployee } from './queries'
@@ -33,9 +34,20 @@ const NOTHING: MyOpenItemsDto = {
  * them are overdue), self-assessments to fill in, decisions on own leave requests of the last 14 days, the notice on
  * remaining leave still to read, and own mandatory appointments that are overdue – one never entered only after the
  * first 4 weeks of employment, so a new person is not greeted with every kind at once. Only the person's own items,
- * never anyone else's; nothing without a linked employee.
+ * never anyone else's; nothing without a linked employee. Besides, for whoever enters Pflichttermine and edits the
+ * calendar (Leitung, Träger – also without a linked employee): the Pflichttermin appointments of the active facility
+ * whose attendance is still to be confirmed („Teilnahme bestätigen“, from their last day on).
  */
 export function myOpenItems(db: Db, viewer: OpenItemsViewer, today: IsoDate): MyOpenItemsDto {
+  const own = ownOpenItems(db, viewer, today)
+  const unconfirmed = viewer.facilityId !== null && can(viewer.permissions, 'employees.edit') && can(viewer.permissions, 'calendar.edit')
+    ? unconfirmedAttendance(db, viewer.facilityId, today)
+    : []
+  const first = unconfirmed[0]
+  return first ? { ...own, attendance: { count: unconfirmed.length, eventId: first.id, year: Number(first.date.slice(0, 4)) } } : own
+}
+
+function ownOpenItems(db: Db, viewer: OpenItemsViewer, today: IsoDate): MyOpenItemsDto {
   const employeeId = viewer.employeeId
   if (employeeId === null) return NOTHING
   const employee = db.select({ facilityId: employees.facilityId }).from(employees).where(eq(employees.id, employeeId)).get()

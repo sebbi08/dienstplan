@@ -14,7 +14,7 @@ import { de } from '~/locales/de'
 import { parseBirthday } from '~/utils/birthday'
 import { birthYearOnlyUpdate } from '~/utils/employeeForms'
 import { balanceClass } from '~/utils/colors'
-import { forfeitText, levelText, levelToTake, levelTone, probationText, requirementBadge, type ExtraTone } from '~/utils/employeeExtras'
+import { forfeitText, levelText, levelToTake, levelTone, probationText, requirementBadges, type ExtraTone } from '~/utils/employeeExtras'
 import { formatDate, formatHours, formatNumber, hoursToMinutes } from '~/utils/format'
 import { splitLeavers } from '~/utils/leavers'
 import { archiveRetentionText } from '~/utils/retentionText'
@@ -66,6 +66,11 @@ const balanceOf = computed(() => new Map((balances.value ?? []).map(balance => [
 const leaveOf = computed(() => new Map((leave.value ?? []).map(row => [row.employeeId, row.account])))
 const linked = computed(() => new Set((users.value ?? []).map(account => account.employeeId).filter(id => id !== null)))
 const extrasOf = computed(() => new Map((extras.value ?? []).map(row => [row.employeeId, row])))
+/** „Pflichttermine“: the open kinds and the Pflichttermin appointments ahead („geplant am …“). */
+const requirementBadgesOf = (id: number) => {
+  const row = extrasOf.value.get(id)
+  return row ? requirementBadges(row) : []
+}
 const badgesOf = computed(() => new Map(split.value.active.map(employee => [employee.id, staffBadges(employee, {
   hasAccount: linked.value.has(employee.id),
 })])))
@@ -337,8 +342,8 @@ const td = 'px-3 py-2'
           <td :class="td">
             <NuxtLink :to="recordsLink(employee)" class="flex flex-wrap gap-1 hover:opacity-80">
               <UBadge
-                v-for="row in extrasOf.get(employee.id)?.requirements" :key="row.typeId" size="sm" variant="soft"
-                :color="requirementBadge(row).tone" :label="requirementBadge(row).text"
+                v-for="badge in requirementBadgesOf(employee.id)" :key="badge.key" size="sm" variant="soft"
+                :color="badge.tone" :label="badge.text"
               />
               <span v-if="extrasOf.get(employee.id) && !extrasOf.get(employee.id)!.requirements.length" class="font-medium text-green-700" :title="de.employees.requirementsOkLabel">
                 <span aria-hidden="true">{{ de.employees.requirementsOk }}</span><span class="sr-only">{{ de.employees.requirementsOkLabel }}</span>
@@ -430,8 +435,8 @@ const td = 'px-3 py-2'
         >
           <span class="text-gray-600">{{ de.employees.requirementsColumn }}:</span>
           <UBadge
-            v-for="row in extrasOf.get(employee.id)!.requirements" :key="row.typeId" size="sm" variant="soft"
-            :color="requirementBadge(row).tone" :label="requirementBadge(row).text"
+            v-for="badge in requirementBadgesOf(employee.id)" :key="badge.key" size="sm" variant="soft"
+            :color="badge.tone" :label="badge.text"
           />
           <span v-if="!extrasOf.get(employee.id)!.requirements.length" class="font-medium text-green-700" :title="de.employees.requirementsOkLabel"><span aria-hidden="true">{{ de.employees.requirementsOk }}</span><span class="sr-only">{{ de.employees.requirementsOkLabel }}</span></span>
         </NuxtLink>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { eventLastDay } from '#shared/domain/calendarEvents'
 import { parseIsoDate, todayIso, weekday } from '#shared/domain/dates'
 import type { CalendarEventDto, CalendarEventSaveDto, YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -6,7 +7,7 @@ import { absenceDates } from '~/utils/calendarKinds'
 import { eventListDateText, eventListTimeText, eventVisibilityText } from '~/utils/calendarLanes'
 import { calendarPrintItems } from '~/utils/calendarPrint'
 import { SHOW_REQUESTS_KEY, requestCells, requestText, showRequestsFrom } from '~/utils/calendarRequests'
-import { formatDayShort } from '~/utils/format'
+import { formatDateTime, formatDayShort } from '~/utils/format'
 import { calendarTabs } from '~/utils/areaTabs'
 
 /**
@@ -129,11 +130,30 @@ async function saveEvent(value: CalendarEventSaveDto) {
 }
 
 async function removeEvent(event: CalendarEventDto) {
-  if (!await confirm(de.calendar.confirmDelete)) return
+  if (!await confirm(event.requirement ? de.eventRequirements.deleteConfirm : de.calendar.confirmDelete)) return
   if (await run(() => $fetch<unknown>(`/api/calendar-events/${event.id}`, { method: 'DELETE' }), de.common.deleted)) eventDialog.open = false
 }
 // The tabs of the page (a former menu entry each).
 const { can: canTab } = useCan()
+
+// --- „Teilnahme bestätigen“ of a Pflichttermin (also opened from „Offen für dich“: ?attendance=<id>) -----------
+const mayConfirm = computed(() => canTab('employees.edit'))
+const attendance = reactive<{ open: boolean; eventId: number | null }>({ open: false, eventId: null })
+function openAttendance(eventId: number) {
+  eventDialog.open = false
+  Object.assign(attendance, { open: true, eventId })
+}
+/** From its last day on (the button; the server checks it as well). */
+const confirmable = (event: CalendarEventDto) => !!event.requirement && mayConfirm.value && eventLastDay(event) <= todayIso()
+onMounted(() => {
+  const id = Number(route.query.attendance)
+  if (Number.isInteger(id) && id > 0 && mayConfirm.value) openAttendance(id)
+})
+async function attendanceSaved() {
+  await refresh()
+  // Leaves „Offen für dich“ up to date (it reloads on a route change).
+  if (route.query.attendance) await navigateTo({ query: { ...route.query, attendance: undefined } }, { replace: true })
+}
 </script>
 
 <template>
@@ -184,9 +204,22 @@ const { can: canTab } = useCan()
           <tr v-for="event in calendar.events" :key="event.id" class="border-t border-gray-100">
             <td class="whitespace-nowrap px-3 py-2">{{ eventListDateText(event) }}</td>
             <td class="whitespace-nowrap px-3 py-2">{{ eventListTimeText(event) }}</td>
-            <td class="px-3 py-2">{{ event.title }}</td>
+            <td class="px-3 py-2">
+              {{ event.title }}
+              <span v-if="event.requirement" class="mt-0.5 flex flex-wrap items-center gap-1">
+                <UBadge size="sm" variant="soft" color="warning" :label="de.eventRequirements.badge(event.requirement.typeName)" />
+                <span v-if="event.requirement.confirmedAt" class="text-xs text-green-700">
+                  {{ de.eventRequirements.confirmedOn(formatDateTime(event.requirement.confirmedAt)) }}
+                </span>
+                <span v-else-if="eventLastDay(event) <= todayIso()" class="text-xs text-amber-800">{{ de.eventRequirements.unconfirmed }}</span>
+              </span>
+            </td>
             <td class="px-3 py-2">{{ visibilityOf(event) }}</td>
             <td class="whitespace-nowrap px-3 py-2 text-right">
+              <UButton
+                v-if="confirmable(event)" size="xs" color="primary" variant="ghost" icon="i-lucide-user-check"
+                :label="de.eventRequirements.confirm" @click="openAttendance(event.id)"
+              />
               <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" @click="openEvent(event)" />
               <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="removeEvent(event)" />
             </td>
@@ -207,6 +240,8 @@ const { can: canTab } = useCan()
     <CalendarEventDialog
       v-model:open="eventDialog.open" :event="eventDialog.event" :date="eventDialog.date"
       @save="saveEvent" @remove="eventDialog.event && removeEvent(eventDialog.event)"
+      @attendance="eventDialog.event && openAttendance(eventDialog.event.id)"
     />
+    <CalendarEventAttendanceDialog v-model:open="attendance.open" :event-id="attendance.eventId" @saved="attendanceSaved" />
   </div>
 </template>

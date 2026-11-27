@@ -1198,6 +1198,11 @@ jeweiligen Art; über der Liste steht nur noch ein kurzer Hinweis mit „Mehr er
 - **Schon vor dem ersten Arbeitstag:** Betriebsarzt und Belehrung erscheinen für neue Mitarbeitende schon 3 Monate vor
   „beschäftigt seit“ (sonst vor den ersten Wochenstunden) im Hinweis, fällig zum ersten Arbeitstag. Eine Vorsorge vor
   dem ersten Arbeitstag trägst du mit ihrem Datum ein.
+- **Als Termin im Jahreskalender** (seit 27.11.2026): Ein Erste-Hilfe-Kurs im Haus, eine Belehrung für alle … lässt
+  sich als Termin mit dem Häkchen **„Pflichttermin“** eintragen. Vorher steht bei den Teilnehmenden „geplant am …“ (in
+  der Liste *Mitarbeitende*, Spalte „Pflichttermine“, und bei der Person), danach bestätigst du die Teilnahme, und die
+  App trägt den Pflichttermin für alle mit Haken ein – genau wie von Hand. Einzelheiten in Abschnitt 17,
+  „Pflichttermine als Termine“.
 
 Quellen: ArbMedVV mit Anhang, AMR 2.1 (Fristen der Pflichtvorsorge); § 34 Abs. 5a IfSG. Stand 19.11.2026.
 
@@ -1997,6 +2002,50 @@ Dienstplan“, „Mein Kalender“, am Tablet und in den Ausdrucken von Dienstpl
   Plan gehören).
 - **Aus der früheren Ja/Nein-Frage**: Termine, die „auch für Mitarbeitende sichtbar“ waren, gelten als **Alle**, die
   übrigen als **Nur Leitung und Träger** – niemand sieht mehr als vorher.
+
+### Pflichttermine als Termine (Teilnahme bestätigen)
+
+Ein Termin kann zugleich ein **Pflichttermin** sein (Erste-Hilfe-Kurs, Belehrung Infektionsschutz, Betriebsarzt im
+Haus …, die Arten aus *Einstellungen → Mitarbeitende → Pflichttermine*).
+
+- **Wer darf das?** Nur wer Pflichttermine eintragen darf (Rechte-Seite: Mitarbeiter „pflegen“) **und** Termine
+  bearbeiten darf („Termine und Schließzeiten bearbeiten“) – im Normalfall Leitung und Träger. Nur sie können einen Termin zum Pflichttermin machen, einen
+  Pflichttermin ändern oder löschen und die Teilnahme bestätigen. Wer nur den Kalender bearbeiten darf, sieht den
+  Pflichttermin im Fenster, kann ihn aber nicht ändern.
+- **Eintragen**: Im Termin-Fenster das Häkchen **„Pflichttermin“** setzen und die Art wählen. Statt „Wer sieht den
+  Termin?“ heißt die Frage dann **„Für wen gilt er?“**: *Alle Mitarbeitenden*, *Bestimmte Gruppen* (nach Stammgruppe)
+  oder *Bestimmte Personen*. Wer teilnehmen soll, sieht den Termin auch – „Nur Leitung und Träger“ gibt es hier nicht.
+- **Vorher – „geplant am …“**: Bis zum letzten Tag des Termins steht bei jeder Person, für die er gilt, an dieser Art
+  „geplant am 14.10.2026“ (über mehrere Tage „geplant vom … bis …“): in der Liste *Mitarbeitende* (Spalte
+  „Pflichttermine“, auch wenn die Art gerade nicht fällig ist) und bei der Person unter *Pflichttermine und
+  Fortbildungen*. Gibt es mehrere, zählt der früheste.
+- **Danach – „Teilnahme bestätigen“**: Ab dem (letzten) Tag des Termins steht im Termin-Fenster (Jahreskalender und
+  Dienstplan) und in der Terminliste der Knopf **„Teilnahme bestätigen“**. Er zeigt alle, für die der Termin gilt, wie
+  sie **heute** in der App stehen: bei Gruppen alle mit dieser Stammgruppe (die App merkt sich frühere Stammgruppen
+  nicht), ohne die, die vor dem ersten Tag ausgeschieden sind oder erst nach dem letzten Tag anfangen. Beim ersten Mal
+  haben alle einen Haken; wer nicht da war, bekommt den Haken weggenommen. Beim Speichern bekommt jede Person mit Haken
+  den Pflichttermin mit dem **letzten Tag des Termins** eingetragen – genau wie von Hand, also mit denselben Regeln
+  (z. B. beim Führungszeugnis keine Bemerkung), und die Fälligkeit rechnet sich neu. Wer keinen Haken hat, bleibt
+  „fällig“ oder „überfällig“. Ist der Pflichttermin an diesem Tag schon von Hand eingetragen, bleibt dieser Eintrag, und
+  es kommt keiner dazu.
+- **Noch einmal bestätigen**: Das Fenster zeigt dann die gespeicherten Haken. Geändert oder entfernt werden **nur die
+  Einträge, die aus diesem Termin stammen**; von Hand eingetragene bleiben immer. Wer schon eingetragen war und
+  inzwischen in einer anderen Gruppe ist, steht weiter in der Liste (zum Entfernen).
+- **„Offen für dich“**: Pflichttermine, deren letzter Tag erreicht ist und deren Teilnahme noch nicht bestätigt ist,
+  stehen bei Leitung und Träger (mit beiden Rechten) unter „Offen für dich“ als „… Pflichttermine: Teilnahme
+  bestätigen“, mit einem Link, der das Fenster des frühesten öffnet – auch für Konten ohne eigene Mitarbeiter-Akte.
+- **Wer sieht die Teilnahme?** Nur Leitung und Träger mit den Rechten oben. Mitarbeitende sehen den Termin (als
+  Teilnehmende), aber nie, wer bestätigt wurde.
+- **Ändern nach dem Bestätigen**: Ein anderes Datum verschiebt die Einträge aus diesem Termin auf den neuen letzten
+  Tag, eine andere Art verschiebt sie zu dieser Art. In die Zukunft lässt sich ein bestätigter Termin nicht verlegen
+  (die Einträge lägen sonst in der Zukunft). Wird das Häkchen „Pflichttermin“ weggenommen, bleiben die Einträge bei
+  den Personen, als wären sie von Hand eingetragen.
+- **Löschen**: Die App fragt vorher („Bestätigte Teilnahmen bleiben bei den Personen eingetragen“). Die Einträge
+  bleiben, nur die Verbindung zum Termin fällt weg. Wird eine eigene Art gelöscht, wird der Termin ein normaler Termin
+  (ihre Einträge gehen wie bisher mit der Art).
+- **Wechsel in eine andere Einrichtung**: Die Einträge gehen mit (wie alle Pflichttermine) und gelten dort als von Hand
+  eingetragen.
+- **Löschfristen**: Die Einträge sind ganz normale Pflichttermine und folgen deren Löschfrist (Abschnitt 15).
 
 ### Info-Spalten: der ganze Text
 
