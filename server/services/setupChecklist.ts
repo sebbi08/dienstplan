@@ -26,11 +26,11 @@ function assertManager(user: SessionUser): void {
  * What the checklist needs to know about the facility today; with a viewer also the Pflichtdokumente missing or expired
  * (only types in folders the viewer may use). `childGroups`: the groups whose children the viewer sees (the scope of
  * „Kinder: ansehen“, as the child pages judge it: `seesGroup` on the child's current group; null = every group),
- * 'none' = no child at all.
+ * 'none' (the default, so no caller gets children it did not ask for) = no child at all.
  */
 export function loadSetupFacts(
   db: Db, facilityId: number, now: Date = new Date(), viewer?: Pick<SessionUser, 'permissions'>,
-  childGroups: GroupAccess | null | 'none' = null,
+  childGroups: GroupAccess | null | 'none' = 'none',
 ): SetupFacts {
   const today = todayIso(now)
   const facility = db.select().from(facilities).where(eq(facilities.id, facilityId)).get()

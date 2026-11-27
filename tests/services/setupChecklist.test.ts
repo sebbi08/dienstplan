@@ -5,7 +5,7 @@ import { careTypes, children, employees, facilities, groupReadAccess, groups, re
 import { getActiveUser } from '../../server/services/auth'
 import { setFacilityOpeningHours } from '../../server/services/openingHours'
 import { saveBundleOverride } from '../../server/services/permissions'
-import { getSetupChecklist, hideSetupItem, showSetupItem } from '../../server/services/setupChecklist'
+import { getSetupChecklist, hideSetupItem, loadSetupFacts, showSetupItem } from '../../server/services/setupChecklist'
 import type { SessionUser } from '../../shared/types/api'
 import { addChild, addEmployee, addFacility, addGroup, addUser, createTestDb, errorCode, refreshPermissions } from '../helpers/fixtures'
 
@@ -102,6 +102,16 @@ describe('setup checklist service', () => {
     expect(openKeys(db, traeger)).toContain('employee_pin')
     expect(openKeys(db, staff)).not.toContain('employee_pin')
     expect(openKeys(db, staff)).toContain('employee_birthday')
+  })
+
+  it('loads children only when the caller names the groups it may see', () => {
+    const baeren = addGroup(db, 1, 'Bären')
+    addChild(db, 1, { firstName: 'Bea', lastName: 'Bär', groupId: baeren })
+    addChild(db, 1, { firstName: 'Max', lastName: 'Maus', groupId: addGroup(db, 1, 'Mäuse') })
+    expect(loadSetupFacts(db, 1, now).children).toEqual([])
+    expect(loadSetupFacts(db, 1, now, undefined, 'none').children).toEqual([])
+    expect(loadSetupFacts(db, 1, now, undefined, null).children.map(child => child.name)).toEqual(['Bea Bär', 'Max Maus'])
+    expect(loadSetupFacts(db, 1, now, undefined, { own: baeren, readable: [] }).children.map(child => child.name)).toEqual(['Bea Bär'])
   })
 
   it('names and counts only the children of the groups a group-scoped Gruppenleitung sees', () => {

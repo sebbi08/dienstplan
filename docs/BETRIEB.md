@@ -3274,7 +3274,9 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   sieht nur der Träger, weil nur er sie einträgt. „PIN fehlt“ und „PIN gesperrt“ sehen nur Leitung und Träger (nur sie
   setzen PINs), nicht ein Mitarbeiter, dem der Träger „Einstellungen der Einrichtung“ gegeben hat. „Kinder ohne
   Betreuungsart“ (mit Namen) sieht nur, wer Kinder auch mit dem eigenen Konto sehen darf („Kinder: ansehen“ und „auch
-  mit eigenem Zugang“); allen anderen – etwa mit „Nur Kinderzahlen“ – zeigt die Liste keine Kinder.
+  mit eigenem Zugang“); allen anderen – etwa mit „Nur Kinderzahlen“ – zeigt die Liste keine Kinder. Dabei sieht jede
+  Person in „Kinder ohne Betreuungsart“ nur die Kinder der Gruppen, die sie sehen darf (bei „nur eigene Gruppe“: die
+  eigene Gruppe, die Gruppen, die diese mitlesen darf, und Kinder ohne Gruppe); auch die Anzahl zählt nur diese Kinder.
 - Bei jedem Punkt stehen bis zu fünf Namen; ein Tipp auf den Punkt oder einen Namen führt dorthin, wo man es einträgt.
   Ist es eingetragen, verschwindet der Punkt von selbst. Ist alles da, steht dort nur „Alles eingetragen.“
 - **Brauchen wir nicht** blendet einen Punkt für alle Leitungen und den Träger dieser Einrichtung aus. Ausgeblendete Punkte
