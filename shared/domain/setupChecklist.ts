@@ -20,6 +20,13 @@ export const SETUP_PROVIDER_ONLY_KEYS: readonly SetupItemKey[] = ['facility_capa
 /** Items about tablet PINs: only who sets and unlocks PINs (Leitung, Träger: `mayManagePins`) sees them. */
 export const SETUP_PIN_KEYS: readonly SetupItemKey[] = ['employee_pin', 'employee_pin_locked']
 
+/**
+ * Items that name children: only who may see children with the own account (children.view and children.ownAccount,
+ * after „Nur Kinderzahlen“) sees them. The checklist never shows a child's name to anyone else, whatever settings they
+ * hold.
+ */
+export const SETUP_CHILD_KEYS: readonly SetupItemKey[] = ['child_care_type']
+
 /** Names shown per item; the rest is only counted. */
 export const SETUP_MAX_NAMES = 5
 
@@ -120,16 +127,24 @@ export function setupItems(facts: SetupFacts): SetupItem[] {
 
 /**
  * The checklist as this viewer sees it: items for the Träger only are left out for the Leitung, the PIN items for
- * whoever cannot set PINs (an account granted „Einstellungen der Einrichtung“ that is no Leitung); the hidden keys
- * („Brauchen wir nicht“) go to `hidden` and do not count.
+ * whoever cannot set PINs (an account granted „Einstellungen der Einrichtung“ that is no Leitung), the items naming
+ * children for whoever may not see children with the own account (`SETUP_CHILD_KEYS`); the hidden keys („Brauchen wir
+ * nicht“) go to `hidden` and do not count.
  */
-export function setupChecklist(
-  facts: SetupFacts, viewer: { isProvider: boolean; managesPins: boolean }, hiddenKeys: readonly string[],
-): SetupChecklist {
+export function setupChecklist(facts: SetupFacts, viewer: SetupViewer, hiddenKeys: readonly string[]): SetupChecklist {
   const hidden = new Set(hiddenKeys)
-  const visible = setupItems(facts).filter(item => (!item.providerOnly || viewer.isProvider)
-    && (viewer.managesPins || !SETUP_PIN_KEYS.includes(item.key)))
+  const visible = setupItems(facts).filter(item => mayViewSetupItem(viewer, item.key))
   return { open: visible.filter(item => !hidden.has(item.key)), hidden: visible.filter(item => hidden.has(item.key)) }
+}
+
+/** Who looks at the checklist: the Träger (items for the Träger only), sets PINs, sees children with the own account. */
+export interface SetupViewer { isProvider: boolean; managesPins: boolean; seesChildren: boolean }
+
+/** Whether the viewer sees the item at all (and so may hide or show it). */
+export function mayViewSetupItem(viewer: SetupViewer, key: SetupItemKey): boolean {
+  return (!SETUP_PROVIDER_ONLY_KEYS.includes(key) || viewer.isProvider)
+    && (viewer.managesPins || !SETUP_PIN_KEYS.includes(key))
+    && (viewer.seesChildren || !SETUP_CHILD_KEYS.includes(key))
 }
 
 export function isSetupItemKey(key: unknown): key is SetupItemKey {

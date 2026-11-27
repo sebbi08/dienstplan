@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { can } from '../../shared/domain/permissions'
 import { isManager } from '../../shared/domain/roles'
 import { nowInBerlin } from '../../shared/domain/timeRecords'
@@ -17,23 +17,28 @@ import { listGroups } from './groups'
 
 type Access = 'edit' | 'read' | 'hidden'
 
+/** The employee's active account: its role decides (a deactivated one counts as none, as at the tablet). */
+function activeAccount(db: Db, employeeId: number): { role: SessionUser['role'] } | undefined {
+  return db.select({ role: users.role }).from(users).where(and(eq(users.employeeId, employeeId), eq(users.active, true))).get()
+}
+
 /**
  * Who sets it, as who sets the person's child rights („Kinder: eintragen und Akten ändern“, rights.ts loadTarget): the
  * Träger (rights.manage) for anyone of any facility; the Leitung (role admin; the routes ask for users.manage) for the
- * people of its facility without an account or with a Mitarbeiter account – a Gruppenleitung's she sees, the Träger sets
- * it ('read'); an employee of another facility is 404 employee_not_found for her. Not offered ('hidden') for a person
- * with a Leitung or Träger account (their child rights are never cut this way) and for anyone else with „Zugänge
- * verwalten“ (they set no child rights).
+ * people of its facility without an (active) account or with a Mitarbeiter account – a Gruppenleitung's she sees, the
+ * Träger sets it ('read'). An employee of another facility is 404 employee_not_found for everyone but the Träger, as on
+ * the other employee routes (other facilities' ids stay unconfirmed). Not offered ('hidden') for a person with an active
+ * Leitung or Träger account (their child rights are never cut this way) and for anyone else with „Zugänge verwalten“
+ * (they set no child rights). A deactivated account does not count: the tablet treats the person as one without an
+ * account (Mitarbeiter role settings), so the setting is offered as for them.
  */
 function accessTo(db: Db, actor: SessionUser, employeeId: number): { access: Access; countsOnly: boolean } {
   const employee = db.select({ facilityId: employees.facilityId, countsOnly: employees.countsOnly })
     .from(employees).where(eq(employees.id, employeeId)).get()
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   const provider = can(actor.permissions, 'rights.manage')
-  if (!provider && actor.role === 'admin' && employee.facilityId !== actor.facilityId) {
-    throw new ServiceError(404, 'employee_not_found')
-  }
-  const account = db.select({ role: users.role }).from(users).where(eq(users.employeeId, employeeId)).get()
+  if (!provider && employee.facilityId !== actor.facilityId) throw new ServiceError(404, 'employee_not_found')
+  const account = activeAccount(db, employeeId)
   const result = (access: Access) => ({ access, countsOnly: employee.countsOnly })
   if (account && (isManager(account.role) || account.role === 'terminal')) return result('hidden')
   if (provider) return result('edit')
@@ -53,13 +58,13 @@ export function getCountsOnly(db: Db, actor: SessionUser, employeeId: number): C
 
 /**
  * PUT /api/employees/[id]/counts-only: switches „Nur Kinderzahlen“ on or off (see accessTo; 403 counts_only_manager for
- * a person with a Leitung or Träger account, 403 forbidden for whoever may not set it). It takes effect with the next
- * request: the own account's rights and the tablet's unlock are read afresh every time.
+ * a person with an active Leitung or Träger account, 403 forbidden for whoever may not set it). It takes effect with
+ * the next request: the own account's rights and the tablet's unlock are read afresh every time.
  */
 export function setCountsOnly(db: Db, actor: SessionUser, employeeId: number, countsOnly: boolean): CountsOnlyStateDto {
   const { access } = accessTo(db, actor, employeeId)
   if (access !== 'edit') {
-    const account = db.select({ role: users.role }).from(users).where(eq(users.employeeId, employeeId)).get()
+    const account = activeAccount(db, employeeId)
     throw new ServiceError(403, account && isManager(account.role) ? 'counts_only_manager' : 'forbidden')
   }
   db.update(employees).set({ countsOnly }).where(eq(employees.id, employeeId)).run()

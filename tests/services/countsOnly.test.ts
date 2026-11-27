@@ -1,16 +1,18 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { employees, terminalUnlocks } from '../../server/db/schema'
+import { employees, terminalUnlocks, users } from '../../server/db/schema'
 import { asChildPermission, type ChildViewer } from '../../server/lib/childViewer'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
 import { getActiveUser } from '../../server/services/auth'
+import { autoEventsFor } from '../../server/services/autoEvents'
 import { arrive, getAttendanceDay, leave, setAbsence, updateDay } from '../../server/services/childAttendance'
 import { childCountsToday, getCountsOnly, setCountsOnly } from '../../server/services/countsOnly'
 import { applyToCells } from '../../server/services/entries'
 import { listMeals } from '../../server/services/meals'
-import { accountsRights } from '../../server/services/permissions'
+import { accountsRights, saveBundleOverride } from '../../server/services/permissions'
 import { getUserRights } from '../../server/services/rights'
+import { getSetupChecklist, hideSetupItem } from '../../server/services/setupChecklist'
 import {
   resolveChildViewer, tabletCountsFacility, tabletUnlockStatus, unlockChildren,
 } from '../../server/services/tabletUnlock'
@@ -104,6 +106,27 @@ describe('„Nur Kinderzahlen“', () => {
       const manager = { ...addUser(db, 'max', 'observer', addEmployee(db, 'Max')), permissions: new Set<PermissionKey>([...permissionsOf('observer'), 'users.manage']) }
       expect(getCountsOnly(db, manager, hanna)).toEqual({ countsOnly: false, offered: false, editable: false })
       expect(errorCode(() => setCountsOnly(db, manager, hanna, true))).toBe('forbidden')
+      // Another facility's employee is unknown to them, as on the other employee routes.
+      const otto = addEmployee(db, 'Otto', { facilityId: addFacility(db, 'Kita Zwei') })
+      expect(errorCode(() => getCountsOnly(db, manager, otto))).toBe('employee_not_found')
+      expect(errorCode(() => setCountsOnly(db, manager, otto, true))).toBe('employee_not_found')
+    })
+
+    it('a deactivated Leitung account counts as none: offered, and at the tablet the person has only the numbers', () => {
+      const dora = addEmployee(db, 'Dora')
+      const account = addUser(db, 'dora', 'admin', dora)
+      expect(getCountsOnly(db, leitung, dora).offered).toBe(false)
+      db.update(users).set({ active: false }).where(eq(users.id, account.id)).run()
+      expect(getCountsOnly(db, leitung, dora)).toEqual({ countsOnly: false, offered: true, editable: true })
+      expect(setCountsOnly(db, leitung, dora, true).countsOnly).toBe(true)
+      const token = unlock(dora)
+      expect(status(token)).toMatchObject({ unlocked: true, countsOnly: true })
+      for (const key of CHILD_KEYS) expect(viewerAt(token).permissions.has(key), key).toBe(false)
+      // Active again as Leitung: the stored flag has no effect and is no longer offered.
+      db.update(users).set({ active: true }).where(eq(users.id, account.id)).run()
+      expect(getCountsOnly(db, leitung, dora).offered).toBe(false)
+      expect(status(token)).toMatchObject({ countsOnly: false })
+      expect(viewerAt(token).permissions.has('children.view')).toBe(true)
     })
   })
 
@@ -151,6 +174,24 @@ describe('„Nur Kinderzahlen“', () => {
       expect(accountsRights(db, [{ id: account.id, role: 'observer', facilityId: 1 }]).get(account.id)!.permissions.has('children.view')).toBe(false)
     })
 
+    it('wins over the strongest exceptions: „Kinder: ansehen“ and „auch mit eigenem Zugang“ granted', () => {
+      const mia = addEmployee(db, 'Mia')
+      const account = addUser(db, 'mia', 'observer', mia)
+      saveBundleOverride(db, account.id, 'childrenView', 'grant', 'facility')
+      saveBundleOverride(db, account.id, 'childrenOwnAccount', 'grant')
+      expect(getActiveUser(db, account.id, TODAY)!.permissions.has('children.ownAccount')).toBe(true)
+      flag(mia)
+      const office = getActiveUser(db, account.id, TODAY)!
+      for (const key of CHILD_KEYS) expect(office.permissions.has(key), key).toBe(false)
+      expect(errorCode(() => resolveChildViewer(db, office, undefined, NOW))).toBe('children_tablet_only')
+      const viewer = viewerAt(unlock(mia))
+      for (const key of CHILD_KEYS) expect(viewer.permissions.has(key), key).toBe(false)
+      const rights = getUserRights(db, traeger, account.id)
+      for (const id of ['childrenView', 'childrenOwnAccount']) {
+        expect(rights.bundles.find(bundle => bundle.id === id), id).toMatchObject({ override: { effect: 'grant' }, effective: { enabled: false } })
+      }
+    })
+
     it('a Gruppenleitung gets her child rights back when it is switched off', () => {
       const gina = addEmployee(db, 'Gina')
       const lead = addUser(db, 'gina', 'group_lead', gina)
@@ -185,6 +226,21 @@ describe('„Nur Kinderzahlen“', () => {
       expect(status(token)).toMatchObject({ countsOnly: true })
     })
 
+    it('has no effect for a helper whose own account is a Leitung (flag set before the promotion)', () => {
+      const other = addFacility(db, 'Kita Zwei')
+      const hugo = addEmployee(db, 'Hugo', { facilityId: other })
+      addUser(db, 'hugo', 'admin', hugo, other)
+      setTimeTrackingFrom(db, other, '2026-10-01')
+      addHelpOut(db, hugo, 1, 2026, 10)
+      applyToCells(db, leitung, 1, [{ employeeId: hugo, date: TODAY }], 'replace', { kind: 'shift', templateId: templateId(db, 'M', 1) })
+      setPin(db, other, hugo, PIN)
+      flag(hugo)
+      const token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, hugo, PIN, NOW).token
+      // A helper works here with the Mitarbeiter role settings, the stored flag does not cut them.
+      expect(status(token)).toMatchObject({ countsOnly: false })
+      expect(viewerAt(token).permissions).toEqual(permissionsOf('observer'))
+    })
+
     it('refuses every child guard at the tablet; the status says so and offers no child right', () => {
       const hanna = addEmployee(db, 'Hanna')
       flag(hanna)
@@ -199,6 +255,35 @@ describe('„Nur Kinderzahlen“', () => {
       flag(hanna, false)
       expect(asChildPermission(viewerAt(token), 'children.view')).toBeTruthy()
       expect(status(token)).toMatchObject({ countsOnly: false })
+    })
+  })
+
+  describe('outside the child routes', () => {
+    it('„Was noch fehlt“ names no child to a counts-only Gruppenleitung with „Einstellungen der Einrichtung“', () => {
+      addChild(db, 1, { firstName: 'Paula', lastName: 'Probe' })
+      const gina = addEmployee(db, 'Gina')
+      const lead = addUser(db, 'gina', 'group_lead', gina)
+      saveBundleOverride(db, lead.id, 'settingsFacility', 'grant')
+      const before = getActiveUser(db, lead.id, TODAY)!
+      expect(getSetupChecklist(db, before, 1, NOW).open.find(item => item.key === 'child_care_type')!.names.map(entry => entry.name))
+        .toEqual(['Paula Probe'])
+      flag(gina)
+      const office = getActiveUser(db, lead.id, TODAY)!
+      expect(office.permissions.has('settings.facility')).toBe(true)
+      expect(office.permissions.has('children.view')).toBe(false)
+      const checklist = getSetupChecklist(db, office, 1, NOW)
+      expect([...checklist.open, ...checklist.hidden].map(item => item.key)).not.toContain('child_care_type')
+      expect(JSON.stringify(checklist)).not.toMatch(/Paula|Probe/)
+      expect(errorCode(() => hideSetupItem(db, office, 1, 'child_care_type', NOW))).toBe('forbidden')
+    })
+
+    it('the plan\'s automatic events stay anonymous: group and count, never a child\'s name', () => {
+      const bears = addGroup(db, 1, 'Bären')
+      addChild(db, 1, { firstName: 'Paula', lastName: 'Probe', birthDate: '2022-10-14', groupId: bears })
+      addChild(db, 1, { firstName: 'Ben', lastName: 'Beispiel', entryDate: '2026-10-15', groupId: bears })
+      const events = Object.fromEntries(autoEventsFor(db, 1, '2026-10-01', '2026-10-31'))
+      expect(events).toMatchObject({ '2026-10-14': ['Kindergeburtstag (Bären)'], '2026-10-15': ['Eingewöhnung (Bären)'] })
+      expect(JSON.stringify(events)).not.toMatch(/Paula|Probe|Ben|Beispiel/)
     })
   })
 

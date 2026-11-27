@@ -87,19 +87,19 @@ const ALL_GROUPS: GroupScopes = { groups: null, writeGroups: { attendance: null,
  * whose child switches have the scope „nur eigene Gruppe“ work with their own group and the groups it may read (group
  * book spec §3.1); with „ganze Einrichtung“, helpers and staff without a home group with every group (ruling: no home
  * group = all groups). Without children.planned the tablet switches decide which planned children are shown. A person
- * with „Nur Kinderzahlen“ (unless their active account is a Leitung's or the Träger's) has no child rights at all, with
- * or without an account, at home and as a helper: `countsOnly` (their page is „Kinder heute“).
+ * with „Nur Kinderzahlen“ has no child rights at all, with or without an account, at home and as a helper: `countsOnly`
+ * (their page is „Kinder heute“) – unless their own active account is a Leitung's or the Träger's, also for a helper
+ * whose rights here are the Mitarbeiter's (the setting is never offered for such a person and never counts for them).
  */
 function viewerFor(db: Db, terminal: Terminal, employeeId: number, settings: TabletSettingsDto): { viewer: ChildViewer; countsOnly: boolean } {
   const employee = db.select({
     facilityId: employees.facilityId, name: employees.name, groupId: employees.groupId, countsOnly: employees.countsOnly,
   }).from(employees).where(eq(employees.id, employeeId)).get()
   const homeStaff = employee?.facilityId === terminal.facilityId
-  const account = homeStaff
-    ? db.select().from(users).where(and(eq(users.employeeId, employeeId), eq(users.active, true))).get()
-    : undefined
+  const ownAccount = db.select().from(users).where(and(eq(users.employeeId, employeeId), eq(users.active, true))).get()
+  const account = homeStaff ? ownAccount : undefined
   const role = account?.role ?? 'observer'
-  const countsOnly = countsOnlyApplies(employee?.countsOnly ?? false, role)
+  const countsOnly = countsOnlyApplies(employee?.countsOnly ?? false, ownAccount?.role ?? 'observer')
   // One read of the rights gives both the permissions and the scope (accountRights applies „Nur Kinderzahlen“ itself).
   const rights = account
     ? accountRights(db, { id: account.id, role: account.role, facilityId: terminal.facilityId })

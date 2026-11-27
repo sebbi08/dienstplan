@@ -4,7 +4,8 @@ import { todayIso } from '../../shared/domain/dates'
 import { mayManagePins, pinLockState } from '../../shared/domain/pin'
 import { can } from '../../shared/domain/permissions'
 import {
-  isSetupItemKey, SETUP_PROVIDER_ONLY_KEYS, setupChecklist, type SetupChecklist, type SetupFacts, type SetupItemKey,
+  isSetupItemKey, SETUP_CHILD_KEYS, SETUP_PROVIDER_ONLY_KEYS, setupChecklist, type SetupChecklist, type SetupFacts,
+  type SetupItemKey, type SetupViewer,
 } from '../../shared/domain/setupChecklist'
 import type { SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -83,22 +84,36 @@ function hiddenKeys(db: Db, facilityId: number): string[] {
 }
 
 /**
+ * Whether the account sees children with its own account (children.view and children.ownAccount, as the child routes
+ * ask): the checklist names children only then. Without it – „Nur Kinderzahlen“, or a Mitarbeiter given „Einstellungen
+ * der Einrichtung“ who sees children only at the tablet – the items naming children are left out.
+ */
+function seesChildren(user: Pick<SessionUser, 'permissions'>): boolean {
+  return can(user.permissions, 'children.view') && can(user.permissions, 'children.ownAccount')
+}
+
+/**
  * „Was noch fehlt“ of the facility for this Leitung or Träger (items for the Träger only are left out for a Leitung, the
- * PIN items for an account that sets no PINs).
+ * PIN items for an account that sets no PINs, the items naming children for an account that sees no children).
  */
 export function getSetupChecklist(db: Db, user: SessionUser, facilityId: number, now: Date = new Date()): SetupChecklist {
   assertManager(user)
-  const viewer = {
+  const viewer: SetupViewer = {
     isProvider: can(user.permissions, 'facilities.manage'),
     managesPins: mayManagePins(user.role, key => can(user.permissions, key)),
+    seesChildren: seesChildren(user),
   }
   return setupChecklist(loadSetupFacts(db, facilityId, now, user), viewer, hiddenKeys(db, facilityId))
 }
 
-/** A known item this viewer sees: a Leitung cannot hide or show the items for the Träger only. */
+/**
+ * A known item this viewer sees: a Leitung cannot hide or show the items for the Träger only, an account that sees no
+ * children not the items naming children.
+ */
 function assertKey(user: SessionUser, key: unknown): asserts key is SetupItemKey {
   if (!isSetupItemKey(key)) throw new ServiceError(400, 'invalid_setup_item')
   if (SETUP_PROVIDER_ONLY_KEYS.includes(key) && !can(user.permissions, 'facilities.manage')) throw new ServiceError(403, 'forbidden')
+  if (SETUP_CHILD_KEYS.includes(key) && !seesChildren(user)) throw new ServiceError(403, 'forbidden')
 }
 
 /** „Brauchen wir nicht“: hides the item for every Leitung and the Träger of the facility (hiding it again changes nothing). */

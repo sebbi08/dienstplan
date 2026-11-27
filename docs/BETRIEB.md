@@ -746,12 +746,23 @@ es bei der Person die Einstellung **„Nur Kinderzahlen (keine Namen, keine Akte
 
 - **Wer sie setzt:** wie beim Recht „Kinder: eintragen und Akten ändern“ – die Leitung für Mitarbeiter ihrer Einrichtung
   (mit Mitarbeiter-Konto oder ohne Konto), der Träger für alle. Bei einer Gruppenleitung sieht die Leitung den Stand,
-  ändern kann ihn nur der Träger. Für Personen mit Leitungs- oder Träger-Konto gibt es die Einstellung nicht.
+  ändern kann ihn nur der Träger. Für Personen mit (aktivem) Leitungs- oder Träger-Konto gibt es die Einstellung nicht,
+  und war sie schon gesetzt, bevor die Person ein solches Konto bekam, wirkt sie nicht – auch nicht, wenn die Person in
+  einer anderen Einrichtung aushilft. Ist das Konto der Person **deaktiviert**, gilt sie wie eine Person ohne Konto (so
+  behandelt sie auch das Tablet): Dann gibt es das Häkchen, und es wirkt.
 - **Was sie bewirkt:** Die Person sieht **keine Kinder** – am Tablet nicht und mit dem eigenen Konto (Handy, Büro) auch
   nicht: keine Liste, keine Akten, keine Bögen, keine Dokumente der Kinder, keine Anwesenheit, keine Wochenübersicht und
-  keine Gruppenbücher, keine Geburtstage, keine Erinnerungen, keine Vormerkungen, keine Infogespräche, keine
-  Unfallberichte. Die Einstellung geht vor der Rolle und vor den Ausnahmen der Person (Abschnitt 28). Stempeln, der
-  Dienstplan, „Zu unterschreiben“, ihre eigenen Sachen, Wissen, Notizen und Kontakte bleiben wie bisher.
+  keine Gruppenbücher, keine Geburtstage mit Namen, keine Erinnerungen, keine Vormerkungen, keine Infogespräche, keine
+  Unfallberichte, unter *Einstellungen → Was noch fehlt* keine Kinder. Die Einstellung geht vor der Rolle und vor den
+  Ausnahmen der Person (Abschnitt 28). Stempeln, der Dienstplan, „Zu unterschreiben“, ihre eigenen Sachen, Wissen,
+  Notizen und Kontakte bleiben wie bisher.
+- **Was bleibt:** die namenlosen automatischen Einträge in Dienstplan und Kalender wie „Kindergeburtstag (Bären)“ oder
+  „Eingewöhnung (Bären)“ – sie nennen nur Gruppe und Anzahl, nie ein Kind, und stehen für alle da (auch am gesperrten
+  Tablet).
+- **Was außerdem wegfällt:** Zur Sicherheit nimmt die Einstellung auch Rechte, die nicht nur Kinder betreffen: mit
+  „Infogespräche & Hospitationen: führen“ auch das Führen von Hospitationen und Bewerbungen (ansehen bleibt), mit
+  „Unfälle verwalten“ auch die Unfallanzeigen der Mitarbeiter und mit „Bögen: verwalten“ alle Bogen-Vorlagen (auch die
+  für Mitarbeitergespräche und Hospitationen). Braucht die Person eines davon, geht das nur ohne „Nur Kinderzahlen“.
 - **Am Tablet:** Unter **„Kinder“** tippt die Person wie alle ihren Namen an und gibt die PIN ein. Statt der Kinder öffnet
   sich dann die Seite **„Kinder heute“** mit Zahlen ohne Namen:
   - **Da**, **Noch nicht da**, **Abwesend** und **Abgeholt** – dieselben Zahlen wie in der Zahlenzeile der Anwesenheit;
@@ -1741,7 +1752,9 @@ Mitarbeiter sehen in ihrem Kalender keine Anträge anderer.
 - Ganz unten steht – auch bei einer Person **ohne** Konto – das Häkchen **„Nur Kinderzahlen (keine Namen, keine
   Akten)“**: Die Person sieht dann keine Kinder mehr und am Tablet nur „Kinder heute“ (Abschnitt 11, „Nur
   Kinderzahlen“). Es wird beim Antippen gleich gespeichert. Die Leitung setzt es für Mitarbeiter und Personen ohne Konto,
-  bei einer Gruppenleitung nur der Träger; bei Leitungs- und Träger-Konten gibt es das Häkchen nicht.
+  bei einer Gruppenleitung nur der Träger; bei aktiven Leitungs- und Träger-Konten gibt es das Häkchen nicht. Zur
+  Sicherheit fallen damit auch das Führen von Hospitationen und Bewerbungen, die Unfallanzeigen der Mitarbeiter und das
+  Verwalten der Bogen-Vorlagen weg (der Hinweis unter dem Häkchen sagt es).
 
 ### Die Seite *Benutzer*
 
@@ -3219,7 +3232,9 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   steht außerdem je Pflichtdokument „‹n› Mitarbeitende ohne gültiges Dokument „‹Pflichtdokument›““ (nur Fächer, die du sehen darfst; siehe
   *Pflichtdokumente*). Die Höchstzahl Kinder der Einrichtung
   sieht nur der Träger, weil nur er sie einträgt. „PIN fehlt“ und „PIN gesperrt“ sehen nur Leitung und Träger (nur sie
-  setzen PINs), nicht ein Mitarbeiter, dem der Träger „Einstellungen der Einrichtung“ gegeben hat.
+  setzen PINs), nicht ein Mitarbeiter, dem der Träger „Einstellungen der Einrichtung“ gegeben hat. „Kinder ohne
+  Betreuungsart“ (mit Namen) sieht nur, wer Kinder auch mit dem eigenen Konto sehen darf („Kinder: ansehen“ und „auch
+  mit eigenem Zugang“); allen anderen – etwa mit „Nur Kinderzahlen“ – zeigt die Liste keine Kinder.
 - Bei jedem Punkt stehen bis zu fünf Namen; ein Tipp auf den Punkt oder einen Namen führt dorthin, wo man es einträgt.
   Ist es eingetragen, verschwindet der Punkt von selbst. Ist alles da, steht dort nur „Alles eingetragen.“
 - **Brauchen wir nicht** blendet einen Punkt für alle Leitungen und den Träger dieser Einrichtung aus. Ausgeblendete Punkte

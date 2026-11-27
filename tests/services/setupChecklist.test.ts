@@ -103,6 +103,23 @@ describe('setup checklist service', () => {
     expect(openKeys(db, staff)).toContain('employee_birthday')
   })
 
+  it('names children only to an account that sees children with the own account', () => {
+    addChild(db, 1, { firstName: 'Mia', lastName: 'Muster' })
+    // A Mitarbeiter given „Einstellungen der Einrichtung“ sees children only at the tablet: no child item, no name.
+    const staff = addUser(db, 'mitarbeiter', 'observer', addEmployee(db, 'Berta'))
+    saveBundleOverride(db, staff.id, 'settingsFacility', 'grant')
+    refreshPermissions(db, staff)
+    expect(openKeys(db, leitung)).toContain('child_care_type')
+    expect(openKeys(db, staff)).not.toContain('child_care_type')
+    expect(JSON.stringify(getSetupChecklist(db, staff, 1, now))).not.toContain('Muster')
+    expect(errorCode(() => hideSetupItem(db, staff, 1, 'child_care_type', now))).toBe('forbidden')
+    expect(errorCode(() => showSetupItem(db, staff, 1, 'child_care_type'))).toBe('forbidden')
+    // With „auch mit eigenem Zugang“ the item is there, as for the Leitung.
+    saveBundleOverride(db, staff.id, 'childrenOwnAccount', 'grant')
+    refreshPermissions(db, staff)
+    expect(openKeys(db, staff)).toContain('child_care_type')
+  })
+
   it('lists groups without group type or documentation and children with a contract without care type', () => {
     const baeren = addGroup(db, 1, 'Bären')
     addChild(db, 1, { firstName: 'Mia', lastName: 'Muster' })
