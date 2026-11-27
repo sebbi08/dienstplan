@@ -120,9 +120,10 @@ export const de = {
   planCompact: {
     hideInfo: 'Info-Spalten ausblenden', showInfo: 'Info-Spalten einblenden',
     infoToggleHint: 'Auf diesem Gerät gemerkt. Tage mit Info-Text oder Termin haben dann ein Symbol am Datum, das sie zeigt.',
-    infoMarker: (day: string) => `Info und Termine am ${day}`,
+    infoMarker: (day: string) => `Info und Termine am ${day} – Tagesübersicht öffnen`,
     infoExpand: 'Klicken: ganzer Text', infoCollapse: 'Klicken: wieder zwei Zeilen',
     infoEditHint: 'Klicken: ganzen Text lesen und bearbeiten',
+    infoSaveFailed: 'Nicht gespeichert. Noch einmal: ins Feld klicken und Enter drücken. Esc im Feld verwirft die Änderung.',
     overviewHint: 'Ein Klick auf ein anderes Datum im Plan zeigt diesen Tag.',
   },
   leavePlanning: {

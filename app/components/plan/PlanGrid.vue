@@ -42,11 +42,13 @@ const props = defineProps<{
    */
   printPart?: PrintPart | null
   printZoom?: number
+  /** Saves an Info text (editable); tells whether it worked, so the field keeps the typed text when it did not. */
+  saveNote?: (date: string, field: NoteField, value: string) => Promise<boolean>
 }>()
 const emit = defineEmits<{
   cellClick: [employeeId: number, date: string, event: MouseEvent]
-  dateClick: [date: string]
-  noteSave: [date: string, field: NoteField, value: string]
+  /** A date (or its Info marker) was clicked: the day overview opens; `trigger` gets the focus back when it closes. */
+  dateClick: [date: string, trigger: HTMLElement | null]
   removeEntry: [id: number]
   editEntry: [entry: EntryDto]
   saveWeek: [weekStart: string]
@@ -459,23 +461,19 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
               :class="[rowClass(row.day), selectedDate === row.day.date ? 'ring-2 ring-inset ring-sky-500' : '']"
             >
               <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                <button type="button" class="text-left font-medium hover:underline" @click="emit('dateClick', row.day.date)">
+                <button type="button" data-day-button class="text-left font-medium hover:underline" @click="emit('dateClick', row.day.date, $event.currentTarget as HTMLElement | null)">
                   {{ formatDayShort(row.day.date, row.day.weekday) }}
                 </button>
-                <!-- Info columns hidden: the day's Info texts and appointments behind a small marker beside the date. -->
-                <UPopover v-if="row.infoLines.length" :content="{ side: 'right', align: 'start' }">
-                  <button
-                    type="button" class="inline-flex rounded text-sky-700 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-sky-500"
-                    :title="row.infoLines.join('\n')" :aria-label="de.planCompact.infoMarker(formatDayLong(row.day.date, row.day.weekday))"
-                  >
-                    <UIcon name="i-lucide-message-square-text" class="size-4" />
-                  </button>
-                  <template #content>
-                    <ul class="max-w-72 space-y-1 p-3 text-xs break-words whitespace-normal">
-                      <li v-for="(line, lineIndex) in row.infoLines" :key="lineIndex">{{ line }}</li>
-                    </ul>
-                  </template>
-                </UPopover>
+                <!-- Info columns hidden: a small marker beside the date of a day with Info texts or appointments; it opens the
+                     day overview, which shows them (an appointment opens there on click). -->
+                <button
+                  v-if="row.infoLines.length" type="button"
+                  class="inline-flex rounded text-sky-700 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-sky-500"
+                  :title="row.infoLines.join('\n')" :aria-label="de.planCompact.infoMarker(formatDayLong(row.day.date, row.day.weekday))"
+                  @click="emit('dateClick', row.day.date, $event.currentTarget as HTMLElement | null)"
+                >
+                  <UIcon name="i-lucide-message-square-text" class="size-4" />
+                </button>
               </span>
               <div v-if="row.day.holidayKey" class="text-xs text-blue-700 print:truncate">{{ de.holidays[row.day.holidayKey] }}</div>
               <div v-else-if="row.day.closureLabel" class="text-xs text-blue-700 print:truncate">{{ row.day.closureLabel }}</div>
@@ -569,8 +567,8 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
               <!-- At most two lines with „…“ (a click shows the whole text, editing it in the field); the whole text in print. -->
               <div class="w-52 print:w-auto">
                 <PlanInfoField
-                  v-if="editable" :value="note.value" :label="`${de.plan[note.field]} ${formatDayShort(row.day.date, row.day.weekday)}`"
-                  @save="emit('noteSave', row.day.date, note.field, $event)"
+                  v-if="editable && saveNote" :value="note.value" :label="`${de.plan[note.field]} ${formatDayShort(row.day.date, row.day.weekday)}`"
+                  :save="(text: string) => saveNote!(row.day.date, note.field, text)"
                 />
                 <PlanInfoText v-else-if="note.value" :text="note.value" />
                 <!-- After the own Info texts, outside the field: the day's appointments, then its automatic events (read-only). -->

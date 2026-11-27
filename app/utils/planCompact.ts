@@ -67,3 +67,16 @@ export function dayInfoLines(day: Pick<DayRowDto, 'date' | 'info1' | 'info2' | '
     ...day.autoEvents,
   ].filter(Boolean)
 }
+
+/** What escapeClosesOverview needs of the element Escape was pressed in. */
+interface EscapeTarget { tagName?: string; isContentEditable?: boolean; closest?: (selector: string) => unknown }
+
+/**
+ * Escape closes the day overview beside the plan (`[data-day-overview]`), wherever the focus is, except in a field of the
+ * plan being typed in (an Info text, a search): there Escape belongs to the field (it puts the saved text back).
+ */
+export function escapeClosesOverview(target: EscapeTarget | null): boolean {
+  if (!target || target.closest?.('[data-day-overview]')) return true
+  const tag = target.tagName?.toLowerCase()
+  return !(tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable)
+}

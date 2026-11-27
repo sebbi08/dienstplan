@@ -1,3 +1,7 @@
+import type { ReleaseDto } from '#shared/types/api'
+import { de } from '~/locales/de'
+import { formatDateTime } from '~/utils/format'
+
 /**
  * The plan's printout (print view and PDF) on A4 landscape: the columns have fixed widths there, so a plan's width is
  * known beforehand. A plan wider than the page is scaled down to the page width, at most to PRINT_MIN_ZOOM so it stays
@@ -72,4 +76,32 @@ function split(kinds: readonly PrintColumnKind[], count: number): PrintPart[] {
   }
   parts.push({ from, to: kinds.length, withInfo: true, width: width(kinds.slice(from), true) })
   return parts.filter(part => part.to > part.from || part.withInfo)
+}
+
+/** A note beside a printed part's heading; `strong` ones (draft, internal appointments) stand out in orange. */
+export interface PrintHeadingNote { text: string; strong: boolean }
+
+/**
+ * The notes every printed part carries (someone may take just one part's pages): „Teil 1 von 2“ when the plan is printed
+ * in parts, who released the plan and when, „Entwurf …“ while it is not (wholly) released (only the Leitung's view knows),
+ * and „enthält interne Termine“ with „Interne Termine mitdrucken“.
+ */
+export function printHeadingNotes(input: {
+  release: Pick<ReleaseDto, 'releasedAt' | 'releasedBy' | 'pendingCount'>
+  /** The Leitung's view of the plan (plan.admin): only then is the draft state known. */
+  admin: boolean
+  internal: boolean
+  /** 1-based. */
+  part: number
+  parts: number
+}): PrintHeadingNote[] {
+  const { release } = input
+  const notes: PrintHeadingNote[] = []
+  if (input.parts > 1) notes.push({ text: de.plan.printPart(input.part, input.parts), strong: false })
+  if (release.releasedAt) notes.push({ text: de.plan.releasedAt(formatDateTime(release.releasedAt), release.releasedBy ?? ''), strong: false })
+  if (input.admin && (!release.releasedAt || release.pendingCount > 0)) {
+    notes.push({ text: release.releasedAt ? de.plan.printDraftNote(release.pendingCount) : de.plan.draft, strong: true })
+  }
+  if (input.internal) notes.push({ text: de.calendar.printInternalNote, strong: true })
+  return notes
 }

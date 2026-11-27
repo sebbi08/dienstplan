@@ -9,7 +9,8 @@ import { type CellScope, codesForScope, takesAbsences } from '~/utils/helpOuts'
 /**
  * Buttons for the selected cells (those that do not fit the selection's scope are disabled) and "Aushilfe hinzufügen".
  * `inline`: the plan's editing view – no box of its own, the buttons flow in the header row (PlanHeader) and the long
- * selection hint becomes an info icon with the hint as tooltip and name (on very wide screens the text itself).
+ * selection hint becomes an info icon with the hint as tooltip and name (on very wide screens the text itself); there the
+ * buttons are a named group among the row's other buttons (a group, not an ARIA toolbar: no arrow-key navigation).
  */
 const props = withDefaults(defineProps<{
   templates: TemplateDto[]
@@ -39,7 +40,7 @@ const emit = defineEmits<{
 <template>
   <div
     :class="inline ? 'contents' : 'block space-y-2 rounded-lg bg-white p-2 ring-1 ring-gray-200'" class="print:hidden"
-    role="toolbar" :aria-label="de.plan.toolbarLabel"
+    :role="inline ? 'group' : undefined" :aria-label="inline ? de.plan.toolbarLabel : undefined"
   >
     <div :class="inline ? 'contents' : 'flex flex-wrap items-center gap-1'">
       <span v-if="!inline || selectedCount" class="mr-2 text-xs text-gray-500" :class="inline && selectedCount ? 'font-medium text-sky-800' : ''">

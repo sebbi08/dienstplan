@@ -5,10 +5,10 @@ import type { MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { chipClasses } from '~/utils/colors'
 import { errorCode, errorMessage } from '~/utils/errors'
-import { formatDateTime, monthTitle } from '~/utils/format'
+import { monthTitle } from '~/utils/format'
 import { planBlocks, shownGroup } from '~/utils/groups'
 import { planWithoutHidden } from '~/utils/longAbsence'
-import { planColumnKinds, printLayout } from '~/utils/planPrint'
+import { planColumnKinds, printHeadingNotes, printLayout } from '~/utils/planPrint'
 import { printFileName } from '~/utils/printFileName'
 
 definePageMeta({ layout: false })
@@ -50,6 +50,14 @@ const search = computed(() => {
  */
 const printed = computed(() => (plan.value ? planWithoutHidden(plan.value) : null))
 const layout = computed(() => (printed.value ? printLayout(planColumnKinds(planBlocks(printed.value, group.value))) : null))
+/** The notes of each part's heading: the same on every part, „Teil i von n“ included (printHeadingNotes). */
+const partNotes = computed(() => {
+  const current = plan.value
+  if (!current || !layout.value) return []
+  return layout.value.parts.map((_, index) => printHeadingNotes({
+    release: current.release, admin: Boolean(current.admin), internal: internal.value, part: index + 1, parts: layout.value!.parts.length,
+  }))
+})
 </script>
 
 <template>
@@ -58,13 +66,9 @@ const layout = computed(() => (printed.value ? printLayout(planColumnKinds(planB
       <h1 class="text-2xl font-semibold print:text-lg">
         {{ monthTitle(year, month) }}<template v-if="plan?.facilityName"> – {{ plan.facilityName }}</template><template v-if="groupName"> – {{ groupName }}</template>
       </h1>
-      <span v-if="plan?.release.releasedAt" class="text-sm text-gray-600">
-        {{ de.plan.releasedAt(formatDateTime(plan.release.releasedAt), plan.release.releasedBy ?? '') }}
+      <span v-for="note in partNotes[0] ?? []" :key="note.text" class="text-sm" :class="note.strong ? 'font-semibold text-orange-700' : 'text-gray-600'">
+        {{ note.text }}
       </span>
-      <span v-if="plan?.admin && (!plan.release.releasedAt || plan.release.pendingCount > 0)" class="text-sm font-semibold text-orange-700">
-        {{ plan.release.releasedAt ? de.plan.printDraftNote(plan.release.pendingCount) : de.plan.draft }}
-      </span>
-      <span v-if="internal" class="text-sm font-semibold text-orange-700">{{ de.calendar.printInternalNote }}</span>
       <UCheckbox
         v-if="mayPrintInternal" v-model="internal" :label="de.calendar.printInternal" :description="de.calendar.printInternalHint"
         class="print:hidden"
@@ -74,10 +78,18 @@ const layout = computed(() => (printed.value ? printLayout(planColumnKinds(planB
     <p v-if="error" class="text-red-700">{{ errorText }}</p>
     <template v-if="plan">
       <template v-for="(part, index) in layout?.parts ?? []" :key="index">
-        <p v-if="index > 0" class="mt-4 mb-1 break-before-page text-sm font-semibold print:mt-0">
-          {{ monthTitle(year, month) }}<template v-if="plan.facilityName"> – {{ plan.facilityName }}</template><template v-if="groupName"> – {{ groupName }}</template>
-          · {{ de.plan.printPart(index + 1, layout!.parts.length) }}
-        </p>
+        <!-- Every part from a new page with the same heading and notes (someone may take only these pages). -->
+        <div v-if="index > 0" class="mt-4 mb-1 flex flex-wrap items-baseline gap-x-3 break-before-page print:mt-0">
+          <p class="text-sm font-semibold">
+            {{ monthTitle(year, month) }}<template v-if="plan.facilityName"> – {{ plan.facilityName }}</template><template v-if="groupName"> – {{ groupName }}</template>
+          </p>
+          <span
+            v-for="note in partNotes[index] ?? []" :key="note.text" class="text-xs"
+            :class="note.strong ? 'font-semibold text-orange-700' : 'text-gray-600'"
+          >
+            {{ note.text }}
+          </span>
+        </div>
         <PlanGrid :plan="printed ?? plan" :group-filter="group" :print-part="part" :print-zoom="layout!.zoom" print />
       </template>
       <PlanLongAbsences :plan="plan" :group-filter="group" print class="mt-2 print:mt-1" />

@@ -15,7 +15,7 @@ import { de } from '~/locales/de'
 import { entryApplyMode } from '~/utils/applyMode'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
-import { readInfoHidden, writeInfoHidden } from '~/utils/planCompact'
+import { escapeClosesOverview, readInfoHidden, writeInfoHidden } from '~/utils/planCompact'
 import { isPlanEditorView } from '~/utils/routeAccess'
 import { readGroupFilter, shownGroup, writeGroupFilter } from '~/utils/groups'
 import { busyCellKeys, type CellScope, cellScope, isMarker } from '~/utils/helpOuts'
@@ -158,6 +158,39 @@ onMounted(() => {
 function toggleInfo() {
   infoHidden.value = !infoHidden.value
   writeInfoHidden(infoHidden.value)
+}
+
+/**
+ * The day overview beside the plan (non-modal): the plan stays usable (a click on it does not close the overview, another
+ * date shows that day); Escape and the X close it, except that Escape in a field of the plan belongs to the field. The date
+ * (or Info marker) that opened it gets the focus back.
+ */
+let overviewTrigger: HTMLElement | null = null
+function openOverview(date: string, trigger: HTMLElement | null) {
+  selectedDate.value = date
+  overviewTrigger = trigger
+}
+function focusOverviewTrigger(date: string | null) {
+  const trigger = overviewTrigger?.isConnected
+    ? overviewTrigger
+    : date ? document.querySelector<HTMLElement>(`tr[data-date="${date}"] [data-day-button]`) : null
+  trigger?.focus()
+}
+let overviewClosedDate: string | null = null
+const overviewContent = {
+  'data-day-overview': '',
+  'onInteractOutside': (event: Event) => event.preventDefault(),
+  'onEscapeKeyDown': (event: KeyboardEvent) => {
+    if (!escapeClosesOverview(event.target as HTMLElement | null)) event.preventDefault()
+  },
+  'onCloseAutoFocus': (event: Event) => {
+    event.preventDefault()
+    focusOverviewTrigger(overviewClosedDate)
+  },
+}
+function closeOverview() {
+  overviewClosedDate = selectedDate.value
+  selectedDate.value = null
 }
 const groupItems = computed(() => [
   { label: de.groups.filterAll, value: 0 },
@@ -372,8 +405,9 @@ const menuActions = {
   }),
 }
 
-function onNoteSave(date: string, field: NoteField, value: string) {
-  run(() => $fetch<unknown>(`/api/day-notes/${date}`, { method: 'PUT', body: { field, value } }))
+/** Whether it worked: the Info field keeps the typed text when it did not (useAction shows the error). */
+function onNoteSave(date: string, field: NoteField, value: string): Promise<boolean> {
+  return run(() => $fetch<unknown>(`/api/day-notes/${date}`, { method: 'PUT', body: { field, value } }))
 }
 
 function onRemoveEntry(id: number) {
@@ -462,22 +496,24 @@ function navigate(nextYear: number, nextMonth: number) {
       <PlanGrid
         :plan="gridPlan ?? plan" :group-filter="activeGroup" :plain-actuals="onTablet" :info-hidden="infoHidden"
         :selected="selection.selected.value" :editable="isAdmin" :selected-date="selectedDate" :events-editable="canEditEvents"
-        @event-click="openEvent" @cell-click="onCellClick" @date-click="selectedDate = $event" @note-save="onNoteSave" @remove-entry="onRemoveEntry"
+        :save-note="onNoteSave"
+        @event-click="openEvent" @cell-click="onCellClick" @date-click="openOverview" @remove-entry="onRemoveEntry"
         @edit-entry="onEditEntry" @save-week="openWeekTemplate('save', $event)" @apply-week="openWeekTemplate('apply', $event)"
         @remove-helper="onRemoveHelper" @sick-leave="openSickLeave" @warnings-changed="refresh" @quick-entry="onQuickEntry"
       />
       <PlanLongAbsences :plan="plan" :group-filter="activeGroup" :revealed="revealed" @toggle="toggleRevealed" />
-      <!-- The day overview beside the plan (not below it); the plan stays usable, another date shows that day. -->
+      <!-- The day overview beside the plan (not below it); the plan stays usable, another date shows that day. At most
+           about 40 % of a laptop screen wide (its time grid scrolls sideways when it needs more). -->
       <USlideover
-        :open="selectedDate !== null" :modal="false" :overlay="false" :dismissible="false"
+        :open="selectedDate !== null" :modal="false" :overlay="false" :content="overviewContent"
         :title="selectedDate ? de.overview.title(formatDate(selectedDate)) : ''" :description="de.planCompact.overviewHint"
-        :ui="{ content: 'w-full max-w-3xl', body: 'p-3 sm:p-4' }" class="print:hidden"
-        @update:open="(open: boolean) => { if (!open) selectedDate = null }"
+        :ui="{ content: 'w-full sm:max-w-md xl:max-w-lg 2xl:max-w-2xl', body: 'p-3 sm:p-4' }" class="print:hidden"
+        @update:open="(open: boolean) => { if (!open) closeOverview() }"
       >
         <template #body>
           <PlanDayOverviewPanel
             v-if="selectedDate" :plan="gridPlan ?? plan" :date="selectedDate" :group-id="activeGroup" :can-edit-events="canEditEvents"
-            embedded @close="selectedDate = null" @add-event="openNewEvent" @event-click="openEvent"
+            :with-info="infoHidden" embedded @close="closeOverview" @add-event="openNewEvent" @event-click="openEvent"
           />
         </template>
       </USlideover>

@@ -2107,7 +2107,10 @@ Text weiter, steht am Ende „…“, und beim Zeigen mit der Maus erscheint der
 nicht hoch. **Beim Bearbeiten** öffnet ein Klick in das Feld (oder Tab dorthin) den ganzen Text, das Feld wächst beim
 Tippen mit; nach dem Verlassen ist es wieder zwei Zeilen hoch. Gespeichert wird beim Verlassen des Feldes; **Enter**
 speichert ebenfalls (ein Info-Text hat keine Zeilenumbrüche; während eine Eingabehilfe ein Wort zusammensetzt, gehört
-Enter noch zu ihr), **Esc** stellt den gespeicherten Text wieder her. **Ohne Bearbeiten** (Mitarbeitende, Kachel
+Enter noch zu ihr), **Esc** stellt den gespeicherten Text wieder her. Was getippt wird, bleibt beim Tippen und
+Speichern stehen; klappt das Speichern nicht (z. B. keine Verbindung), bleibt der getippte Text im Feld, rot umrandet
+mit dem Hinweis **„Nicht gespeichert“** – ins Feld klicken und Enter versucht es noch einmal, Esc verwirft die Änderung.
+**Ohne Bearbeiten** (Mitarbeitende, Kachel
 „Dienstplan“ am Tablet) gilt dasselbe: zwei Zeilen, ein Klick oder Antippen zeigt den ganzen Text, ein zweiter Klick
 macht ihn wieder kurz. **Ganz** stehen die Texte weiter im **Ausdruck** und im PDF und in **„Mein Dienstplan“** (dort
 steht nur ein Tag pro Zeile, die Zeilen werden nicht zu hoch). Die Termine und automatischen Ereignisse unter dem Text
@@ -2116,7 +2119,9 @@ bleiben immer ganz sichtbar.
 **„Info-Spalten ausblenden“** (Knopf oben rechts beim Dienstplan, auf schmaleren Bildschirmen nur das Symbol) blendet
 beide Info-Spalten aus und gibt den Diensten den Platz; die Wahl merkt sich das Gerät (der Browser), bis sie wieder
 zurückgestellt wird. Tage mit Info-Text, Termin oder automatischem Ereignis haben dann ein kleines **Sprechblasen-Symbol
-am Datum**; ein Klick darauf zeigt, was dort steht. Im Ausdruck stehen die Info-Spalten immer.
+am Datum** (beim Zeigen mit der Maus steht der Inhalt als Tooltip da). Ein Klick darauf (wie auf das Datum) öffnet die
+**Tagesübersicht** des Tages; sie zeigt dann auch die Info-Texte und automatischen Ereignisse, und die Termine öffnen
+sich dort mit einem Klick (wer den Kalender bearbeiten darf). Im Ausdruck stehen die Info-Spalten immer.
 
 ### Automatische Ereignisse
 
@@ -3322,10 +3327,10 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
     Eintrag „Unfälle“ unter **Mehr**; **Benutzer** und **Rechte und Rollen** (nur Träger) sind die zwei Reiter von
     **Benutzer & Rechte**. Alte Lesezeichen (`/admin/closures`, `/admin/sick-days`, `/admin/rights`,
     `/documents?tab=signatures`, `/admin/accidents`) führen automatisch zum passenden Reiter.
-  - **Offen für dich**: Wer einen eigenen Mitarbeiter-Eintrag hat, sieht oben auf **Mein Dienstplan** (Leitung und Träger
-    auf ihrem Dienstplan als Knopf **„Offen (n)“** in der Kopfzeile, der die Liste seitlich öffnet – n zählt alles
-    zusammen, was die Zeilen zählen) einen Kasten mit dem, was für die Person selbst wartet – jeweils mit Zahl und Link: Dokumente zu
-    unterschreiben (davon überfällige), Einträge „Gelesen und verstanden“, Selbstbeurteilungen zum Ausfüllen, der Hinweis
+  - **Offen für dich**: Wer einen eigenen Mitarbeiter-Eintrag hat, sieht oben auf **Mein Dienstplan** einen Kasten mit
+    dem, was für die Person selbst wartet. Leitung und Träger haben auf der Seite **Dienstplan** dafür keinen Kasten,
+    sondern in der Kopfzeile den Knopf **„Offen (n)“**, der dieselbe Liste seitlich öffnet (n zählt alles zusammen, was
+    die Zeilen zählen). Die Liste nennt jeweils mit Zahl und Link: Dokumente zu unterschreiben (davon überfällige), Einträge „Gelesen und verstanden“, Selbstbeurteilungen zum Ausfüllen, der Hinweis
     zum Resturlaub, Rückmeldungen zu eigenen Urlaubsanträgen (der letzten 14 Tage) und überfällige Pflichttermine (ein
     noch nie eingetragener zählt erst nach den ersten 4 Wochen der Beschäftigung). Ist nichts offen, fehlt der Kasten. Er
     zeigt nur die eigenen Sachen der Person. Noch offen: Aufgaben aus Infogesprächen und Hospitationen erscheinen dort
@@ -4199,7 +4204,8 @@ möglichst viel vom Plan zu sehen sein. Darum steht über dem Plan nur noch weni
 - **Eine Kopfzeile** für Monat (mit Pfeilen), Stand („Freigegeben“ bzw. „Entwurf“, die Zahl der Änderungen), die
   Knöpfe zum Eintragen (Dienste, Codes, „Sonderdienst…“, „Leeren“, „Aushilfe hinzufügen“), die Gruppe („alle Gruppen“
   oder eine Gruppe), **„Info-Spalten ausblenden“**, **„Offen (n)“**, „Änderungen verwerfen…“, „Freigeben“ und „Drucken“.
-  Auf schmaleren Bildschirmen (Tablet, kleiner Laptop) bricht sie in eine zweite Zeile um; kein Knopf fällt weg. Der
+  Sie nimmt eine bis drei Zeilen ein, je nach Breite des Bildschirms (auf einem großen Bildschirm meist zwei, auf Tablet
+  und kleinem Laptop drei – die dritte hält nur die Knöpfe rechts); kein Knopf fällt weg. Der
   Hinweis zum Auswählen („Zelle anklicken · Umschalt+Klick …“) steht als Symbol mit Tooltip da (auf sehr breiten
   Bildschirmen als Text); sind Zellen ausgewählt, steht dort „n Zellen ausgewählt“.
 - **„Offen (n)“** (nicht am Tablet): die eigenen offenen Sachen wie im Kasten „Offen für dich“ auf „Mein Dienstplan“
@@ -4211,7 +4217,10 @@ möglichst viel vom Plan zu sehen sein. Darum steht über dem Plan nur noch weni
 - **Kopfzeile und Datumsspalte bleiben stehen**: Beim Blättern im Plan bleiben die Namen oben und die Tage links
   sichtbar (im Büro wie am Tablet).
 - **Tagesübersicht seitlich**: Ein Klick auf ein Datum öffnet die Tagesübersicht rechts neben dem Plan (statt darunter);
-  ein Klick auf ein anderes Datum zeigt diesen Tag, das Kreuz schließt sie. Der Plan bleibt dabei bedienbar.
+  ein Klick auf ein anderes Datum zeigt diesen Tag. **Esc** oder das Kreuz schließt sie (Esc in einem Info-Feld des
+  Plans gehört dem Feld), danach steht der Fokus wieder auf dem Datum. Der Plan bleibt dabei bedienbar; auf einem
+  Laptop-Bildschirm nimmt die Übersicht höchstens etwa 40 % der Breite ein (ihre Zeitleiste lässt sich seitlich
+  schieben, wenn sie mehr braucht). Bei ausgeblendeten Info-Spalten zeigt sie auch die Info-Texte des Tages.
 - **Info-Spalten** zwei Zeilen hoch, ganz auf Klick, oder ganz ausgeblendet: siehe Abschnitt 17, „Info-Spalten“.
 
 Am Bearbeiten selbst (Auswählen, Eintragen, Warnungen, Freigeben) und an den Rechten ändert sich nichts.
@@ -4220,8 +4229,10 @@ Am Bearbeiten selbst (Auswählen, Eintragen, Warnungen, Freigeben) und an den Re
 
 Im Ausdruck (und im PDF, „PDF herunterladen“) haben die Spalten feste Breiten; lange Einträge brechen in ihrer Spalte
 um. Ist der Plan breiter als die Seite, wird er auf Seitenbreite **verkleinert**, höchstens auf 80 %. Braucht ein Plan
-mit vielen Personen mehr, wird er **in Teile geteilt**: jeder Teil beginnt auf einer neuen Seite mit Monat und „Teil 2
-von 2“, die Datumsspalte und die Namenszeile stehen in jedem Teil, die Info-Spalten im letzten. Alle Teile haben dieselbe
-Größe. Ein Plan mit 25 Personen passt so in zwei Teile. Mit **„Interne Termine mitdrucken“** heißt die PDF-Datei am Ende
+mit vielen Personen mehr, wird er **in Teile geteilt**: jeder Teil beginnt auf einer neuen Seite mit Monat, „Teil 1 von
+2“ bzw. „Teil 2 von 2“ und denselben Hinweisen wie oben auf der ersten Seite (Freigabe, „Entwurf – … noch nicht
+freigegeben“, „enthält interne Termine“) – wer nur die Seiten eines Teils aushängt, sieht das also auch. Die
+Datumsspalte und die Namenszeile stehen in jedem Teil, die Info-Spalten (mit den Terminen) im letzten. Alle Teile haben
+dieselbe Größe. Ein Plan mit 25 Personen passt so in zwei Teile. Mit **„Interne Termine mitdrucken“** heißt die PDF-Datei am Ende
 „-intern“ (z. B. „Dienstplan-2026-12-intern.pdf“), ebenso beim Jahreskalender („Jahreskalender-2027-intern.pdf“), damit
 man sie nicht mit dem Aushang verwechselt.

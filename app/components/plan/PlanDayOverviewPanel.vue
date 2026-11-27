@@ -14,9 +14,12 @@ import { parentalLeaveCells } from '~/utils/parentalLeave'
  * groupId: the group chosen above the plan. Then the overview shows the same people as the plan (the group, the
  * Springer and the helpers), plus anyone whose duty of this day counts for that group. `canEditEvents` (whoever manages
  * the calendar): the day's appointments open on click, and „Termin eintragen“ adds one for the day. `embedded`: inside
- * the plan's side panel, which has the title and the close button.
+ * the plan's side panel, which has the title and the close button. `withInfo`: the plan's Info columns are hidden, so the
+ * day's Info texts and automatic events stand here too (above its appointments).
  */
-const props = defineProps<{ plan: MonthPlanDto; date: string; groupId?: number | null; canEditEvents?: boolean; embedded?: boolean }>()
+const props = defineProps<{
+  plan: MonthPlanDto; date: string; groupId?: number | null; canEditEvents?: boolean; embedded?: boolean; withInfo?: boolean
+}>()
 const emit = defineEmits<{ close: []; addEvent: [date: string]; eventClick: [event: CalendarEventDto] }>()
 
 const LEGEND: SlotState[] = ['work', 'support', 'break', 'absent', 'prep_time', 'office', 'doctor', 'office_day', 'home_office', 'holiday', 'other']
@@ -45,8 +48,11 @@ const overview = computed(() => buildDayOverview(
 ))
 /** A full Elternzeit on the day: „Elternzeit“ or „abwesend“ beside the name, as in the plan (no stored entry). */
 const parentalLeave = computed(() => parentalLeaveCells(props.plan))
+// In the side panel (about 500 px wide on a laptop) narrower names and slots, so a whole day fits without scrolling sideways.
 const gridStyle = computed(() => ({
-  gridTemplateColumns: `9rem repeat(${overview.value.slotStarts.length}, minmax(0.9rem, 1fr))`,
+  gridTemplateColumns: props.embedded
+    ? `6rem repeat(${overview.value.slotStarts.length}, minmax(0.5rem, 1fr))`
+    : `9rem repeat(${overview.value.slotStarts.length}, minmax(0.9rem, 1fr))`,
 }))
 </script>
 
@@ -63,6 +69,15 @@ const gridStyle = computed(() => ({
         @click="emit('close')"
       />
     </div>
+    <template v-if="withInfo && day">
+      <dl v-if="day.info1 || day.info2" class="mb-2 space-y-1 text-sm">
+        <div v-for="field in (['info1', 'info2'] as const)" v-show="day[field]" :key="field" class="break-words">
+          <dt class="inline font-medium">{{ de.plan[field] }}:</dt>
+          <dd class="ml-1 inline">{{ day[field] }}</dd>
+        </div>
+      </dl>
+      <PlanAutoEvents :events="day.autoEvents" class="mb-2" />
+    </template>
     <PlanDayEvents
       v-if="day?.events.length" :events="day.events" :date="date" :editable="canEditEvents" class="mb-2"
       @event-click="emit('eventClick', $event)"
@@ -84,7 +99,20 @@ const gridStyle = computed(() => ({
           />
         </template>
         <div class="pr-2 font-semibold">{{ de.overview.present }}</div>
-        <div v-for="(count, index) in overview.present" :key="`present-${index}`" class="text-center font-semibold">{{ count }}</div>
+        <!-- In the side panel the slots are too narrow for every count: a count stands where it changes (and holds until
+             the next one; each slot names its count as tooltip). -->
+        <template v-if="embedded">
+          <div
+            v-for="(count, index) in overview.present" :key="`present-${index}`"
+            class="overflow-visible text-[9px] font-semibold tracking-tighter whitespace-nowrap"
+            :title="`${formatTime(overview.slotStarts[index]!)} · ${de.overview.present}: ${count}`"
+          >
+            {{ index === 0 || overview.present[index - 1] !== count ? count : '' }}
+          </div>
+        </template>
+        <template v-else>
+          <div v-for="(count, index) in overview.present" :key="`present-${index}`" class="text-center font-semibold">{{ count }}</div>
+        </template>
       </div>
     </div>
     <p v-if="split.kept.length" class="mt-2 text-xs text-gray-500">

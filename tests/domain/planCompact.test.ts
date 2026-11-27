@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { dayInfoLines, noticesSummary, notificationCounts, readInfoHidden, writeInfoHidden } from '../../app/utils/planCompact'
-import { PRINT_MIN_ZOOM, PRINT_PAGE_WIDTH, PRINT_WIDTHS, planColumnKinds, printLayout, type PrintColumnKind } from '../../app/utils/planPrint'
+import { dayInfoLines, escapeClosesOverview, noticesSummary, notificationCounts, readInfoHidden, writeInfoHidden } from '../../app/utils/planCompact'
+import {
+  PRINT_MIN_ZOOM, PRINT_PAGE_WIDTH, PRINT_WIDTHS, planColumnKinds, printHeadingNotes, printLayout, type PrintColumnKind,
+} from '../../app/utils/planPrint'
 import { printFileName } from '../../app/utils/printFileName'
 import type { CalendarEventDto, ReleaseNotificationStatusDto } from '../../shared/types/api'
 
@@ -88,10 +90,19 @@ describe('the compact plan page', () => {
     expect(page).toMatch(/<PlanHeader[\s\S]*<PlanToolbar[\s\S]*inline[\s\S]*<USelect[\s\S]*<\/PlanHeader>/)
   })
 
-  it('shows Info texts in two lines with the whole text on click, and whole in print', () => {
-    expect(source('components/plan/PlanInfoText.vue')).toContain('line-clamp-2 print:line-clamp-none')
-    expect(source('components/plan/PlanInfoField.vue')).toContain('focused.value ? full : Math.min(full, limit)')
-    expect(source('components/plan/PlanGrid.vue')).toContain('<PlanInfoText v-else-if="note.value" :text="note.value" />')
+  it('closes the day overview on Escape, except in a field of the plan being typed in', () => {
+    const element = (tagName: string, inOverview = false, isContentEditable = false) => ({
+      tagName, isContentEditable, closest: (selector: string) => (inOverview && selector === '[data-day-overview]' ? {} : null),
+    })
+    expect(escapeClosesOverview(null)).toBe(true)
+    expect(escapeClosesOverview(element('BUTTON'))).toBe(true)
+    expect(escapeClosesOverview(element('BODY'))).toBe(true)
+    // An Info text of the plan: Escape puts its saved text back and leaves the overview open.
+    expect(escapeClosesOverview(element('TEXTAREA'))).toBe(false)
+    expect(escapeClosesOverview(element('INPUT'))).toBe(false)
+    expect(escapeClosesOverview(element('DIV', false, true))).toBe(false)
+    // Inside the overview anything closes it.
+    expect(escapeClosesOverview(element('INPUT', true))).toBe(true)
   })
 })
 
@@ -144,10 +155,27 @@ describe('the plan printout on A4 landscape', () => {
     for (const part of layout.parts) expect(part.width * layout.zoom).toBeLessThanOrEqual(PRINT_PAGE_WIDTH + 0.01)
   })
 
-  it('prints each part from a new page with the date column and the heading again', () => {
-    const print = source('pages/print/[year]/[month].vue')
-    expect(print).toContain('break-before-page')
-    expect(print).toContain(':print-part="part" :print-zoom="layout!.zoom"')
+  it('gives every part the same notes: „Teil i von n“, the release, the draft and the internal appointments', () => {
+    const release = { releasedAt: '2026-11-27T07:44:00Z', releasedBy: 'Leitung', pendingCount: 2 }
+    const notes = (part: number, parts: number, internal = true, admin = true) =>
+      printHeadingNotes({ release, admin, internal, part, parts })
+    expect(notes(1, 2)).toEqual([
+      { text: 'Teil 1 von 2', strong: false },
+      { text: 'Freigegeben am 27.11.2026, 08:44 von Leitung', strong: false },
+      { text: 'Entwurf – 2 Änderungen noch nicht freigegeben', strong: true },
+      { text: 'enthält interne Termine', strong: true },
+    ])
+    // Part 2 (with the Info columns and so the appointments) says the same.
+    expect(notes(2, 2).slice(1)).toEqual(notes(1, 2).slice(1))
+    expect(notes(2, 2)[0]).toEqual({ text: 'Teil 2 von 2', strong: false })
+    // One part: no part label; the employees' view knows no draft; without internal appointments no such note.
+    expect(notes(1, 1, false, false)).toEqual([{ text: 'Freigegeben am 27.11.2026, 08:44 von Leitung', strong: false }])
+    expect(printHeadingNotes({ release: { releasedAt: null, releasedBy: null, pendingCount: 5 }, admin: true, internal: false, part: 1, parts: 1 }))
+      .toEqual([{ text: 'Entwurf', strong: true }])
+  })
+
+  it('prints each part from a new page', () => {
+    expect(source('pages/print/[year]/[month].vue')).toContain('break-before-page')
   })
 })
 
