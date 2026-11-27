@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
-import { careTypes, children, employees, facilities, groups, requiredDocumentTypes } from '../../server/db/schema'
+import { careTypes, children, employees, facilities, groupReadAccess, groups, requiredDocumentTypes } from '../../server/db/schema'
+import { getActiveUser } from '../../server/services/auth'
 import { setFacilityOpeningHours } from '../../server/services/openingHours'
 import { saveBundleOverride } from '../../server/services/permissions'
 import { getSetupChecklist, hideSetupItem, showSetupItem } from '../../server/services/setupChecklist'
@@ -101,6 +102,32 @@ describe('setup checklist service', () => {
     expect(openKeys(db, traeger)).toContain('employee_pin')
     expect(openKeys(db, staff)).not.toContain('employee_pin')
     expect(openKeys(db, staff)).toContain('employee_birthday')
+  })
+
+  it('names and counts only the children of the groups a group-scoped Gruppenleitung sees', () => {
+    const baeren = addGroup(db, 1, 'Bären')
+    const maeuse = addGroup(db, 1, 'Mäuse')
+    const igel = addGroup(db, 1, 'Igel')
+    db.insert(groupReadAccess).values({ groupId: baeren, readableGroupId: igel }).run()
+    addChild(db, 1, { firstName: 'Bea', lastName: 'Bär', groupId: baeren })
+    addChild(db, 1, { firstName: 'Ida', lastName: 'Igel', groupId: igel })
+    addChild(db, 1, { firstName: 'Max', lastName: 'Maus', groupId: maeuse })
+    addChild(db, 1, { firstName: 'Olga', lastName: 'Ohne', groupId: null })
+    const { id } = addUser(db, 'gina', 'group_lead', addEmployee(db, 'Gina', { groupId: baeren }))
+    saveBundleOverride(db, id, 'settingsFacility', 'grant')
+    // The session user as a request resolves it: permissions and scopes (default for her: „nur eigene Gruppe“).
+    const lead = () => getActiveUser(db, id, '2026-10-25')!
+    expect(lead().scopes.get('children.view')).toBe('group')
+    const careItem = (user: SessionUser) => getSetupChecklist(db, user, 1, now).open.find(item => item.key === 'child_care_type')!
+    // The own group, the group it may read and the children without group, as the child list shows them – never Mäuse.
+    expect(careItem(lead())).toMatchObject({ count: 3 })
+    expect(careItem(lead()).names.map(entry => entry.name)).toEqual(['Bea Bär', 'Ida Igel', 'Olga Ohne'])
+    expect(JSON.stringify(getSetupChecklist(db, lead(), 1, now))).not.toContain('Maus')
+    // The Leitung (whole facility) sees all four.
+    expect(careItem(leitung).count).toBe(4)
+    // „ansehen“ for the whole facility: all four for her too.
+    saveBundleOverride(db, id, 'childrenView', 'grant', 'facility')
+    expect(careItem(lead()).count).toBe(4)
   })
 
   it('names children only to an account that sees children with the own account', () => {

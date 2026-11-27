@@ -7,13 +7,15 @@ import {
   isSetupItemKey, SETUP_CHILD_KEYS, SETUP_PROVIDER_ONLY_KEYS, setupChecklist, type SetupChecklist, type SetupFacts,
   type SetupItemKey, type SetupViewer,
 } from '../../shared/domain/setupChecklist'
-import type { SessionUser } from '../../shared/types/api'
+import type { GroupAccess, SessionUser } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { children, employees, facilities, groups, setupHidden, users } from '../db/schema'
+import { seesGroup } from '../lib/childRecord'
 import { ServiceError } from '../lib/errors'
 import { loadHoursContext } from './openingHours'
 import { missingRequiredDocuments } from './requiredDocuments'
 import { staffingRulesFor } from './staffing'
+import { resolveChildViewer } from './tabletUnlock'
 
 /** Whoever runs the facility's settings sees „Was noch fehlt“ (the routes check it as well). */
 function assertManager(user: SessionUser): void {
@@ -22,9 +24,14 @@ function assertManager(user: SessionUser): void {
 
 /**
  * What the checklist needs to know about the facility today; with a viewer also the Pflichtdokumente missing or expired
- * (only types in folders the viewer may use).
+ * (only types in folders the viewer may use). `childGroups`: the groups whose children the viewer sees (the scope of
+ * „Kinder: ansehen“, as the child pages judge it: `seesGroup` on the child's current group; null = every group),
+ * 'none' = no child at all.
  */
-export function loadSetupFacts(db: Db, facilityId: number, now: Date = new Date(), viewer?: Pick<SessionUser, 'permissions'>): SetupFacts {
+export function loadSetupFacts(
+  db: Db, facilityId: number, now: Date = new Date(), viewer?: Pick<SessionUser, 'permissions'>,
+  childGroups: GroupAccess | null | 'none' = null,
+): SetupFacts {
   const today = todayIso(now)
   const facility = db.select().from(facilities).where(eq(facilities.id, facilityId)).get()
   if (!facility) throw new ServiceError(404, 'facility_not_found')
@@ -35,12 +42,12 @@ export function loadSetupFacts(db: Db, facilityId: number, now: Date = new Date(
   const staff = db.select().from(employees).where(eq(employees.facilityId, facilityId))
     .orderBy(asc(employees.sortOrder), asc(employees.id)).all()
     .filter(employee => employee.leftOn === null || employee.leftOn >= today)
-  const kids = db.select({
+  const kids = childGroups === 'none' ? [] : db.select({
     id: children.id, firstName: children.firstName, lastName: children.lastName, careTypeId: children.careTypeId,
-    admissionStatus: children.admissionStatus, entryDate: children.entryDate, leftOn: children.leftOn,
+    admissionStatus: children.admissionStatus, entryDate: children.entryDate, leftOn: children.leftOn, groupId: children.groupId,
   }).from(children).where(eq(children.facilityId, facilityId)).orderBy(asc(children.lastName), asc(children.firstName)).all()
-    // Only children with a contract today (entered, not left): the ones the children list shows.
-    .filter(child => childStatus(child, today) === 'active')
+    // Only children with a contract today (entered, not left): the ones the children list shows, in groups the viewer sees.
+    .filter(child => childStatus(child, today) === 'active' && seesGroup(childGroups, child.groupId))
   return {
     openingHoursEntered: loadHoursContext(db, facilityId).facility !== null,
     hasTerminalAccount: terminal !== undefined,
@@ -93,6 +100,17 @@ function seesChildren(user: Pick<SessionUser, 'permissions'>): boolean {
 }
 
 /**
+ * The groups whose children the account sees with its own account in the facility: as the child pages resolve it
+ * (resolveChildViewer: „Kinder: ansehen“ with „nur eigene Gruppe“ = the own group and the groups it may read). Another
+ * facility than the one the account works in (the routes never ask for one): every group for the Träger, no child for
+ * anyone else – never more than the child pages show.
+ */
+function childGroupsOf(db: Db, user: SessionUser, facilityId: number, now: Date): GroupAccess | null | 'none' {
+  if (user.facilityId === facilityId) return resolveChildViewer(db, user, undefined, now).groups
+  return can(user.permissions, 'facilities.manage') ? null : 'none'
+}
+
+/**
  * „Was noch fehlt“ of the facility for this Leitung or Träger (items for the Träger only are left out for a Leitung, the
  * PIN items for an account that sets no PINs, the items naming children for an account that sees no children).
  */
@@ -103,7 +121,8 @@ export function getSetupChecklist(db: Db, user: SessionUser, facilityId: number,
     managesPins: mayManagePins(user.role, key => can(user.permissions, key)),
     seesChildren: seesChildren(user),
   }
-  return setupChecklist(loadSetupFacts(db, facilityId, now, user), viewer, hiddenKeys(db, facilityId))
+  const childGroups = viewer.seesChildren ? childGroupsOf(db, user, facilityId, now) : 'none'
+  return setupChecklist(loadSetupFacts(db, facilityId, now, user, childGroups), viewer, hiddenKeys(db, facilityId))
 }
 
 /**
