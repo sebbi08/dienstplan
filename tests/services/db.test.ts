@@ -1743,14 +1743,16 @@ describe('upgrading a filled database through migrateDb', () => {
       .map(fk => { const { table: parent, from, on_delete } = fk as Record<string, string>; return { parent, from, on_delete } })
       .sort((a, b) => a.from.localeCompare(b.from))
     expect(fks('employee_payroll')).toEqual([{ parent: 'employees', from: 'employee_id', on_delete: 'CASCADE' }])
-    // (required_type_id and its index: 0127, the Pflichtdokumente.)
+    // (required_type_id and its index: 0127, the Pflichtdokumente; inspection_type_id and its index: 0139, the marker of
+    // a file that must not be kept.)
     expect(fks('employee_documents')).toEqual([
       { parent: 'employees', from: 'employee_id', on_delete: 'CASCADE' },
+      { parent: 'required_document_types', from: 'inspection_type_id', on_delete: 'SET NULL' },
       { parent: 'required_document_types', from: 'required_type_id', on_delete: 'SET NULL' },
       { parent: 'users', from: 'uploaded_by', on_delete: 'SET NULL' },
     ])
-    expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'employee_documents' AND name NOT LIKE 'sqlite_%'`).all())
-      .toEqual([{ name: 'employee_documents_employee' }, { name: 'employee_documents_required_type' }])
+    expect(sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'employee_documents' AND name NOT LIKE 'sqlite_%' ORDER BY name`).all())
+      .toEqual([{ name: 'employee_documents_employee' }, { name: 'employee_documents_inspection_type' }, { name: 'employee_documents_required_type' }])
 
     sqlite.exec(`
       INSERT INTO employee_payroll (employee_id, tax_id, tax_class) VALUES (1, '86095742719', 1), (2, NULL, NULL);
