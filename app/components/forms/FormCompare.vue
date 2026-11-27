@@ -1,25 +1,20 @@
 <script setup lang="ts">
-import { answerDiff, itemLabel, type AnswerDiff, type CompareRow, type CompareSection, type Trend } from '#shared/domain/formHistory'
+import { itemLabel, type CompareRow, type CompareSection, type Trend } from '#shared/domain/formHistory'
 import { de } from '~/locales/de'
 
 /**
  * Two forms side by side (compareForms): per section and item the older answer left, the newer right, ratings and
- * milestones with a trend arrow (↑ better, ↓ weaker, = the same); under a table in both forms what changed cell by cell
- * (rows added and removed). On phones each item stacks both answers with their labels; the printout always has the
- * three columns.
+ * milestones with a trend arrow (↑ better, ↓ weaker, = the same). Under a table in both forms what changed cell by cell
+ * (rows added and removed) when both copies are built alike, else „Tabelle geändert“ (row.table, each table read through
+ * its own form's copy). On phones each item stacks both answers with their labels; the printout has the three columns,
+ * except that a table gets the full width (older above newer), so its columns are not squeezed.
  */
 const props = defineProps<{ sections: CompareSection[]; olderLabel: string; newerLabel: string }>()
 const h = de.formHistory
 
-/** How a table differs from the older form to the newer one (read by the newer form's columns and rows); none if equal. */
-function tableDiff(row: CompareRow): AnswerDiff | undefined {
-  if (row.newerItem?.kind !== 'table' || row.olderItem?.kind !== 'table' || row.older === undefined || row.newer === undefined) return undefined
-  const diff = answerDiff(row.newerItem, row.older, row.newer)
-  return diff.status === 'same' ? undefined : diff
-}
-
 // A choices item without a question is named by its section (the options are listed in the answers).
 const rowLabel = (row: CompareRow, section: CompareSection) => itemLabel((row.newerItem ?? row.olderItem)!, section.title)
+const isTable = (row: CompareRow) => row.newerItem?.kind === 'table' || row.olderItem?.kind === 'table'
 const arrow: Record<Trend, string> = { up: '↑', down: '↓', same: '=' }
 const arrowClass: Record<Trend, string> = { up: 'text-green-700', down: 'text-red-700', same: 'text-gray-500' }
 const columns = 'sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] print:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]'
@@ -39,16 +34,16 @@ const columns = 'sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] prin
       </div>
       <div
         v-for="(row, index) in section.rows" :key="`${section.id}-${index}`"
-        class="grid gap-1 border-b border-gray-100 py-2 last:border-b-0 sm:gap-3 print:break-inside-avoid print:gap-3" :class="columns"
+        class="grid gap-1 border-b border-gray-100 py-2 last:border-b-0 sm:gap-3 print:gap-3" :class="[columns, isTable(row) ? '' : 'print:break-inside-avoid']"
       >
-        <p class="text-sm font-medium break-words">{{ rowLabel(row, section) }}</p>
-        <div class="min-w-0">
-          <p class="text-xs text-gray-500 sm:hidden print:hidden">{{ props.olderLabel }}</p>
+        <p class="text-sm font-medium break-words" :class="isTable(row) ? 'print:col-span-3' : ''">{{ rowLabel(row, section) }}</p>
+        <div class="min-w-0" :class="isTable(row) ? 'print:col-span-3' : ''">
+          <p class="text-xs text-gray-500 sm:hidden" :class="isTable(row) ? 'print:block' : 'print:hidden'">{{ props.olderLabel }}</p>
           <FormsAnswerValue :item="row.olderItem" :value="row.older" />
         </div>
-        <div class="flex min-w-0 items-start gap-2">
+        <div class="flex min-w-0 items-start gap-2" :class="isTable(row) ? 'print:col-span-3' : ''">
           <div class="min-w-0 flex-1">
-            <p class="text-xs text-gray-500 sm:hidden print:hidden">{{ props.newerLabel }}</p>
+            <p class="text-xs text-gray-500 sm:hidden" :class="isTable(row) ? 'print:block' : 'print:hidden'">{{ props.newerLabel }}</p>
             <FormsAnswerValue :item="row.newerItem" :value="row.newer" />
           </div>
           <span
@@ -56,9 +51,16 @@ const columns = 'sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] prin
             role="img" :aria-label="h.trend[row.trend]"
           >{{ arrow[row.trend] }}</span>
         </div>
-        <div v-if="tableDiff(row)" class="min-w-0 sm:col-span-3 print:col-span-3">
-          <FormsItemHistory :item="row.newerItem!" :diff="tableDiff(row)" />
+        <div v-if="row.table?.kind === 'diff'" class="min-w-0 sm:col-span-3 print:col-span-3">
+          <FormsItemHistory :item="row.newerItem!" :diff="row.table.diff" />
         </div>
+        <p
+          v-else-if="row.table?.kind === 'structure'"
+          class="rounded-md bg-amber-50/60 p-2 text-sm ring-1 ring-amber-200 sm:col-span-3 print:col-span-3"
+        >
+          <span class="mr-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900">{{ h.tableChanged }}</span>
+          {{ h.tableChangedHint }}
+        </p>
       </div>
     </section>
   </div>

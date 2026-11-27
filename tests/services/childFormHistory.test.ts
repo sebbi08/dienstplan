@@ -10,8 +10,9 @@ import {
 import { getChildFormRevision, listChildFormRevisions, markChildFormOpened } from '../../server/services/childFormHistory'
 import { deleteChild, moveChildToFacility } from '../../server/services/children'
 import { REVISION_PAGE_SIZE } from '../../server/services/formRevisions'
+import { createTemplate, listTemplates, updateTemplate } from '../../server/services/formTemplates'
 import { compareForms, formDiff } from '../../shared/domain/formHistory'
-import type { AnswerableItem, FormAnswers, FormContent } from '../../shared/domain/forms'
+import { tableRowsOf, type AnswerableItem, type FormAnswers, type FormContent, type TableItem } from '../../shared/domain/forms'
 import { addChild, addEmployee, addFacility, addGroup, addUser, asChildViewer, createTestDb, permissionsOf } from '../helpers/fixtures'
 
 const NOW = new Date('2026-10-20T08:00:00Z')
@@ -219,6 +220,113 @@ describe('history of child forms („Verlauf“)', () => {
     expect(rows.find(row => row.id === rating.id)).toMatchObject({ trend: 'up', older: { value: '-' }, newer: { value: '+' } })
     expect(rows.find(row => row.id === milestone.id)).toMatchObject({ trend: 'up' })
     expect(rows.every(row => row.olderItem && row.newerItem)).toBe(true)
+  })
+
+  describe('tables', () => {
+    /** A child template „Gesundheitscheck“ with a fixed table (Masern, Tetanus) and a free one. */
+    const tableTemplate = () => {
+      const provider = addUser(db, 'traeger', 'provider')
+      const id = createTemplate(db, provider, 1, { kind: 'child', name: 'Gesundheitscheck', selfAssessment: false }, NOW)
+      updateTemplate(db, provider, 1, id, {
+        content: {
+          sections: [{
+            title: 'Gesundheit', items: [
+              { kind: 'table', question: 'Impfungen', freeRows: false, columns: [{ heading: 'Bemerkung', type: 'text' }, { heading: 'gesehen', type: 'checkbox' }], rows: [{ label: 'Masern' }, { label: 'Tetanus' }] },
+              { kind: 'table', question: 'Termine', freeRows: true, columns: [{ heading: 'Was', type: 'text' }, { heading: 'Wann', type: 'date' }], rows: [] },
+            ],
+          }],
+        },
+      }, NOW)
+      return { id, provider }
+    }
+    const tablesOf = (formId: number) => {
+      const [fixed, free] = items(formId) as TableItem[]
+      return { fixed: fixed!, free: free! }
+    }
+
+    it('a saved table goes into a revision and comes back as a cell diff against today', () => {
+      const formId = createChildForm(db, leitung, kid, { templateId: tableTemplate().id, ...header }, NOW)
+      const { fixed, free } = tablesOf(formId)
+      const [bemerkung, gesehen] = fixed.columns
+      const [was, wann] = free.columns
+      const fixedAnswer = (text: string, seen: boolean) => fixed.rows.map((row, index) =>
+        ({ id: row.id, cells: { [bemerkung!.id]: index ? '' : text, [gesehen!.id]: index ? false : seen } }))
+      save(annaTablet, formId, {
+        [fixed.id]: fixedAnswer('1. Impfung', false),
+        [free.id]: [{ id: 'a', cells: { [was!.id]: 'U7', [wann!.id]: '2026-03-01' } }, { id: 'b', cells: { [was!.id]: 'Zahnarzt', [wann!.id]: null } }],
+      }, at(9))
+      save(annaTablet, formId, {
+        [fixed.id]: fixedAnswer('2. Impfung', true),
+        [free.id]: [{ id: 'a', cells: { [was!.id]: 'U7', [wann!.id]: '2026-03-01' } }, { id: 'c', cells: { [was!.id]: 'Logopädie', [wann!.id]: null } }],
+      }, at(10))
+
+      const revisions = listChildFormRevisions(db, leitung, formId, 0, NOW).revisions
+      expect(revisions.map(revision => revision.changedCount)).toEqual([2, 2])
+      const first = getChildFormRevision(db, leitung, formId, revisions.at(-1)!.id, NOW)
+      // Stored normalized: every fixed row in the template's order, the free rows in their order.
+      expect((first.answers[fixed.id] as unknown[])).toHaveLength(2)
+      const current = getChildForm(db, leitung, formId, NOW)
+      expect(formDiff(current.content, first.answers, current.answers)).toEqual({
+        [fixed.id]: {
+          status: 'changed',
+          detail: {
+            kind: 'table', addedRows: [], removedRows: [],
+            cells: [
+              { row: { label: 'Masern', number: 1 }, column: 'Bemerkung', type: 'text', from: '1. Impfung', to: '2. Impfung' },
+              { row: { label: 'Masern', number: 1 }, column: 'gesehen', type: 'checkbox', from: false, to: true },
+            ],
+          },
+        },
+        [free.id]: {
+          status: 'changed',
+          detail: {
+            kind: 'table', cells: [],
+            addedRows: [{ row: { label: null, number: 2 }, cells: [{ column: 'Was', type: 'text', value: 'Logopädie' }] }],
+            removedRows: [{ row: { label: null, number: 2 }, cells: [{ column: 'Was', type: 'text', value: 'Zahnarzt' }] }],
+          },
+        },
+      })
+    })
+
+    it('compares two Bögen across a template change: a changed table says „Tabelle geändert“, an unchanged one diffs', () => {
+      const { id: templateId, provider } = tableTemplate()
+      const older = createChildForm(db, leitung, kid, { templateId, ...header, date: '2026-03-01' }, NOW)
+      const before = tablesOf(older)
+      save(leitung, older, {
+        [before.fixed.id]: [{ id: before.fixed.rows[0]!.id, cells: { [before.fixed.columns[1]!.id]: true } }],
+        [before.free.id]: [{ id: 'a', cells: { [before.free.columns[0]!.id]: 'U7' } }],
+      }, at(9))
+
+      // The template changes: Masern goes, Mumps comes, a column is added; a kept column's type stays (Bögen exist).
+      const content = structuredClone(listTemplates(db, 1, 'child').find(template => template.id === templateId)!.content) as unknown as {
+        sections: { items: { columns: { id?: string; heading: string; type: string }[]; rows: { id?: string; label: string }[] }[] }[]
+      }
+      const table = content.sections[0]!.items[0]!
+      table.rows = [{ label: 'Mumps' }, table.rows[1]!]
+      table.columns.push({ heading: 'am', type: 'date' })
+      const retyped = structuredClone(content)
+      retyped.sections[0]!.items[0]!.columns[0]!.type = 'date'
+      expect(failure(() => updateTemplate(db, provider, 1, templateId, { content: retyped }, NOW))).toBe('400 form_column_type_fixed')
+      updateTemplate(db, provider, 1, templateId, { content }, NOW)
+
+      const newer = createChildForm(db, leitung, kid, { templateId, ...header }, NOW)
+      const after = tablesOf(newer)
+      expect(after.fixed.rows.map(row => row.label)).toEqual(['Mumps', 'Tetanus'])
+      save(leitung, newer, {
+        [after.fixed.id]: [{ id: after.fixed.rows[0]!.id, cells: { [after.fixed.columns[1]!.id]: true } }],
+        [after.free.id]: [{ id: 'z', cells: { [after.free.columns[0]!.id]: 'U8' } }],
+      }, at(10))
+
+      const rows = compareForms(getChildForm(db, leitung, newer, NOW), getChildForm(db, leitung, older, NOW)).flatMap(section => section.rows)
+      const fixedRow = rows.find(row => row.id === after.fixed.id)!
+      expect(fixedRow.table).toEqual({ kind: 'structure' })
+      // Each side through its own copy: the older tick stays under Masern.
+      expect((fixedRow.olderItem as TableItem).rows.map(row => row.label)).toEqual(['Masern', 'Tetanus'])
+      expect(tableRowsOf(fixedRow.olderItem as TableItem, fixedRow.older)[0]!.cells[before.fixed.columns[1]!.id]).toBe(true)
+      expect(rows.find(row => row.id === after.free.id)!.table).toMatchObject({
+        kind: 'diff', diff: { status: 'changed', detail: { cells: [{ column: 'Was', from: 'U7', to: 'U8' }] } },
+      })
+    })
   })
 
   it('revisions and openings go with the form, the child, and openings with a move to another facility', () => {

@@ -376,6 +376,32 @@ describe('form templates', () => {
     expect(own()[0]!.content.sections[0]!.items[0]).toMatchObject({ kind: 'note' })
   })
 
+  it('keeps a table column\'s type once forms were made from the template; new columns take any type', () => {
+    const id = create('Gesundheitscheck')
+    updateTemplate(db, leitung, 1, id, {
+      content: { sections: [{ title: 'G', items: [{ kind: 'table', question: '', freeRows: true, columns: [{ heading: 'Was', type: 'text' }], rows: [] }] }] },
+    }, now)
+    type Editable = { sections: { items: { columns: { id?: string; heading: string; type: string }[] }[] }[] }
+    const columnsOf = () => (structuredClone(own().find(template => template.id === id)!.content) as unknown as Editable)
+    // Not in use yet: the type may still change.
+    const draft = columnsOf()
+    draft.sections[0]!.items[0]!.columns[0]!.type = 'date'
+    updateTemplate(db, leitung, 1, id, { content: draft }, now)
+    expect(columnsOf().sections[0]!.items[0]!.columns[0]!.type).toBe('date')
+
+    addForm(id)
+    const locked = columnsOf()
+    locked.sections[0]!.items[0]!.columns[0]!.type = 'text'
+    expect(errorCode(() => updateTemplate(db, leitung, 1, id, { content: locked }, now))).toBe('form_column_type_fixed')
+    expect(columnsOf().sections[0]!.items[0]!.columns[0]!.type).toBe('date')
+    // A new heading and a new column of any type are fine.
+    const grown = columnsOf()
+    grown.sections[0]!.items[0]!.columns[0]!.heading = 'Wann'
+    grown.sections[0]!.items[0]!.columns.push({ heading: 'gesehen', type: 'checkbox' })
+    updateTemplate(db, leitung, 1, id, { content: grown }, now)
+    expect(columnsOf().sections[0]!.items[0]!.columns.map(column => [column.heading, column.type])).toEqual([['Wann', 'date'], ['gesehen', 'checkbox']])
+  })
+
   it('writes nothing when no field changes', () => {
     const id = create('Probezeit')
     updateTemplate(db, leitung, 1, id, { content: sample }, now)
@@ -434,6 +460,32 @@ describe('form templates', () => {
     expect(allIds(first.content)).toHaveLength(allIds(self!.content).length)
     expect(allIds(first.content).some(value => allIds(self!.content).includes(value))).toBe(false)
     expect(first.content.sections.map(section => section.title)).toEqual(self!.content.sections.map(section => section.title))
+
+    // A table's columns and fixed rows get fresh ids too; everything else is copied as it is.
+    const tableId = create('Gesundheitscheck')
+    updateTemplate(db, leitung, 1, tableId, {
+      content: {
+        sections: [{
+          title: 'Gesundheit', items: [
+            { kind: 'table', question: 'Impfungen', freeRows: false, columns: [{ heading: 'Bemerkung', type: 'text' }, { heading: 'am', type: 'date' }], rows: [{ label: 'Masern' }] },
+            { kind: 'table', question: '', freeRows: true, columns: [{ heading: 'Was', type: 'text' }], rows: [] },
+            { kind: 'checkbox', label: 'Impfpass gesehen' },
+            { kind: 'choices', question: 'Essen', single: true, options: [{ label: 'ja' }, { label: 'nein' }] },
+          ],
+        }],
+      },
+    }, now)
+    const original = own().find(template => template.id === tableId)!.content
+    const tableCopyId = copyTemplate(db, leitung, 1, tableId, now)
+    const tableCopy = listTemplates(db, 1).find(template => template.id === tableCopyId)!.content
+    const tableIds = (content: FormContent) => content.sections.flatMap(section => section.items.flatMap(item => (item.kind === 'table'
+      ? [item.id, ...item.columns.map(column => column.id), ...item.rows.map(row => row.id)]
+      : [item.id])))
+    expect(tableIds(tableCopy)).toHaveLength(tableIds(original).length)
+    expect(new Set([...tableIds(tableCopy), ...tableIds(original)]).size).toBe(tableIds(original).length * 2)
+    const withoutIds = (content: FormContent) => JSON.parse(JSON.stringify(content, (key, value) => (key === 'id' ? undefined : value)))
+    expect(withoutIds(tableCopy)).toEqual(withoutIds(original))
+    expect(checkContent(tableCopy)).toEqual(tableCopy)
 
     const long = create('y'.repeat(80))
     const longCopy = copyTemplate(db, leitung, 1, long, now)

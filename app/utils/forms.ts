@@ -119,6 +119,27 @@ export function toggledChoice(picked: readonly string[], optionId: string, singl
   return single ? [optionId] : [...picked, optionId]
 }
 
+/** The option of a single-choice list that takes the Tab key: the ticked one, else the first. */
+export function radioTabStop(optionIds: readonly string[], picked: readonly string[]): string | undefined {
+  return optionIds.find(id => picked.includes(id)) ?? optionIds[0]
+}
+
+/**
+ * The option an arrow key moves to in a single-choice list (ArrowRight/ArrowDown next, ArrowLeft/ArrowUp previous,
+ * wrapping around; Home/End first/last); null for any other key.
+ */
+export function radioMove(optionIds: readonly string[], current: string | undefined, key: string): string | null {
+  if (!optionIds.length) return null
+  const index = Math.max(0, current === undefined ? 0 : optionIds.indexOf(current))
+  switch (key) {
+    case 'ArrowRight': case 'ArrowDown': return optionIds[(index + 1) % optionIds.length]!
+    case 'ArrowLeft': case 'ArrowUp': return optionIds[(index - 1 + optionIds.length) % optionIds.length]!
+    case 'Home': return optionIds[0]!
+    case 'End': return optionIds.at(-1)!
+    default: return null
+  }
+}
+
 /** A table's answer with one cell set (the other rows and cells as they are). */
 export function withTableCell(item: TableItem, value: unknown, rowId: string, columnId: string, cell: TableCell): TableAnswer {
   return tableRowsOf(item, value).map(row => (row.id === rowId ? { id: row.id, cells: { ...row.cells, [columnId]: cell } } : row))

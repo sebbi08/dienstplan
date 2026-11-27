@@ -5,7 +5,7 @@ import { formatDate } from '~/utils/format'
 import { withTableCell, withTableRow, withoutTableRow } from '~/utils/forms'
 
 /**
- * A „Tabelle“ of a form, to fill in (`readonly` false) or to read: from 768 px a real table (the row labels of a fixed
+ * A „Tabelle“ of a form, to fill in (`readonly` false) or to read: from 900 px a real table (the row labels of a fixed
  * table in the first column), below (phones, a tablet held upright) each row as a card with the column headings as
  * labels. A free table has „Zeile hinzufügen“ (up to 50) and per row „Zeile entfernen“ (asked first when the row holds
  * something). Text cells are plain text (at most 500 characters), date cells the same field as a date item.
@@ -41,14 +41,29 @@ async function removeRow(row: TableAnswerRow, index: number) {
   emit('update', withoutTableRow(props.item, props.value, row.id))
 }
 const cell = 'border border-gray-200 px-1.5 py-1 align-top'
+
+/**
+ * Table from 900 px, cards below (phones and tablets held upright). Only one layout is mounted once the width is known
+ * (in the browser); before that (server render, first paint) both are, switched by CSS, so nothing jumps.
+ */
+const WIDE = '(min-width: 900px)'
+const wide = ref<boolean | null>(null)
+let query: MediaQueryList | null = null
+const onWidth = () => { wide.value = query?.matches ?? null }
+onMounted(() => {
+  query = window.matchMedia(WIDE)
+  onWidth()
+  query.addEventListener('change', onWidth)
+})
+onBeforeUnmount(() => query?.removeEventListener('change', onWidth))
 </script>
 
 <template>
   <div class="min-w-0 space-y-2">
     <p v-if="props.item.freeRows && !rows.length" class="text-sm text-gray-500">{{ t.noRows }}</p>
 
-    <!-- From 768 px: a table -->
-    <div v-if="rows.length" class="hidden overflow-x-auto md:block">
+    <!-- From 900 px: a table -->
+    <div v-if="rows.length && wide !== false" class="overflow-x-auto" :class="wide === null ? 'hidden min-[900px]:block' : ''">
       <table class="w-full border-collapse text-sm">
         <thead>
           <tr class="bg-gray-50">
@@ -85,8 +100,8 @@ const cell = 'border border-gray-200 px-1.5 py-1 align-top'
       </table>
     </div>
 
-    <!-- Below 768 px: one card per row -->
-    <ul v-if="rows.length" class="space-y-2 md:hidden">
+    <!-- Below 900 px: one card per row -->
+    <ul v-if="rows.length && wide !== true" class="space-y-2" :class="wide === null ? 'min-[900px]:hidden' : ''">
       <li v-for="(row, index) in rows" :key="row.id" class="min-w-0 space-y-1.5 rounded-md p-2 ring-1 ring-gray-200">
         <div class="flex items-center gap-1">
           <p class="min-w-0 flex-1 text-sm font-semibold break-words">{{ rowName(index) }}</p>

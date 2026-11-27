@@ -3318,7 +3318,8 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
   speichern** übernimmt alles. Änderungen gelten nur für neue Bögen; schon angelegte Bögen behalten ihren Inhalt.
   - **Ankreuzliste – „mehrere Antworten“ oder „nur eine Antwort“:** rechts über den Möglichkeiten. Voreingestellt (und
     bei allen Listen von vor dem Update) sind **mehrere Antworten**. Bei **nur einer Antwort** wählt ein Tipp die
-    Möglichkeit und hebt die vorige auf; ein zweiter Tipp auf dieselbe nimmt die Antwort ganz zurück. Der Server nimmt
+    Möglichkeit und hebt die vorige auf; ein zweiter Tipp auf dieselbe nimmt die Antwort ganz zurück. Mit der Tastatur
+    ist die Liste ein Halt der Tab-Taste; die Pfeiltasten wählen die nächste bzw. vorige Möglichkeit. Der Server nimmt
     dann höchstens eine Antwort an. Umstellen geht jederzeit, auch wenn mit der Vorlage schon Bögen ausgefüllt wurden:
     Jeder angelegte Bogen hat seine eigene Kopie der Liste samt Antworten – dort bleiben mehrere Kreuze so stehen, wie
     sie gespeichert wurden (auch im Verlauf). Erst neue Bögen haben „nur eine Antwort“.
@@ -3329,14 +3330,20 @@ Wer die Pflichttermine sieht, kann an den Untersuchungen (siehe unten) erkennen,
     Beschriftung bis 80 Zeichen, sie steht in der ersten Spalte) oder **Zeilen beim Ausfüllen hinzufügen** – dann fügt,
     wer den Bogen ausfüllt, die Zeilen selbst hinzu (bis 50) und entfernt sie wieder (mit Rückfrage, wenn in der Zeile
     etwas steht). Textzellen sind einfacher Text (bis 500 Zeichen, ohne Formatierung), Datumszellen wie der Punkt Datum.
-    Am Computer und am Tablet quer erscheint die Tabelle als Tabelle; auf dem Handy und am Tablet hochkant (schmaler als
-    768 Pixel) steht jede Zeile als eigene Karte mit den Spaltenüberschriften als Beschriftung. Im Druck (A4 hoch) ist
-    sie eine echte Tabelle; eine Zeile wird nicht auf zwei Seiten geteilt. Eine Tabelle zum Hinzufügen ohne Zeilen
-    druckt leere Zeilen zum Ausfüllen von Hand (beim Leer-Drucken 5, sonst 3). **Verlauf** und **Vergleichen** zeigen
+    Alle Textzellen einer Tabelle zusammen dürfen höchstens **50 000 Zeichen** haben (sonst sagt das Speichern, dass die
+    Tabelle zu voll ist). Am Computer und am Tablet quer erscheint die Tabelle als Tabelle; auf dem Handy und am Tablet
+    hochkant (schmaler als 900 Pixel) steht jede Zeile als eigene Karte mit den Spaltenüberschriften als Beschriftung.
+    Im Druck (A4 hoch) ist sie eine echte Tabelle; eine Zeile wird nicht auf zwei Seiten geteilt.
+    Eine Tabelle zum Hinzufügen ohne Zeilen druckt leere Zeilen zum Ausfüllen von Hand (beim Leer-Drucken 5, sonst 3).
+    **Verlauf** und **Vergleichen** zeigen
     jede geänderte Zelle mit Zeile und Spalte (z. B. „Masern · gesehen: nicht angekreuzt → angekreuzt“) und bei Tabellen
     zum Hinzufügen die hinzugekommenen und weggefallenen Zeilen; leere Zeilen zählen nicht als Änderung. Im Verlauf
     eines Bogens bleibt jede Zeile dieselbe, auch wenn darüber eine entfernt wird; beim Vergleichen zweier Bögen werden
-    die ausgefüllten Zeilen der Reihe nach nebeneinandergestellt.
+    die ausgefüllten Zeilen der Reihe nach nebeneinandergestellt. Wurde die Vorlage zwischen den beiden Bögen so
+    geändert, dass die Tabelle andere Spalten oder (feste) Zeilen hat, zeigt **Vergleichen** keine Zellen-Änderungen,
+    sondern beide Tabellen nebeneinander – jede so, wie ihr Bogen sie hat – mit dem Hinweis **„Tabelle geändert“**.
+    Sind mit der Vorlage schon Bögen angelegt, bleibt die **Art einer gespeicherten Spalte** fest (wie die Art eines
+    Punkts); Überschriften ändern, Spalten und Zeilen hinzufügen oder entfernen geht weiter.
     Wechselst du in der Vorlage zwischen festen Zeilen und „Zeilen hinzufügen“, kommen die festen Zeilen beim
     Zurückwechseln wieder, solange du die Vorlage nicht verlässt.
   - Tabellen und Kästchen werden beim **Kopieren** einer Vorlage, bei **Für ein weiteres Gespräch verwenden** und beim

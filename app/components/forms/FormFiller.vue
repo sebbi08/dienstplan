@@ -3,7 +3,7 @@ import type { AnswerDiff, ItemChange } from '#shared/domain/formHistory'
 import { FORM_LIMITS, RATING_LEGEND, type FormAnswer, type FormContent, type MilestoneAnswer, type RatingAnswer, type RatingValue } from '#shared/domain/forms'
 import { de } from '~/locales/de'
 import { formatDate } from '~/utils/format'
-import { isBlank, sectionBlocks, sectionHasRating, toggledChoice } from '~/utils/forms'
+import { isBlank, radioMove, radioTabStop, sectionBlocks, sectionHasRating, toggledChoice } from '~/utils/forms'
 
 /**
  * A form's own content (its copy of the template) with the answers, to fill in (`readonly` false) or to read. The
@@ -44,6 +44,19 @@ function setAnswer(id: string, value: FormAnswer) {
 function toggleChoice(id: string, optionId: string, single: boolean) {
   setAnswer(id, toggledChoice(choicesOf(id), optionId, single))
 }
+const sectionTitleId = (sectionId: string) => `${uid}-section-${sectionId}`
+/** A single-choice list is one tab stop: the ticked option, else the first. */
+const radioTabIndex = (id: string, optionIds: string[], optionId: string) => (radioTabStop(optionIds, choicesOf(id)) === optionId ? 0 : -1)
+/** Arrow keys move to the next / previous option (wrapping) and choose it, like radio buttons. */
+function radioKey(event: KeyboardEvent, id: string, optionIds: string[]) {
+  const current = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-option]')?.dataset.option
+  const next = radioMove(optionIds, current ?? radioTabStop(optionIds, choicesOf(id)), event.key)
+  if (next === null) return
+  event.preventDefault()
+  setAnswer(id, [next])
+  const group = event.currentTarget as HTMLElement
+  nextTick(() => group.querySelector<HTMLElement>(`[data-option="${CSS.escape(next)}"]`)?.focus())
+}
 /** Tapping the chosen value again clears it (no rating). */
 function pickRating(id: string, value: RatingValue) {
   const current = ratingOf(id)
@@ -71,7 +84,7 @@ const chip = (selected: boolean) => selected
       v-for="section in props.content.sections" :key="section.id"
       class="min-w-0 space-y-3 rounded-lg bg-white p-3 ring-1 ring-gray-200 sm:p-4"
     >
-      <h3 class="font-semibold break-words">{{ section.title }}</h3>
+      <h3 :id="sectionTitleId(section.id)" class="font-semibold break-words">{{ section.title }}</h3>
       <p v-if="section.hint" class="text-sm whitespace-pre-line text-gray-600">{{ section.hint }}</p>
       <div v-if="sectionHasRating(section)" class="rounded-md bg-gray-50 p-2 text-xs text-gray-700">
         <p>{{ RATING_LEGEND.intro }}</p>
@@ -105,12 +118,21 @@ const chip = (selected: boolean) => selected
           </div>
 
           <fieldset v-else-if="block.item.kind === 'choices'" class="space-y-1.5" :class="historyClass(block.item.id)">
-            <legend v-if="block.item.question" class="mb-1 text-sm font-medium break-words">{{ block.item.question }}</legend>
-            <!-- „nur eine Antwort“: like radio buttons, but tapping the chosen option again clears it. -->
-            <div class="flex flex-wrap gap-1.5" :role="block.item.single ? 'radiogroup' : undefined">
+            <legend v-if="block.item.question" :id="`${fieldId(block.item.id)}-q`" class="mb-1 text-sm font-medium break-words">{{ block.item.question }}</legend>
+            <!--
+              „nur eine Antwort“: radio buttons (one tab stop, arrow keys move and choose), but tapping or pressing Space on
+              the chosen option again clears it. Named by the question, else by the section's title.
+            -->
+            <div
+              class="flex flex-wrap gap-1.5" :role="block.item.single ? 'radiogroup' : undefined"
+              :aria-labelledby="block.item.single ? (block.item.question ? `${fieldId(block.item.id)}-q` : sectionTitleId(section.id)) : undefined"
+              @keydown="block.item.single && !props.readonly && radioKey($event, block.item.id, block.item.options.map(option => option.id))"
+            >
               <button
                 v-for="option in block.item.options" :key="option.id" type="button" :role="block.item.single ? 'radio' : 'checkbox'"
                 :aria-checked="choicesOf(block.item.id).includes(option.id)" :disabled="props.readonly"
+                :tabindex="block.item.single ? radioTabIndex(block.item.id, block.item.options.map(entry => entry.id), option.id) : undefined"
+                :data-option="option.id"
                 class="inline-flex max-w-full items-center gap-1 rounded-full px-3 py-1 text-left text-sm ring-1 break-words disabled:cursor-default"
                 :class="chip(choicesOf(block.item.id).includes(option.id))"
                 @click="toggleChoice(block.item.id, option.id, block.item.single === true)"
@@ -148,10 +170,12 @@ const chip = (selected: boolean) => selected
           </div>
 
           <div
-            v-else-if="block.item.kind === 'table'" role="group" :aria-label="block.item.question || de.forms.itemKinds.table"
+            v-else-if="block.item.kind === 'table'" role="group"
+            :aria-labelledby="block.item.question ? `${fieldId(block.item.id)}-q` : undefined"
+            :aria-label="block.item.question ? undefined : de.forms.itemKinds.table"
             class="min-w-0 space-y-1" :class="historyClass(block.item.id)"
           >
-            <p v-if="block.item.question" class="text-sm font-medium break-words">{{ block.item.question }}</p>
+            <p v-if="block.item.question" :id="`${fieldId(block.item.id)}-q`" class="text-sm font-medium break-words">{{ block.item.question }}</p>
             <FormsTableFill
               :item="block.item" :value="answers[block.item.id]" :readonly="props.readonly"
               @update="setAnswer(block.item.id, $event)"

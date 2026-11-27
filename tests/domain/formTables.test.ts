@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { answerDiff, changedItemIds, compareForms, isEmptyAnswer, itemLabel, sameAnswer } from '../../shared/domain/formHistory'
+import { answerDiff, changedItemIds, compareForms, compareTables, isEmptyAnswer, itemLabel, sameAnswer } from '../../shared/domain/formHistory'
 import {
-  addItem, checkAnswers, checkContent, emptyAnswer, FormError, tableRowsOf, updateItem, type AnswerableItem, type FormContent,
-  type FormItem, type TableItem,
+  addItem, assertColumnTypesKept, checkAnswers, checkContent, emptyAnswer, FORM_LIMITS, FormError, sameTableStructure, tableRowsOf,
+  updateItem, type AnswerableItem, type FormAnswers, type FormContent, type FormItem, type TableItem,
 } from '../../shared/domain/forms'
 import { itemLabel as accidentItemLabel } from '../../shared/domain/accidents'
-import { switchedRowMode, toggledChoice, withTableCell, withTableRow, withoutTableRow } from '../../app/utils/forms'
+import {
+  radioMove, radioTabStop, switchedRowMode, toggledChoice, withTableCell, withTableRow, withoutTableRow,
+} from '../../app/utils/forms'
 import { withIds } from '../../server/services/formTemplates'
 
 // „Tabelle“ (fixed and free rows), „Kästchen“ and the Ankreuzliste with „nur eine Antwort“.
@@ -108,6 +110,23 @@ describe('checkAnswers: tables, Kästchen, single choice', () => {
     expect(checkAnswers(form, { tv: [] })).toEqual({ tv: [] })
   })
 
+  it('limits the text cells of one table together to 50 000 characters (form_table_too_long)', () => {
+    expect(FORM_LIMITS.tableText).toBe(50000)
+    const wide: TableItem = {
+      id: 'tw', kind: 'table', question: '', rows: [], freeRows: true,
+      columns: [
+        ...[0, 1, 2, 3].map(n => ({ id: `w${n}`, heading: `S${n}`, type: 'text' as const })),
+        { id: 'wC', heading: 'ok', type: 'checkbox' as const },
+      ],
+    }
+    const wideForm = checkContent({ sections: [{ id: 's', title: 'T', hint: '', items: [wide] }] })
+    const x = 'x'.repeat(500)
+    // 25 rows × 4 text cells × 500 = exactly 50 000: fine (Kästchen cells do not count).
+    const atLimit = Array.from({ length: 25 }, (_, n) => ({ id: `row-${n}`, cells: { w0: x, w1: x, w2: x, w3: x, wC: true } }))
+    expect(checkAnswers(wideForm, { tw: atLimit }).tw as unknown[]).toHaveLength(25)
+    expect(code(() => checkAnswers(wideForm, { tw: [...atLimit, { id: 'one-more', cells: { w0: 'y' } }] }))).toBe('form_table_too_long')
+  })
+
   it('takes Kästchen and single choices', () => {
     expect(checkAnswers(form, { k: true, c: ['o2'] })).toEqual({ k: true, c: ['o2'] })
     expect(checkAnswers(form, { k: false, c: [] })).toEqual({ k: false, c: [] })
@@ -156,6 +175,10 @@ describe('tableRowsOf', () => {
     expect(tableRowsOf(fixed, [{ id: 'r2', cells: { cT: 7, cC: true, cD: '' } }, { id: 'zz', cells: {} }, 'junk'])).toEqual([
       { id: 'r1', cells: cells('', false, null) }, { id: 'r2', cells: cells('', true, null) },
     ])
+    // A date cell holds a real date or nothing (not, e.g., a text from when the column was a text column).
+    expect(tableRowsOf(fixed, [{ id: 'r1', cells: { cD: '1. Impfung' } }, { id: 'r2', cells: { cD: '2026-02-30' } }])
+      .map(row => row.cells.cD)).toEqual([null, null])
+    expect(tableRowsOf(fixed, [{ id: 'r1', cells: { cD: '2026-02-28' } }])[0]!.cells.cD).toBe('2026-02-28')
     expect(tableRowsOf(free, undefined)).toEqual([])
     expect(tableRowsOf(free, [{ id: 'a', cells: { vT: 'x' } }])).toEqual([{ id: 'a', cells: { vT: 'x', vD: null } }])
   })
@@ -270,7 +293,97 @@ describe('history of tables and Kästchen', () => {
   })
 })
 
+describe('„Vergleichen“ across a template that changed in between', () => {
+  const formOf = (item: TableItem, answer: unknown) =>
+    ({ content: { sections: [{ id: 's', title: 'T', hint: '', items: [item] }] }, answers: { [item.id]: answer } as FormAnswers })
+  const tableRow = (newer: ReturnType<typeof formOf>, older: ReturnType<typeof formOf>) => compareForms(newer, older)[0]!.rows[0]!
+
+  it('a column turned from text into date: no cell diff, each table read through its own copy', () => {
+    const olderItem: TableItem = { ...fixed, columns: [{ id: 'cT', heading: 'Bemerkung', type: 'text' }, { id: 'cX', heading: 'Wann', type: 'text' }] }
+    const newerItem: TableItem = { ...fixed, columns: [{ id: 'cT', heading: 'Bemerkung', type: 'text' }, { id: 'cX', heading: 'Wann', type: 'date' }] }
+    const older = formOf(olderItem, [{ id: 'r1', cells: { cT: '', cX: '1. Impfung' } }, { id: 'r2', cells: { cT: '', cX: '' } }])
+    const newer = formOf(newerItem, [{ id: 'r1', cells: { cT: '', cX: '2026-01-01' } }, { id: 'r2', cells: { cT: '', cX: null } }])
+    const row = tableRow(newer, older)
+    expect(row.table).toEqual({ kind: 'structure' })
+    expect([row.olderItem, row.newerItem]).toEqual([olderItem, newerItem])
+    // The older table still shows its text under its own (text) column; through the newer copy it is no date.
+    expect(tableRowsOf(row.olderItem as TableItem, row.older)[0]!.cells.cX).toBe('1. Impfung')
+    expect(tableRowsOf(newerItem, row.older)[0]!.cells.cX).toBeNull()
+  })
+
+  it('fixed rows replaced (Masern out, Mumps in): no misleading „neu – Mumps“, the older tick stays under Masern', () => {
+    const newerItem: TableItem = { ...fixed, rows: [{ id: 'r3', label: 'Mumps' }, { id: 'r2', label: 'Tetanus' }] }
+    const older = formOf(fixed, [{ id: 'r1', cells: cells('', true, null) }, { id: 'r2', cells: cells('', false, null) }])
+    const newer = formOf(newerItem, [{ id: 'r3', cells: cells('', true, null) }, { id: 'r2', cells: cells('', false, null) }])
+    const row = tableRow(newer, older)
+    expect(row.table).toEqual({ kind: 'structure' })
+    expect(tableRowsOf(row.olderItem as TableItem, row.older)[0]).toEqual({ id: 'r1', cells: cells('', true, null) })
+    expect((row.olderItem as TableItem).rows[0]!.label).toBe('Masern')
+  })
+
+  it('a table built alike (a heading reworded) gets the cell diff named by the newer copy; no change says nothing', () => {
+    const newerItem: TableItem = { ...fixed, columns: fixed.columns.map(column => (column.id === 'cT' ? { ...column, heading: 'Notiz' } : column)) }
+    const older = formOf(fixed, [{ id: 'r1', cells: cells('1. Impfung', false, null) }])
+    const newer = formOf(newerItem, [{ id: 'r1', cells: cells('2. Impfung', false, null) }])
+    expect(tableRow(newer, older).table).toEqual({
+      kind: 'diff',
+      diff: {
+        status: 'changed',
+        detail: {
+          kind: 'table', addedRows: [], removedRows: [],
+          cells: [{ row: { label: 'Masern', number: 1 }, column: 'Notiz', type: 'text', from: '1. Impfung', to: '2. Impfung' }],
+        },
+      },
+    })
+    expect(tableRow(formOf(newerItem, [{ id: 'r1', cells: cells('x', false, null) }]), formOf(fixed, [{ id: 'r1', cells: cells(' x ', false, null) }])).table)
+      .toEqual({ kind: 'same' })
+    // Built differently but both empty: nothing to say.
+    const otherRows: TableItem = { ...fixed, rows: [{ id: 'r9', label: 'Röteln' }] }
+    expect(compareTables(fixed, emptyAnswer(fixed), otherRows, emptyAnswer(otherRows))).toEqual({ kind: 'same' })
+    // Only tables in both forms carry a table comparison.
+    expect(compareForms({ content: content(), answers: {} }, { content: content(), answers: {} })[0]!.rows.map(row => row.table?.kind ?? null))
+      .toEqual(['same', 'same', null, null])
+  })
+
+  it('free tables: another column set is changed structure; the same columns compare in order', () => {
+    const more: TableItem = { ...free, columns: [...free.columns, { id: 'vX', heading: 'Wer', type: 'text' }] }
+    expect(sameTableStructure(free, more)).toBe(false)
+    expect(sameTableStructure(free, { ...free, freeRows: false, rows: [{ id: 'r', label: 'Z' }] })).toBe(false)
+    expect(sameTableStructure(free, { ...free, columns: [...free.columns].reverse() })).toBe(true)
+    expect(compareTables(free, [{ id: 'a', cells: { vT: 'U7' } }], more, [{ id: 'b', cells: { vT: 'U7' } }])).toEqual({ kind: 'structure' })
+    expect(compareTables(free, [{ id: 'a', cells: { vT: 'U7' } }], free, [{ id: 'b', cells: { vT: 'U7' } }])).toEqual({ kind: 'same' })
+  })
+})
+
+describe('column types once Bögen exist (assertColumnTypesKept)', () => {
+  const before: FormContent = { sections: [{ id: 's', title: 'T', hint: '', items: [fixed] }] }
+  const withColumns = (columns: TableItem['columns']): FormContent => ({ sections: [{ id: 's', title: 'T', hint: '', items: [{ ...fixed, columns }] }] })
+
+  it('refuses a kept column with another type; headings, new and removed columns are fine', () => {
+    expect(code(() => assertColumnTypesKept(before, withColumns(fixed.columns.map(column => (column.id === 'cT' ? { ...column, type: 'date' } : column))))))
+      .toBe('form_column_type_fixed')
+    expect(code(() => assertColumnTypesKept(before, withColumns([{ id: 'cT', heading: 'Notiz', type: 'text' }, { id: 'new', heading: 'Neu', type: 'date' }]))))
+      .toBeUndefined()
+    expect(code(() => assertColumnTypesKept(before, { sections: [] }))).toBeUndefined()
+  })
+})
+
 describe('editor and filler helpers', () => {
+  it('moves through a single-choice list with the arrow keys (one tab stop)', () => {
+    const ids = ['o1', 'o2', 'o3']
+    expect([radioTabStop(ids, []), radioTabStop(ids, ['o2']), radioTabStop([], [])]).toEqual(['o1', 'o2', undefined])
+    expect(radioMove(ids, 'o1', 'ArrowRight')).toBe('o2')
+    expect(radioMove(ids, 'o3', 'ArrowDown')).toBe('o1')
+    expect(radioMove(ids, 'o1', 'ArrowLeft')).toBe('o3')
+    expect(radioMove(ids, 'o2', 'ArrowUp')).toBe('o1')
+    expect(radioMove(ids, 'o2', 'Home')).toBe('o1')
+    expect(radioMove(ids, 'o1', 'End')).toBe('o3')
+    expect(radioMove(ids, undefined, 'ArrowRight')).toBe('o2')
+    expect(radioMove(ids, 'o1', 'Tab')).toBeNull()
+    expect(radioMove(ids, 'o1', ' ')).toBeNull()
+    expect(radioMove([], undefined, 'ArrowRight')).toBeNull()
+  })
+
   it('ticks single choices like radio buttons that can be cleared', () => {
     expect(toggledChoice([], 'o1', true)).toEqual(['o1'])
     expect(toggledChoice(['o1'], 'o2', true)).toEqual(['o2'])

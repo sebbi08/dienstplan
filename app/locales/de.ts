@@ -3043,6 +3043,7 @@ export const de = {
       noRows: 'Noch keine Zeilen.',
       rowsFull: (max: number) => `Mehr als ${max} Zeilen gehen nicht.`,
       cellLabel: (column: string, row: string) => `${column} – ${row}`,
+      columnTypeFixed: 'Die Art dieser Spalte bleibt, weil mit der Vorlage schon Bögen angelegt wurden. Neue Spalten gehen.',
     },
     noItems: 'Noch keine Punkte in diesem Bereich.', noSections: 'Noch keine Bereiche. Lege mit „Bereich hinzufügen“ den ersten an.',
     saveTemplate: 'Vorlage speichern', discard: 'Änderungen verwerfen',
@@ -3309,6 +3310,9 @@ export const de = {
     // A „Kästchen“ and a table's cells and rows.
     checked: 'angekreuzt', notChecked: 'nicht angekreuzt',
     rowAdded: 'Zeile hinzugekommen', rowRemoved: 'Zeile weggefallen', noRows: 'keine Zeilen',
+    // „Vergleichen“: the template changed between the two Bögen, so the table's columns or rows differ.
+    tableChanged: 'Tabelle geändert',
+    tableChangedHint: 'Die Vorlage wurde zwischen den beiden Bögen geändert (andere Spalten oder Zeilen) – vergleiche die beiden Tabellen oben.',
     remark: 'Anmerkung',
     empty: '(leer)',
     compare: 'Vergleichen',
@@ -4067,6 +4071,8 @@ export const de = {
     form_answer_too_long: 'Ein Freitext ist zu lang: höchstens 4000 Zeichen (mit vielen Formatierungen etwas weniger). Bitte kürze ihn.',
     form_answers_too_long: 'Die Freitexte dieses Bogens sind zusammen zu lang. Bitte kürze einige davon.',
     form_item_kind_fixed: 'Die Art eines Punkts lässt sich nicht ändern. Lösche ihn und lege ihn neu an.',
+    form_table_too_long: 'Eine Tabelle ist zu voll: Ihre Textfelder dürfen zusammen höchstens 50 000 Zeichen haben. Bitte kürze einige Einträge.',
+    form_column_type_fixed: 'Die Art einer Spalte lässt sich nicht mehr ändern, weil mit der Vorlage schon Bögen angelegt wurden. Lege stattdessen eine neue Spalte an.',
     form_section_not_found: 'Diesen Bereich gibt es nicht (mehr).',
     form_item_not_found: 'Diesen Punkt gibt es nicht (mehr).',
     form_too_many_sections: 'Eine Vorlage kann höchstens 60 Bereiche haben.',

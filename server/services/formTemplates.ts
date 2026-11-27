@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, count, eq } from 'drizzle-orm'
 import { formCategoryRanks, formCategorySpot, type TemplateChoice } from '../../shared/domain/formCategories'
 import {
-  checkContent, FORM_KINDS, FORM_LIMITS, FORM_SUBJECTS, FormError, type FormContent, type FormItem, type FormKind,
+  assertColumnTypesKept, checkContent, FORM_KINDS, FORM_LIMITS, FORM_SUBJECTS, FormError, type FormContent, type FormItem, type FormKind,
   type FormSubject,
 } from '../../shared/domain/forms'
 import { STARTERS, starterContent, type StarterKey } from '../../shared/domain/forms/starters'
@@ -230,6 +230,11 @@ function assertKindsKept(before: FormContent, after: FormContent): void {
   }
 }
 
+/** Whether a Bogen was made from the template (then it cannot be deleted and its table columns keep their types). */
+function templateInUse(db: Db, id: number): boolean {
+  return db.select({ value: count() }).from(forms).where(eq(forms.templateId, id)).get()!.value > 0
+}
+
 /**
  * Renames, archives / reactivates, marks as self-assessment or replaces the content (checked with checkContent,
  * texts trimmed, missing ids added, kinds of kept items unchanged). Existing forms keep their own copy of the content.
@@ -261,6 +266,8 @@ export function updateTemplate(
     const content = withFormErrors(() => {
       const checked = checkContent(withIds(raw))
       assertKindsKept(templateContent(row), checked)
+      // Once Bögen were made from it, a table column keeps its type (their answers stay readable side by side).
+      if (templateInUse(db, id)) assertColumnTypesKept(templateContent(row), checked)
       return JSON.stringify(checked)
     })
     if (content !== row.content) values.content = content
@@ -281,7 +288,7 @@ export function updateTemplate(
  */
 export function deleteTemplate(db: Db, facilityId: number, id: number, viewer?: FormViewer): void {
   loadTemplate(db, facilityId, id, viewer)
-  const used = db.select({ value: count() }).from(forms).where(eq(forms.templateId, id)).get()!.value > 0
+  const used = templateInUse(db, id)
   if (used) throw new ServiceError(409, 'form_template_in_use')
   db.delete(formTemplates).where(eq(formTemplates.id, id)).run()
 }

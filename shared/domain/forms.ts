@@ -129,6 +129,8 @@ export const FORM_LIMITS = {
   tableRowLabel: 80,
   tableFreeRows: 50,
   tableCell: 500,
+  /** All text cells of one table answer together (bounds every save and every stored revision). */
+  tableText: 50000,
   checkboxLabel: 200,
   templateName: 80,
   id: 100,
@@ -334,7 +336,8 @@ function checkCell(column: TableColumn, value: unknown): TableCell {
  * A table's rows, each `{ id, cells }` with the cells by column id (a missing column counts as empty), each cell of its
  * column's type (plain text of at most 500 characters, true/false, an ISO date or null). A fixed table takes only its own
  * row ids, each once, and is stored with every row in the template's order; a free one takes at most 50 rows with ids
- * of their own (1–100 characters, each once), stored in the order given.
+ * of their own (1–100 characters, each once), stored in the order given. The text cells of one table together may hold
+ * at most FORM_LIMITS.tableText characters (form_table_too_long).
  */
 function checkTableAnswer(item: TableItem, value: unknown): TableAnswer {
   if (!Array.isArray(value)) invalidAnswer()
@@ -355,6 +358,14 @@ function checkTableAnswer(item: TableItem, value: unknown): TableAnswer {
     }
     given.set(rowId, { id: rowId, cells })
   }
+  let text = 0
+  for (const row of given.values()) {
+    for (const column of item.columns) {
+      const cell = row.cells[column.id]
+      if (column.type === 'text' && typeof cell === 'string') text += cell.length
+    }
+  }
+  if (text > FORM_LIMITS.tableText) throw new FormError('form_table_too_long')
   if (item.freeRows) return [...given.values()]
   return item.rows.map((row) => given.get(row.id) ?? { id: row.id, cells: emptyTableCells(item.columns) })
 }
@@ -370,7 +381,7 @@ export function tableRowsOf(item: TableItem, value: unknown): TableAnswer {
   const cellsOf = (row: TableAnswerRow | undefined): Record<string, TableCell> => Object.fromEntries(item.columns.map((column) => {
     const cell: unknown = row && isObject(row.cells) ? row.cells[column.id] : undefined
     const fits = column.type === 'checkbox' ? typeof cell === 'boolean'
-      : column.type === 'date' ? typeof cell === 'string' && cell !== ''
+      : column.type === 'date' ? typeof cell === 'string' && isValidIsoDate(cell)
         : typeof cell === 'string'
     return [column.id, fits ? cell as TableCell : emptyTableCell(column.type)]
   }))
@@ -453,6 +464,37 @@ export function emptyAnswer(item: AnswerableItem): FormAnswer {
     case 'date': return null
     case 'table': return item.freeRows ? [] : item.rows.map((row) => ({ id: row.id, cells: emptyTableCells(item.columns) }))
     case 'checkbox': return false
+  }
+}
+
+// ---- table structure -------------------------------------------------------
+
+/**
+ * Whether two copies of a table (e.g. in two Bögen of a template that changed in between) are built alike: the same
+ * columns by id and type, both fixed or both free, and a fixed one with the same row ids. Headings and labels may differ.
+ */
+export function sameTableStructure(a: TableItem, b: TableItem): boolean {
+  if (a.freeRows !== b.freeRows || a.columns.length !== b.columns.length || a.rows.length !== b.rows.length) return false
+  const types = new Map(a.columns.map((column) => [column.id, column.type]))
+  const rows = new Set(a.rows.map((row) => row.id))
+  return b.columns.every((column) => types.get(column.id) === column.type) && b.rows.every((row) => rows.has(row.id))
+}
+
+/**
+ * A template edit after Bögen were made from it: a kept column (same id in a kept table) keeps its type
+ * (form_column_type_fixed), as a cell's old answers would no longer fit; new columns are fine.
+ */
+export function assertColumnTypesKept(before: FormContent, after: FormContent): void {
+  const types = new Map<string, TableColumnType>()
+  for (const item of before.sections.flatMap((section) => section.items)) {
+    if (item.kind === 'table') for (const column of item.columns) types.set(column.id, column.type)
+  }
+  for (const item of after.sections.flatMap((section) => section.items)) {
+    if (item.kind !== 'table') continue
+    for (const column of item.columns) {
+      const type = types.get(column.id)
+      if (type !== undefined && type !== column.type) throw new FormError('form_column_type_fixed')
+    }
   }
 }
 

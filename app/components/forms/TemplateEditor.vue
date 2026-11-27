@@ -121,6 +121,14 @@ function setChoiceMode(item: FormItem, mode: string) {
 
 // ---- tables ---------------------------------------------------------------
 const columnTypeItems = TABLE_COLUMN_TYPES.map(value => ({ label: de.forms.table.columnTypes[value], value }))
+/**
+ * Once Bögen were made from the template, a saved column keeps its type (the server refuses a change with
+ * form_column_type_fixed); new columns take any type.
+ */
+const savedColumnIds = computed(() => new Set(editing.value?.inUse
+  ? editing.value.content.sections.flatMap(section => section.items.flatMap(item => (item.kind === 'table' ? item.columns.map(column => column.id) : [])))
+  : []))
+const typeFixed = (columnId: string) => savedColumnIds.value.has(columnId)
 const rowModeItems = [
   { label: de.forms.table.rowModes.fixed, value: 'fixed' }, { label: de.forms.table.rowModes.free, value: 'free' },
 ]
@@ -301,6 +309,7 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
               />
               <div class="space-y-1.5">
                 <p class="text-xs text-gray-500">{{ de.forms.table.columns }}</p>
+                <p v-if="item.columns.some(column => typeFixed(column.id))" class="pl-2 text-xs text-gray-500">{{ de.forms.table.columnTypeFixed }}</p>
                 <div v-for="(column, columnIndex) in item.columns" :key="column.id" class="flex flex-wrap items-center gap-1 pl-2">
                   <UInput
                     v-model="column.heading" required :maxlength="FORM_LIMITS.tableHeading" size="sm" class="min-w-0 flex-1 basis-40"
@@ -308,6 +317,7 @@ const iconButton = { size: 'xs', color: 'neutral', variant: 'ghost' } as const
                   />
                   <USelect
                     :model-value="column.type" :items="columnTypeItems" size="sm" class="w-32" :aria-label="de.forms.table.columnType"
+                    :disabled="typeFixed(column.id)" :title="typeFixed(column.id) ? de.forms.table.columnTypeFixed : undefined"
                     @update:model-value="column.type = $event as TableColumnType"
                   />
                   <UButton

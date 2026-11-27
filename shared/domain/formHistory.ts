@@ -1,5 +1,5 @@
 import {
-  emptyAnswer, emptyTableCell, isEmptyTableCell, isEmptyTableRow, RATING_LEGEND, tableRowsOf, type AnswerableItem,
+  emptyAnswer, emptyTableCell, isEmptyTableCell, isEmptyTableRow, RATING_LEGEND, sameTableStructure, tableRowsOf, type AnswerableItem,
   type FormAnswer, type FormAnswers, type FormContent, type FormItem, type MilestoneAnswer, type RatingAnswer,
   type RatingValue, type TableAnswerRow, type TableCell, type TableColumnType, type TableItem,
 } from './forms'
@@ -422,8 +422,28 @@ export function trendOf(item: AnswerableItem, older: FormAnswer | undefined, new
 export interface ComparedForm { content: FormContent; answers: FormAnswers }
 
 /**
- * One item in the comparison: the item as each form has it (undefined = „nicht im Bogen“) with its answer, and the
- * trend of ratings and milestones.
+ * What the comparison says under a table both forms have: nothing (`same`), the changes cell by cell (`diff`, only when
+ * both copies of the table are built alike), or „Tabelle geändert“ (`structure`: the template changed in between, so
+ * columns or rows differ; the two tables stand side by side, each read through its own form's copy).
+ */
+export type TableCompare =
+  | { kind: 'same' }
+  | { kind: 'diff'; diff: Exclude<AnswerDiff, { status: 'same' }> }
+  | { kind: 'structure' }
+
+export function compareTables(older: TableItem, olderValue: FormAnswer, newer: TableItem, newerValue: FormAnswer): TableCompare {
+  if (!sameTableStructure(older, newer)) {
+    return isEmptyAnswer(older, olderValue) && isEmptyAnswer(newer, newerValue) ? { kind: 'same' } : { kind: 'structure' }
+  }
+  // Built alike: the same column ids and types and the same fixed rows. Each answer is read through its own form's copy
+  // first; the newer copy then names the rows and columns of the diff (headings and labels may have been reworded).
+  const diff = answerDiff(newer, tableRowsOf(older, olderValue), tableRowsOf(newer, newerValue))
+  return diff.status === 'same' ? { kind: 'same' } : { kind: 'diff', diff }
+}
+
+/**
+ * One item in the comparison: the item as each form has it (undefined = „nicht im Bogen“) with its answer, the
+ * trend of ratings and milestones, and for a table in both forms how they differ (`table`).
  */
 export interface CompareRow {
   id: string
@@ -432,6 +452,7 @@ export interface CompareRow {
   older?: FormAnswer
   newer?: FormAnswer
   trend: Trend | null
+  table?: TableCompare
 }
 export interface CompareSection { id: string; title: string; rows: CompareRow[] }
 
@@ -449,6 +470,9 @@ export function compareForms(newer: ComparedForm, older: ComparedForm): CompareS
     return {
       id: (newerItem ?? olderItem)!.id, newerItem, olderItem, newer: newerAnswer, older: olderAnswer,
       trend: newerItem && olderItem ? trendOf(newerItem, olderAnswer, newerAnswer) : null,
+      ...(newerItem?.kind === 'table' && olderItem?.kind === 'table'
+        ? { table: compareTables(olderItem, olderAnswer!, newerItem, newerAnswer!) }
+        : {}),
     }
   }
   const sections: CompareSection[] = newer.content.sections.map(section => ({
