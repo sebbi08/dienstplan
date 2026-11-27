@@ -351,29 +351,6 @@ export const de = {
     overLimit: (count: number, limit: number) => `Über der Höchstzahl: ${count} Personen im Urlaub (mit Anträgen) – erlaubt sind ${limit}`,
     overLimitLegend: 'mehr im Urlaub als erlaubt (mit Anträgen)',
   },
-  terminal: {
-    title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
-    pinLockedUntil: (time: string) => `PIN gesperrt bis ${time}.`,
-    startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', templatesTitle: 'Zum Ausdrucken', notesTitle: 'Notizen',
-    // The start page's tile for „Dokumente“ (the tabs „Vorlagen“ and „Wissen“ there).
-    documentsTitle: 'Dokumente', documentsHint: 'Vorlagen und Wissen',
-    toStart: 'Startseite',
-    backToStart: 'Zurück zum Start', printPlan: 'Dienstplan drucken', printPlanThisMonth: 'Dieser Monat', printPlanNextMonth: 'Nächster Monat',
-    chooseChildren: 'Bitte deinen Namen antippen und deine PIN eingeben, um die Kinder aufzuschließen.',
-    unlock: 'Aufschließen', unlockedAs: (name: string) => `Aufgeschlossen: ${name}`, lock: 'Sperren',
-    // „Dienstplan bearbeiten“: only for a person whose own account may edit this facility's plan (the lock bar's button).
-    editPlan: 'Dienstplan bearbeiten',
-    // „Sperren“ sent, but the server has not confirmed it yet (no network): it is sent again until it has.
-    locking: 'Sperren…',
-    lockPending: 'Sperren… – das Tablet wird gesperrt, sobald der Server wieder erreichbar ist.',
-    lockUnsavedConfirm: 'Es gibt Änderungen, die noch nicht gespeichert sind. Wenn du jetzt sperrst, gehen sie verloren.',
-    lockDiscard: 'Verwerfen und sperren',
-    idleUnsavedWarning: 'Das Tablet sperrt sich gleich. Tippe auf den Bildschirm und speichere deine Änderungen – sonst gehen sie verloren.',
-    noAutoLockUntil: (time: string) => `ohne automatische Sperre bis ${time}`,
-    // Stamping without network (docs/BETRIEB.md „Stempeln ohne Netz am Tablet“).
-    offlineBar: 'Offline – Stempel werden gespeichert und später übertragen',
-    offlinePending: (count: number) => `${count} Stempel noch nicht übertragen`,
-    offlineSaved: (name: string, action: 'in' | 'out', time: string) => `Gespeichert (offline) – ${name} ${action === 'in' ? 'Kommt' : 'Geht'} ${time}`,
   // Pflichttermine as appointments (EventDialog, EventAttendanceDialog, Pflichttermine of a person, employee list).
   eventRequirements: {
     checkbox: 'Pflichttermin',
@@ -411,6 +388,29 @@ export const de = {
     plannedKind: (kind: string, planned: string) => `${kind} ${planned}`,
     openItem: (count: number) => (count === 1 ? '1 Pflichttermin: Teilnahme bestätigen' : `${count} Pflichttermine: Teilnahme bestätigen`),
   },
+  terminal: {
+    title: 'Stempeln', choose: 'Bitte deinen Namen antippen.', pin: 'PIN', back: 'Zurück', empty: 'Für niemanden ist eine PIN hinterlegt.',
+    pinLockedUntil: (time: string) => `PIN gesperrt bis ${time}.`,
+    startTitle: 'Was möchtest du tun?', childrenTitle: 'Kinder', templatesTitle: 'Zum Ausdrucken', notesTitle: 'Notizen',
+    // The start page's tile for „Dokumente“ (the tabs „Vorlagen“ and „Wissen“ there).
+    documentsTitle: 'Dokumente', documentsHint: 'Vorlagen und Wissen',
+    toStart: 'Startseite',
+    backToStart: 'Zurück zum Start', printPlan: 'Dienstplan drucken', printPlanThisMonth: 'Dieser Monat', printPlanNextMonth: 'Nächster Monat',
+    chooseChildren: 'Bitte deinen Namen antippen und deine PIN eingeben, um die Kinder aufzuschließen.',
+    unlock: 'Aufschließen', unlockedAs: (name: string) => `Aufgeschlossen: ${name}`, lock: 'Sperren',
+    // „Dienstplan bearbeiten“: only for a person whose own account may edit this facility's plan (the lock bar's button).
+    editPlan: 'Dienstplan bearbeiten',
+    // „Sperren“ sent, but the server has not confirmed it yet (no network): it is sent again until it has.
+    locking: 'Sperren…',
+    lockPending: 'Sperren… – das Tablet wird gesperrt, sobald der Server wieder erreichbar ist.',
+    lockUnsavedConfirm: 'Es gibt Änderungen, die noch nicht gespeichert sind. Wenn du jetzt sperrst, gehen sie verloren.',
+    lockDiscard: 'Verwerfen und sperren',
+    idleUnsavedWarning: 'Das Tablet sperrt sich gleich. Tippe auf den Bildschirm und speichere deine Änderungen – sonst gehen sie verloren.',
+    noAutoLockUntil: (time: string) => `ohne automatische Sperre bis ${time}`,
+    // Stamping without network (docs/BETRIEB.md „Stempeln ohne Netz am Tablet“).
+    offlineBar: 'Offline – Stempel werden gespeichert und später übertragen',
+    offlinePending: (count: number) => `${count} Stempel noch nicht übertragen`,
+    offlineSaved: (name: string, action: 'in' | 'out', time: string) => `Gespeichert (offline) – ${name} ${action === 'in' ? 'Kommt' : 'Geht'} ${time}`,
     offlineUnavailable: 'Dieses Gerät kann ohne Netz keine Stempel speichern. Bitte später noch einmal stempeln.',
     offlineNoStorage: 'Offline – Stempeln ist auf diesem Gerät gerade nicht möglich',
     syncFailed: (count: number) => `${count === 1 ? '1 Stempel konnte' : `${count} Stempel konnten`} nicht übertragen werden – bitte Leitung informieren`,
@@ -3877,6 +3877,11 @@ export const de = {
     event_groups_required: 'Bitte mindestens eine Gruppe dieser Einrichtung wählen.',
     event_employees_required: 'Bitte mindestens eine Person dieser Einrichtung wählen.',
     event_page_outdated: 'Die Seite ist nicht mehr aktuell. Bitte neu laden (F5) und den Termin noch einmal speichern.',
+    event_requirement_audience: 'Ein Pflichttermin braucht Teilnehmende: bitte „Alle Mitarbeitenden“, Gruppen oder Personen wählen.',
+    event_not_requirement: 'Dieser Termin ist kein Pflichttermin (mehr).',
+    event_not_over: 'Die Teilnahme kann erst ab dem letzten Tag des Termins bestätigt werden.',
+    event_confirmed_future: 'Die Teilnahme ist schon bestätigt. Der Termin kann deshalb nicht in die Zukunft verlegt werden, sonst lägen die Einträge in der Zukunft.',
+    attendance_person_invalid: 'Die Liste ist nicht mehr aktuell. Bitte neu laden (F5) und noch einmal bestätigen.',
     hours_not_found: 'Dieser Eintrag existiert nicht mehr.',
     adjustment_not_found: 'Dieser Ausgleich existiert nicht mehr.',
     entitlement_not_found: 'Dieser Urlaubsanspruch existiert nicht mehr.',
@@ -3903,11 +3908,6 @@ export const de = {
     entries_overlap: 'Dieser Dienst überschneidet sich mit einem anderen Dienst des Tages. Nur VZ oder Büro dürfen innerhalb eines Dienstes liegen.',
     /** entries_overlap of a range: the refused cell, e.g. „Anna, Do 03.12.: …“. */
     entries_overlap_cell: (name: string, date: string) => `${name}, ${date}: überschneidet sich mit einem vorhandenen Dienst – erst „Leeren“ oder den vorhandenen Eintrag ändern.`,
-    event_requirement_audience: 'Ein Pflichttermin braucht Teilnehmende: bitte „Alle Mitarbeitenden“, Gruppen oder Personen wählen.',
-    event_not_requirement: 'Dieser Termin ist kein Pflichttermin (mehr).',
-    event_not_over: 'Die Teilnahme kann erst ab dem letzten Tag des Termins bestätigt werden.',
-    event_confirmed_future: 'Die Teilnahme ist schon bestätigt. Der Termin kann deshalb nicht in die Zukunft verlegt werden, sonst lägen die Einträge in der Zukunft.',
-    attendance_person_invalid: 'Die Liste ist nicht mehr aktuell. Bitte neu laden (F5) und noch einmal bestätigen.',
     full_day_needs_target: 'An einem freien Tag bitte Büro bzw. VZ mit Uhrzeit eintragen.',
     /** full_day_needs_target of a range: the refused cell, e.g. „Anna, Sa 10.10.: …“. */
     full_day_needs_target_cell: (name: string, date: string) => `${name}, ${date}: An einem freien Tag bitte Büro bzw. VZ mit Uhrzeit eintragen.`,
