@@ -32,23 +32,24 @@ watch(open, async (isOpen) => {
       }
     : { date: props.date, endDate: '', start: '', end: '', title: '', visibility: null, groupIds: [], employeeIds: [] })
   error.value = ''
+  audience.value = null
   try {
-    audience.value = await $fetch<CalendarEventAudienceDto>('/api/calendar-events/audience')
-    // Only what can still be chosen (a deleted group, a person who left or moved is not offered any more).
+    audience.value = await $fetch<CalendarEventAudienceDto>('/api/calendar-events/audience', { query: event ? { eventId: event.id } : {} })
+    // Only what can still be chosen; people who left stay visible as „ausgeschieden“ (former) and go on saving.
     const groups = new Set(audience.value.groups.map(group => group.id))
     const people = new Set(audience.value.employees.map(employee => employee.id))
     form.groupIds = form.groupIds.filter(id => groups.has(id))
     form.employeeIds = form.employeeIds.filter(id => people.has(id))
   }
   catch {
-    audience.value = { groups: [], employees: [] }
+    audience.value = { groups: [], employees: [], former: [] }
   }
 }, { immediate: true })
 
 // A message about the last „Speichern“ goes as soon as something is changed.
 watch(form, () => { error.value = '' }, { deep: true })
 
-const visibilityItems =EVENT_VISIBILITIES.map(value => ({
+const visibilityItems = EVENT_VISIBILITIES.map(value => ({
   label: de.calendar.visibilityLabels[value], description: de.calendar.visibilityHints[value], value,
 }))
 /** Unanswered (null) shows no choice ticked. */
@@ -57,6 +58,10 @@ const visibility = computed({
   set: (value: EventVisibility | undefined) => { form.visibility = value ?? null },
 })
 const groupNames = computed(() => new Map(audience.value?.groups.map(group => [group.id, group.name]) ?? []))
+/** People on the list who left: shown ticked and greyed, taken off the list on saving. */
+const former = computed(() => audience.value?.former ?? [])
+/** Only people who left were chosen: saving makes it „Nur Leitung und Träger“ (as deleting them would). */
+const onlyFormer = computed(() => form.visibility === 'employees' && form.employeeIds.length === 0 && former.value.length > 0)
 
 function toggle(list: 'groupIds' | 'employeeIds', id: number, on: boolean | 'indeterminate') {
   form[list] = on === true ? [...new Set([...form[list], id])] : form[list].filter(item => item !== id)
@@ -84,14 +89,15 @@ function submit() {
     error.value = de.calendar.pickGroups
     return
   }
-  if (form.visibility === 'employees' && form.employeeIds.length === 0) {
+  if (form.visibility === 'employees' && form.employeeIds.length === 0 && !onlyFormer.value) {
     error.value = de.calendar.pickEmployees
     return
   }
+  const visibility = onlyFormer.value ? 'leaders' : form.visibility
   emit('save', {
     date: form.date, endDate: form.endDate && form.endDate !== form.date ? form.endDate : null, start, end, title: form.title,
-    visibility: form.visibility, groupIds: form.visibility === 'groups' ? form.groupIds : [],
-    employeeIds: form.visibility === 'employees' ? form.employeeIds : [],
+    visibility, groupIds: visibility === 'groups' ? form.groupIds : [],
+    employeeIds: visibility === 'employees' ? form.employeeIds : [],
   })
 }
 </script>
@@ -133,7 +139,15 @@ function submit() {
               :label="employee.name" :description="employee.groupId === null ? undefined : groupNames.get(employee.groupId)"
               :model-value="form.employeeIds.includes(employee.id)" @update:model-value="toggle('employeeIds', employee.id, $event)"
             />
+            <UCheckbox
+              v-for="person in former" :key="`former-${person.id}`" class="min-h-9 items-center opacity-70"
+              :label="de.calendar.formerEmployee(person.name)" :model-value="true" disabled
+            />
           </div>
+          <p v-if="audience && former.length" class="mt-2 text-xs text-amber-800">
+            {{ de.calendar.formerNote(former.map(person => person.name).join(', ')) }}
+            <template v-if="onlyFormer">{{ de.calendar.formerOnlyNote }}</template>
+          </p>
         </fieldset>
         <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
         <div class="col-span-2 flex gap-2">

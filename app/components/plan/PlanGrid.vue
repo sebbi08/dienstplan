@@ -499,12 +499,12 @@ const tabStop = computed(() => rovingStop(quickGrid.value, focusedCell.value))
               :title="note.title"
             >
               <!-- The whole text, wrapped (also in print, at the tablet and on phones); the field grows with it. -->
-              <div class="w-52 print:w-44">
+              <div class="w-52 print:w-32">
                 <PlanInfoField
                   v-if="editable" :value="note.value" :label="`${de.plan[note.field]} ${formatDayShort(row.day.date, row.day.weekday)}`"
                   @save="emit('noteSave', row.day.date, note.field, $event)"
                 />
-                <span v-else class="block text-xs break-words whitespace-pre-wrap">{{ note.value }}</span>
+                <span v-else class="block text-xs break-words whitespace-normal">{{ note.value }}</span>
                 <!-- After the own Info texts, outside the field: the day's appointments, then its automatic events (read-only). -->
                 <PlanDayEvents
                   v-if="note.field === 'info2'" :events="row.day.events" :date="row.day.date" :editable="eventsEditable && !print"

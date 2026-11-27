@@ -54,6 +54,8 @@ function onChange(event: Event) {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  // While an input method composes a word (e.g. accents, Asian scripts), Enter belongs to it.
+  if (event.isComposing) return
   if (event.key === 'Enter') {
     event.preventDefault()
     ;(event.target as HTMLTextAreaElement).blur()

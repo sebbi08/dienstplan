@@ -209,6 +209,11 @@ export const calendarEventSchema = z.object({
   visibility: z.enum(EVENT_VISIBILITIES), groupIds: z.array(z.number().int().positive()).max(100),
   employeeIds: z.array(z.number().int().positive()).max(500),
 })
+/** The print view of the plan and the year calendar: `?print=1`, `&internal=1` „Interne Termine mitdrucken“. */
+export const printViewQuery = z.object({ print: z.literal('1').optional(), internal: z.literal('1').optional() })
+  .transform(query => ({ print: query.print === '1', internal: query.internal === '1' }))
+/** The appointment dialog's choices; `eventId`: the appointment being changed (its people who left, see „former“). */
+export const calendarEventAudienceQuery = z.object({ eventId: z.coerce.number().int().positive().optional() })
 /** leftAt is checked by the service (invalid_time), so a wrong time gets its own message. */
 export const earlySickLeaveSchema = z.object({
   employeeId: z.number().int().positive(), date: isoDate, leftAt: z.number().nullable(), note: z.string().max(200).nullable().optional(),

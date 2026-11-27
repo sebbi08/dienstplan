@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { INTERNAL_QUERY, PRINT_QUERY, seesAllEvents } from '#shared/domain/calendarEvents'
 import { todayIso } from '#shared/domain/dates'
 import type { YearCalendarDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -18,16 +19,34 @@ useHead({ style: [{ innerHTML: '@page { size: A4 landscape; margin: 6mm; }' }] }
 const route = useRoute()
 const router = useRouter()
 const year = Number(route.params.year)
-const { data: calendar, error } = await useFetch<YearCalendarDto>('/api/calendar', { query: { year } })
+/**
+ * Printouts get hung up: only appointments for „Alle“ (`?print=1`), in the rows and in the list. Leitung, Träger and
+ * whoever manages the calendar may tick „Interne Termine mitdrucken“ (`&internal=1`, not remembered; also for the PDF).
+ */
+const { user } = useUserSession()
+const { can } = useCan()
+const mayPrintInternal = computed(() => !!user.value && seesAllEvents(user.value.role, can('calendar.edit')))
+const internal = computed({
+  get: () => mayPrintInternal.value && route.query[INTERNAL_QUERY] === '1',
+  set: value => router.replace({ query: { ...route.query, [INTERNAL_QUERY]: value ? '1' : undefined } }),
+})
+const { data: calendar, error } = await useFetch<YearCalendarDto>('/api/calendar', {
+  query: computed(() => ({ year, [PRINT_QUERY]: '1', ...(internal.value ? { [INTERNAL_QUERY]: '1' } : {}) })),
+})
 
 // "?group=3" or "?group=none"; a group without people (or deleted) prints, and shows in the select, all groups.
 const printChoice = computed(() => (calendar.value ? calendarPrintChoice(calendar.value, route.query.group) : 'all'))
 const choice = computed({
   get: () => String(printChoice.value),
-  set: value => router.replace({ query: value === 'all' ? {} : { group: value } }),
+  set: value => router.replace({ query: { ...(value === 'all' ? {} : { group: value }), ...(internal.value ? { [INTERNAL_QUERY]: '1' } : {}) } }),
 })
 const groupItems = computed(() => (calendar.value ? calendarPrintItems(calendar.value, de.calendar.printAllGroups, de.calendar.printNoGroup) : []))
-const search = computed(() => (printChoice.value === 'all' ? '' : `?group=${printChoice.value}`))
+const search = computed(() => {
+  const query = new URLSearchParams({
+    ...(printChoice.value === 'all' ? {} : { group: String(printChoice.value) }), ...(internal.value ? { [INTERNAL_QUERY]: '1' } : {}),
+  })
+  return query.size ? `?${query}` : ''
+})
 
 const eventHeights = computed(() => (calendar.value ? monthEventHeights(calendar.value) : []))
 /** Per section its pages: the months of each page and the row height that lets them fit. */
@@ -42,7 +61,8 @@ const sections = computed(() => {
   })
 })
 const pageTitle = (label: string | null, months: number[]) =>
-  [de.calendar.printTitle(year), label, `${de.months[months[0]! - 1]}–${de.months[months.at(-1)! - 1]}`].filter(Boolean).join(' – ')
+  [de.calendar.printTitle(year), label, `${de.months[months[0]! - 1]}–${de.months[months.at(-1)! - 1]}`, internal.value ? de.calendar.printInternalNote : '']
+    .filter(Boolean).join(' – ')
 
 const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss' }
 const fileName = computed(() => {
@@ -59,6 +79,7 @@ const fileName = computed(() => {
         v-if="calendar?.groups.length" v-model="choice" :items="groupItems" class="w-56"
         :aria-label="de.calendar.printGroupLabel"
       />
+      <UCheckbox v-if="mayPrintInternal" v-model="internal" :label="de.calendar.printInternal" :description="de.calendar.printInternalHint" />
       <PrintActions :file-name="fileName" :search="search" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorMessage(error) }}</p>
@@ -82,7 +103,9 @@ const fileName = computed(() => {
         </template>
       </div>
       <section class="mt-6 break-before-page print:mt-0">
-        <h2 class="mb-2 text-lg font-semibold">{{ de.calendar.eventList }} {{ year }}</h2>
+        <h2 class="mb-2 text-lg font-semibold">
+          {{ de.calendar.eventList }} {{ year }}<template v-if="internal"> – {{ de.calendar.printInternalNote }}</template>
+        </h2>
         <p v-if="!calendar.events.length" class="text-sm text-gray-600">{{ de.calendar.noEvents }}</p>
         <table v-else class="w-full border-collapse text-sm">
           <thead>

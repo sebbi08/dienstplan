@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { calendarEventEmployees, calendarEventGroups, calendarEvents, employees } from '../../server/db/schema'
 import {
-  calendarEventAudience, createCalendarEvent, deleteCalendarEvent, eventAudienceOf, getMyYearCalendar, getStaffYearCalendar,
-  getYearCalendar, listCalendarEvents, updateCalendarEvent, type CalendarEventInput,
+  assertCurrentEventClient, calendarEventAudience, createCalendarEvent, deleteCalendarEvent, eventAudienceFor, eventAudienceForPrint,
+  eventAudienceOf, getMyYearCalendar, getStaffYearCalendar, getYearCalendar, listCalendarEvents, updateCalendarEvent,
+  type CalendarEventInput,
 } from '../../server/services/calendar'
 import { deleteLeftEmployee } from '../../server/services/employeeDeletion'
+import { moveEmployeeToFacility } from '../../server/services/employees'
 import { deleteGroup } from '../../server/services/groups'
 import { getMonthPlan, getMyPlan } from '../../server/services/plan'
 import { releaseMonth } from '../../server/services/release'
@@ -57,7 +59,8 @@ beforeEach(() => {
   createCalendarEvent(db, 1, input({ date: '2026-10-06', title: 'Für Bären', visibility: 'groups', groupIds: [baeren] }))
   createCalendarEvent(db, 1, input({ date: '2026-10-07', title: 'Für Carla', visibility: 'employees', employeeIds: [carla] }))
   createCalendarEvent(db, 1, input({ date: '2026-10-08', title: 'Nur Leitung', visibility: 'leaders' }))
-  createCalendarEvent(db, 1, input({ date: '2026-10-12', endDate: '2026-10-14', title: 'Fortbildungstage', start: 540, end: 960 }))
+  // Friday to Monday: over a weekend.
+  createCalendarEvent(db, 1, input({ date: '2026-10-09', endDate: '2026-10-12', title: 'Fortbildungstage', start: 540, end: 960 }))
 })
 
 describe('„Wer sieht den Termin?“', () => {
@@ -110,9 +113,10 @@ describe('appointments in the plan', () => {
     const draft = getMonthPlan(db, leitung, 1, 2026, 10, TODAY)
     expect(dayEvents(draft.days, '2026-10-06')).toEqual(['Für Bären'])
     expect(dayEvents(draft.days, '2026-10-08')).toEqual(['Nur Leitung'])
-    // Several days: on each of them, weekend included.
-    for (const date of ['2026-10-12', '2026-10-13', '2026-10-14']) expect(dayEvents(draft.days, date)).toEqual(['Fortbildungstage'])
-    expect(dayEvents(draft.days, '2026-10-15')).toEqual([])
+    // Several days: on each of them, Saturday and Sunday included (Fri 9. – Mon 12.10.2026).
+    for (const date of ['2026-10-09', '2026-10-10', '2026-10-11', '2026-10-12']) expect(dayEvents(draft.days, date)).toEqual(['Fortbildungstage'])
+    expect(draft.days.find(day => day.date === '2026-10-10')!.isWeekend).toBe(true)
+    expect(dayEvents(draft.days, '2026-10-13')).toEqual([])
 
     releaseMonth(db, leitung, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
     const forAnna = getMonthPlan(db, annaUser, 1, 2026, 10, TODAY)
@@ -120,7 +124,7 @@ describe('appointments in the plan', () => {
     expect(dayEvents(forAnna.days, '2026-10-07')).toEqual([])
     expect(dayEvents(forAnna.days, '2026-10-08')).toEqual([])
     const atTablet = getMonthPlan(db, tablet, 1, 2026, 10, TODAY)
-    expect(atTablet.days.flatMap(day => titles(day.events))).toEqual(['Für alle', 'Fortbildungstage', 'Fortbildungstage', 'Fortbildungstage'])
+    expect(atTablet.days.flatMap(day => titles(day.events))).toEqual(['Für alle', ...Array(4).fill('Fortbildungstage')])
     expect(JSON.stringify(atTablet)).not.toMatch(/Für Bären|Für Carla|Nur Leitung/)
 
     const mine = getMyPlan(db, carlaUser, 2026, 10, TODAY)
@@ -216,5 +220,67 @@ describe('deleting a group or an employee', () => {
     expect(db.select().from(calendarEventEmployees).where(eq(calendarEventEmployees.employeeId, carla)).all()).toEqual([])
     expect(listCalendarEvents(db, 1, 2026).find(event => event.id === shared.id)).toMatchObject({ visibility: 'employees', employeeIds: [ben] })
     expect(visibility('Für Carla')).toBe('leaders')
+  })
+})
+
+describe('printouts', () => {
+  const all = ['Für alle', 'Für Bären', 'Für Carla', 'Nur Leitung', 'Fortbildungstage']
+  const planTitles = (viewer: SessionUser, internal: boolean) =>
+    getMonthPlan(db, viewer, 1, 2026, 10, TODAY, eventAudienceForPrint(db, viewer, internal)).days.flatMap(day => titles(day.events))
+
+  it('print the plan with only „Alle“ for every viewer; managers may add the internal ones', () => {
+    releaseMonth(db, leitung, 1, 2026, 10, new Date('2026-09-25T10:00:00Z'))
+    const publicOnly = ['Für alle', ...Array(4).fill('Fortbildungstage')]
+    for (const viewer of [leitung, traeger, annaUser, carlaUser, tablet]) expect(planTitles(viewer, false)).toEqual(publicOnly)
+    expect(planTitles(leitung, true)).toEqual(['Für alle', 'Für Bären', 'Für Carla', 'Nur Leitung', ...Array(4).fill('Fortbildungstage')])
+    expect(planTitles(traeger, true)).toContain('Nur Leitung')
+    // Staff and the tablet get no more by asking.
+    for (const viewer of [annaUser, carlaUser, tablet]) expect(planTitles(viewer, true)).toEqual(publicOnly)
+  })
+
+  it('print the year calendar with only „Alle“ unless a manager asks for the internal ones', () => {
+    const printed = (viewer: SessionUser, internal: boolean) =>
+      titles(getYearCalendar(db, 1, 2026, { eventAudience: eventAudienceFor(db, viewer, { print: true, internal }) }).events)
+    expect(printed(leitung, false)).toEqual(['Für alle', 'Fortbildungstage'])
+    expect(printed(leitung, true)).toEqual(all)
+    expect(printed(annaUser, true)).toEqual(['Für alle', 'Fortbildungstage'])
+    // The screen (no print view) stays as it was.
+    expect(titles(getYearCalendar(db, 1, 2026, { eventAudience: eventAudienceFor(db, leitung, { print: false, internal: false }) }).events)).toEqual(all)
+  })
+})
+
+describe('people who left or moved', () => {
+  it('names the people on an appointment who left (shown „ausgeschieden“), not the choosable ones', () => {
+    const event = createCalendarEvent(db, 1, input({ title: 'Gespräch', visibility: 'employees', employeeIds: [ben, carla] }))
+    db.update(employees).set({ leftOn: '2026-09-30' }).where(eq(employees.id, carla)).run()
+    const audience = calendarEventAudience(db, 1, TODAY, event.id)
+    expect(audience.employees.map(employee => employee.name)).toEqual(['Anna', 'Ben'])
+    expect(audience.former).toEqual([{ id: carla, name: 'Carla' }])
+    expect(calendarEventAudience(db, 1, TODAY).former).toEqual([])
+    // Another facility's appointment id names nobody.
+    const hort = addFacility(db, 'Hort')
+    const hortEvent = createCalendarEvent(db, hort, input({ title: 'Hort', visibility: 'employees', employeeIds: [addEmployee(db, 'Hanna', { facilityId: hort, leftOn: '2026-01-31' })] }))
+    expect(calendarEventAudience(db, 1, TODAY, hortEvent.id).former).toEqual([])
+  })
+
+  it('takes a person who moves to another facility off the old facility\'s lists, narrowing an emptied one', () => {
+    const hort = addFacility(db, 'Hort')
+    const shared = createCalendarEvent(db, 1, input({ title: 'Zwei', visibility: 'employees', employeeIds: [ben, carla] }))
+    const hortEvent = createCalendarEvent(db, hort, input({ title: 'Im Hort', visibility: 'all' }))
+    moveEmployeeToFacility(db, traeger, carla, hort, new Date('2026-10-01T08:00:00Z'))
+    expect(listCalendarEvents(db, 1, 2026).find(event => event.id === shared.id)).toMatchObject({ visibility: 'employees', employeeIds: [ben] })
+    expect(db.select({ visibility: calendarEvents.visibility }).from(calendarEvents).where(eq(calendarEvents.title, 'Für Carla')).get())
+      .toEqual({ visibility: 'leaders' })
+    expect(db.select().from(calendarEventEmployees).where(eq(calendarEventEmployees.employeeId, carla)).all()).toEqual([])
+    // Her own calendar is the Hort's now.
+    expect(titles(getMyYearCalendar(db, carlaUser, 2026).events)).toEqual([hortEvent.title])
+  })
+})
+
+describe('old pages', () => {
+  it('get a clear code when they still send „Auch für Mitarbeitende sichtbar?“', () => {
+    expect(errorCode(() => assertCurrentEventClient({ date: '2026-10-14', title: 'x', visibleToStaff: true }))).toBe('event_page_outdated')
+    const current = input()
+    expect(assertCurrentEventClient(current)).toBe(current)
   })
 })

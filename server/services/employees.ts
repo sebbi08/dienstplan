@@ -19,6 +19,7 @@ import {
   applicantVisits, balanceAdjustments, children, employeeHours, employees, entries, facilities, helpOuts, leaveEntitlements, users,
 } from '../db/schema'
 import { ServiceError } from '../lib/errors'
+import { dropEventLinksOnMove } from './calendar'
 import { bookClosuresBetween, bookClosuresFor, unbookClosuresFrom } from './closures'
 import { employeesWithPaidOvertimeData } from './employeeDeletion'
 import { leaveExtraDaysOf } from './entitlements'
@@ -592,7 +593,8 @@ export function setStampingOptions(
  * from today on: the old facility's are removed, the new facility's are booked (same rules as for a new employee).
  * The employee's Mitarbeiter account follows automatically; a linked Leitung or tablet account is moved along.
  * Records of mandatory appointments are re-pointed to the new facility's kinds; trainings stay with the employee. Staff
- * talks and their forms move to the new facility, and so do the accident reports about the employee. Phone and e-mail
+ * talks and their forms move to the new facility, and so do the accident reports about the employee. The person leaves
+ * the lists of the old facility's appointments (dropEventLinksOnMove). Phone and e-mail
  * still on the hired application record (Bewerbungen & Hospitationen, kept there when the hiring user could not write
  * the personal data) leave the old facility: see settleApplicationContact.
  */
@@ -627,6 +629,8 @@ export function moveEmployeeToFacility(
     moveEmployeeAccidents(tx, employeeId, facilityId)
     // Bezugserzieher must belong to the child's facility: the children of the old facility lose this one.
     tx.update(children).set({ keyEducatorId: null }).where(eq(children.keyEducatorId, employeeId)).run()
+    // Named for appointments of the old facility („Bestimmte Personen“): those links go.
+    dropEventLinksOnMove(tx, employeeId, employee.facilityId)
     settleApplicationContact(tx, actor, employeeId)
     bookClosuresFor(tx, actor, employeeId, now, today)
   })

@@ -2307,6 +2307,8 @@ export type CalendarEventSaveDto = Omit<CalendarEventDto, 'id'>
 export interface CalendarEventAudienceDto {
   groups: { id: number; name: string }[]
   employees: { id: number; name: string; groupId: number | null }[]
+  /** People on the changed appointment's list who cannot be chosen any more (left): „ausgeschieden“, dropped on saving. */
+  former: { id: number; name: string }[]
 }
 
 export interface YearCalendarDto {

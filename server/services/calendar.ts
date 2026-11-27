@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import {
-  eventDayCount, eventLastDay, eventVisibleTo, MAX_EVENT_DAYS, PUBLIC_AUDIENCE, type EventAudience, type EventVisibility,
+  eventDayCount, eventLastDay, eventVisibleTo, MAX_EVENT_DAYS, PUBLIC_AUDIENCE, seesAllEvents, type EventAudience,
+  type EventVisibility,
 } from '../../shared/domain/calendarEvents'
 import { groupLeaveRanges } from '../../shared/domain/leave'
 import { dateRange, isWeekend, todayIso } from '../../shared/domain/dates'
@@ -204,10 +205,28 @@ const eventColumns = {
  */
 export function eventAudienceOf(db: Db, viewer: Pick<SessionUser, 'role' | 'permissions' | 'employeeId'>): EventAudience {
   if (viewer.role === 'terminal') return PUBLIC_AUDIENCE
-  if (viewer.role === 'provider' || viewer.role === 'admin' || can(viewer.permissions, 'calendar.edit')) {
+  if (seesAllEvents(viewer.role, can(viewer.permissions, 'calendar.edit'))) {
     return { seesAll: true, employeeId: viewer.employeeId, groupId: null }
   }
   return staffAudience(db, viewer.employeeId)
+}
+
+/**
+ * The appointments of a printout (plan, year calendar): printouts get hung up, so only „Alle“ – for every viewer – unless
+ * the viewer sees all appointments and asks for the internal ones too (`internal`, „Interne Termine mitdrucken“).
+ */
+export function eventAudienceForPrint(
+  db: Db, viewer: Pick<SessionUser, 'role' | 'permissions' | 'employeeId'>, internal: boolean,
+): EventAudience {
+  const audience = eventAudienceOf(db, viewer)
+  return internal && audience.seesAll ? audience : PUBLIC_AUDIENCE
+}
+
+/** The appointments the viewer gets from a plan or calendar route: the print view's when it asks with `?print=1`. */
+export function eventAudienceFor(
+  db: Db, viewer: Pick<SessionUser, 'role' | 'permissions' | 'employeeId'>, view: { print: boolean; internal: boolean },
+): EventAudience {
+  return view.print ? eventAudienceForPrint(db, viewer, view.internal) : eventAudienceOf(db, viewer)
 }
 
 /** An employee's view (null = none: only „Alle“): their own appointments and those of their home group. */
@@ -263,13 +282,41 @@ export function eventsByDay(events: CalendarEventDto[], from: IsoDate, to: IsoDa
   return byDay
 }
 
-/** What the appointment dialog offers: the facility's groups and its staff who have not left before today. */
-export function calendarEventAudience(db: Db, facilityId: number, today: IsoDate = todayIso()): CalendarEventAudienceDto {
+/**
+ * What the appointment dialog offers: the facility's groups and its staff who have not left before today. With
+ * `eventId` (an appointment of the facility being changed) also the people on its list who cannot be chosen any more
+ * (`former`: left, shown as „ausgeschieden“ and taken off the list on saving).
+ */
+export function calendarEventAudience(
+  db: Db, facilityId: number, today: IsoDate = todayIso(), eventId: number | null = null,
+): CalendarEventAudienceDto {
+  const choosable = loadEmployees(db, facilityId).filter(employee => employee.leftOn === null || employee.leftOn >= today)
+  const ids = new Set(choosable.map(employee => employee.id))
+  const linked = eventId === null
+    ? []
+    : db.select({ id: employees.id, name: employees.name }).from(calendarEventEmployees)
+      .innerJoin(calendarEvents, eq(calendarEvents.id, calendarEventEmployees.eventId))
+      .innerJoin(employees, eq(employees.id, calendarEventEmployees.employeeId))
+      .where(and(eq(calendarEventEmployees.eventId, eventId), eq(calendarEvents.facilityId, facilityId)))
+      .orderBy(asc(employees.name)).all()
   return {
     groups: listGroups(db, facilityId).map(group => ({ id: group.id, name: group.name })),
-    employees: loadEmployees(db, facilityId).filter(employee => employee.leftOn === null || employee.leftOn >= today)
-      .map(employee => ({ id: employee.id, name: employee.name, groupId: employee.groupId })),
+    employees: choosable.map(employee => ({ id: employee.id, name: employee.name, groupId: employee.groupId })),
+    former: linked.filter(person => !ids.has(person.id)),
   }
+}
+
+/**
+ * On a move to another facility (moveEmployeeToFacility, in its transaction): the person leaves the lists of the old
+ * facility's appointments (an emptied list narrows to „Nur Leitung und Träger“, see the triggers), so a later move back
+ * brings none of them back.
+ */
+export function dropEventLinksOnMove(tx: Db, employeeId: number, oldFacilityId: number): void {
+  tx.delete(calendarEventEmployees).where(and(
+    eq(calendarEventEmployees.employeeId, employeeId),
+    inArray(calendarEventEmployees.eventId,
+      tx.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.facilityId, oldFacilityId))),
+  )).run()
 }
 
 export interface CalendarEventInput {
@@ -316,6 +363,17 @@ function normalizeEvent(db: Db, facilityId: number, input: CalendarEventInput): 
     if (employeeIds.length === 0 || own.length !== employeeIds.length) throw new ServiceError(400, 'event_employees_required')
   }
   return { ...event, groupIds, employeeIds }
+}
+
+/**
+ * A page still open from before „Wer sieht den Termin?“ sends the old yes/no (`visibleToStaff`) and no choice: 400
+ * event_page_outdated („bitte die Seite neu laden“) instead of a bare validation error. Anything else passes on unchanged.
+ */
+export function assertCurrentEventClient(body: unknown): unknown {
+  if (body !== null && typeof body === 'object' && 'visibleToStaff' in body && !('visibility' in body)) {
+    throw new ServiceError(400, 'event_page_outdated')
+  }
+  return body
 }
 
 /** Matches the facility's appointment with this id. */

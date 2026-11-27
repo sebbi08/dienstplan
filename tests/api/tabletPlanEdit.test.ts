@@ -4,11 +4,12 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Db } from '../../server/db/client'
 import { entries, monthPlans, terminalUnlocks } from '../../server/db/schema'
 import { setTimeTrackingFrom } from '../../server/services/appSettings'
+import { createCalendarEvent, type CalendarEventInput } from '../../server/services/calendar'
 import { saveBundleOverride } from '../../server/services/permissions'
 import { lockChildren, unlockChildren } from '../../server/services/tabletUnlock'
 import { setPin } from '../../server/services/terminal'
 import { PLAN_EDITOR_QUERY } from '../../shared/domain/tablet'
-import type { SessionUser } from '../../shared/types/api'
+import type { MonthPlanDto, SessionUser, YearCalendarDto } from '../../shared/types/api'
 import { addEmployee, addFacility, addUser, createTestDb, templateId } from '../helpers/fixtures'
 
 /**
@@ -52,6 +53,8 @@ beforeAll(async () => {
   routes['plan/[year]/[month].get'] = (await import('../../server/api/plan/[year]/[month].get')).default as Handler
   routes['release.post'] = (await import('../../server/api/plan/[year]/[month]/release.post')).default as Handler
   routes['employees/[id]/children.get'] = (await import('../../server/api/employees/[id]/children.get')).default as Handler
+  routes['calendar.get'] = (await import('../../server/api/calendar.get')).default as Handler
+  routes['calendar-events/index.post'] = (await import('../../server/api/calendar-events/index.post')).default as Handler
 })
 
 /** A request of the user (at the tablet with the unlock token in its session) to the route. */
@@ -189,5 +192,98 @@ describe('the plan editor\'s routes at the tablet', () => {
     // An account never edits through a tablet's unlock: its own permissions count.
     expect(await refusal(() => writeCell(mitarbeiterin, token))).toBe('forbidden')
     expect(await writeCell(leitung)).toMatchObject({ ok: true })
+  })
+})
+
+describe('appointments in the plan: tablet, plan editors and printouts', () => {
+  let lena: number
+  let mia: number
+  let leitung: SessionUser
+  let mitarbeiterin: SessionUser
+  let tablet: SessionUser
+  const month = { year: 2026, month: 12 }
+  const editorQuery = { [PLAN_EDITOR_QUERY]: '1' }
+  const event = (changes: Partial<CalendarEventInput>): CalendarEventInput => ({
+    date: '2026-12-03', endDate: null, start: null, end: null, title: 'Termin', visibility: 'all', groupIds: [], employeeIds: [], ...changes,
+  })
+  /** The appointment titles of a plan answer, in day order. */
+  const titles = (plan: unknown) => (plan as MonthPlanDto).days.flatMap(day => day.events.map(item => item.title))
+  const calendarTitles = (calendar: unknown) => (calendar as YearCalendarDto).events.map(item => item.title)
+  const plan = (user: SessionUser, query: Record<string, string> = {}, token?: string) =>
+    call('plan/[year]/[month].get', user, { token, params: month, query })
+
+  beforeEach(() => {
+    db = createTestDb()
+    lena = addEmployee(db, 'Lena')
+    mia = addEmployee(db, 'Mia')
+    setPin(db, 1, lena, '111111')
+    setPin(db, 1, mia, '222222')
+    leitung = addUser(db, 'lena', 'admin', lena)
+    mitarbeiterin = addUser(db, 'mia', 'observer', mia)
+    tablet = addUser(db, 'tablet', 'terminal')
+    createCalendarEvent(db, 1, event({ date: '2026-12-01', title: 'Für alle' }))
+    createCalendarEvent(db, 1, event({ date: '2026-12-02', title: 'Für Mia', visibility: 'employees', employeeIds: [mia] }))
+    createCalendarEvent(db, 1, event({ date: '2026-12-03', title: 'Nur Leitung', visibility: 'leaders' }))
+  })
+
+  it('shows the tile and the read-only view at the tablet only „Alle“, also while an editing unlock holds', async () => {
+    const token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, lena, '111111').token
+    await call('terminal/plan-edit.post', tablet, { token })
+    await call('release.post', tablet, { token, params: month })
+    expect(titles(await plan(tablet, {}, token))).toEqual(['Für alle'])
+    expect(titles(await plan(tablet))).toEqual(['Für alle'])
+    // The editor's view: the Leitung's own audience while she edits (her rights), never the tile.
+    expect(titles(await plan(tablet, editorQuery, token))).toEqual(['Für alle', 'Für Mia', 'Nur Leitung'])
+    // Printed from the editor's view: only „Alle“ unless asked for the internal ones.
+    expect(titles(await plan(tablet, { ...editorQuery, print: '1' }, token))).toEqual(['Für alle'])
+    lockChildren(db, tablet.id, token)
+    expect(titles(await plan(tablet, editorQuery, token))).toEqual(['Für alle'])
+  })
+
+  it('shows a staff plan editor (plan.edit without calendar.edit) only what is meant for them, at the tablet and in the office', async () => {
+    saveBundleOverride(db, mitarbeiterin.id, 'planEdit', 'grant')
+    const office = await plan(mitarbeiterin)
+    expect(office).toMatchObject({ admin: expect.anything() })
+    expect(titles(office)).toEqual(['Für alle', 'Für Mia'])
+    const token = unlockChildren(db, { id: tablet.id, facilityId: 1 }, mia, '222222').token
+    await call('terminal/plan-edit.post', tablet, { token })
+    expect(titles(await plan(tablet, editorQuery, token))).toEqual(['Für alle', 'Für Mia'])
+    // Even „internal“ is no wider for someone who does not see all.
+    expect(titles(await plan(mitarbeiterin, { print: '1', internal: '1' }))).toEqual(['Für alle'])
+  })
+
+  it('prints the plan with only „Alle“ for everybody; the Leitung may add the internal ones', async () => {
+    expect(titles(await plan(leitung))).toEqual(['Für alle', 'Für Mia', 'Nur Leitung'])
+    expect(titles(await plan(leitung, { print: '1' }))).toEqual(['Für alle'])
+    expect(titles(await plan(leitung, { print: '1', internal: '1' }))).toEqual(['Für alle', 'Für Mia', 'Nur Leitung'])
+    // „internal“ alone (no print view) changes nothing.
+    expect(titles(await plan(leitung, { internal: '1' }))).toEqual(['Für alle', 'Für Mia', 'Nur Leitung'])
+    await call('release.post', leitung, { params: month })
+    expect(titles(await plan(mitarbeiterin))).toEqual(['Für alle', 'Für Mia'])
+    expect(titles(await plan(mitarbeiterin, { print: '1' }))).toEqual(['Für alle'])
+    expect(titles(await plan(mitarbeiterin, { print: '1', internal: '1' }))).toEqual(['Für alle'])
+    expect(JSON.stringify(await plan(mitarbeiterin, { print: '1', internal: '1' }))).not.toMatch(/Für Mia|Nur Leitung/)
+  })
+
+  it('prints the year calendar (rows and list) with only „Alle“ unless the Leitung asks for the internal ones', async () => {
+    expect(calendarTitles(await call('calendar.get', leitung, { query: { year: '2026' } }))).toEqual(['Für alle', 'Für Mia', 'Nur Leitung'])
+    const printed = await call('calendar.get', leitung, { query: { year: '2026', print: '1' } })
+    expect(calendarTitles(printed)).toEqual(['Für alle'])
+    expect(JSON.stringify(printed)).not.toMatch(/Für Mia|Nur Leitung/)
+    expect(calendarTitles(await call('calendar.get', leitung, { query: { year: '2026', print: '1', internal: '1' } })))
+      .toEqual(['Für alle', 'Für Mia', 'Nur Leitung'])
+    // Staff have no year calendar print (calendar.edit only).
+    expect(await refusal(() => call('calendar.get', mitarbeiterin, { query: { year: '2026', print: '1' } }))).toBe('forbidden')
+  })
+
+  it('answers a page from before „Wer sieht den Termin?“ with a clear code', async () => {
+    let code: string | undefined
+    try {
+      await call('calendar-events/index.post', leitung, { body: { date: '2026-12-04', start: null, end: null, title: 'Alt', visibleToStaff: true } })
+    }
+    catch (error) {
+      code = (error as { data?: { code?: string } }).data?.code ?? (error as { code?: string }).code
+    }
+    expect(code).toBe('event_page_outdated')
   })
 })

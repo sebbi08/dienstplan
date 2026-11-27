@@ -27,6 +27,18 @@ export interface EventAudience {
 /** The tablet without an unlock, or an account without an employee: only „Alle“. */
 export const PUBLIC_AUDIENCE: EventAudience = { seesAll: false, employeeId: null, groupId: null }
 
+/** Whether the viewer sees every appointment of the facility: Träger, Leitung and whoever manages the calendar. */
+export const seesAllEvents = (role: string, canEditCalendar: boolean): boolean =>
+  role === 'provider' || role === 'admin' || canEditCalendar
+
+/**
+ * The printouts (plan, year calendar) get hung up: they show only appointments for „Alle“, for every viewer. The print
+ * pages ask with `?print=1`; a viewer who sees all may add `&internal=1` („Interne Termine mitdrucken“) to print every
+ * appointment, marked in the heading. The server honours both (eventAudienceForPrint).
+ */
+export const PRINT_QUERY = 'print'
+export const INTERNAL_QUERY = 'internal'
+
 interface EventSpan { date: IsoDate; endDate: IsoDate | null }
 
 /** The last day of the appointment (the first for a one-day appointment). */

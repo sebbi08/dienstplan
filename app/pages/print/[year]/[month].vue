@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { INTERNAL_QUERY, PRINT_QUERY, seesAllEvents } from '#shared/domain/calendarEvents'
 import { formatTime } from '#shared/domain/time'
 import type { MonthPlanDto } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -11,9 +12,23 @@ import { planWithoutHidden } from '~/utils/longAbsence'
 definePageMeta({ layout: false })
 
 const route = useRoute()
+const router = useRouter()
 const year = Number(route.params.year)
 const month = Number(route.params.month)
-const { data: plan, error } = await useFetch<MonthPlanDto>(`/api/plan/${year}/${month}`)
+/**
+ * Printouts get hung up: only appointments for „Alle“ (the server answers `?print=1` so). Leitung, Träger and whoever
+ * manages the calendar may tick „Interne Termine mitdrucken“ (`&internal=1`, not remembered; also for the PDF).
+ */
+const { user } = useUserSession()
+const { can } = useCan()
+const mayPrintInternal = computed(() => !!user.value && seesAllEvents(user.value.role, can('calendar.edit')))
+const internal = computed({
+  get: () => mayPrintInternal.value && route.query[INTERNAL_QUERY] === '1',
+  set: value => router.replace({ query: { ...route.query, [INTERNAL_QUERY]: value ? '1' : undefined } }),
+})
+const { data: plan, error } = await useFetch<MonthPlanDto>(`/api/plan/${year}/${month}`, {
+  query: computed(() => ({ [PRINT_QUERY]: '1', ...(internal.value ? { [INTERNAL_QUERY]: '1' } : {}) })),
+})
 
 // "?group=3": only that group's block, plus the Springer and helpers (as chosen above the plan; the PDF passes it on).
 const errorText = computed(() => (errorCode(error.value) === 'month_not_released' ? de.plan.notReleasedMonth(monthTitle(year, month)) : errorMessage(error.value)))
@@ -22,6 +37,11 @@ const groupName = computed(() => plan.value?.groups.find(candidate => candidate.
 const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss' }
 const fileGroup = computed(() => groupName.value?.replace(/[äöüÄÖÜß]/g, letter => UMLAUTS[letter]!) ?? null)
 const fileName = computed(() => `Dienstplan-${year}-${String(month).padStart(2, '0')}${fileGroup.value ? `-${fileGroup.value}` : ''}`)
+/** What the PDF page needs too: the group and „Interne Termine mitdrucken“. */
+const search = computed(() => {
+  const query = new URLSearchParams({ ...(group.value ? { group: String(group.value) } : {}), ...(internal.value ? { [INTERNAL_QUERY]: '1' } : {}) })
+  return query.size ? `?${query}` : ''
+})
 
 </script>
 
@@ -37,7 +57,12 @@ const fileName = computed(() => `Dienstplan-${year}-${String(month).padStart(2, 
       <span v-if="plan?.admin && (!plan.release.releasedAt || plan.release.pendingCount > 0)" class="text-sm font-semibold text-orange-700">
         {{ plan.release.releasedAt ? de.plan.printDraftNote(plan.release.pendingCount) : de.plan.draft }}
       </span>
-      <PrintActions :file-name="fileName" :search="group ? `?group=${group}` : ''" />
+      <span v-if="internal" class="text-sm font-semibold text-orange-700">{{ de.calendar.printInternalNote }}</span>
+      <UCheckbox
+        v-if="mayPrintInternal" v-model="internal" :label="de.calendar.printInternal" :description="de.calendar.printInternalHint"
+        class="print:hidden"
+      />
+      <PrintActions :file-name="fileName" :search="search" />
     </div>
     <p v-if="error" class="text-red-700">{{ errorText }}</p>
     <template v-if="plan">

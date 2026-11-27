@@ -1921,15 +1921,23 @@ Dienstplan“, „Mein Kalender“, am Tablet und in den Ausdrucken von Dienstpl
   - **Nur Leitung und Träger** – sonst niemand.
 
   **Leitung, Träger und wer den Kalender bearbeiten darf, sehen immer alle Termine** ihrer Einrichtung. Alle anderen
-  sehen nur, was für sie bestimmt ist – überall gleich: Kalender, Dienstplan, „Mein Dienstplan“, „Mein Kalender“,
-  Ausdrucke und Tablet. Gefiltert wird auf dem Server; von anderen Terminen kommt nichts beim Handy an, auch keine
-  Anzahl. Wer außer einem selbst noch eingeladen ist, sehen Mitarbeitende nicht.
-- **Tablet**: Ohne Entsperren zeigt das Tablet nur Termine für **Alle**. Bearbeitet jemand nach dem PIN den Dienstplan
-  am Tablet („Dienstplan bearbeiten“), sieht er die Termine so, wie er sie mit seinem eigenen Konto sieht.
+  sehen nur, was für sie bestimmt ist – überall gleich: Kalender, Dienstplan, „Mein Dienstplan“, „Mein Kalender“ und
+  Tablet. Gefiltert wird auf dem Server; von anderen Terminen kommt nichts beim Handy an, auch keine Anzahl. Wer außer
+  einem selbst noch eingeladen ist, sehen Mitarbeitende nicht.
+- **Ausdrucke** (Dienstplan und Jahreskalender, auch als PDF) hängen oft aus: Sie zeigen **für jeden nur Termine für
+  „Alle“** – im Plan, in der Zeile „Termine“ und in der Terminliste. Leitung, Träger und wer den Kalender bearbeiten
+  darf, sehen auf der Druckseite das Häkchen **„Interne Termine mitdrucken“** (aus, wenn die Seite geöffnet wird; es
+  wird nicht gemerkt). Mit Häkchen stehen alle Termine im Ausdruck, und die Überschrift sagt „enthält interne Termine“.
+- **Tablet**: Ohne Entsperren – auch in der Kachel „Dienstplan“ nach dem PIN – zeigt das Tablet nur Termine für
+  **Alle**. Nur während jemand nach dem PIN den Dienstplan am Tablet bearbeitet („Dienstplan bearbeiten“), sieht er die
+  Termine so, wie er sie mit seinem eigenen Konto sieht.
 - **Gruppe oder Person gelöscht**: Sie fällt aus der Liste des Termins. Wird die Liste dadurch leer, gilt der Termin
   ab dann als **„Nur Leitung und Träger“** – er wird nie für mehr Leute sichtbar. Wer ausscheidet und endgültig
   gelöscht wird (Abschnitt 15, „Sofort“-Daten), verschwindet ebenso aus den Listen; wer in eine andere Einrichtung
-  wechselt, sieht die Termine der alten Einrichtung nicht mehr.
+  wechselt, fällt beim Wechsel aus den Listen der alten Einrichtung (und sieht ihre Termine nicht mehr).
+- **Ausgeschiedene beim Ändern eines Termins**: Steht jemand auf der Liste, der schon ausgeschieden ist, zeigt das
+  Fenster ihn ausgegraut als „(ausgeschieden)“ mit einem Hinweis; beim Speichern wird er aus der Liste entfernt. Bleibt
+  dann niemand übrig, wird der Termin „Nur Leitung und Träger“.
 - **Nicht Teil der Freigabe**: Termine werden wie die automatischen Ereignisse immer so gezeigt, wie sie gerade
   eingetragen sind, auch in einem schon freigegebenen Monat. Ein neuer oder geänderter Termin macht den Monat nicht
   „geändert“, löst keine Benachrichtigung aus und braucht kein erneutes Freigeben (anders als die Info-Texte, die zum
@@ -1942,8 +1950,10 @@ Dienstplan“, „Mein Kalender“, am Tablet und in den Ausdrucken von Dienstpl
 Die Info-Texte im Dienstplan (Info 1 und Info 2, bis 200 Zeichen) stehen **immer vollständig** da: Der Text bricht in
 der Spalte um, statt abgeschnitten zu werden – beim Bearbeiten wächst das Feld mit dem Text mit, ebenso in der
 Ansicht ohne Bearbeiten, am Tablet, im Ausdruck und in „Mein Dienstplan“ auf dem Handy. Gespeichert wird beim
-Verlassen des Feldes; **Enter** speichert ebenfalls (ein Info-Text hat keine Zeilenumbrüche), **Esc** stellt den
-gespeicherten Text wieder her. Die Termine darunter brechen genauso um.
+Verlassen des Feldes; **Enter** speichert ebenfalls (ein Info-Text hat keine Zeilenumbrüche; während eine
+Eingabehilfe ein Wort zusammensetzt, gehört Enter noch zu ihr), **Esc** stellt den gespeicherten Text wieder her.
+Die Termine darunter brechen genauso um. Im Ausdruck sind die beiden Info-Spalten schmaler (8 rem), damit auch ein
+Plan mit vielen Personen nicht breiter wird; der Text bricht dort öfter um, bleibt aber vollständig.
 
 ### Automatische Ereignisse
 

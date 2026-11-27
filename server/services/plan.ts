@@ -314,8 +314,10 @@ function dayRows(
 const cellsOfShown = <T>(cells: Record<string, T>, isShown: (employeeId: number) => boolean): Record<string, T> =>
   Object.fromEntries(Object.entries(cells).filter(([key]) => !key.includes('|') || key.startsWith('info') || isShown(Number(key.split('|')[0]))))
 
+/** `eventAudience`: whose appointments the days carry (default the viewer's; the print view: eventAudienceForPrint). */
 export function getMonthPlan(
   db: Db, viewer: SessionUser, facilityId: number, year: number, month: number, today: IsoDate,
+  eventAudience: EventAudience = eventAudienceOf(db, viewer),
 ): MonthPlanDto {
   // The draft with its pending changes and warnings with plan.edit; everyone else the latest released plan.
   const isAdmin = can(viewer.permissions, 'plan.edit')
@@ -349,7 +351,7 @@ export function getMonthPlan(
   const hours = loadHoursContext(db, facilityId)
   // The appointments the viewer may see (the tablet: only „Alle“; the plan editor there: as their own account).
   const days = withOpeningHours(
-    dayRows(db, facilityId, year, month, shown.days, facilityHolidayRules(db, facilityId), eventAudienceOf(db, viewer)), hours,
+    dayRows(db, facilityId, year, month, shown.days, facilityHolidayRules(db, facilityId), eventAudience), hours,
   )
 
   const { monthStart, monthEnd } = monthBounds(year, month)
