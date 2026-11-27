@@ -353,10 +353,11 @@ async function moveFacility() {
     result = await $fetch<EmployeeMoveResultDto>(`/api/employees/${id}/facility`, { method: 'PUT', body: { facilityId: target.value } })
   }, de.common.saved)
   if (moved) {
-    // Inspection records the new facility cannot show were removed: said so, and kept on screen a while.
+    // Inspection records the new facility cannot show were removed: said so (with an entry, if one was recorded – the
+    // server lists only those whose folder the mover may use, who may see the result), and kept on screen a while.
     for (const removed of (result as EmployeeMoveResultDto | null)?.inspectionsRemoved ?? []) {
       toast.add({
-        title: de.facilities.inspectionRemoved(removed.typeName, removed.certificate, target.label), color: 'warning',
+        title: de.facilities.inspectionRemoved(removed.typeName, removed.certificate, target.label, removed.entry), color: 'warning',
         icon: 'i-lucide-triangle-alert', duration: 20000,
       })
     }

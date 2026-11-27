@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CriminalRecordNoteDto, InspectionCleanupDto, RetentionDeleteResult, RetentionItemDto } from '#shared/types/api'
+import type { CriminalRecordNoteDto, InspectionCleanupDto, RetentionDeleteResult, RetentionItemDto, RetiredInspectionDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate, formatDateTime } from '~/utils/format'
@@ -21,7 +21,8 @@ import { areaPath, privacyPath, requestedPrivacyTab, sectionAnchor, visiblePriva
  *   viewer may use, so only for those who may delete them – and notes on entries of the Pflichttermin „Erweitertes
  *   Führungszeugnis“ with „Notiz löschen“. Every facility the viewer may see, as the list; a row of another facility than
  *   the active one names it (its links work only there). An inspection record shows its deadline („spätestens bis“), in
- *   red once passed.
+ *   red once passed. Records of a type that no longer asks for them (inactive, or not for the person any more) are listed
+ *   with their result and „Vermerk löschen“ – at the person they stay read only.
  * - „Datensicherung“ (backup.download, one for all).
  * `?tab=periods` / `?tab=backup` open a tab; the old settings anchors lead here (MOVED_SECTIONS). Unsaved edits ask
  * before the page or a tab is left, as on the settings pages.
@@ -80,12 +81,14 @@ const { data, error, refresh } = await useFetch<RetentionItemDto[]>('/api/retent
 
 // Kept against § 72a Abs. 5 SGB VIII: files of a type „nur Einsicht vermerken“ and notes on the Pflichttermin.
 const { data: cleanup, refresh: refreshCleanup } = await useFetch<InspectionCleanupDto>('/api/required-inspection-files', {
-  key: 'required-inspection-files', default: () => ({ files: [], notes: [], history: [] }), immediate: canDeleteDue.value,
+  key: 'required-inspection-files', default: () => ({ files: [], notes: [], history: [], records: [] }), immediate: canDeleteDue.value,
 })
 const inspectionFiles = computed(() => cleanup.value.files)
 const criminalNotes = computed(() => cleanup.value.notes)
 /** Audit lines of inspection records whose type is gone: who and when only, deleted with the person's data. */
 const orphanHistory = computed(() => cleanup.value.history ?? [])
+/** Records of a type that no longer asks for them: only read and deleted any more. */
+const retiredRecords = computed(() => cleanup.value.records ?? [])
 const allCertificates = computed(() => inspectionFiles.value.every(file => file.certificate))
 const anyCertificate = computed(() => inspectionFiles.value.some(file => file.certificate))
 const activeFacility = computed(() => facilities.value?.activeId ?? null)
@@ -149,6 +152,29 @@ async function deleteNote(note: CriminalRecordNoteDto) {
     }
   })
 }
+
+/** „Vermerk löschen“ of a record whose type no longer asks for it (only in the active facility, like the person's box). */
+async function deleteRetired(record: RetiredInspectionDto) {
+  if (busy.value || !await confirm(rd.removeRetiredConfirm(record.typeName))) return
+  await guard(async () => {
+    try {
+      await $fetch(`/api/employees/${record.employeeId}/required-inspections/${record.typeId}`, { method: 'DELETE' })
+      toast.add({ title: rd.recordRemoved, color: 'success' })
+      return true
+    }
+    catch (failure) {
+      toast.add({ title: errorMessage(failure), color: 'error' })
+      return false
+    }
+    finally {
+      await refreshCleanup()
+    }
+  })
+}
+/** „keine einschlägige Eintragung“ / „einschlägige Eintragung vorhanden“ (neutral words without „§ 72a“). */
+const retiredResult = (record: RetiredInspectionDto) => (record.noRelevantEntry
+  ? (record.certificate ? rd.noRelevantEntry : rd.noRelevantEntryGeneric)
+  : (record.certificate ? rd.relevantEntry : rd.relevantEntryGeneric))
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -319,6 +345,23 @@ async function deleteAll() {
             <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.requirements.deleteNote" :disabled="busy" @click="deleteNote(note)" />
           </template>
           <span v-else class="text-xs text-amber-800">{{ rd.otherFacility(note.facilityName) }}</span>
+        </li>
+      </ul>
+    </section>
+
+    <section v-if="retiredRecords.length" class="space-y-2 rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">
+      <h2 class="font-semibold">{{ rd.retiredTitle }} ({{ retiredRecords.length }})</h2>
+      <p class="text-gray-600">{{ rd.retiredHint }}</p>
+      <ul class="space-y-1">
+        <li v-for="record in retiredRecords" :key="`${record.employeeId}:${record.typeId}`" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span class="min-w-0 break-words" :class="record.noRelevantEntry ? '' : 'font-medium text-red-700'">
+            {{ rd.retiredRow(record.employeeName, record.typeName, rd.retiredReasons[record.reason], retiredResult(record)) }}
+          </span>
+          <template v-if="record.facilityId === activeFacility">
+            <NuxtLink :to="`/admin/employees/${record.employeeId}?tab=records`" class="font-medium text-sky-700 hover:underline">{{ rd.toPerson }}</NuxtLink>
+            <UButton size="xs" color="error" variant="ghost" icon="i-lucide-x" :label="rd.removeRecord" :disabled="busy" @click="deleteRetired(record)" />
+          </template>
+          <span v-else class="text-xs text-gray-500">{{ rd.otherFacility(record.facilityName) }}</span>
         </li>
       </ul>
     </section>

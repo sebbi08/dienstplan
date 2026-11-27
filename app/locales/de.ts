@@ -1282,6 +1282,21 @@ export const de = {
     removeRecordConfirm: (name: string) => `Den Vermerk zu „${name}“ löschen? Danach fehlt die Einsicht wieder.`,
     // A record kept after the type was switched back to „Datei“.
     readOnlyRecord: 'Früherer Einsicht-Vermerk – das Pflichtdokument legt inzwischen eine Datei ab. Nur noch lesen; mit „Vermerk löschen“ entfernen.',
+    // A record of a type that no longer asks for it (switched off, or not for the person's qualification any more).
+    retiredReasons: { inactive: 'Art nicht mehr aktiv', notApplicable: 'gilt nicht mehr für diese Person' },
+    retiredRecord: (reason: string) => `${reason} – der Vermerk bleibt nur zum Lesen, bis er mit „Vermerk löschen“ entfernt wird.`,
+    resultLine: (result: string) => `Ergebnis: ${result}`,
+    removeRetiredConfirm: (name: string) => `Den Vermerk zu „${name}“ löschen? Das Pflichtdokument wird bei dieser Person nicht mehr abgefragt.`,
+    // Taking „§ 72a“ away: the existing records then keep the usual 3 years.
+    certificateUnsetConfirm: (name: string, records: number) => `„§ 72a SGB VIII (Führungszeugnis)“ bei „${name}“ entfernen? `
+      + (records === 0
+        ? 'Es gibt noch keine Vermerke dazu.'
+        : records === 1
+          ? '1 vorhandener Vermerk verliert damit die Frist „spätestens 3 Monate nach dem Ausscheiden löschen“ und wird wie üblich 3 Jahre aufbewahrt.'
+          : `${records} vorhandene Vermerke verlieren damit die Frist „spätestens 3 Monate nach dem Ausscheiden löschen“ und werden wie üblich `
+            + '3 Jahre aufbewahrt.')
+      + ' Neue Vermerke ebenso.',
+    certificateUnset: '§ 72a entfernen',
     // Who recorded, changed or deleted the record (nothing of its content).
     historyTitle: 'Verlauf',
     historyLine: (action: 'recorded' | 'changed' | 'deleted' | 'typeDeleted' | 'moved' | 'removedOnMove', who: string, at: string) =>
@@ -1309,6 +1324,11 @@ export const de = {
     historyOrphanHint: 'Das Pflichtdokument gibt es nicht mehr (gelöscht oder beim Wechsel der Einrichtung entfernt). Nur wer und wann, '
       + 'nichts vom Inhalt. Wird mit den Daten der Person nach dem Austritt gelöscht.',
     historyRow: (person: string, type: string) => (type ? `${person} – ${type}` : person),
+    // Records of a type that no longer asks for them: read only at the person, with „Vermerk löschen“.
+    retiredTitle: 'Einsicht-Vermerke zu Pflichtdokumenten, die nicht mehr abgefragt werden',
+    retiredHint: 'Die Art ist nicht mehr aktiv oder gilt nicht mehr für die Person. Bei der Person steht der Vermerk nur noch zum Lesen, '
+      + 'mit „Vermerk löschen“ – löschen, sobald er nicht mehr gebraucht wird.',
+    retiredRow: (person: string, type: string, reason: string, result: string) => `${person} – ${type} (${reason}): ${result}`,
     toPerson: 'Zur Person',
     filter: 'Nur mit fehlenden Pflichtdokumenten',
   },
@@ -1512,10 +1532,12 @@ export const de = {
       + `Einrichtung. Ab heute gelten die Schließtage von „${name}“ statt der bisherigen.`,
     moveAction: 'Verschieben',
     // A recorded inspection the new facility cannot show (no active type „nur Einsicht vermerken“ for it): removed.
-    inspectionRemoved: (type: string, certificate: boolean, facility: string) => (certificate
-      ? `Einsicht-Vermerk zum Führungszeugnis wurde entfernt, weil „${facility}“ dafür kein Pflichtdokument „nur Einsicht vermerken“ `
-        + '(§ 72a SGB VIII) hat. Bitte dort neu vermerken.'
-      : `Einsicht-Vermerk zu „${type}“ wurde entfernt, weil „${facility}“ dieses Pflichtdokument nicht als „nur Einsicht vermerken“ hat.`),
+    // `entry`: the removed record held a relevant entry (only told to whoever may see the result).
+    inspectionRemoved: (type: string, certificate: boolean, facility: string, entry = false) => (certificate
+      ? `Einsicht-Vermerk zum Führungszeugnis${entry ? ' (mit einschlägiger Eintragung)' : ''} wurde entfernt, weil „${facility}“ dafür `
+        + 'kein Pflichtdokument „nur Einsicht vermerken“ (§ 72a SGB VIII) hat. Bitte dort neu vermerken.'
+      : `Einsicht-Vermerk zu „${type}“${entry ? ' (mit Beanstandung)' : ''} wurde entfernt, weil „${facility}“ dieses Pflichtdokument nicht `
+        + 'als „nur Einsicht vermerken“ hat.'),
     switched: 'Einrichtung gewechselt',
     // One card per facility under Einstellungen → Einrichtung.
     masterData: 'Stammdaten',
@@ -3988,6 +4010,7 @@ export const de = {
     inspection_before_certificate: 'Eingesehen werden kann es erst ab seinem Datum.',
     inspection_choice_required: 'Bitte auswählen, ob eine einschlägige Eintragung (bzw. Beanstandung) vorliegt oder nicht.',
     required_type_certificate_provider: 'Nur der Träger kann „§ 72a SGB VIII (Führungszeugnis)“ setzen oder entfernen.',
+    required_type_certificate_unset: 'Bitte bestätigen, dass „§ 72a SGB VIII (Führungszeugnis)“ entfernt werden soll: vorhandene Vermerke werden dann 3 Jahre aufbewahrt.',
     document_inspection_file: 'Diese Datei darf nicht aufbewahrt werden (Pflichtdokument „nur Einsicht vermerken“): Sie lässt sich nur noch löschen – nicht bearbeiten, zuordnen oder versenden.',
     requirement_note_not_allowed: 'Beim erweiterten Führungszeugnis wird nur das Datum gespeichert, keine Bemerkung (§ 72a Abs. 5 SGB VIII).',
     help_out_not_found: 'Diese Aushilfe gibt es nicht mehr.',

@@ -10,13 +10,15 @@ import { de } from '~/locales/de'
  * qualifications – must have in the personnel file, each filed in a folder the editor may use (the list shows only
  * those), optionally valid for some months and filled from a print template. „Nachweis“ chooses a file of the personnel
  * file or „nur Einsicht vermerken“ (no file, no template: the Führungszeugnis, § 72a Abs. 5 SGB VIII); „§ 72a SGB VIII
- * (Führungszeugnis)“ gives such a type the law's texts and deadline – only the Träger changes it (the server too). ▲/▼
- * orders them; deleting keeps the documents.
+ * (Führungszeugnis)“ gives such a type the law's texts and deadline – only whoever deletes after the retention periods
+ * changes it (retention.delete, the Träger; the server too), and taking it away asks first with the number of records that
+ * then keep the usual 3 years (the server refuses it unconfirmed). ▲/▼ orders them; deleting keeps the documents.
  */
 const t = de.requiredDocuments
 const { can } = useCan()
-const { user } = useUserSession()
-const isProvider = computed(() => user.value?.role === 'provider')
+/** „§ 72a“ decides the retention of the records: changed only with the right to delete after the retention periods. */
+const canFlag = computed(() => can('retention.delete'))
+const toast = useToast()
 const { data: types, refresh } = await useFetch<RequiredDocumentTypeDto[]>('/api/required-document-types', { key: 'required-document-types', default: () => [] })
 const { busy, run } = useBusyAction(refresh)
 /** The ▲/▼ show only after „Reihenfolge ändern“. */
@@ -72,15 +74,36 @@ const body = (): RequiredDocumentTypeInput => ({
   validityMonths: form.validity.trim() === '' ? null : Number(form.validity),
   templateId: form.mode === 'inspection' ? null : form.templateId || null, active: form.active, mode: form.mode,
   // Only the Träger changes it; anyone else leaves it as it is.
-  ...(isProvider.value ? { certificate: form.certificate } : {}),
+  ...(canFlag.value ? { certificate: form.certificate } : {}),
 })
 
+/**
+ * Saves; taking „§ 72a“ away is refused until confirmed (409 required_type_certificate_unset with the number of records):
+ * asked with that number, then sent again – cancelled, nothing is saved.
+ */
 async function save() {
   const id = editing.value?.id
-  const ok = await run(() => (id
-    ? $fetch<{ ok: boolean }>(`/api/required-document-types/${id}`, { method: 'PUT', body: body() })
-    : $fetch<{ id: number }>('/api/required-document-types', { method: 'POST', body: body() })), de.common.saved)
-  if (ok) open.value = false
+  const send = (confirmCertificateUnset: boolean) => (id
+    ? $fetch<{ ok: boolean }>(`/api/required-document-types/${id}`, {
+        method: 'PUT', body: { ...body(), ...(confirmCertificateUnset ? { confirmCertificateUnset: true } : {}) },
+      })
+    : $fetch<{ id: number }>('/api/required-document-types', { method: 'POST', body: body() }))
+  let saved = false
+  const ok = await run(async () => {
+    try {
+      await send(false)
+    }
+    catch (failure) {
+      const data = (failure as { data?: { data?: { code?: string; details?: { records?: number } } } }).data?.data
+      if (data?.code !== 'required_type_certificate_unset') throw failure
+      if (!await confirm(t.certificateUnsetConfirm(form.name, data.details?.records ?? 0), { confirmLabel: t.certificateUnset, danger: true })) return
+      await send(true)
+    }
+    saved = true
+  })
+  if (!ok || !saved) return
+  toast.add({ title: de.common.saved, color: 'success' })
+  open.value = false
 }
 
 async function remove(type: RequiredDocumentTypeDto) {
@@ -165,7 +188,7 @@ function details(type: RequiredDocumentTypeDto): string {
           </UFormField>
           <!-- Only for „nur Einsicht“ (or while set); the Träger's choice – others see it read only. -->
           <UFormField v-if="form.mode === 'inspection' || form.certificate" :description="t.certificateFlagHint">
-            <UCheckbox v-model="form.certificate" :label="t.certificateFlag" :disabled="!isProvider" />
+            <UCheckbox v-model="form.certificate" :label="t.certificateFlag" :disabled="!canFlag" />
           </UFormField>
           <UFormField v-if="form.mode === 'file'" :label="t.template">
             <USelect v-model="form.templateId" :items="templateItems" class="w-full" />

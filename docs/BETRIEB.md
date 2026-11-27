@@ -1326,8 +1326,11 @@ und was bald abläuft.
     „Erweitertes Führungszeugnis“ (am Namen erkannt wie beim Update am 26.11.2026), neue Einrichtungen bekommen ihn beim
     Beispiel gleich mit. Ein selbst angelegtes Pflichtdokument „nur Einsicht vermerken“ hat ihn nicht: neutrale Texte („in
     Ordnung (keine Beanstandung)“, „Beanstandung – bitte prüfen“) und die üblichen 3 Jahre (Beurteilungen). Setzen oder
-    entfernen kann ihn **nur der Träger** in den Einstellungen des Pflichtdokuments (die Leitung sieht ihn nur);
-    **Umbenennen ändert ihn nicht**. In der Liste der Pflichtdokumente steht dann „Führungszeugnis (§ 72a)“.
+    entfernen kann ihn **nur der Träger** (wer das Recht „Löschen nach Fristen“ hat) in den Einstellungen des
+    Pflichtdokuments (die Leitung sieht ihn nur); **Umbenennen ändert ihn nicht**. In der Liste der Pflichtdokumente steht
+    dann „Führungszeugnis (§ 72a)“. **Entfernt** der Träger den Haken, fragt die App vorher und sagt, wie viele vorhandene
+    Vermerke dann die Frist von 3 Monaten verlieren und wie üblich 3 Jahre aufbewahrt werden; ohne Bestätigung speichert
+    sie nicht.
   - **Bei der Person:** Statt Hochladen, Zuordnen, Ausfüllen und Senden gibt es **Einsicht vermerken**: **„Datum des
     Führungszeugnisses“** (Pflicht, nicht in der Zukunft), **„Eingesehen am“** (freiwillig, nicht in der Zukunft und
     nicht vor dem Datum des Führungszeugnisses) und das **Ergebnis**: **„keine einschlägige Eintragung (§ 72a Abs. 1 SGB
@@ -1346,7 +1349,9 @@ und was bald abläuft.
     (gleicher Name zuerst; bei einem Pflichtdokument ohne Haken nur eines mit gleichem Namen). Sonst wird der Vermerk
     **entfernt** – die neue Einrichtung könnte ihn nicht anzeigen, die alte sieht die Person nicht mehr –, und der Träger
     bekommt nach dem Verschieben den Hinweis „Einsicht-Vermerk zum Führungszeugnis wurde entfernt, weil …“ (nur, wenn er
-    das Fach sehen darf); dann in der neuen Einrichtung neu vermerken.
+    das Fach sehen darf); hatte der entfernte Vermerk „einschlägige Eintragung vorhanden“, steht im Hinweis „… (mit
+    einschlägiger Eintragung)“ – auch das nur, wenn er das Fach sehen darf. Dann in der neuen Einrichtung neu vermerken.
+    Darum **vor dem Wechsel prüfen**, ob die neue Einrichtung dieses Pflichtdokument „nur Einsicht vermerken“ hat.
   - **Verlauf ohne Pflichtdokument:** Wird ein Pflichtdokument gelöscht, gehen seine Vermerke mit (je eine Zeile „mit
     dem Pflichtdokument gelöscht“ im Verlauf). Der Verlauf eines gelöschten Pflichtdokuments – und der eines beim
     Wechsel entfernten Vermerks – steht unter *Datenschutz & Löschen → Jetzt löschbar* als „Verlauf zu entfernten
@@ -1369,6 +1374,13 @@ und was bald abläuft.
     nicht mehr und kommen auf die Löschliste. Stellst du es zurück auf „Datei“, sind seine Dateien wieder normale
     Dateien; schon vermerkte Einsichten bleiben **sichtbar (nur lesen)**, „Eintragung vorhanden – bitte prüfen“ bleibt
     stehen, und **Vermerk löschen** funktioniert weiter, bis sie gelöscht sind.
+  - **Inaktiv oder nicht mehr zutreffend:** Setzt du ein Pflichtdokument auf inaktiv, oder gilt es nicht mehr für die
+    Person (andere Qualifikation oder „Gilt für“ geändert), bleibt ihr Vermerk bei der Person trotzdem **sichtbar (nur
+    lesen)**: ganz unten, mit „Art nicht mehr aktiv“ bzw. „gilt nicht mehr für diese Person“, dem Ergebnis (auch
+    „einschlägige Eintragung vorhanden“) und **Vermerk löschen**. Er zählt nicht als fehlend, neu vermerken geht dort
+    nicht. Unter *Datenschutz & Löschen → Jetzt löschbar* stehen solche Vermerke als „Einsicht-Vermerke zu
+    Pflichtdokumenten, die nicht mehr abgefragt werden“ (mit Ergebnis, **Zur Person** und **Vermerk löschen**; nur für
+    alle, die das Fach sehen dürfen). So verschwindet kein Vermerk unbemerkt.
   - **Alte Dateien:** Beim Update am 26.11.2026 wurde nur das Beispiel „Erweitertes Führungszeugnis“ (am Namen erkannt,
     verglichen wie in der App, in jedem Fach) auf „nur Einsicht vermerken“ umgestellt; selbst angelegte Pflichtdokumente
     blieben bei „Datei“. Schon hochgeladene Führungszeugnisse löscht die App **nicht** von selbst; sie zählen auch nicht

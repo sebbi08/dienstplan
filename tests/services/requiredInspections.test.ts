@@ -15,7 +15,8 @@ import { uploadTemplate } from '../../server/services/printTemplates'
 import { listReminders } from '../../server/services/reminders'
 import {
   createRequiredType, deleteInspection, deleteRequiredType, employeeRequiredDocuments, linkRequiredDocument, listRequiredTypes,
-  missingRequiredDocuments, orphanInspectionHistory, recordInspection, storedInspectionFileList, updateRequiredType, uploadRequiredDocument,
+  missingRequiredDocuments, orphanInspectionHistory, recordInspection, retiredInspectionList, storedInspectionFileList, updateRequiredType,
+  uploadRequiredDocument,
   type RequiredDocsActor,
 } from '../../server/services/requiredDocuments'
 import { addRequirementRecord, clearCriminalRecordNote, criminalRecordNotes } from '../../server/services/requirements'
@@ -260,6 +261,47 @@ describe('Pflichtdokumente „nur Einsicht vermerken“ (Führungszeugnis)', () 
     expect(row()).toMatchObject({ state: 'missing', inspection: { noRelevantEntry: true } })
   })
 
+  it('keeps a record of a type switched off or no longer for the person in sight – read only, with its result, deletable, listed for cleanup', () => {
+    record('2026-11-01', false)
+    const ben = addEmployee(db, 'Ben Anders')
+    recordInspection(db, actor(traeger), 1, ben, efz, { certificateDate: '2026-10-01', inspectedOn: null, noRelevantEntry: true }, TODAY, NOW)
+    // Switched off: the box still shows it (the reviewer's probe found it gone), with the entry, last and read only.
+    updateRequiredType(db, actor(traeger), 1, efz, input({ active: false }))
+    expect(db.select().from(requiredInspections).all()).toHaveLength(2)
+    expect(employeeRequiredDocuments(db, actor(traeger), 1, anna, TODAY).at(-1)).toMatchObject({
+      typeId: efz, retired: 'inactive', state: 'entry', certificate: true, templateId: null, documentId: null,
+      inspection: { certificateDate: '2026-11-01', noRelevantEntry: false },
+    })
+    expect(row(actor(traeger), ben)).toMatchObject({ retired: 'inactive', state: 'present', inspection: { noRelevantEntry: true } })
+    // Not asked for any more: not „missing“; and no new record into it.
+    expect(missingRequiredDocuments(db, actor(traeger), 1, TODAY).get(anna)?.some(entry => entry.typeId === efz)).toBe(false)
+    expect(errorCode(() => record('2026-11-02'))).toBe('required_type_not_found')
+    // Datenschutz & Löschen lists both, with the result – only to whoever may use the folder.
+    const listed = () => retiredInspectionList(db, actor(traeger), facilities(1))
+    expect(listed()).toEqual([
+      {
+        employeeId: anna, employeeName: 'Anna Probe', facilityId: 1, facilityName: 'Kita', typeId: efz, typeName: 'Erweitertes Führungszeugnis',
+        certificate: true, reason: 'inactive', certificateDate: '2026-11-01', noRelevantEntry: false,
+      },
+      expect.objectContaining({ employeeId: ben, reason: 'inactive', noRelevantEntry: true }),
+    ])
+    expect(retiredInspectionList(db, limited(['employees.docs.qualifications']), facilities(1))).toEqual([])
+    expect(employeeRequiredDocuments(db, limited(['employees.docs.qualifications']), 1, anna, TODAY).find(entry => entry.typeId === efz)).toBeUndefined()
+    // „Vermerk löschen“ works on it; then it is gone from both.
+    deleteInspection(db, actor(traeger), 1, anna, efz)
+    expect(row()).toBeUndefined()
+    expect(listed().map(entry => entry.employeeId)).toEqual([ben])
+    // Active again, but no longer for Ben's qualification: „gilt nicht mehr für diese Person“.
+    db.update(employees).set({ qualification: 'fachkraft' }).where(eq(employees.id, ben)).run()
+    updateRequiredType(db, actor(traeger), 1, efz, input({ appliesTo: ['haushalt'] }))
+    expect(row(actor(traeger), ben)).toMatchObject({ retired: 'notApplicable', state: 'present' })
+    expect(listed()).toEqual([expect.objectContaining({ employeeId: ben, reason: 'notApplicable' })])
+    // For his qualification again: an ordinary row, off the list.
+    updateRequiredType(db, actor(traeger), 1, efz, input({ appliesTo: ['fachkraft'] }))
+    expect(row(actor(traeger), ben)).toMatchObject({ retired: null, state: 'present' })
+    expect(listed()).toEqual([])
+  })
+
   it('lists files to clean up in every facility given – only to whoever may use their folder – and offers to delete them', () => {
     const old = oldFile()
     uploadEmployeeDocument(db, actor(traeger), 1, anna, { folder: 'required', title: 'Masern', documentDate: '2024-03-01', note: '' }, file, NOW)
@@ -347,9 +389,29 @@ describe('Pflichtdokumente „nur Einsicht vermerken“ (Führungszeugnis)', () 
     updateRequiredType(db, actor(traeger), 1, own, input({ name: 'Masern-Einsicht', validityMonths: null, certificate: true }))
     expect(categoryHasData(db, anna)).toMatchObject({ inspection: true, assessment: false })
     expect(items().find(entry => entry.category === 'inspection')).toMatchObject({ inspection: { deleteBy: '2026-11-20', overdue: true } })
-    // … and unflags the example.
-    updateRequiredType(db, actor(traeger), 1, efz, input({ name: 'Führungszeugnis (erweitert)', certificate: false }))
+    // … and unflags the example – asked first with the number of its records that then keep the usual 3 years.
+    record('2026-08-01')
+    const unflag = (confirmCertificateUnset?: boolean) =>
+      updateRequiredType(db, actor(traeger), 1, efz, input({ name: 'Führungszeugnis (erweitert)', certificate: false, confirmCertificateUnset }))
+    let refusal: unknown = null
+    try {
+      unflag()
+    }
+    catch (error) {
+      refusal = error
+    }
+    expect(refusal).toMatchObject({ statusCode: 409, code: 'required_type_certificate_unset', details: { records: 1 } })
+    expect(errorCode(() => unflag(false))).toBe('required_type_certificate_unset')
+    expect(flagged(1)).toEqual(['Führungszeugnis (erweitert)', 'Masern-Einsicht'])
+    // Changing anything else asks nothing.
+    updateRequiredType(db, actor(traeger), 1, efz, input({ name: 'Führungszeugnis (erweitert)', validityMonths: 48 }))
+    unflag(true)
     expect(flagged(1)).toEqual(['Masern-Einsicht'])
+    // The right decides, not the role: whoever deletes after the retention periods (retention.delete) may flag.
+    expect(errorCode(() => updateRequiredType(db, limited(['employees.docs.required']), 1, efz, input({ name: 'Führungszeugnis (erweitert)', certificate: true }))))
+      .toBe('required_type_certificate_provider')
+    updateRequiredType(db, limited(['employees.docs.required', 'retention.delete']), 1, efz, input({ name: 'Führungszeugnis (erweitert)', certificate: true }))
+    expect(flagged(1)).toEqual(['Führungszeugnis (erweitert)', 'Masern-Einsicht'])
   })
 
   it('takes the record along on a move into the new facility\'s type „§ 72a“, with its lines', () => {
@@ -376,7 +438,8 @@ describe('Pflichtdokumente „nur Einsicht vermerken“ (Führungszeugnis)', () 
     const ben = addEmployee(db, 'Ben Anders')
     recordInspection(db, actor(traeger), 1, ben, efz, { certificateDate: '2026-08-01', inspectedOn: null, noRelevantEntry: true }, TODAY, NOW)
     const moved = new Date('2026-11-26T10:00:00.000Z')
-    expect(moveEmployeeToFacility(db, traeger, anna, hort, moved).inspectionsRemoved).toEqual([{ typeName: 'Erweitertes Führungszeugnis', certificate: true }])
+    expect(moveEmployeeToFacility(db, traeger, anna, hort, moved).inspectionsRemoved)
+      .toEqual([{ typeName: 'Erweitertes Führungszeugnis', certificate: true, entry: true }])
     expect(db.select({ employeeId: requiredInspections.employeeId }).from(requiredInspections).all()).toEqual([{ employeeId: ben }])
     expect(employeeRequiredDocuments(db, actor(traeger), hort, anna, TODAY).find(entry => entry.typeId === hortType)).toMatchObject({ state: 'missing', inspection: null })
     expect(orphanInspectionHistory(db, actor(traeger), facilities(1, hort))).toEqual([{

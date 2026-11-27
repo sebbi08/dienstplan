@@ -630,6 +630,8 @@ export const requiredDocumentTypeSchema = z.object({
   mode: z.enum(REQUIRED_DOCUMENT_MODES).default('file'),
   /** „§ 72a SGB VIII (Führungszeugnis)“; left out = unchanged (the service lets only the Träger change it). */
   certificate: z.boolean().optional(),
+  /** Taking „§ 72a“ away is confirmed (the service asks first: 409 required_type_certificate_unset). */
+  confirmCertificateUnset: z.boolean().optional(),
 })
 /**
  * „Einsicht vermerken“ (a type „nur Einsicht vermerken“): the certificate's date, optionally the day of inspection (the

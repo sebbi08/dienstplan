@@ -9,7 +9,7 @@ import { QUALIFICATIONS } from '../../shared/domain/staffing/types'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   EmployeeMoveResultDto, EmployeeRequiredDocumentDto, InspectionHistoryDto, RequiredDocumentTypeDto, RequiredDocumentTypeInput, RequiredInspectionFileDto,
-  RequiredInspectionInput, Role,
+  RequiredInspectionInput, RetiredInspectionDto, RetiredInspectionReason, Role,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employeeDocuments, employees, requiredDocumentTypes, requiredInspectionLog, requiredInspections, users } from '../db/schema'
@@ -29,7 +29,7 @@ import { listTemplates } from './printTemplates'
  * kept for such a type (marked: employee_documents.inspection_cleanup, or still linked to it) is listed for deletion
  * until deleted – wherever it is moved – and can only be deleted (no „Bearbeiten“, no link, no request to sign: 400
  * document_inspection_file). A record stays (read only, „Vermerk löschen“ works) when its type is switched back to
- * „Datei“; recording, changing and deleting it is logged with who and when (requiredInspectionLog). Only a type flagged
+ * „Datei“, switched off or no longer applies to the person; recording, changing and deleting it is logged with who and when (requiredInspectionLog). Only a type flagged
  * „§ 72a SGB VIII (Führungszeugnis)“ (`certificate`; only the Träger sets or unsets it, renaming changes nothing) gets the
  * law's texts and deadline; its records follow the person to another facility only into such a type there
  * (moveInspectionRecords).
@@ -83,14 +83,15 @@ const folded = (value: string) => value.trim().toLocaleLowerCase('de')
  * The checked input: a name (1–100 characters, unique regardless of case among the facility's types the actor sees: 409
  * required_type_name_taken – a type in a folder they may not use is not given away), a folder the actor may use (403), the qualifications of the catalog, a validity of 1–240
  * months or none, and a template the actor sees in the facility (400 required_type_template_invalid). Anything else
- * malformed is 400 required_type_invalid. „§ 72a SGB VIII“ (`certificate`; left out: as before) is the Träger's to change
- * (403 required_type_certificate_provider): it decides the retention of the records.
+ * malformed is 400 required_type_invalid. „§ 72a SGB VIII“ (`certificate`; left out: as before) is changed only by whoever
+ * deletes after the retention periods (retention.delete, the Träger; else 403 required_type_certificate_provider): it
+ * decides the retention of the records.
  */
 function checkedInput(
   db: Db, actor: RequiredDocsActor, facilityId: number, input: RequiredDocumentTypeInput, exceptId: number | null, wasCertificate = false,
 ) {
   const certificate = input.certificate ?? wasCertificate
-  if (certificate !== wasCertificate && actor.role !== 'provider') throw new ServiceError(403, 'required_type_certificate_provider')
+  if (certificate !== wasCertificate && !can(actor.permissions, 'retention.delete')) throw new ServiceError(403, 'required_type_certificate_provider')
   const name = input.name.trim()
   if (name === '' || name.length > REQUIRED_DOCUMENT_LIMITS.name) throw new ServiceError(400, 'required_type_name_required')
   if (typesOf(db, facilityId).some(row => row.id !== exceptId && mayUse(actor, row.folder) && folded(row.name) === folded(name))) {
@@ -142,12 +143,18 @@ export function createRequiredType(db: Db, actor: RequiredDocsActor, facilityId:
  * Switched to „nur Einsicht“, its linked files are marked for deletion (they must not be kept; first, so a folder move at
  * the same time cannot drop them); switched back to „Datei“, the files marked for it are regular again. Recorded
  * inspections stay either way (read only under „Datei“, until deleted). What the audit lines and the marked files keep of
- * the type (name, folder, „§ 72a“) follows the change, so it is right once the type is gone.
+ * the type (name, folder, „§ 72a“) follows the change, so it is right once the type is gone. Taking „§ 72a“ away moves
+ * the existing records to the usual 3 years, so it asks first: 409 required_type_certificate_unset with the number of
+ * records (`details.records`) until `confirmCertificateUnset`.
  */
 export function updateRequiredType(db: Db, actor: RequiredDocsActor, facilityId: number, id: number, input: RequiredDocumentTypeInput): void {
   assertEditor(actor)
   const before = loadType(db, actor, facilityId, id)
   const values = checkedInput(db, actor, facilityId, input, id, before.certificate)
+  if (before.certificate && !values.certificate && input.confirmCertificateUnset !== true) {
+    const records = db.select({ id: requiredInspections.id }).from(requiredInspections).where(eq(requiredInspections.typeId, id)).all().length
+    throw new ServiceError(409, 'required_type_certificate_unset', { records })
+  }
   db.transaction((tx) => {
     tx.update(requiredDocumentTypes).set(values).where(eq(requiredDocumentTypes.id, id)).run()
     if (before.mode === 'file' && values.mode === 'inspection') {
@@ -262,19 +269,31 @@ function stateOf(
 const applicableTypes = (types: readonly TypeRow[], actor: Pick<RequiredDocsActor, 'permissions'>, qualification: Parameters<typeof appliesToEmployee>[1]) =>
   types.filter(row => row.active && mayUse(actor, row.folder) && appliesToEmployee(parseAppliesTo(row.appliesTo), qualification))
 
+/** Why a type no longer asks a person for it (switched off, not for the qualification), null while it does. */
+const retiredReason = (type: TypeRow, qualification: Parameters<typeof appliesToEmployee>[1]): RetiredInspectionReason | null =>
+  !type.active ? 'inactive' : appliesToEmployee(parseAppliesTo(type.appliesTo), qualification) ? null : 'notApplicable'
+
 /**
  * „Pflichtdokumente“ of an employee of the facility (404 employee_not_found): every active type that applies to their
  * qualification, in folders the actor may use (others are left out, not even named), with the status from the newest
  * linked document in the type's folder; the template only if the actor sees it (else no „Ausfüllen“ / „Senden“). Also
  * the recorded inspection (whatever the type's mode now), the files kept for the type that are to be deleted (only in
- * folders the actor may use) and who recorded, changed or deleted the record when.
+ * folders the actor may use) and who recorded, changed or deleted the record when. A record of a type that no longer
+ * asks for it (inactive, or not for the qualification any more) is listed after them (`retired`), read only with its
+ * result, so it never goes out of sight while it is kept.
  */
 export function employeeRequiredDocuments(
   db: Db, actor: RequiredDocsActor, facilityId: number, employeeId: number, today: IsoDate,
 ): EmployeeRequiredDocumentDto[] {
   assertEmployee(db, facilityId, employeeId)
   const { qualification } = db.select({ qualification: employees.qualification }).from(employees).where(eq(employees.id, employeeId)).get()!
-  const types = applicableTypes(typesOf(db, facilityId), actor, qualification)
+  const all = typesOf(db, facilityId)
+  const asked = applicableTypes(all, actor, qualification)
+  const recorded = new Set(db.select({ typeId: requiredInspections.typeId }).from(requiredInspections)
+    .where(eq(requiredInspections.employeeId, employeeId)).all().map(row => row.typeId))
+  const types = [
+    ...asked, ...all.filter(type => !asked.includes(type) && recorded.has(type.id) && mayUse(actor, type.folder)),
+  ]
   const newest = newestLinked(db, [employeeId], types)
   const inspections = inspectionsOf(db, [employeeId], types)
   // Only files in folders the actor may use (their titles too).
@@ -290,12 +309,15 @@ export function employeeRequiredDocuments(
     ? new Set(listTemplates(db, { ...actor, facilityId }).map(template => template.id))
     : new Set<number>()
   return types.map((type) => {
-    const linked = newest.get(`${employeeId}:${type.id}`) ?? null
-    const status = stateOf(type, employeeId, newest, inspections, today)
+    const retired = retiredReason(type, qualification)
+    const linked = retired ? null : newest.get(`${employeeId}:${type.id}`) ?? null
     const inspection = inspections.get(`${employeeId}:${type.id}`) ?? null
+    // A retired row is only its record: the status is the record's.
+    const status = retired ? inspectionStatus(type.validityMonths, inspection, today) : stateOf(type, employeeId, newest, inspections, today)
     return {
       typeId: type.id, name: type.name, folder: type.folder, validityMonths: type.validityMonths, mode: type.mode, certificate: type.certificate,
-      templateId: type.mode === 'file' && type.templateId !== null && templates.has(type.templateId) ? type.templateId : null,
+      templateId: !retired && type.mode === 'file' && type.templateId !== null && templates.has(type.templateId) ? type.templateId : null,
+      retired,
       state: status.state, date: status.date, expiresOn: status.expiresOn, documentId: linked?.id ?? null,
       inspection: inspection === null
         ? null
@@ -533,7 +555,8 @@ export function moveInspectionRecords(
     linesTo.set(source.id, null)
     tx.delete(requiredInspections).where(eq(requiredInspections.id, record.id)).run()
     logInspection(tx, actor, employeeId, source, 'removedOnMove', now, false)
-    if (mayUse(actor, source.folder)) removed.push({ typeName: source.name, certificate: source.certificate })
+    // Only whoever may use the folder hears of it – and may see the result, so the notice names an entry.
+    if (mayUse(actor, source.folder)) removed.push({ typeName: source.name, certificate: source.certificate, entry: !record.noRelevantEntry })
   }
   for (const source of sources.values()) {
     if (source.facilityId === facilityId) continue
@@ -572,6 +595,33 @@ export function orphanInspectionHistory(
       groups.set(key, group)
     }
     return [...groups.values()].sort((a, b) => a.employeeName.localeCompare(b.employeeName, 'de') || a.typeName.localeCompare(b.typeName, 'de'))
+  })
+}
+
+/**
+ * The records of a type that no longer asks for them – switched off, or not for the person's qualification any more – for
+ * „Datenschutz & Löschen“ (the person's box shows them read only, with „Vermerk löschen“): every employee of the given
+ * facilities, also those who left; only in folders the viewer may use (who may see the result). By person, then type.
+ */
+export function retiredInspectionList(
+  db: Db, viewer: Pick<RequiredDocsActor, 'permissions'>, facilities: readonly { id: number; name: string }[],
+): RetiredInspectionDto[] {
+  return facilities.flatMap((facility) => {
+    const types = new Map(typesOf(db, facility.id).filter(type => mayUse(viewer, type.folder)).map(type => [type.id, type]))
+    if (types.size === 0) return []
+    return db.select({
+      employeeId: requiredInspections.employeeId, typeId: requiredInspections.typeId, certificateDate: requiredInspections.certificateDate,
+      noRelevantEntry: requiredInspections.noRelevantEntry, employeeName: employees.name, qualification: employees.qualification,
+    }).from(requiredInspections).innerJoin(employees, eq(employees.id, requiredInspections.employeeId))
+      .where(and(eq(employees.facilityId, facility.id), inArray(requiredInspections.typeId, [...types.keys()]))).all()
+      .flatMap(({ qualification, ...row }) => {
+        const type = types.get(row.typeId)!
+        const reason = retiredReason(type, qualification)
+        return reason === null
+          ? []
+          : [{ ...row, facilityId: facility.id, facilityName: facility.name, typeName: type.name, certificate: type.certificate, reason }]
+      })
+      .sort((a, b) => a.employeeName.localeCompare(b.employeeName, 'de') || a.typeName.localeCompare(b.typeName, 'de'))
   })
 }
 

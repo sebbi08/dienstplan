@@ -20,7 +20,8 @@ import { pickedFile, uploadSizeError } from '~/utils/uploads'
  * inspection, and the result – „keine einschlägige Eintragung“ or „einschlägige Eintragung vorhanden“ („Eintragung
  * vorhanden – bitte prüfen“), nothing preset, also not on „Neu vermerken“, saving only once one is chosen; a file kept for
  * it is shown with „Datei jetzt löschen“; who recorded, changed or deleted the record when is listed. A record left after
- * the type was switched back to „Datei“ stays read only with „Vermerk löschen“. The § 72a texts only for a type flagged
+ * the type was switched back to „Datei“ stays read only with „Vermerk löschen“; so does one whose type no longer asks for
+ * it („Art nicht mehr aktiv“ / „gilt nicht mehr für diese Person“, listed last, with its result). The § 72a texts only for a type flagged
  * „§ 72a SGB VIII (Führungszeugnis)“, neutral ones otherwise. Loaded once the tab is opened.
  */
 const props = defineProps<{ employeeId: number; employeeName: string; active: boolean }>()
@@ -57,6 +58,14 @@ function inspectionText(row: EmployeeRequiredDocumentDto): string {
     record.inspectedOn ? t.inspectedOn(formatDate(record.inspectedOn)) : '',
     record.recordedBy ? t.recordedBy(record.recordedBy, at) : t.recordedByUnknown(at),
   ].filter(Boolean).join(' · ')
+}
+/** A retired row's result, said in words (the badge alone could read as the type's status). */
+function resultText(row: EmployeeRequiredDocumentDto): string {
+  if (!row.inspection) return ''
+  const named = certificate(row)
+  return t.resultLine(row.inspection.noRelevantEntry
+    ? (named ? t.noRelevantEntry : t.noRelevantEntryGeneric)
+    : (named ? t.relevantEntry : t.relevantEntryGeneric))
 }
 /** The audit lines: who recorded, changed or deleted the record and when. */
 const historyText = (row: EmployeeRequiredDocumentDto) =>
@@ -164,7 +173,7 @@ async function saveRecord() {
   if (ok) recordOpen.value = false
 }
 async function removeRecord(row: EmployeeRequiredDocumentDto) {
-  if (!await confirm(t.removeRecordConfirm(row.name))) return
+  if (!await confirm(row.retired ? t.removeRetiredConfirm(row.name) : t.removeRecordConfirm(row.name))) return
   await run(() => $fetch<{ ok: boolean }>(`/api/employees/${props.employeeId}/required-inspections/${row.typeId}`, { method: 'DELETE' }), t.recordRemoved)
 }
 /** „Datei jetzt löschen“: a file kept from before for a type „nur Einsicht vermerken“ (the folder's key, as every delete). */
@@ -195,13 +204,17 @@ function openSend(row: EmployeeRequiredDocumentDto) {
             {{ de.personnel.folders[row.folder] }}<template v-if="row.mode === 'inspection'"> · {{ t.inspectionOnly }}</template>
           </div>
           <div v-if="row.inspection" class="text-xs text-gray-600">{{ inspectionText(row) }}</div>
-          <div v-if="row.mode === 'file' && row.inspection" class="text-xs text-amber-800">{{ t.readOnlyRecord }}</div>
+          <template v-if="row.retired">
+            <div class="text-xs text-gray-600">{{ resultText(row) }}</div>
+            <div class="text-xs text-amber-800">{{ t.retiredRecord(t.retiredReasons[row.retired]) }}</div>
+          </template>
+          <div v-else-if="row.mode === 'file' && row.inspection" class="text-xs text-amber-800">{{ t.readOnlyRecord }}</div>
           <div v-if="row.history.length" class="text-xs text-gray-500">{{ t.historyTitle }}: {{ historyText(row) }}</div>
         </div>
         <UBadge size="sm" variant="soft" :color="tone[row.state]" :label="stateText(row)" />
         <div v-if="row.mode === 'inspection' || row.inspection" class="flex flex-wrap gap-1">
           <UButton
-            v-if="row.mode === 'inspection'" size="xs" color="neutral" variant="outline" icon="i-lucide-eye" :label="row.inspection ? t.recordAgain : t.record"
+            v-if="row.mode === 'inspection' && !row.retired" size="xs" color="neutral" variant="outline" icon="i-lucide-eye" :label="row.inspection ? t.recordAgain : t.record"
             :disabled="busy" @click="openRecord(row)"
           />
           <UButton v-if="row.inspection" size="xs" color="neutral" variant="ghost" icon="i-lucide-x" :label="t.removeRecord" :disabled="busy" @click="removeRecord(row)" />
@@ -214,7 +227,7 @@ function openSend(row: EmployeeRequiredDocumentDto) {
             <UButton size="xs" color="error" variant="outline" icon="i-lucide-trash-2" :label="t.deleteFile" :disabled="busy" @click="deleteFile(file)" />
           </div>
         </div>
-        <div v-if="row.mode === 'file'" class="flex flex-wrap gap-1">
+        <div v-if="row.mode === 'file' && !row.retired" class="flex flex-wrap gap-1">
           <UButton
             v-if="row.documentId !== null" size="xs" color="neutral" variant="outline" icon="i-lucide-external-link" :label="t.open"
             :to="employeeDocumentUrl(row.documentId)" target="_blank"

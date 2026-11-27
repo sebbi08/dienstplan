@@ -1757,6 +1757,11 @@ export interface RequiredDocumentTypeInput {
    * required_type_certificate_provider); left out: unchanged (a new type: not set).
    */
   certificate?: boolean
+  /**
+   * Taking „§ 72a“ away moves the type's existing records to the usual 3 years: refused until confirmed (409
+   * required_type_certificate_unset with `details.records`, the number of records), then sent again with true.
+   */
+  confirmCertificateUnset?: boolean
 }
 
 /** A Pflichtdokument of the facility, in its order (only those in folders the viewer may use). */
@@ -1794,6 +1799,31 @@ export interface EmployeeRequiredDocumentDto {
   storedFiles: { id: number; title: string; documentDate: IsoDate }[]
   /** Who recorded, changed or deleted the inspection record and when (newest first; nothing of the content). */
   history: { action: InspectionLogAction; by: string; at: string }[]
+  /**
+   * null: a type the box asks for. Else only a record kept for a type that no longer does – 'inactive' (switched off) or
+   * 'notApplicable' (not for the person's qualification any more): read only, with its result, until „Vermerk löschen“.
+   */
+  retired: RetiredInspectionReason | null
+}
+
+/** Why a record's type no longer asks for it: switched off, or not for the person's qualification any more. */
+export type RetiredInspectionReason = 'inactive' | 'notApplicable'
+
+/**
+ * A record of a type that no longer asks for it (RetiredInspectionReason), for Datenschutz & Löschen: still shown read
+ * only at the person (with „Vermerk löschen“); only in folders the viewer may use – who may see the result, too.
+ */
+export interface RetiredInspectionDto {
+  employeeId: number
+  employeeName: string
+  facilityId: number
+  facilityName: string
+  typeId: number
+  typeName: string
+  certificate: boolean
+  reason: RetiredInspectionReason
+  certificateDate: IsoDate
+  noRelevantEntry: boolean
 }
 
 /**
@@ -1825,6 +1855,8 @@ export interface InspectionCleanupDto {
   notes: CriminalRecordNoteDto[]
   /** The audit lines left without their type (it was deleted, or the record was removed on a move). */
   history: InspectionHistoryDto[]
+  /** Records of a type that no longer asks for them (inactive, or not for the person any more). */
+  records: RetiredInspectionDto[]
 }
 
 /**
@@ -1847,11 +1879,12 @@ export interface InspectionHistoryDto {
 
 /**
  * The move of an employee to another facility: the inspection records that could not go along (the new facility has no
- * active type „nur Einsicht“ for them, so they were removed), as far as the mover may use their folder.
+ * active type „nur Einsicht“ for them, so they were removed), as far as the mover may use their folder – who may then
+ * also see the result (`entry`: it held a relevant entry).
  */
 export interface EmployeeMoveResultDto {
   ok: true
-  inspectionsRemoved: { typeName: string; certificate: boolean }[]
+  inspectionsRemoved: { typeName: string; certificate: boolean; entry: boolean }[]
 }
 
 /** A file kept for a type „nur Einsicht vermerken“ that must not be (Datenschutz & Löschen: to be deleted). */
