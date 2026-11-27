@@ -14,7 +14,7 @@ import {
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
   formAttachments, formEditors, forms, knowledgeConfirmations, longAbsences, maternityCases, signRequestRecipients, signUnlocks, parentalLeaveBirths, parentalLeaves,
   groupBookChanges, helpOuts, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
-  formReads, releaseSnapshots, requiredInspectionLog, requiredInspections, requirementTypes,
+  formReads, releaseSnapshots, requiredDocumentTypes, requiredInspectionLog, requiredInspections, requirementTypes,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
   weekTemplateEntries, applicantVisits, infoVisits,
 } from '../db/schema'
@@ -144,8 +144,8 @@ function removeEmployee(tx: Db, employeeId: number, before: Set<string>): void {
  * the end of each case (server/services/maternity.ts). „Lohn und Steuer“ (`payroll`) is due with the personal data while a
  * Lohnbüro keeps the payroll records (the facility's retention setting, the default; the overview then lists and deletes
  * it as part of `immediate`), otherwise 6 years after the end of the leaving year (retentionDueDates). The inspection
- * records („Einsicht-Vermerke“, `inspection`, § 72a Abs. 5 SGB VIII: the Führungszeugnis) are due the day after leaving
- * and must be gone 3 months after it (at once if the activity was not taken up: inspectionDeadline).
+ * records („Einsicht-Vermerke“, `inspection`, § 72a Abs. 5 SGB VIII: types flagged as the Führungszeugnis) are due the day
+ * after leaving and must be gone 3 months after it (at once if the activity was not taken up: inspectionDeadline).
  */
 export const RETENTION_CATEGORIES = ['immediate', 'inspection', 'payroll', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'] as const
 export type RetentionCategory = typeof RETENTION_CATEGORIES[number]
@@ -271,13 +271,29 @@ const criminalRecordEntries = (match: 'IN' | 'NOT IN') => sql`${employeeRequirem
   SELECT ${requirementTypes.id} FROM ${requirementTypes} WHERE ${requirementTypes.builtinKey} = ${CRIMINAL_RECORD_KEY})`
 
 /**
- * The recorded inspections of Pflichtdokumente „nur Einsicht vermerken“ (Führungszeugnis: dates and box, no file), the
- * audit lines of who recorded, changed or deleted them when, and the entries of the Pflichttermin „Erweitertes
- * Führungszeugnis“ (the day it was shown – the same data, so the same deadline, § 72a Abs. 5 SGB VIII).
+ * Records of a Pflichtdokument flagged „§ 72a SGB VIII (Führungszeugnis)“ (required_document_types.certificate) – or, for
+ * the other types „nur Einsicht“, not (`match` 'NOT IN').
+ */
+const certificateRecords = (match: 'IN' | 'NOT IN') => sql`${requiredInspections.typeId} ${sql.raw(match)} (
+  SELECT ${requiredDocumentTypes.id} FROM ${requiredDocumentTypes} WHERE ${requiredDocumentTypes.certificate} = 1)`
+
+/**
+ * Audit lines of such a type: by the type while it exists, else by what the line kept of it (a deleted type, or a record
+ * removed on a move). The CASE is never NULL, so 'NOT' takes exactly the other lines.
+ */
+const certificateLines = (match: 'IN' | 'NOT IN') => sql`${sql.raw(match === 'IN' ? '' : 'NOT ')}(CASE WHEN ${requiredInspectionLog.typeId} IS NULL
+  THEN ${requiredInspectionLog.certificate} = 1
+  ELSE ${requiredInspectionLog.typeId} IN (SELECT ${requiredDocumentTypes.id} FROM ${requiredDocumentTypes} WHERE ${requiredDocumentTypes.certificate} = 1) END)`
+
+/**
+ * The recorded inspections of Pflichtdokumente „§ 72a SGB VIII (Führungszeugnis)“ (dates and box, no file), the audit
+ * lines of who recorded, changed or deleted them when, and the entries of the Pflichttermin „Erweitertes
+ * Führungszeugnis“ (the day it was shown – the same data, so the same deadline, § 72a Abs. 5 SGB VIII). The records of
+ * other types „nur Einsicht“ and their lines are proof like the folder's files: with the assessments.
  */
 const INSPECTION_ROWS: readonly EmployeeRows[] = [
-  { table: requiredInspections, column: requiredInspections.employeeId },
-  { table: requiredInspectionLog, column: requiredInspectionLog.employeeId },
+  { table: requiredInspections, column: requiredInspections.employeeId, also: certificateRecords('IN') },
+  { table: requiredInspectionLog, column: requiredInspectionLog.employeeId, also: certificateLines('IN') },
   { table: employeeRequirements, column: employeeRequirements.employeeId, also: criminalRecordEntries('IN') },
 ]
 
@@ -353,6 +369,10 @@ const ASSESSMENT_ROWS: readonly EmployeeRows[] = [
   // The Pflichttermine (Belehrung nach § 34 IfSG, Betriebsarzt, Erste Hilfe, Masern, JArbSchG examinations): proof that
   // the duties were kept, like the trainings. Not the Führungszeugnis: its entries go with the inspection records.
   { table: employeeRequirements, column: employeeRequirements.employeeId, also: criminalRecordEntries('NOT IN') },
+  // Records of a Pflichtdokument „nur Einsicht“ that is no Führungszeugnis (no § 72a deadline) and their audit lines:
+  // proof like the files of the folder.
+  { table: requiredInspections, column: requiredInspections.employeeId, also: certificateRecords('NOT IN') },
+  { table: requiredInspectionLog, column: requiredInspectionLog.employeeId, also: certificateLines('NOT IN') },
   // „Gelesen und verstanden“ in „Wissen“: proof of instruction (Unterweisung) like the trainings, kept as long.
   { table: knowledgeConfirmations, column: knowledgeConfirmations.employeeId },
   // The record of a signature in the app (Zum Unterschreiben senden: when, the file's SHA-256, a reason for not
@@ -366,8 +386,9 @@ const ASSESSMENT_ROWS: readonly EmployeeRows[] = [
 ]
 
 /**
- * „Beurteilungen und Zeugnisse“: staff talks with all their forms, the trainings, the Pflichttermine, the read
- * confirmations of „Wissen“ and the documents of their folders.
+ * „Beurteilungen und Zeugnisse“: staff talks with all their forms, the trainings, the Pflichttermine, the records of
+ * Pflichtdokumente „nur Einsicht“ other than the Führungszeugnis, the read confirmations of „Wissen“ and the documents of
+ * their folders.
  */
 export function deleteAssessmentData(tx: Db, employeeId: number): number {
   // The forms are rows of their own (the link rows go with the talk).

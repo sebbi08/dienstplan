@@ -108,3 +108,39 @@ describe(CLEANUP_TAG, () => {
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 })
+
+const CERTIFICATE_TAG = journal.entries.find(entry => entry.tag.endsWith('_inspection_certificate'))!.tag
+
+describe(CERTIFICATE_TAG, () => {
+  it('flags only the example „Erweitertes Führungszeugnis“ (any spelling) „§ 72a“ and fills what lines and markers keep of their type', () => {
+    const { db, sqlite } = databaseBefore(CERTIFICATE_TAG)
+    sqlite.exec(`
+      INSERT INTO facilities (id, name) VALUES (2, 'Krippe');
+      INSERT INTO required_document_types (id, facility_id, name, folder, sort_order, mode) VALUES
+        (101, 2, ' ERWEITERTES FÜHRUNGSZEUGNIS ', 'application', 0, 'inspection'), (102, 2, 'Führungszeugnis Ehrenamt', 'required', 1, 'inspection'),
+        (103, 2, 'Masern-Einsicht', 'required', 2, 'inspection');
+      INSERT INTO employees (id, name, short_name, facility_id) VALUES (1, 'Anna', 'An', 2);
+      INSERT INTO required_inspection_log (id, employee_id, type_id, action, actor, at) VALUES
+        (1, 1, 101, 'recorded', 'Lea', 'x'), (2, 1, 103, 'recorded', 'Lea', 'x'), (3, 1, NULL, 'deleted', 'Lea', 'x');
+      INSERT INTO employee_documents (id, employee_id, folder, title, mime_type, size, data, uploaded_at, inspection_cleanup, inspection_type_id) VALUES
+        (1, 1, 'required', 'FZ', 'application/pdf', 4, x'25504446', 'z', 1, 101), (2, 1, 'required', 'M', 'application/pdf', 4, x'25504446', 'z', 1, 103),
+        (3, 1, 'required', 'alt', 'application/pdf', 4, x'25504446', 'z', 1, NULL), (4, 1, 'required', 'frei', 'application/pdf', 4, x'25504446', 'z', 0, NULL);
+    `)
+
+    migrateDb(db, MIGRATIONS)
+
+    // Own types – even one named „Führungszeugnis …“ – stay unflagged (the Träger decides in the settings).
+    expect(sqlite.prepare('SELECT facility_id, name FROM required_document_types WHERE certificate = 1 ORDER BY facility_id, id').all())
+      .toEqual([{ facility_id: 1, name: 'Erweitertes Führungszeugnis' }, { facility_id: 2, name: ' ERWEITERTES FÜHRUNGSZEUGNIS ' }])
+    expect(sqlite.prepare('SELECT id, type_id, type_name, folder, certificate FROM required_inspection_log ORDER BY id').all()).toEqual([
+      { id: 1, type_id: 101, type_name: ' ERWEITERTES FÜHRUNGSZEUGNIS ', folder: 'application', certificate: 1 },
+      { id: 2, type_id: 103, type_name: 'Masern-Einsicht', folder: 'required', certificate: 0 },
+      // Already without its type: counts as the Führungszeugnis (the shorter retention).
+      { id: 3, type_id: null, type_name: '', folder: null, certificate: 1 },
+    ])
+    expect(sqlite.prepare('SELECT id, inspection_certificate FROM employee_documents ORDER BY id').all()).toEqual([
+      { id: 1, inspection_certificate: 1 }, { id: 2, inspection_certificate: 0 }, { id: 3, inspection_certificate: 1 }, { id: 4, inspection_certificate: 0 },
+    ])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+})

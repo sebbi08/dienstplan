@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION, type EmployeeDocumentFolder } from '#shared/domain/personnel'
-import { REQUIRED_DOCUMENT_LIMITS, REQUIRED_DOCUMENT_MODES, defaultRequiredFolder, isCertificateType, type RequiredDocumentMode } from '#shared/domain/requiredDocuments'
+import { REQUIRED_DOCUMENT_LIMITS, REQUIRED_DOCUMENT_MODES, defaultRequiredFolder, type RequiredDocumentMode } from '#shared/domain/requiredDocuments'
 import { QUALIFICATIONS, type Qualification } from '#shared/domain/staffing/types'
 import type { PrintTemplateDto, RequiredDocumentTypeDto, RequiredDocumentTypeInput } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -9,11 +9,14 @@ import { de } from '~/locales/de'
  * Einstellungen → Mitarbeitende → Pflichtdokumente (Leitung and Träger): the documents every employee – or those of chosen
  * qualifications – must have in the personnel file, each filed in a folder the editor may use (the list shows only
  * those), optionally valid for some months and filled from a print template. „Nachweis“ chooses a file of the personnel
- * file or „nur Einsicht vermerken“ (no file, no template: the Führungszeugnis, § 72a Abs. 5 SGB VIII). ▲/▼ orders them;
- * deleting keeps the documents.
+ * file or „nur Einsicht vermerken“ (no file, no template: the Führungszeugnis, § 72a Abs. 5 SGB VIII); „§ 72a SGB VIII
+ * (Führungszeugnis)“ gives such a type the law's texts and deadline – only the Träger changes it (the server too). ▲/▼
+ * orders them; deleting keeps the documents.
  */
 const t = de.requiredDocuments
 const { can } = useCan()
+const { user } = useUserSession()
+const isProvider = computed(() => user.value?.role === 'provider')
 const { data: types, refresh } = await useFetch<RequiredDocumentTypeDto[]>('/api/required-document-types', { key: 'required-document-types', default: () => [] })
 const { busy, run } = useBusyAction(refresh)
 /** The ▲/▼ show only after „Reihenfolge ändern“. */
@@ -32,11 +35,13 @@ const templateItems = computed(() => [{ label: t.noTemplate, value: 0 }, ...temp
 
 interface Form {
   name: string; folder: EmployeeDocumentFolder; applies: 'all' | 'chosen'; qualifications: Qualification[]; validity: string; templateId: number
-  active: boolean; mode: RequiredDocumentMode
+  active: boolean; mode: RequiredDocumentMode; certificate: boolean
 }
 const editing = ref<RequiredDocumentTypeDto | null>(null)
 const open = ref(false)
-const form = reactive<Form>({ name: '', folder: 'required', applies: 'all', qualifications: [], validity: '', templateId: 0, active: true, mode: 'file' })
+const form = reactive<Form>({
+  name: '', folder: 'required', applies: 'all', qualifications: [], validity: '', templateId: 0, active: true, mode: 'file', certificate: false,
+})
 
 async function openDialog(type: RequiredDocumentTypeDto | null) {
   editing.value = type
@@ -44,19 +49,19 @@ async function openDialog(type: RequiredDocumentTypeDto | null) {
     ? {
         name: type.name, folder: type.folder, applies: type.appliesTo === 'all' ? 'all' : 'chosen',
         qualifications: type.appliesTo === 'all' ? [] : [...type.appliesTo], validity: type.validityMonths === null ? '' : String(type.validityMonths),
-        templateId: type.templateId ?? 0, active: type.active, mode: type.mode,
+        templateId: type.templateId ?? 0, active: type.active, mode: type.mode, certificate: type.certificate,
       }
     : {
         name: '', folder: defaultRequiredFolder(folders.value) ?? 'required', applies: 'all', qualifications: [], validity: '', templateId: 0,
-        active: true, mode: 'file',
+        active: true, mode: 'file', certificate: false,
       })
   open.value = true
   templates.value = await $fetch<PrintTemplateDto[]>('/api/print-templates').catch(() => [])
 }
 
-/** The hint under „Nachweis“: § 72a only for a Führungszeugnis; what a switch of an existing type does to its data. */
+/** The hint under „Nachweis“: § 72a only for a type flagged so; what a switch of an existing type does to its data. */
 const modeHint = computed(() => [
-  form.mode === 'inspection' && isCertificateType(form.name) ? t.modeHintCertificate : t.modeHint,
+  form.mode === 'inspection' && form.certificate ? t.modeHintCertificate : t.modeHint,
   editing.value?.mode === 'file' && form.mode === 'inspection' ? t.switchToInspection : '',
   editing.value?.mode === 'inspection' && form.mode === 'file' ? t.switchToFile : '',
 ].filter(Boolean).join(' '))
@@ -66,6 +71,8 @@ const body = (): RequiredDocumentTypeInput => ({
   appliesTo: form.applies === 'all' || form.qualifications.length === 0 ? 'all' : form.qualifications,
   validityMonths: form.validity.trim() === '' ? null : Number(form.validity),
   templateId: form.mode === 'inspection' ? null : form.templateId || null, active: form.active, mode: form.mode,
+  // Only the Träger changes it; anyone else leaves it as it is.
+  ...(isProvider.value ? { certificate: form.certificate } : {}),
 })
 
 async function save() {
@@ -89,6 +96,7 @@ function details(type: RequiredDocumentTypeDto): string {
   return [
     de.personnel.folders[type.folder],
     type.mode === 'inspection' ? t.inspectionOnly : '',
+    type.certificate ? t.certificateBadge : '',
     type.validityMonths === null ? '' : t.validFor(type.validityMonths),
     type.appliesTo === 'all' ? '' : t.forQualifications(type.appliesTo.map(key => de.staffing.qualifications[key])),
     type.templateTitle ?? '',
@@ -154,6 +162,10 @@ function details(type: RequiredDocumentTypeDto): string {
           </UFormField>
           <UFormField :label="t.mode" :description="modeHint">
             <URadioGroup v-model="form.mode" :items="modeItems" />
+          </UFormField>
+          <!-- Only for „nur Einsicht“ (or while set); the Träger's choice – others see it read only. -->
+          <UFormField v-if="form.mode === 'inspection' || form.certificate" :description="t.certificateFlagHint">
+            <UCheckbox v-model="form.certificate" :label="t.certificateFlag" :disabled="!isProvider" />
           </UFormField>
           <UFormField v-if="form.mode === 'file'" :label="t.template">
             <USelect v-model="form.templateId" :items="templateItems" class="w-full" />

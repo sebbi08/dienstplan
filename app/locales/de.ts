@@ -1248,7 +1248,11 @@ export const de = {
     entryName: (name: string) => `${name} (Eintragung – bitte prüfen)`,
     entryNameGeneric: (name: string) => `${name} (Beanstandung – bitte prüfen)`,
     // „nur Einsicht vermerken“ (§ 72a Abs. 5 SGB VIII): the Führungszeugnis is inspected, not kept. The texts naming the
-    // law appear only for a type whose name holds „Führungszeugnis“ (isCertificateType); any other gets neutral ones.
+    // law appear only for a type flagged „§ 72a SGB VIII (Führungszeugnis)“ (`certificate`); any other gets neutral ones.
+    certificateFlag: '§ 72a SGB VIII (Führungszeugnis)',
+    certificateFlagHint: 'Nur für das erweiterte Führungszeugnis: Vermerke sind spätestens 3 Monate nach dem Ausscheiden zu löschen '
+      + '(rot, wenn überfällig). Ohne Haken: übliche 3 Jahre. Nur der Träger kann das ändern; Umbenennen ändert es nicht.',
+    certificateBadge: 'Führungszeugnis (§ 72a)',
     mode: 'Nachweis', modes: { file: 'Datei in der Personalakte', inspection: 'nur Einsicht vermerken (keine Datei)' },
     modeHint: 'Bei „nur Einsicht vermerken“ wird keine Datei abgelegt – nur das Datum des Nachweises, ob er in Ordnung ist, und wer es wann vermerkt hat.',
     modeHintCertificate: 'Beim erweiterten Führungszeugnis darf der Träger nur speichern: dass es eingesehen wurde, das Datum des Führungszeugnisses '
@@ -1265,9 +1269,12 @@ export const de = {
     certificateDate: 'Datum des Führungszeugnisses', certificateDateGeneric: 'Datum des Nachweises',
     certificateDateHint: 'Das Ausstellungsdatum, nicht in der Zukunft. Die Gültigkeit zählt ab diesem Tag.',
     inspectionDate: 'Eingesehen am (optional)', inspectionDateHint: 'Nicht in der Zukunft und nicht vor dem Datum oben.',
+    // The result: one of two, nothing preset – also not on „Neu vermerken“.
+    choice: 'Ergebnis',
     noRelevantEntry: 'keine einschlägige Eintragung (§ 72a Abs. 1 SGB VIII)', noRelevantEntryGeneric: 'in Ordnung (keine Beanstandung)',
-    noRelevantEntryHint: 'Ohne Haken gilt: Es gibt eine einschlägige Eintragung. Mehr wird nicht gespeichert.',
-    noRelevantEntryHintGeneric: 'Ohne Haken gilt: Es gibt eine Beanstandung. Mehr wird nicht gespeichert.',
+    relevantEntry: 'einschlägige Eintragung vorhanden', relevantEntryGeneric: 'Beanstandung vorhanden',
+    choiceHint: 'Bitte eines auswählen – nichts ist vorausgewählt. Mehr wird nicht gespeichert.',
+    choiceAgainHint: 'Bitte erneut auswählen – auch wenn sich nichts geändert hat. Mehr wird nicht gespeichert.',
     recordHint: 'Gespeichert werden nur, dass es eingesehen wurde (auf Wunsch mit Tag), das Datum des Führungszeugnisses, ob eine einschlägige '
       + 'Eintragung vorliegt, und wer es wann vermerkt hat – keine Datei (§ 72a Abs. 5 SGB VIII).',
     recordHintGeneric: 'Gespeichert werden nur das Datum des Nachweises, ob er in Ordnung ist, und wer es wann vermerkt hat – keine Datei.',
@@ -1277,8 +1284,11 @@ export const de = {
     readOnlyRecord: 'Früherer Einsicht-Vermerk – das Pflichtdokument legt inzwischen eine Datei ab. Nur noch lesen; mit „Vermerk löschen“ entfernen.',
     // Who recorded, changed or deleted the record (nothing of its content).
     historyTitle: 'Verlauf',
-    historyLine: (action: 'recorded' | 'changed' | 'deleted', who: string, at: string) =>
-      `${{ recorded: 'vermerkt', changed: 'geändert', deleted: 'Vermerk gelöscht' }[action]} von ${who || 'unbekannt'} am ${at}`,
+    historyLine: (action: 'recorded' | 'changed' | 'deleted' | 'typeDeleted' | 'moved' | 'removedOnMove', who: string, at: string) =>
+      `${{
+        recorded: 'vermerkt', changed: 'geändert', deleted: 'Vermerk gelöscht', typeDeleted: 'mit dem Pflichtdokument gelöscht',
+        moved: 'beim Wechsel der Einrichtung übernommen', removedOnMove: 'beim Wechsel der Einrichtung entfernt',
+      }[action] ?? action} von ${who || 'unbekannt'} am ${at}`,
     storedFile: 'Als Datei gespeichert – nach § 72a Abs. 5 SGB VIII nicht aufbewahren. Einsicht vermerken, dann Datei löschen.',
     storedFileGeneric: 'Als Datei gespeichert, obwohl hier nur die Einsicht vermerkt wird – Einsicht vermerken, dann Datei löschen.',
     deleteFile: 'Datei jetzt löschen', openFile: 'Datei ansehen',
@@ -1294,6 +1304,11 @@ export const de = {
     notesTitle: 'Notizen beim Pflichttermin „Erweitertes Führungszeugnis“',
     notesHint: 'Dazu wird nur das Datum gespeichert (§ 72a Abs. 5 SGB VIII). Diese Notizen stammen von früher: bei der Person ansehen, dann löschen.',
     noteRow: (person: string, date: string) => `${person} – Eintrag vom ${date}`,
+    // Audit lines whose type is gone (deleted, or the record removed on a move): who and when only.
+    historyOrphanTitle: 'Verlauf zu entfernten Einsicht-Vermerken',
+    historyOrphanHint: 'Das Pflichtdokument gibt es nicht mehr (gelöscht oder beim Wechsel der Einrichtung entfernt). Nur wer und wann, '
+      + 'nichts vom Inhalt. Wird mit den Daten der Person nach dem Austritt gelöscht.',
+    historyRow: (person: string, type: string) => (type ? `${person} – ${type}` : person),
     toPerson: 'Zur Person',
     filter: 'Nur mit fehlenden Pflichtdokumenten',
   },
@@ -1496,6 +1511,11 @@ export const de = {
       + `und der Urlaub gehen mit. Sie erscheinen ab dann in den Plänen von „${name}“ und nicht mehr in denen der bisherigen `
       + `Einrichtung. Ab heute gelten die Schließtage von „${name}“ statt der bisherigen.`,
     moveAction: 'Verschieben',
+    // A recorded inspection the new facility cannot show (no active type „nur Einsicht vermerken“ for it): removed.
+    inspectionRemoved: (type: string, certificate: boolean, facility: string) => (certificate
+      ? `Einsicht-Vermerk zum Führungszeugnis wurde entfernt, weil „${facility}“ dafür kein Pflichtdokument „nur Einsicht vermerken“ `
+        + '(§ 72a SGB VIII) hat. Bitte dort neu vermerken.'
+      : `Einsicht-Vermerk zu „${type}“ wurde entfernt, weil „${facility}“ dieses Pflichtdokument nicht als „nur Einsicht vermerken“ hat.`),
     switched: 'Einrichtung gewechselt',
     // One card per facility under Einstellungen → Einrichtung.
     masterData: 'Stammdaten',
@@ -2111,6 +2131,8 @@ export const de = {
     fromDate: (date: string) => `löschbar ab ${date}`, fromNow: 'sofort löschbar',
     // An inspection record (§ 72a Abs. 5 SGB VIII): the legal deadline; past it the row is red.
     deleteBy: (date: string) => `spätestens bis ${date}`, deleteNow: 'unverzüglich (Tätigkeit nicht aufgenommen)',
+    // Never started and due: to go at once – highlighted, but not „überschritten“.
+    deleteNowDue: 'sofort löschen (Tätigkeit nicht aufgenommen)',
     overdue: (text: string) => `Frist überschritten – ${text}`,
     fromAfterRest: 'löschbar, sobald alles andere der Person gelöscht ist',
     categories: {
@@ -3964,6 +3986,8 @@ export const de = {
     certificate_date_invalid: 'Bitte ein gültiges Datum des Führungszeugnisses (bzw. Nachweises) angeben.',
     certificate_date_future: 'Das Datum des Führungszeugnisses (bzw. Nachweises) darf nicht in der Zukunft liegen.',
     inspection_before_certificate: 'Eingesehen werden kann es erst ab seinem Datum.',
+    inspection_choice_required: 'Bitte auswählen, ob eine einschlägige Eintragung (bzw. Beanstandung) vorliegt oder nicht.',
+    required_type_certificate_provider: 'Nur der Träger kann „§ 72a SGB VIII (Führungszeugnis)“ setzen oder entfernen.',
     document_inspection_file: 'Diese Datei darf nicht aufbewahrt werden (Pflichtdokument „nur Einsicht vermerken“): Sie lässt sich nur noch löschen – nicht bearbeiten, zuordnen oder versenden.',
     requirement_note_not_allowed: 'Beim erweiterten Führungszeugnis wird nur das Datum gespeichert, keine Bemerkung (§ 72a Abs. 5 SGB VIII).',
     help_out_not_found: 'Diese Aushilfe gibt es nicht mehr.',

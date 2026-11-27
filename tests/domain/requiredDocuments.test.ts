@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   REQUIRED_DOCUMENT_EXAMPLES, REQUIRED_DOCUMENT_FOLDER, appliesToEmployee, defaultRequiredFolder, inspectionDateError, inspectionDeadline,
-  inspectionOverdue, inspectionStatus, isCertificateType, parseAppliesTo, requiredDocumentStatus, serializeAppliesTo,
+  inspectionOverdue, inspectionStatus, parseAppliesTo, requiredDocumentStatus, serializeAppliesTo,
 } from '../../shared/domain/requiredDocuments'
 import type { RequiredDocumentTypeDto } from '../../shared/types/api'
-import { filesSignedCopy, keptRequiredType } from '../../app/utils/requiredDocuments'
+import { filesSignedCopy, inspectionForm, inspectionInput, keptRequiredType } from '../../app/utils/requiredDocuments'
 
 describe('Pflichtdokumente (shared rules)', () => {
   it('keeps the preset type of „Zum Unterschreiben senden“ until the types are loaded, then only an active file type of the folder', () => {
     const type = (id: number, folder: RequiredDocumentTypeDto['folder'], active = true, mode: RequiredDocumentTypeDto['mode'] = 'file'): RequiredDocumentTypeDto => ({
-      id, name: `T${id}`, folder, appliesTo: 'all', validityMonths: null, templateId: null, templateTitle: null, active, mode,
+      id, name: `T${id}`, folder, appliesTo: 'all', validityMonths: null, templateId: null, templateTitle: null, active, mode, certificate: false,
     })
     // Opened from the box: the folder is set before the types arrive – the preset stays.
     expect(keptRequiredType(null, 'contract', 5)).toBe(5)
@@ -23,10 +23,28 @@ describe('Pflichtdokumente (shared rules)', () => {
     expect(types.filter(entry => filesSignedCopy(entry, 'required'))).toEqual([])
   })
 
-  it('names § 72a only for a Führungszeugnis, and sets the deadline of an inspection record', () => {
-    expect(isCertificateType(' Erweitertes FÜHRUNGSZEUGNIS ')).toBe(true)
-    expect(isCertificateType('Führungszeugnis (Ehrenamt)')).toBe(true)
-    expect(isCertificateType('Masernnachweis')).toBe(false)
+  it('flags only the example Führungszeugnis „§ 72a“', () => {
+    expect(REQUIRED_DOCUMENT_EXAMPLES.filter(example => example.certificate).map(example => [example.name, example.mode]))
+      .toEqual([['Erweitertes Führungszeugnis', 'inspection']])
+  })
+
+  it('sends „Einsicht vermerken“ only once a result is chosen – nothing preset, also not when recording again', () => {
+    const today = '2026-11-20'
+    // „Neu vermerken“ keeps the dates but not the result.
+    const form = inspectionForm('2026-08-01', '2026-11-01')
+    expect(form.choice).toBeNull()
+    expect(inspectionInput(form, today)).toBeNull()
+    expect(inspectionInput({ ...form, choice: 'none' }, today)).toEqual({ certificateDate: '2026-08-01', inspectedOn: '2026-11-01', noRelevantEntry: true })
+    expect(inspectionInput({ ...form, choice: 'entry' }, today)).toEqual({ certificateDate: '2026-08-01', inspectedOn: '2026-11-01', noRelevantEntry: false })
+    expect(inspectionInput({ ...form, choice: 'none', inspectedOn: '' }, today)).toMatchObject({ inspectedOn: null })
+    // The dates as the server checks them.
+    expect(inspectionInput({ ...form, choice: 'none', certificateDate: '' }, today)).toBeNull()
+    expect(inspectionInput({ ...form, choice: 'none', certificateDate: '2026-11-21' }, today)).toBeNull()
+    expect(inspectionInput({ ...form, choice: 'none', inspectedOn: '2026-11-21' }, today)).toBeNull()
+    expect(inspectionInput({ ...form, choice: 'none', inspectedOn: '2026-07-31' }, today)).toBeNull()
+  })
+
+  it('sets the deadline of an inspection record', () => {
     // Deletable the day after leaving, gone by 3 months after it; not taken up: at once, overdue as soon as listed.
     expect(inspectionDeadline('2026-03-15', '2020-01-01')).toEqual({ deletableFrom: '2026-03-16', deleteBy: '2026-06-15' })
     expect(inspectionDeadline('2026-03-15', null)).toEqual({ deletableFrom: '2026-03-16', deleteBy: '2026-06-15' })

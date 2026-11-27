@@ -988,6 +988,13 @@
       "when": 1795765474104,
       "tag": "0140_event_requirements",
       "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "6",
+      "when": 1795767779699,
+      "tag": "0141_inspection_certificate",
+      "breakpoints": true
     }
   ]
 }

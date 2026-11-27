@@ -10,13 +10,19 @@ import type { IsoDate } from './types'
  * valid for some months. A document of the file is linked to its type; the newest linked one decides the status.
  * A type „nur Einsicht vermerken“ (mode 'inspection', the Erweitertes Führungszeugnis, § 72a Abs. 5 SGB VIII) keeps no
  * file: per person the certificate's date and whether there is no relevant conviction decide the status (the day of
- * inspection is optional). A file once
+ * inspection is optional). Only a type flagged „§ 72a SGB VIII (Führungszeugnis)“ (`certificate`, stored – renaming
+ * changes nothing) gets the law's texts and its retention; any other type „nur Einsicht“ gets neutral texts („in
+ * Ordnung“ / „Beanstandung“) and the assessments' 3 years. A file once
  * kept for such a type carries a marker (employee_documents.inspection_cleanup) and stays on the cleanup list until it
  * is deleted, wherever it is moved or whatever it is linked to.
  */
 
-/** What happened to an inspection record (the audit lines: who and when, nothing of the content). */
-export const INSPECTION_LOG_ACTIONS = ['recorded', 'changed', 'deleted'] as const
+/**
+ * What happened to an inspection record (the audit lines: who and when, nothing of the content): recorded, changed,
+ * deleted by hand, deleted with its type, taken over on a move to another facility (to its type „§ 72a“) or removed on
+ * such a move (that facility has no type to show it).
+ */
+export const INSPECTION_LOG_ACTIONS = ['recorded', 'changed', 'deleted', 'typeDeleted', 'moved', 'removedOnMove'] as const
 export type InspectionLogAction = typeof INSPECTION_LOG_ACTIONS[number]
 
 /** How a type is fulfilled: a document of the personnel file, or only a recorded inspection (no file). */
@@ -35,16 +41,16 @@ export const REQUIRED_DOCUMENT_FOLDER: EmployeeDocumentFolder = 'required'
  * *_required_documents_folder moved the existing ones).
  */
 export const REQUIRED_DOCUMENT_EXAMPLES: readonly {
-  name: string; folder: EmployeeDocumentFolder; validityMonths: number | null; mode: RequiredDocumentMode
+  name: string; folder: EmployeeDocumentFolder; validityMonths: number | null; mode: RequiredDocumentMode; certificate: boolean
 }[] = [
-  { name: 'Arbeitsvertrag', folder: 'contract', validityMonths: null, mode: 'file' },
-  // § 72a Abs. 5 SGB VIII: only the inspection is recorded, no copy kept (since 2026-11-26).
-  { name: 'Erweitertes Führungszeugnis', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: 60, mode: 'inspection' },
-  { name: 'Masernnachweis', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null, mode: 'file' },
-  { name: 'Belehrung Infektionsschutz', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null, mode: 'file' },
-  { name: 'Verpflichtung auf den Datenschutz', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null, mode: 'file' },
-  { name: 'Erste-Hilfe-Nachweis', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: 24, mode: 'file' },
-  { name: 'Schweigepflichterklärung', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null, mode: 'file' },
+  { name: 'Arbeitsvertrag', folder: 'contract', validityMonths: null, mode: 'file', certificate: false },
+  // § 72a Abs. 5 SGB VIII: only the inspection is recorded, no copy kept (since 2026-11-26), with the law's deadline.
+  { name: 'Erweitertes Führungszeugnis', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: 60, mode: 'inspection', certificate: true },
+  { name: 'Masernnachweis', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null, mode: 'file', certificate: false },
+  { name: 'Belehrung Infektionsschutz', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null, mode: 'file', certificate: false },
+  { name: 'Verpflichtung auf den Datenschutz', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null, mode: 'file', certificate: false },
+  { name: 'Erste-Hilfe-Nachweis', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: 24, mode: 'file', certificate: false },
+  { name: 'Schweigepflichterklärung', folder: REQUIRED_DOCUMENT_FOLDER, validityMonths: null, mode: 'file', certificate: false },
 ]
 
 /**
@@ -143,13 +149,6 @@ export function inspectionDeadline(leftOn: IsoDate, startedOn: IsoDate | null): 
 
 /** Whether the deadline has passed today (at once: whenever the record is listed at all). */
 export const inspectionOverdue = (deleteBy: IsoDate | null, today: IsoDate): boolean => deleteBy === null || today > deleteBy
-
-/**
- * Whether a type is the Erweitertes Führungszeugnis (any type whose name holds „Führungszeugnis“, compared as the app
- * compares names): only then do the texts name § 72a SGB VIII and „einschlägige Eintragung“; any other type „nur Einsicht
- * vermerken“ gets neutral texts („in Ordnung“ / „Beanstandung“).
- */
-export const isCertificateType = (name: string): boolean => name.trim().toLocaleLowerCase('de').includes('führungszeugnis')
 
 /** Whether the status needs attention (the list column and „Was noch fehlt“): missing, expired or an entry to check. */
 export const needsDocument = (state: RequiredDocumentState): boolean => state === 'missing' || state === 'expired' || state === 'entry'

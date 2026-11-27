@@ -871,6 +871,13 @@ export const requiredDocumentTypes = sqliteTable('required_document_types', {
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   /** 'file': a document of the personnel file; 'inspection': only the inspection is recorded (requiredInspections). */
   mode: text('mode', { enum: REQUIRED_DOCUMENT_MODES }).notNull().default('file'),
+  /**
+   * „§ 72a SGB VIII (Führungszeugnis)“: only then does a record of the type get the law's texts and its retention (deletable
+   * from the day after leaving, gone 3 months after it, red past that) – other types „nur Einsicht“ keep the assessments'
+   * 3 years. Set by the migration *_inspection_certificate for the example and for new facilities' example; the Träger
+   * sets or unsets it in the settings; renaming changes nothing.
+   */
+  certificate: integer('certificate', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('required_document_types_facility').on(table.facilityId)])
 
 /**
@@ -895,8 +902,9 @@ export const requiredInspections = sqliteTable('required_inspections', {
 
 /**
  * Who recorded, changed or deleted an inspection record and when – nothing of its content (no day, no box). The user
- * name at the time, as in the other audit logs. Kept with the record's retention category ('inspection': goes with the
- * record after leaving, or with the person); a deleted type leaves its lines without the type.
+ * name at the time, as in the other audit logs. Kept with the record's retention category ('inspection' for a type „§ 72a“,
+ * else 'assessment'; goes with the person); a deleted type – or a record removed on a move to another facility – leaves
+ * its lines without the type, named by what is kept of it here (name, folder, § 72a), listed under Datenschutz & Löschen.
  */
 export const requiredInspectionLog = sqliteTable('required_inspection_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -906,6 +914,10 @@ export const requiredInspectionLog = sqliteTable('required_inspection_log', {
   /** The account's employee name or user name at the time. */
   actor: text('actor').notNull(),
   at: text('at').notNull(),
+  /** The type's name, folder and „§ 72a“ (kept in step with the type): what is left once the type is gone. */
+  typeName: text('type_name').notNull().default(''),
+  folder: text('folder', { enum: EMPLOYEE_DOCUMENT_FOLDERS }),
+  certificate: integer('certificate', { mode: 'boolean' }).notNull().default(false),
 }, table => [index('required_inspection_log_employee').on(table.employeeId)])
 
 /**
@@ -938,6 +950,8 @@ export const employeeDocuments = sqliteTable('employee_documents', {
   inspectionCleanup: integer('inspection_cleanup', { mode: 'boolean' }).notNull().default(false),
   /** The type „nur Einsicht“ the marked file was kept for (its name in the texts); null once that type is deleted. */
   inspectionTypeId: integer('inspection_type_id').references(() => requiredDocumentTypes.id, { onDelete: 'set null' }),
+  /** That type is „§ 72a SGB VIII (Führungszeugnis)“ (kept in step with it): the § 72a texts also once the type is deleted. */
+  inspectionCertificate: integer('inspection_certificate', { mode: 'boolean' }).notNull().default(false),
 }, table => [
   index('employee_documents_employee').on(table.employeeId), index('employee_documents_required_type').on(table.requiredTypeId),
   index('employee_documents_inspection_type').on(table.inspectionTypeId),

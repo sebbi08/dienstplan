@@ -628,10 +628,13 @@ export const requiredDocumentTypeSchema = z.object({
   templateId: z.number().int().positive().nullable(),
   active: z.boolean(),
   mode: z.enum(REQUIRED_DOCUMENT_MODES).default('file'),
+  /** „§ 72a SGB VIII (Führungszeugnis)“; left out = unchanged (the service lets only the Träger change it). */
+  certificate: z.boolean().optional(),
 })
 /**
  * „Einsicht vermerken“ (a type „nur Einsicht vermerken“): the certificate's date, optionally the day of inspection (the
- * service refuses either after today) and the box.
+ * service refuses either after today) and the choice „keine einschlägige Eintragung“ / „Eintragung vorhanden“ – required,
+ * no default: left out or null is refused, never read as an entry.
  */
 export const requiredInspectionSchema = z.object({
   certificateDate: isoDate, inspectedOn: isoDate.nullable().default(null), noRelevantEntry: z.boolean(),

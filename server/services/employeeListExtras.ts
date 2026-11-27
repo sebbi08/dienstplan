@@ -58,7 +58,9 @@ export function listEmployeeListExtras(db: Db, facilityId: number, today: IsoDat
       const ahead = plannedOf(employee.id)
       if (ahead.length) row.plannedRequirements = ahead
       if (required) {
-        row.requiredDocuments = (required.get(employee.id) ?? []).map(({ typeId, name, state }) => ({ typeId, name, state: state === 'expired' || state === 'entry' ? state : 'missing' }))
+        row.requiredDocuments = (required.get(employee.id) ?? []).map(({ typeId, name, state, certificate }) => ({
+          typeId, name, state: state === 'expired' || state === 'entry' ? state : 'missing', certificate,
+        }))
       }
       if (withLevel) {
         row.level = levelOf(employee, today)

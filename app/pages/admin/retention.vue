@@ -2,7 +2,7 @@
 import type { CriminalRecordNoteDto, InspectionCleanupDto, RetentionDeleteResult, RetentionItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
-import { formatDate } from '~/utils/format'
+import { formatDate, formatDateTime } from '~/utils/format'
 import { areaPath, privacyPath, requestedPrivacyTab, sectionAnchor, visiblePrivacyTabs, type PrivacyTab } from '~/utils/settingsAreas'
 
 /**
@@ -80,10 +80,12 @@ const { data, error, refresh } = await useFetch<RetentionItemDto[]>('/api/retent
 
 // Kept against § 72a Abs. 5 SGB VIII: files of a type „nur Einsicht vermerken“ and notes on the Pflichttermin.
 const { data: cleanup, refresh: refreshCleanup } = await useFetch<InspectionCleanupDto>('/api/required-inspection-files', {
-  key: 'required-inspection-files', default: () => ({ files: [], notes: [] }), immediate: canDeleteDue.value,
+  key: 'required-inspection-files', default: () => ({ files: [], notes: [], history: [] }), immediate: canDeleteDue.value,
 })
 const inspectionFiles = computed(() => cleanup.value.files)
 const criminalNotes = computed(() => cleanup.value.notes)
+/** Audit lines of inspection records whose type is gone: who and when only, deleted with the person's data. */
+const orphanHistory = computed(() => cleanup.value.history ?? [])
 const allCertificates = computed(() => inspectionFiles.value.every(file => file.certificate))
 const anyCertificate = computed(() => inspectionFiles.value.some(file => file.certificate))
 const activeFacility = computed(() => facilities.value?.activeId ?? null)
@@ -118,12 +120,14 @@ const whatOf = (item: RetentionItemDto) => {
 
 /**
  * The date, or without one: at once (cash box without entries, a record whose other data is gone) or after the rest. An
- * inspection record also shows its legal deadline (§ 72a Abs. 5 SGB VIII): „spätestens bis …“ or „unverzüglich“.
+ * inspection record also shows its legal deadline (§ 72a Abs. 5 SGB VIII): „spätestens bis …“, past it „Frist
+ * überschritten – …“; never started: „sofort löschen (Tätigkeit nicht aufgenommen)“ once due (highlighted all the same).
  */
 function fromOf(item: RetentionItemDto): string {
   const from = item.deletableFrom ? t.fromDate(formatDate(item.deletableFrom)) : item.due ? t.fromNow : t.fromAfterRest
   if (!item.inspection) return from
-  const deadline = item.inspection.deleteBy ? t.deleteBy(formatDate(item.inspection.deleteBy)) : t.deleteNow
+  if (!item.inspection.deleteBy) return item.inspection.overdue ? t.deleteNowDue : `${from}, ${t.deleteNow}`
+  const deadline = t.deleteBy(formatDate(item.inspection.deleteBy))
   return item.inspection.overdue ? t.overdue(deadline) : `${from}, ${deadline}`
 }
 
@@ -315,6 +319,18 @@ async function deleteAll() {
             <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.requirements.deleteNote" :disabled="busy" @click="deleteNote(note)" />
           </template>
           <span v-else class="text-xs text-amber-800">{{ rd.otherFacility(note.facilityName) }}</span>
+        </li>
+      </ul>
+    </section>
+
+    <section v-if="orphanHistory.length" class="space-y-2 rounded-lg bg-white p-4 text-sm ring-1 ring-gray-200">
+      <h2 class="font-semibold">{{ rd.historyOrphanTitle }} ({{ orphanHistory.length }})</h2>
+      <p class="text-gray-600">{{ rd.historyOrphanHint }}</p>
+      <ul class="space-y-1">
+        <li v-for="group in orphanHistory" :key="`${group.employeeId}:${group.typeName}:${group.certificate}`" class="min-w-0 break-words">
+          <span class="font-medium">{{ rd.historyRow(group.employeeName, group.typeName) }}</span>
+          <span v-if="group.facilityId !== activeFacility" class="text-xs text-gray-500"> ({{ group.facilityName }})</span>:
+          {{ group.lines.map(line => rd.historyLine(line.action, line.by, formatDateTime(line.at))).join(' · ') }}
         </li>
       </ul>
     </section>

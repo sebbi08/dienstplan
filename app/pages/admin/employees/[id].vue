@@ -8,7 +8,9 @@ import { hasSevereDisabilityIn, leaveBasis, statutoryLeaveOf } from '#shared/dom
 import { tvoedLeaveDays } from '#shared/domain/tvoed'
 import { formatSignedDuration, parseDuration } from '#shared/domain/time'
 import { birthdayUncertainOn, needsBirthYear, youthLeaveOf } from '#shared/domain/youthProtection'
-import type { BalanceDto, ChildSickYearDto, EmployeeDetailDto, LeaveAccountDto, LeaveEntryRange, LeaveRemovalResultDto } from '#shared/types/api'
+import type {
+  BalanceDto, ChildSickYearDto, EmployeeDetailDto, EmployeeMoveResultDto, LeaveAccountDto, LeaveEntryRange, LeaveRemovalResultDto,
+} from '#shared/types/api'
 import { de } from '~/locales/de'
 import { balanceClass } from '~/utils/colors'
 import { showsComingYear } from '~/utils/comingYear'
@@ -346,7 +348,18 @@ async function moveFacility() {
   const stateHint = current && current.state !== target.state ? ` ${de.facilities.moveStateHint(inState(target.state))}` : ''
   if (!await confirm(de.facilities.moveConfirm(target.label) + stateHint, { confirmLabel: de.facilities.moveAction, danger: false })) return
   // No `run`: it would refresh this employee, who is no longer part of the active facility.
-  if (await runMove(() => $fetch<unknown>(`/api/employees/${id}/facility`, { method: 'PUT', body: { facilityId: target.value } }), de.common.saved)) {
+  let result: EmployeeMoveResultDto | null = null
+  const moved = await runMove(async () => {
+    result = await $fetch<EmployeeMoveResultDto>(`/api/employees/${id}/facility`, { method: 'PUT', body: { facilityId: target.value } })
+  }, de.common.saved)
+  if (moved) {
+    // Inspection records the new facility cannot show were removed: said so, and kept on screen a while.
+    for (const removed of (result as EmployeeMoveResultDto | null)?.inspectionsRemoved ?? []) {
+      toast.add({
+        title: de.facilities.inspectionRemoved(removed.typeName, removed.certificate, target.label), color: 'warning',
+        icon: 'i-lucide-triangle-alert', duration: 20000,
+      })
+    }
     await navigateTo('/admin/employees')
   }
 }

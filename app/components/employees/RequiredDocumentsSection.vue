@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { isCertificateType } from '#shared/domain/requiredDocuments'
 import type { EmployeeDocumentsDto, EmployeeRequiredDocumentDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
 import { formatDate, formatDateTime } from '~/utils/format'
 import { employeeDocumentUrl } from '~/utils/personnel'
+import { inspectionForm, inspectionInput } from '~/utils/requiredDocuments'
 import { pickedFile, uploadSizeError } from '~/utils/uploads'
 
 /**
@@ -17,10 +17,11 @@ import { pickedFile, uploadSizeError } from '~/utils/uploads'
  * Unterschreiben senden“ sends the template to the
  * person (signRequests.manage), its signed copy linked by itself. A type „nur Einsicht vermerken“ (the Führungszeugnis,
  * § 72a Abs. 5 SGB VIII) has none of these: „Einsicht vermerken“ records the certificate's date, optionally the day of
- * inspection, and „keine einschlägige Eintragung“ (starts unticked; without the tick: „Eintragung vorhanden – bitte
- * prüfen“); a file kept for it is shown with „Datei jetzt löschen“; who recorded, changed or deleted the record when is
- * listed. A record left after the type was switched back to „Datei“ stays read only with „Vermerk löschen“. The § 72a
- * texts only for a Führungszeugnis (isCertificateType), neutral ones otherwise. Loaded once the tab is opened.
+ * inspection, and the result – „keine einschlägige Eintragung“ or „einschlägige Eintragung vorhanden“ („Eintragung
+ * vorhanden – bitte prüfen“), nothing preset, also not on „Neu vermerken“, saving only once one is chosen; a file kept for
+ * it is shown with „Datei jetzt löschen“; who recorded, changed or deleted the record when is listed. A record left after
+ * the type was switched back to „Datei“ stays read only with „Vermerk löschen“. The § 72a texts only for a type flagged
+ * „§ 72a SGB VIII (Führungszeugnis)“, neutral ones otherwise. Loaded once the tab is opened.
  */
 const props = defineProps<{ employeeId: number; employeeName: string; active: boolean }>()
 const t = de.requiredDocuments
@@ -37,8 +38,8 @@ const { busy, run } = useBusyAction(() => refresh())
 const tone: Record<EmployeeRequiredDocumentDto['state'], 'success' | 'warning' | 'error'> = {
   present: 'success', expiring: 'warning', expired: 'error', missing: 'error', entry: 'error',
 }
-/** The Führungszeugnis gets the texts naming § 72a SGB VIII, any other type „nur Einsicht“ neutral ones. */
-const certificate = (row: EmployeeRequiredDocumentDto) => isCertificateType(row.name)
+/** A type „§ 72a SGB VIII (Führungszeugnis)“ gets the texts naming the law, any other type „nur Einsicht“ neutral ones. */
+const certificate = (row: EmployeeRequiredDocumentDto) => row.certificate
 function stateText(row: EmployeeRequiredDocumentDto): string {
   if (row.state === 'missing') return t.states.missing
   if (row.state === 'entry') return certificate(row) ? t.entryState : t.entryStateGeneric
@@ -135,23 +136,30 @@ function afterFill(result: { id: number | null; linked: boolean }) {
   void refresh()
 }
 
-// „Einsicht vermerken“: the certificate's date, optionally the day of inspection (neither in the future), and „keine
-// einschlägige Eintragung“ – unticked at the start, so it is always confirmed actively; nothing else is stored.
+// „Einsicht vermerken“: the certificate's date, optionally the day of inspection (neither in the future), and the result
+// – one of two, nothing preset (also not on „Neu vermerken“), so it is always confirmed actively; nothing else is stored.
 const recording = ref<EmployeeRequiredDocumentDto | null>(null)
 const recordOpen = ref(false)
-const record = reactive({ certificateDate: '', inspectedOn: todayIso(), noRelevantEntry: false })
+const record = reactive(inspectionForm('', todayIso()))
 function openRecord(row: EmployeeRequiredDocumentDto) {
   recording.value = row
-  Object.assign(record, { certificateDate: row.inspection?.certificateDate ?? '', inspectedOn: row.inspection?.inspectedOn ?? todayIso(), noRelevantEntry: false })
+  Object.assign(record, inspectionForm(row.inspection?.certificateDate ?? '', row.inspection?.inspectedOn ?? todayIso()))
   recordOpen.value = true
 }
-const recordReady = computed(() => record.certificateDate !== '' && record.certificateDate <= todayIso()
-  && (record.inspectedOn === '' || (record.inspectedOn <= todayIso() && record.inspectedOn >= record.certificateDate)))
+const choiceItems = computed(() => {
+  const named = !!recording.value && certificate(recording.value)
+  return [
+    { value: 'none', label: named ? t.noRelevantEntry : t.noRelevantEntryGeneric },
+    { value: 'entry', label: named ? t.relevantEntry : t.relevantEntryGeneric },
+  ]
+})
+const recordBody = computed(() => inspectionInput(record, todayIso()))
 async function saveRecord() {
   const row = recording.value
-  if (!row) return
+  const body = recordBody.value
+  if (!row || !body) return
   const ok = await run(() => $fetch<{ ok: boolean }>(`/api/employees/${props.employeeId}/required-inspections/${row.typeId}`, {
-    method: 'PUT', body: { certificateDate: record.certificateDate, inspectedOn: record.inspectedOn || null, noRelevantEntry: record.noRelevantEntry },
+    method: 'PUT', body,
   }), t.recorded)
   if (ok) recordOpen.value = false
 }
@@ -273,11 +281,14 @@ function openSend(row: EmployeeRequiredDocumentDto) {
           <UFormField :label="t.inspectionDate" :description="t.inspectionDateHint">
             <DateTextInput v-model="record.inspectedOn" :label="t.inspectionDate" :max="todayIso()" class="w-full" />
           </UFormField>
-          <UFormField :description="recording && certificate(recording) ? t.noRelevantEntryHint : t.noRelevantEntryHintGeneric">
-            <UCheckbox v-model="record.noRelevantEntry" :label="recording && certificate(recording) ? t.noRelevantEntry : t.noRelevantEntryGeneric" />
+          <UFormField :label="t.choice" :description="recording?.inspection ? t.choiceAgainHint : t.choiceHint" required>
+            <URadioGroup
+              :model-value="record.choice ?? undefined" :items="choiceItems"
+              @update:model-value="(value: string | undefined) => record.choice = value === 'none' || value === 'entry' ? value : null"
+            />
           </UFormField>
           <div class="flex gap-2">
-            <UButton type="submit" :label="t.record" :loading="busy" :disabled="busy || !recordReady" />
+            <UButton type="submit" :label="t.record" :loading="busy" :disabled="busy || !recordBody" />
             <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="recordOpen = false" />
           </div>
         </form>

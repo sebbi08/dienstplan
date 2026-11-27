@@ -167,7 +167,7 @@ describe('Pflichtdokumente', () => {
     // Someone who left before today does not count.
     db.update(employees).set({ leftOn: '2026-10-31' }).where(eq(employees.id, ben)).run()
     const extras = listEmployeeListExtras(db, 1, TODAY, traeger.permissions)
-    expect(extras.find(row => row.employeeId === anna)!.requiredDocuments).toEqual([{ typeId: typeId('Erste-Hilfe-Nachweis'), name: 'Erste-Hilfe-Nachweis', state: 'expired' }])
+    expect(extras.find(row => row.employeeId === anna)!.requiredDocuments).toEqual([{ typeId: typeId('Erste-Hilfe-Nachweis'), name: 'Erste-Hilfe-Nachweis', state: 'expired', certificate: false }])
     expect(extras.find(row => row.employeeId === ben)).toBeUndefined()
     const leitung = addUser(db, 'leitung', 'admin')
     const items = getSetupChecklist(db, traeger, 1, NOW).open.filter(item => item.key === 'employee_required_document')

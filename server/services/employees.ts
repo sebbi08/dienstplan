@@ -12,7 +12,7 @@ import { isPlausibleProbationUntil } from '../../shared/domain/probation'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
   EmployeeContractDto, EmployeeContractInput, EmployeeDetailDto, EmployeeListItemDto, EmployeePersonalDto, EmployeePersonalInput,
-  EmployeeSensitiveDto, SessionUser,
+  EmployeeMoveResultDto, EmployeeSensitiveDto, SessionUser,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import {
@@ -27,6 +27,7 @@ import { assertGroup } from './groups'
 import { yearEntitlement } from './leave'
 import { loadEmployees, type EmployeeRecord } from './queries'
 import { moveRequirementRecords } from './requirements'
+import { moveInspectionRecords } from './requiredDocuments'
 import { moveEmployeeAccidents } from './accidents'
 import { moveStaffTalks } from './staffTalks'
 
@@ -596,19 +597,21 @@ export function setStampingOptions(
  * talks and their forms move to the new facility, and so do the accident reports about the employee. The person leaves
  * the lists of the old facility's appointments (dropEventLinksOnMove). Phone and e-mail
  * still on the hired application record (Bewerbungen & Hospitationen, kept there when the hiring user could not write
- * the personal data) leave the old facility: see settleApplicationContact.
+ * the personal data) leave the old facility: see settleApplicationContact. Recorded inspections (Pflichtdokumente „nur
+ * Einsicht vermerken“) go to the new facility's matching type or are removed (moveInspectionRecords); the removed ones
+ * whose folder the mover may use are returned for the notice.
  */
 export function moveEmployeeToFacility(
   db: Db, actor: SessionUser, employeeId: number, facilityId: number, now: Date = new Date(),
-): void {
+): EmployeeMoveResultDto {
   const employee = db.select({ facilityId: employees.facilityId }).from(employees).where(eq(employees.id, employeeId)).get()
   if (!employee) throw new ServiceError(404, 'employee_not_found')
   if (!db.select({ id: facilities.id }).from(facilities).where(eq(facilities.id, facilityId)).get()) {
     throw new ServiceError(404, 'facility_not_found')
   }
-  if (employee.facilityId === facilityId) return
+  if (employee.facilityId === facilityId) return { ok: true, inspectionsRemoved: [] }
   const today = todayIso(now)
-  db.transaction((tx) => {
+  return db.transaction((tx) => {
     unbookClosuresFrom(tx, actor, employeeId, employee.facilityId, today, now)
     const sortOrder = (tx.select({ value: max(employees.sortOrder) }).from(employees)
       .where(eq(employees.facilityId, facilityId)).get()?.value ?? 0) + 1
@@ -625,6 +628,7 @@ export function moveEmployeeToFacility(
     tx.update(entries).set({ helpFacilityId: null })
       .where(and(eq(entries.employeeId, employeeId), eq(entries.helpFacilityId, facilityId))).run()
     moveRequirementRecords(tx, employeeId, facilityId)
+    const inspectionsRemoved = moveInspectionRecords(tx, actor, employeeId, facilityId, now)
     moveStaffTalks(tx, employeeId, facilityId)
     moveEmployeeAccidents(tx, employeeId, facilityId)
     // Bezugserzieher must belong to the child's facility: the children of the old facility lose this one.
@@ -633,6 +637,7 @@ export function moveEmployeeToFacility(
     dropEventLinksOnMove(tx, employeeId, employee.facilityId)
     settleApplicationContact(tx, actor, employeeId)
     bookClosuresFor(tx, actor, employeeId, now, today)
+    return { ok: true as const, inspectionsRemoved }
   })
 }
 

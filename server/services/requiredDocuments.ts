@@ -1,14 +1,15 @@
-import { and, asc, desc, eq, inArray, isNotNull, ne, or } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or } from 'drizzle-orm'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION, type EmployeeDocumentFolder } from '../../shared/domain/personnel'
 import {
-  REQUIRED_DOCUMENT_EXAMPLES, REQUIRED_DOCUMENT_LIMITS, REQUIRED_DOCUMENT_MODES, appliesToEmployee, inspectionDateError, inspectionStatus,
-  isCertificateType, needsDocument, parseAppliesTo, requiredDocumentStatus, serializeAppliesTo, type InspectionLogAction, type RequiredDocumentState,
+  REQUIRED_DOCUMENT_EXAMPLES, REQUIRED_DOCUMENT_FOLDER, REQUIRED_DOCUMENT_LIMITS, REQUIRED_DOCUMENT_MODES, appliesToEmployee, inspectionDateError,
+  inspectionStatus, needsDocument, parseAppliesTo, requiredDocumentStatus, serializeAppliesTo, type InspectionLogAction, type RequiredDocumentState,
 } from '../../shared/domain/requiredDocuments'
 import { QUALIFICATIONS } from '../../shared/domain/staffing/types'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  EmployeeRequiredDocumentDto, RequiredDocumentTypeDto, RequiredDocumentTypeInput, RequiredInspectionFileDto, RequiredInspectionInput, Role,
+  EmployeeMoveResultDto, EmployeeRequiredDocumentDto, InspectionHistoryDto, RequiredDocumentTypeDto, RequiredDocumentTypeInput, RequiredInspectionFileDto,
+  RequiredInspectionInput, Role,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employeeDocuments, employees, requiredDocumentTypes, requiredInspectionLog, requiredInspections, users } from '../db/schema'
@@ -28,7 +29,10 @@ import { listTemplates } from './printTemplates'
  * kept for such a type (marked: employee_documents.inspection_cleanup, or still linked to it) is listed for deletion
  * until deleted – wherever it is moved – and can only be deleted (no „Bearbeiten“, no link, no request to sign: 400
  * document_inspection_file). A record stays (read only, „Vermerk löschen“ works) when its type is switched back to
- * „Datei“; recording, changing and deleting it is logged with who and when (requiredInspectionLog).
+ * „Datei“; recording, changing and deleting it is logged with who and when (requiredInspectionLog). Only a type flagged
+ * „§ 72a SGB VIII (Führungszeugnis)“ (`certificate`; only the Träger sets or unsets it, renaming changes nothing) gets the
+ * law's texts and deadline; its records follow the person to another facility only into such a type there
+ * (moveInspectionRecords).
  */
 
 /** Whoever works with the Pflichtdokumente: the session user's id, role (templates) and permissions (folders). */
@@ -50,7 +54,8 @@ const typesOf = (db: Db, facilityId: number): TypeRow[] =>
 /** Gives a facility the example types (a new facility; existing ones got them from the migration). */
 export function seedRequiredDocumentTypes(db: Db, facilityId: number): void {
   db.insert(requiredDocumentTypes).values(REQUIRED_DOCUMENT_EXAMPLES.map((example, sortOrder) => ({
-    facilityId, name: example.name, folder: example.folder, validityMonths: example.validityMonths, mode: example.mode, sortOrder,
+    facilityId, name: example.name, folder: example.folder, validityMonths: example.validityMonths, mode: example.mode,
+    certificate: example.certificate, sortOrder,
   }))).run()
 }
 
@@ -63,7 +68,7 @@ export function listRequiredTypes(db: Db, actor: RequiredDocsActor, facilityId: 
   return rows.map(row => ({
     id: row.id, name: row.name, folder: row.folder, appliesTo: parseAppliesTo(row.appliesTo), validityMonths: row.validityMonths,
     templateId: row.templateId, templateTitle: row.templateId === null ? null : titles.get(row.templateId) ?? null, active: row.active,
-    mode: row.mode,
+    mode: row.mode, certificate: row.certificate,
   }))
 }
 
@@ -78,9 +83,14 @@ const folded = (value: string) => value.trim().toLocaleLowerCase('de')
  * The checked input: a name (1–100 characters, unique regardless of case among the facility's types the actor sees: 409
  * required_type_name_taken – a type in a folder they may not use is not given away), a folder the actor may use (403), the qualifications of the catalog, a validity of 1–240
  * months or none, and a template the actor sees in the facility (400 required_type_template_invalid). Anything else
- * malformed is 400 required_type_invalid.
+ * malformed is 400 required_type_invalid. „§ 72a SGB VIII“ (`certificate`; left out: as before) is the Träger's to change
+ * (403 required_type_certificate_provider): it decides the retention of the records.
  */
-function checkedInput(db: Db, actor: RequiredDocsActor, facilityId: number, input: RequiredDocumentTypeInput, exceptId: number | null) {
+function checkedInput(
+  db: Db, actor: RequiredDocsActor, facilityId: number, input: RequiredDocumentTypeInput, exceptId: number | null, wasCertificate = false,
+) {
+  const certificate = input.certificate ?? wasCertificate
+  if (certificate !== wasCertificate && actor.role !== 'provider') throw new ServiceError(403, 'required_type_certificate_provider')
   const name = input.name.trim()
   if (name === '' || name.length > REQUIRED_DOCUMENT_LIMITS.name) throw new ServiceError(400, 'required_type_name_required')
   if (typesOf(db, facilityId).some(row => row.id !== exceptId && mayUse(actor, row.folder) && folded(row.name) === folded(name))) {
@@ -104,7 +114,7 @@ function checkedInput(db: Db, actor: RequiredDocsActor, facilityId: number, inpu
   }
   return {
     name, folder: input.folder, appliesTo: serializeAppliesTo(appliesTo), validityMonths: validity, templateId,
-    active: input.active, mode: input.mode,
+    active: input.active, mode: input.mode, certificate,
   }
 }
 
@@ -131,12 +141,13 @@ export function createRequiredType(db: Db, actor: RequiredDocsActor, facilityId:
  * the personnel file, unlinked): a document counts only in its type's folder, so no status of another folder shows.
  * Switched to „nur Einsicht“, its linked files are marked for deletion (they must not be kept; first, so a folder move at
  * the same time cannot drop them); switched back to „Datei“, the files marked for it are regular again. Recorded
- * inspections stay either way (read only under „Datei“, until deleted).
+ * inspections stay either way (read only under „Datei“, until deleted). What the audit lines and the marked files keep of
+ * the type (name, folder, „§ 72a“) follows the change, so it is right once the type is gone.
  */
 export function updateRequiredType(db: Db, actor: RequiredDocsActor, facilityId: number, id: number, input: RequiredDocumentTypeInput): void {
   assertEditor(actor)
   const before = loadType(db, actor, facilityId, id)
-  const values = checkedInput(db, actor, facilityId, input, id)
+  const values = checkedInput(db, actor, facilityId, input, id, before.certificate)
   db.transaction((tx) => {
     tx.update(requiredDocumentTypes).set(values).where(eq(requiredDocumentTypes.id, id)).run()
     if (before.mode === 'file' && values.mode === 'inspection') {
@@ -145,16 +156,31 @@ export function updateRequiredType(db: Db, actor: RequiredDocsActor, facilityId:
     if (before.mode === 'inspection' && values.mode === 'file') {
       tx.update(employeeDocuments).set({ inspectionCleanup: false, inspectionTypeId: null }).where(eq(employeeDocuments.inspectionTypeId, id)).run()
     }
+    tx.update(employeeDocuments).set({ inspectionCertificate: values.certificate }).where(eq(employeeDocuments.inspectionTypeId, id)).run()
+    tx.update(requiredInspectionLog).set({ typeName: values.name, folder: values.folder, certificate: values.certificate })
+      .where(eq(requiredInspectionLog.typeId, id)).run()
     tx.update(employeeDocuments).set({ requiredTypeId: null })
       .where(and(eq(employeeDocuments.requiredTypeId, id), ne(employeeDocuments.folder, values.folder))).run()
   })
 }
 
-/** Deletes a type; its documents stay in the personnel files, without the link (and sign requests lose it too). */
-export function deleteRequiredType(db: Db, actor: RequiredDocsActor, facilityId: number, id: number): void {
+/**
+ * Deletes a type; its documents stay in the personnel files, without the link (and sign requests lose it too). Its
+ * recorded inspections go with it, each with an audit line („mit dem Pflichtdokument gelöscht“); the audit lines stay
+ * without the type (listed under Datenschutz & Löschen until the person's retention), named by what they keep of it.
+ */
+export function deleteRequiredType(db: Db, actor: RequiredDocsActor, facilityId: number, id: number, now: Date = new Date()): void {
   assertEditor(actor)
-  loadType(db, actor, facilityId, id)
-  db.delete(requiredDocumentTypes).where(eq(requiredDocumentTypes.id, id)).run()
+  const type = loadType(db, actor, facilityId, id)
+  db.transaction((tx) => {
+    for (const record of tx.select({ employeeId: requiredInspections.employeeId }).from(requiredInspections).where(eq(requiredInspections.typeId, id)).all()) {
+      logInspection(tx, actor, record.employeeId, type, 'typeDeleted', now)
+    }
+    tx.update(requiredInspectionLog).set({ typeName: type.name, folder: type.folder, certificate: type.certificate })
+      .where(eq(requiredInspectionLog.typeId, id)).run()
+    tx.update(employeeDocuments).set({ inspectionCertificate: type.certificate }).where(eq(employeeDocuments.inspectionTypeId, id)).run()
+    tx.delete(requiredDocumentTypes).where(eq(requiredDocumentTypes.id, id)).run()
+  })
 }
 
 /**
@@ -268,7 +294,7 @@ export function employeeRequiredDocuments(
     const status = stateOf(type, employeeId, newest, inspections, today)
     const inspection = inspections.get(`${employeeId}:${type.id}`) ?? null
     return {
-      typeId: type.id, name: type.name, folder: type.folder, validityMonths: type.validityMonths, mode: type.mode,
+      typeId: type.id, name: type.name, folder: type.folder, validityMonths: type.validityMonths, mode: type.mode, certificate: type.certificate,
       templateId: type.mode === 'file' && type.templateId !== null && templates.has(type.templateId) ? type.templateId : null,
       state: status.state, date: status.date, expiresOn: status.expiresOn, documentId: linked?.id ?? null,
       inspection: inspection === null
@@ -348,9 +374,9 @@ export function checkedSignRequestType(
  */
 export function missingRequiredDocuments(
   db: Db, viewer: Pick<RequiredDocsActor, 'permissions'>, facilityId: number, today: IsoDate,
-): Map<number, { typeId: number; name: string; state: RequiredDocumentState }[]> {
+): Map<number, { typeId: number; name: string; state: RequiredDocumentState; certificate: boolean }[]> {
   const types = typesOf(db, facilityId).filter(row => row.active && mayUse(viewer, row.folder))
-  const missing = new Map<number, { typeId: number; name: string; state: RequiredDocumentState }[]>()
+  const missing = new Map<number, { typeId: number; name: string; state: RequiredDocumentState; certificate: boolean }[]>()
   if (types.length === 0) return missing
   const staff = db.select({ id: employees.id, qualification: employees.qualification, leftOn: employees.leftOn }).from(employees)
     .where(eq(employees.facilityId, facilityId)).all().filter(person => person.leftOn === null || person.leftOn >= today)
@@ -359,7 +385,7 @@ export function missingRequiredDocuments(
   for (const person of staff) {
     const rows = applicableTypes(types, viewer, person.qualification).flatMap((type) => {
       const state = stateOf(type, person.id, newest, inspections, today).state
-      return needsDocument(state) ? [{ typeId: type.id, name: type.name, state }] : []
+      return needsDocument(state) ? [{ typeId: type.id, name: type.name, state, certificate: type.certificate }] : []
     })
     missing.set(person.id, rows)
   }
@@ -382,6 +408,7 @@ function storedInspectionFiles(db: Db, employeeIds: readonly number[], types: re
   return db.select({
     id: employeeDocuments.id, employeeId: employeeDocuments.employeeId, requiredTypeId: employeeDocuments.requiredTypeId,
     inspectionTypeId: employeeDocuments.inspectionTypeId, cleanup: employeeDocuments.inspectionCleanup,
+    keptCertificate: employeeDocuments.inspectionCertificate,
     folder: employeeDocuments.folder, title: employeeDocuments.title, documentDate: employeeDocuments.documentDate,
     uploadedAt: employeeDocuments.uploadedAt,
   }).from(employeeDocuments)
@@ -389,11 +416,12 @@ function storedInspectionFiles(db: Db, employeeIds: readonly number[], types: re
       inArray(employeeDocuments.employeeId, [...employeeIds]),
       or(eq(employeeDocuments.inspectionCleanup, true), inArray(employeeDocuments.requiredTypeId, [...inspectionTypes])),
     )).all()
-    .map(({ requiredTypeId, inspectionTypeId, cleanup, ...row }) => ({
-      ...row,
-      typeId: cleanup ? inspectionTypeId : requiredTypeId !== null && inspectionTypes.has(requiredTypeId) ? requiredTypeId : null,
-      documentDate: dayOf(row),
-    }))
+    .map(({ requiredTypeId, inspectionTypeId, cleanup, keptCertificate, ...row }) => {
+      const typeId = cleanup ? inspectionTypeId : requiredTypeId !== null && inspectionTypes.has(requiredTypeId) ? requiredTypeId : null
+      // „§ 72a“: the type's while it exists, else what the marker kept of it.
+      const type = typeId === null ? undefined : types.find(entry => entry.id === typeId)
+      return { ...row, typeId, certificate: type ? type.certificate : cleanup && keptCertificate, documentDate: dayOf(row) }
+    })
 }
 
 /**
@@ -401,7 +429,8 @@ function storedInspectionFiles(db: Db, employeeIds: readonly number[], types: re
  * vermerken“ of it (404 required_type_not_found, 400 required_type_not_inspection) in a folder the actor may use (403):
  * the certificate's date (not after today: 400 certificate_date_invalid / certificate_date_future), optionally the day of
  * inspection (the same, inspection_date_*, and not before the certificate: inspection_before_certificate) and whether
- * there is no relevant conviction (§ 72a Abs. 1 SGB VIII), with who recorded it and when. Replaces an earlier record.
+ * there is no relevant conviction (§ 72a Abs. 1 SGB VIII) – chosen explicitly every time (anything but true or false: 400
+ * inspection_choice_required, never read as an entry) – with who recorded it and when. Replaces an earlier record.
  */
 export function recordInspection(
   db: Db, actor: RequiredDocsActor, facilityId: number, employeeId: number, typeId: number, input: RequiredInspectionInput,
@@ -411,6 +440,7 @@ export function recordInspection(
   if (!type.active) throw new ServiceError(404, 'required_type_not_found')
   if (type.mode !== 'inspection') throw new ServiceError(400, 'required_type_not_inspection')
   assertEmployee(db, facilityId, employeeId)
+  if (typeof input.noRelevantEntry !== 'boolean') throw new ServiceError(400, 'inspection_choice_required')
   const error = inspectionDateError(input.certificateDate, input.inspectedOn, today)
   if (error) throw new ServiceError(400, error)
   const values = {
@@ -422,7 +452,7 @@ export function recordInspection(
       .where(and(eq(requiredInspections.employeeId, employeeId), eq(requiredInspections.typeId, typeId))).get() !== undefined
     tx.insert(requiredInspections).values({ employeeId, typeId, ...values })
       .onConflictDoUpdate({ target: [requiredInspections.employeeId, requiredInspections.typeId], set: values }).run()
-    logInspection(tx, actor, employeeId, typeId, existed ? 'changed' : 'recorded', now)
+    logInspection(tx, actor, employeeId, type, existed ? 'changed' : 'recorded', now)
   })
 }
 
@@ -433,20 +463,116 @@ export function recordInspection(
 export function deleteInspection(
   db: Db, actor: RequiredDocsActor, facilityId: number, employeeId: number, typeId: number, now: Date = new Date(),
 ): void {
-  loadType(db, actor, facilityId, typeId)
+  const type = loadType(db, actor, facilityId, typeId)
   assertEmployee(db, facilityId, employeeId)
   db.transaction((tx) => {
     const { changes } = tx.delete(requiredInspections)
       .where(and(eq(requiredInspections.employeeId, employeeId), eq(requiredInspections.typeId, typeId))).run()
-    if (changes > 0) logInspection(tx, actor, employeeId, typeId, 'deleted', now)
+    if (changes > 0) logInspection(tx, actor, employeeId, type, 'deleted', now)
   })
 }
 
-/** An audit line: who (the account's employee name, else its user name, at the time) and when – nothing of the content. */
-function logInspection(tx: Db, actor: Pick<RequiredDocsActor, 'id'>, employeeId: number, typeId: number, action: InspectionLogAction, now: Date): void {
+/**
+ * An audit line: who (the account's employee name, else its user name, at the time) and when – nothing of the content –
+ * with what it keeps of the type (name, folder, „§ 72a“). `linked` false: written without the type (it is going away).
+ */
+function logInspection(
+  tx: Db, actor: Pick<RequiredDocsActor, 'id'>, employeeId: number, type: TypeRow, action: InspectionLogAction, now: Date, linked = true,
+): void {
   const account = tx.select({ username: users.username, name: employees.name }).from(users)
     .leftJoin(employees, eq(employees.id, users.employeeId)).where(eq(users.id, actor.id)).get()
-  tx.insert(requiredInspectionLog).values({ employeeId, typeId, action, actor: account?.name ?? account?.username ?? '', at: now.toISOString() }).run()
+  tx.insert(requiredInspectionLog).values({
+    employeeId, typeId: linked && action !== 'typeDeleted' ? type.id : null, action, actor: account?.name ?? account?.username ?? '',
+    at: now.toISOString(), typeName: type.name, folder: type.folder, certificate: type.certificate,
+  }).run()
+}
+
+/**
+ * On a move to another facility (moveEmployeeToFacility, in its transaction): the person's inspection records and audit
+ * lines belong to the old facility's types. A record goes to an active type „nur Einsicht“ of the new facility that
+ * applies to the person and has the same „§ 72a“ – for a Führungszeugnis the one of the same name, else the first; any
+ * other only to one of the same name – with its lines and a line „übernommen“. Without such a type (or with that type
+ * taken by a newer record) the record is removed – the new facility could not show it, the old one no longer sees the
+ * person – and a line „beim Wechsel entfernt“ says so; its lines stay without the type (Datenschutz & Löschen). Returns
+ * the removed ones whose folder the mover may use (the move's notice).
+ */
+export function moveInspectionRecords(
+  tx: Db, actor: RequiredDocsActor, employeeId: number, facilityId: number, now: Date,
+): EmployeeMoveResultDto['inspectionsRemoved'] {
+  const { qualification } = tx.select({ qualification: employees.qualification }).from(employees).where(eq(employees.id, employeeId)).get()!
+  const targets = typesOf(tx, facilityId)
+    .filter(type => type.mode === 'inspection' && type.active && appliesToEmployee(parseAppliesTo(type.appliesTo), qualification))
+  const match = (source: TypeRow) => {
+    const same = targets.filter(type => type.certificate === source.certificate)
+    return same.find(type => folded(type.name) === folded(source.name)) ?? (source.certificate ? same[0] : undefined)
+  }
+  const records = tx.select().from(requiredInspections).where(eq(requiredInspections.employeeId, employeeId)).all()
+    .sort((a, b) => b.recordedAt.localeCompare(a.recordedAt) || b.id - a.id)
+  const typeIds = [...new Set([
+    ...records.map(record => record.typeId),
+    ...tx.select({ typeId: requiredInspectionLog.typeId }).from(requiredInspectionLog)
+      .where(and(eq(requiredInspectionLog.employeeId, employeeId), isNotNull(requiredInspectionLog.typeId))).all().map(line => line.typeId!),
+  ])]
+  const sources = new Map((typeIds.length === 0 ? [] : tx.select().from(requiredDocumentTypes).where(inArray(requiredDocumentTypes.id, typeIds)).all())
+    .map(type => [type.id, type]))
+  const taken = new Set(records.filter(record => sources.get(record.typeId)?.facilityId === facilityId).map(record => record.typeId))
+  /** Where the old type's lines go: the type its record went to (or would go to), else nowhere. */
+  const linesTo = new Map<number, TypeRow | null>()
+  const removed: EmployeeMoveResultDto['inspectionsRemoved'] = []
+  for (const record of records) {
+    const source = sources.get(record.typeId)!
+    if (source.facilityId === facilityId) continue
+    const target = match(source)
+    if (target && !taken.has(target.id)) {
+      taken.add(target.id)
+      linesTo.set(source.id, target)
+      tx.update(requiredInspections).set({ typeId: target.id }).where(eq(requiredInspections.id, record.id)).run()
+      logInspection(tx, actor, employeeId, target, 'moved', now)
+      continue
+    }
+    linesTo.set(source.id, null)
+    tx.delete(requiredInspections).where(eq(requiredInspections.id, record.id)).run()
+    logInspection(tx, actor, employeeId, source, 'removedOnMove', now, false)
+    if (mayUse(actor, source.folder)) removed.push({ typeName: source.name, certificate: source.certificate })
+  }
+  for (const source of sources.values()) {
+    if (source.facilityId === facilityId) continue
+    const target = linesTo.has(source.id) ? linesTo.get(source.id)! : match(source) ?? null
+    tx.update(requiredInspectionLog).set(target
+      ? { typeId: target.id, typeName: target.name, folder: target.folder, certificate: target.certificate }
+      : { typeId: null, typeName: source.name, folder: source.folder, certificate: source.certificate })
+      .where(and(eq(requiredInspectionLog.employeeId, employeeId), eq(requiredInspectionLog.typeId, source.id))).run()
+  }
+  return removed
+}
+
+/**
+ * The audit lines left without their type (it was deleted, or the record was removed on a move), for „Datenschutz &
+ * Löschen“: per person of the given facilities and type name, newest first; only lines of a folder the viewer may use
+ * (lines from before the folder was kept count as „Pflichtdokumente“).
+ */
+export function orphanInspectionHistory(
+  db: Db, viewer: Pick<RequiredDocsActor, 'permissions'>, facilities: readonly { id: number; name: string }[],
+): InspectionHistoryDto[] {
+  return facilities.flatMap((facility) => {
+    const staff = new Map(db.select({ id: employees.id, name: employees.name }).from(employees).where(eq(employees.facilityId, facility.id)).all()
+      .map(row => [row.id, row.name]))
+    if (staff.size === 0) return []
+    const groups = new Map<string, InspectionHistoryDto>()
+    for (const line of db.select().from(requiredInspectionLog)
+      .where(and(inArray(requiredInspectionLog.employeeId, [...staff.keys()]), isNull(requiredInspectionLog.typeId)))
+      .orderBy(desc(requiredInspectionLog.at), desc(requiredInspectionLog.id)).all()) {
+      if (!mayUse(viewer, line.folder ?? REQUIRED_DOCUMENT_FOLDER)) continue
+      const key = `${line.employeeId}:${line.typeName}:${line.certificate}`
+      const group = groups.get(key) ?? {
+        employeeId: line.employeeId, employeeName: staff.get(line.employeeId) ?? '', facilityId: facility.id, facilityName: facility.name,
+        typeName: line.typeName, certificate: line.certificate, lines: [],
+      }
+      group.lines.push({ action: line.action, by: line.actor, at: line.at })
+      groups.set(key, group)
+    }
+    return [...groups.values()].sort((a, b) => a.employeeName.localeCompare(b.employeeName, 'de') || a.typeName.localeCompare(b.typeName, 'de'))
+  })
 }
 
 /**
@@ -455,7 +581,7 @@ function logInspection(tx: Db, actor: Pick<RequiredDocsActor, 'id'>, employeeId:
  * (those the viewer may see), also those who left. Only files in folders the viewer may use – the folder the file lies in
  * now, which is what opening and deleting it needs – so the list never names a file the viewer could not open; the type
  * is named only if the viewer may use its folder too. In the facilities' order, then oldest first. `certificate`: kept
- * for a Führungszeugnis (the texts name § 72a).
+ * for a type „§ 72a“ (the texts name the law) – also once that type is deleted (the marker keeps it).
  */
 export function storedInspectionFileList(
   db: Db, viewer: Pick<RequiredDocsActor, 'permissions'>, facilities: readonly { id: number; name: string }[],
@@ -472,7 +598,7 @@ export function storedInspectionFileList(
         const typeName = type && mayUse(viewer, type.folder) ? type.name : ''
         return {
           documentId: file.id, employeeId: file.employeeId, employeeName: staff.get(file.employeeId) ?? '', facilityId: facility.id,
-          facilityName: facility.name, typeName, certificate: isCertificateType(typeName), title: file.title, documentDate: file.documentDate,
+          facilityName: facility.name, typeName, certificate: file.certificate, title: file.title, documentDate: file.documentDate,
         }
       })
       .sort((a, b) => a.documentDate.localeCompare(b.documentDate) || a.documentId - b.documentId)

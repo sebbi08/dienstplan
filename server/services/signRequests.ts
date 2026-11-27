@@ -359,15 +359,16 @@ export function signMyRequest(
   // Sent „als Pflichtdokument“: the copy is that type's, as long as the type still files into the request's folder. A
   // type switched to „nur Einsicht vermerken“ since (the Führungszeugnis, § 72a Abs. 5 SGB VIII) takes no file: the copy
   // goes into the folder unlinked, marked for deletion (the cleanup list; the sender's list says so).
-  const type = row.requiredTypeId === null ? undefined : db.select({ folder: requiredDocumentTypes.folder, mode: requiredDocumentTypes.mode })
-    .from(requiredDocumentTypes).where(eq(requiredDocumentTypes.id, row.requiredTypeId)).get()
+  const type = row.requiredTypeId === null ? undefined : db.select({
+    folder: requiredDocumentTypes.folder, mode: requiredDocumentTypes.mode, certificate: requiredDocumentTypes.certificate,
+  }).from(requiredDocumentTypes).where(eq(requiredDocumentTypes.id, row.requiredTypeId)).get()
   const inspectionOnly = type?.mode === 'inspection'
   const requiredTypeId = type && !inspectionOnly && type.folder === row.folder ? row.requiredTypeId : null
   return db.transaction((tx) => {
     const documentId = tx.insert(employeeDocuments).values({
       employeeId: signer.employeeId, folder: row.folder, title: signedDocumentTitle(row.title, now), documentDate: todayIso(now), note: '',
       mimeType, fillable: fillableFile(file, mimeType), size: file.length, data: file, uploadedBy, uploadedAt: now.toISOString(), requiredTypeId,
-      ...(inspectionOnly ? { inspectionCleanup: true, inspectionTypeId: row.requiredTypeId } : {}),
+      ...(inspectionOnly ? { inspectionCleanup: true, inspectionTypeId: row.requiredTypeId, inspectionCertificate: type.certificate } : {}),
     }).returning({ id: employeeDocuments.id }).get().id
     tx.update(signRequestRecipients).set({ status: 'signed', signedAt: now.toISOString(), signedDocumentId: documentId, signedHash: hash })
       .where(and(eq(signRequestRecipients.id, recipientId), eq(signRequestRecipients.status, 'open'))).run()

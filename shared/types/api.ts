@@ -1752,11 +1752,17 @@ export interface RequiredDocumentTypeInput {
   active: boolean
   /** 'file': a document of the personnel file; 'inspection': „nur Einsicht vermerken“, no file (§ 72a Abs. 5 SGB VIII). */
   mode: RequiredDocumentMode
+  /**
+   * „§ 72a SGB VIII (Führungszeugnis)“: the law's texts and deadline for its records. Only the Träger changes it (403
+   * required_type_certificate_provider); left out: unchanged (a new type: not set).
+   */
+  certificate?: boolean
 }
 
 /** A Pflichtdokument of the facility, in its order (only those in folders the viewer may use). */
 export interface RequiredDocumentTypeDto extends RequiredDocumentTypeInput {
   id: number
+  certificate: boolean
   /** The template's title (null without one, or when the viewer does not see it). */
   templateTitle: string | null
 }
@@ -1775,6 +1781,8 @@ export interface EmployeeRequiredDocumentDto {
   expiresOn: IsoDate | null
   documentId: number | null
   mode: RequiredDocumentMode
+  /** The type is „§ 72a SGB VIII (Führungszeugnis)“: the texts name the law. */
+  certificate: boolean
   /**
    * The recorded inspection (null = none); recordedBy the name of the account, null once it is deleted. Also for a type
    * switched back to 'file': then read only, until „Vermerk löschen“.
@@ -1790,7 +1798,8 @@ export interface EmployeeRequiredDocumentDto {
 
 /**
  * „Einsicht vermerken“: the certificate's date (required), the day of inspection (optional) and whether there is no
- * relevant conviction (§ 72a Abs. 1 SGB VIII) – what § 72a Abs. 5 lets the Träger store.
+ * relevant conviction (§ 72a Abs. 1 SGB VIII) – what § 72a Abs. 5 lets the Träger store. `noRelevantEntry` is always
+ * chosen explicitly (left out: 400 inspection_choice_required – never read as an entry).
  */
 export interface RequiredInspectionInput {
   certificateDate: IsoDate
@@ -1814,6 +1823,35 @@ export interface CriminalRecordNoteDto {
 export interface InspectionCleanupDto {
   files: RequiredInspectionFileDto[]
   notes: CriminalRecordNoteDto[]
+  /** The audit lines left without their type (it was deleted, or the record was removed on a move). */
+  history: InspectionHistoryDto[]
+}
+
+/**
+ * Who recorded, changed or deleted a person's inspection record and when, for a type that is gone (deleted, or the
+ * record removed on a move to another facility): kept until the person's retention deletes it, only in folders the
+ * viewer may use.
+ */
+export interface InspectionHistoryDto {
+  employeeId: number
+  employeeName: string
+  facilityId: number
+  facilityName: string
+  /** The type's name at the time ('' if unknown). */
+  typeName: string
+  /** It was „§ 72a SGB VIII (Führungszeugnis)“. */
+  certificate: boolean
+  /** Newest first. */
+  lines: { action: InspectionLogAction; by: string; at: string }[]
+}
+
+/**
+ * The move of an employee to another facility: the inspection records that could not go along (the new facility has no
+ * active type „nur Einsicht“ for them, so they were removed), as far as the mover may use their folder.
+ */
+export interface EmployeeMoveResultDto {
+  ok: true
+  inspectionsRemoved: { typeName: string; certificate: boolean }[]
 }
 
 /** A file kept for a type „nur Einsicht vermerken“ that must not be (Datenschutz & Löschen: to be deleted). */
@@ -1825,7 +1863,7 @@ export interface RequiredInspectionFileDto {
   facilityName: string
   /** The type it was kept for; '' once that type is deleted or the viewer may not use its folder. */
   typeName: string
-  /** Kept for a Führungszeugnis (isCertificateType): the texts name § 72a SGB VIII. */
+  /** Kept for a type „§ 72a SGB VIII (Führungszeugnis)“ (also once it is deleted): the texts name the law. */
   certificate: boolean
   title: string
   documentDate: IsoDate
@@ -2577,7 +2615,7 @@ export interface EmployeeListExtrasDto {
    * The Pflichtdokumente missing or expired (only types in folders the viewer may use; absent without any folder right;
    * empty = nothing missing).
    */
-  requiredDocuments?: { typeId: number; name: string; state: 'missing' | 'expired' | 'entry' }[]
+  requiredDocuments?: { typeId: number; name: string; state: 'missing' | 'expired' | 'entry'; certificate: boolean }[]
   /**
    * The notice on remaining leave: only with leave.overview (otherwise the key is absent); null outside the notice
    * window (1 October until the forfeiture date) or when the person has no leave left. `year` is the year whose
