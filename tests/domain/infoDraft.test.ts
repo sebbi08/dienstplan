@@ -132,6 +132,70 @@ describe('the Info field\'s draft (PlanInfoField)', () => {
     expect(draft.failed.value).toBe(true)
   })
 
+  it('Escape while a save is running keeps the text on its way, and leaving the field again saves nothing', async () => {
+    const saved = { value: '' }
+    const save = manualSave()
+    const { draft, field, type } = renderedField(saved, save.save)
+    draft.focus()
+    type('Ausflug')
+    // Enter: the save is running (the plan reloads slowly).
+    const left = draft.blur()
+    expect(save.calls).toEqual(['Ausflug'])
+    // Click back in and press Escape: not back to the empty text from before the save.
+    draft.focus()
+    draft.reset()
+    expect(field.value).toBe('Ausflug')
+    await draft.blur()
+    // The reload brings the new text while the save is still running; then the save ends.
+    saved.value = 'Ausflug'
+    draft.savedChanged()
+    save.settle(true)
+    await left
+    expect(field.value).toBe('Ausflug')
+    expect(draft.failed.value).toBe(false)
+    // A later click in and out without typing never saves (and so never deletes the text).
+    draft.focus()
+    await draft.blur()
+    expect(save.calls).toEqual(['Ausflug'])
+    expect(field.value).toBe('Ausflug')
+  })
+
+  it('Escape while a save is running that then fails shows the failed text', async () => {
+    const saved = { value: '' }
+    const save = manualSave()
+    const { draft, field, type } = renderedField(saved, save.save)
+    draft.focus()
+    type('Ausflug')
+    const left = draft.blur()
+    draft.focus()
+    draft.reset()
+    await draft.blur()
+    save.settle(false)
+    await left
+    expect(field.value).toBe('Ausflug')
+    expect(draft.failed.value).toBe(true)
+  })
+
+  it('a save confirmed late never overrides a newer one', async () => {
+    const saved = { value: 'alt' }
+    const first = manualSave()
+    const second = manualSave()
+    let call = 0
+    const { draft, field, type } = renderedField(saved, text => (call++ === 0 ? first.save(text) : second.save(text)))
+    draft.focus()
+    type(' eins')
+    const left1 = draft.blur()
+    draft.focus()
+    type(' zwei')
+    const left2 = draft.blur()
+    second.settle(true)
+    await left2
+    first.settle(true)
+    await left1
+    expect(field.value).toBe('alt eins zwei')
+    expect(draft.failed.value).toBe(false)
+  })
+
   it('Escape puts the saved text back and saves nothing; a failed text is dropped with it', async () => {
     const saved = { value: 'alt' }
     const save = manualSave()
@@ -158,18 +222,20 @@ describe('the Info field\'s draft (PlanInfoField)', () => {
   it('saves nothing when only spaces at the ends changed, and once when left again while saving', async () => {
     const saved = { value: 'Ausflug' }
     const save = manualSave()
-    const { draft, type } = renderedField(saved, save.save)
+    const { draft, field, type } = renderedField(saved, save.save)
     draft.focus()
     type('  ')
     await draft.blur()
     expect(save.calls).toEqual([])
+    // Nothing to save: the field shows what the server has.
+    expect(field.value).toBe('Ausflug')
 
     draft.focus()
     type('!')
     const first = draft.blur()
     draft.focus()
     const second = draft.blur()
-    expect(save.calls).toEqual(['Ausflug  !'])
+    expect(save.calls).toEqual(['Ausflug!'])
     save.settle(true)
     await Promise.all([first, second])
   })
