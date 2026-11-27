@@ -6,7 +6,7 @@ import type { EmployeeListItemDto, RequiredDocumentTypeDto } from '#shared/types
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { searchTargets, usableFolders } from '~/utils/pdfFill'
-import { keptRequiredType } from '~/utils/requiredDocuments'
+import { filesSignedCopy, keptRequiredType } from '~/utils/requiredDocuments'
 
 /**
  * „Zum Unterschreiben senden“ (signRequests.manage): a PDF template of „Vorlagen“ to employees of the facility, or a PDF of a
@@ -29,12 +29,12 @@ const toast = useToast()
 const { can } = useCan()
 
 const form = reactive({ title: '', recipientIds: [] as number[], folder: 'correspondence' as EmployeeDocumentFolder, dueDate: '', note: '', requiredTypeId: 0 })
-// „Als Pflichtdokument ablegen“: the active Pflichtdokumente of the chosen folder (loaded when the dialog opens; null
+// „Als Pflichtdokument ablegen“: the active Pflichtdokumente of the chosen folder that keep a file (filesSignedCopy) (loaded when the dialog opens; null
 // until then, so the preset from the box is not dropped before they are there).
 const requiredTypes = ref<RequiredDocumentTypeDto[] | null>(null)
 const requiredItems = computed(() => [
   { label: t.requiredTypeNone, value: 0 },
-  ...(requiredTypes.value ?? []).filter(type => type.active && type.folder === form.folder).map(type => ({ label: type.name, value: type.id })),
+  ...(requiredTypes.value ?? []).filter(type => filesSignedCopy(type, form.folder)).map(type => ({ label: type.name, value: type.id })),
 ])
 watch(() => form.folder, () => {
   form.requiredTypeId = keptRequiredType(requiredTypes.value, form.folder, form.requiredTypeId)

@@ -23,7 +23,7 @@ import type { BundleArea, BundleId, BundleScope, RightsRole } from '../domain/pe
 import type { PermissionKey } from '../domain/permissions'
 import type { EmployeeDocumentFolder } from '../domain/personnel'
 import type { DocSettings, ReminderKind } from '../domain/reminders'
-import type { RequiredAppliesTo, RequiredDocumentMode, RequiredDocumentState } from '../domain/requiredDocuments'
+import type { InspectionLogAction, RequiredAppliesTo, RequiredDocumentMode, RequiredDocumentState } from '../domain/requiredDocuments'
 import type { RequirementState } from '../domain/requirements'
 import type { DistrictLegendEntry, DistrictRow } from '../domain/schoolDistricts'
 import type { BreakMode, StampChannel } from '../domain/stamping'
@@ -1054,6 +1054,11 @@ export interface RetentionItemDto {
   applicantState?: 'declined' | 'open'
   /** Only for an open applicant: the months without activity after which it is listed. */
   quietMonths?: number
+  /**
+   * Only for an inspection record (§ 72a Abs. 5 SGB VIII): the last day it may be kept – the leaving day + 3 months;
+   * null = at once (the activity was not taken up) – and whether that has passed (shown in red, listed first, reminded).
+   */
+  inspection?: { deleteBy: IsoDate | null; overdue: boolean }
   /** May be deleted today. */
   due: boolean
 }
@@ -1727,6 +1732,11 @@ export interface EmployeeDocumentDto extends EmployeeDocumentMeta {
   fillable: boolean
   /** The Pflichtdokument it is filed as (null = none). */
   requiredTypeId: number | null
+  /**
+   * A file that must not be kept (a Pflichtdokument „nur Einsicht vermerken“, the Führungszeugnis): only open, move or
+   * delete it – no „Bearbeiten“, no request to sign.
+   */
+  inspectionFile?: true
 }
 
 /** A Pflichtdokument of the facility as entered (Einstellungen → Mitarbeitende → Pflichtdokumente). */
@@ -1765,24 +1775,58 @@ export interface EmployeeRequiredDocumentDto {
   expiresOn: IsoDate | null
   documentId: number | null
   mode: RequiredDocumentMode
-  /** 'inspection': the recorded inspection (null = none); recordedBy the name of the account, null once it is deleted. */
-  inspection: { inspectedOn: IsoDate; noRelevantEntry: boolean; recordedBy: string | null; recordedAt: string } | null
-  /** 'inspection': files still linked to it from before (to be deleted, § 72a Abs. 5 SGB VIII); [] otherwise. */
+  /**
+   * The recorded inspection (null = none); recordedBy the name of the account, null once it is deleted. Also for a type
+   * switched back to 'file': then read only, until „Vermerk löschen“.
+   */
+  inspection: {
+    certificateDate: IsoDate; inspectedOn: IsoDate | null; noRelevantEntry: boolean; recordedBy: string | null; recordedAt: string
+  } | null
+  /** Files kept for it that must not be (to be deleted, § 72a Abs. 5 SGB VIII), in folders the viewer may use. */
   storedFiles: { id: number; title: string; documentDate: IsoDate }[]
+  /** Who recorded, changed or deleted the inspection record and when (newest first; nothing of the content). */
+  history: { action: InspectionLogAction; by: string; at: string }[]
 }
 
-/** „Einsicht vermerken“: the day of inspection and whether there is no relevant conviction (§ 72a Abs. 1 SGB VIII). */
+/**
+ * „Einsicht vermerken“: the certificate's date (required), the day of inspection (optional) and whether there is no
+ * relevant conviction (§ 72a Abs. 1 SGB VIII) – what § 72a Abs. 5 lets the Träger store.
+ */
 export interface RequiredInspectionInput {
-  inspectedOn: IsoDate
+  certificateDate: IsoDate
+  inspectedOn: IsoDate | null
   noRelevantEntry: boolean
 }
 
-/** A file still kept for a type „nur Einsicht vermerken“ (Datenschutz & Löschen: to be deleted). */
+/** A note still kept on an entry of the Pflichttermin „Erweitertes Führungszeugnis“ (Datenschutz & Löschen: to delete). */
+export interface CriminalRecordNoteDto {
+  /** The entry (employee_requirements) whose note „Notiz löschen“ removes. */
+  id: number
+  employeeId: number
+  employeeName: string
+  facilityId: number
+  facilityName: string
+  /** The entry's day. */
+  date: IsoDate
+}
+
+/** What Datenschutz & Löschen lists for deletion by hand beside the retention items (§ 72a Abs. 5 SGB VIII). */
+export interface InspectionCleanupDto {
+  files: RequiredInspectionFileDto[]
+  notes: CriminalRecordNoteDto[]
+}
+
+/** A file kept for a type „nur Einsicht vermerken“ that must not be (Datenschutz & Löschen: to be deleted). */
 export interface RequiredInspectionFileDto {
   documentId: number
   employeeId: number
   employeeName: string
+  facilityId: number
+  facilityName: string
+  /** The type it was kept for; '' once that type is deleted or the viewer may not use its folder. */
   typeName: string
+  /** Kept for a Führungszeugnis (isCertificateType): the texts name § 72a SGB VIII. */
+  certificate: boolean
   title: string
   documentDate: IsoDate
 }
@@ -4781,6 +4825,11 @@ export interface SignRequestRecipientDto {
   copyModified: boolean
   /** Signed, but the copy was deleted from the personnel file since. */
   copyDeleted: boolean
+  /**
+   * The copy must not be kept: its Pflichtdokument is „nur Einsicht vermerken“ (switched after sending), so it was filed
+   * unlinked and is on the cleanup list (Datenschutz & Löschen) until deleted.
+   */
+  copyInspectionOnly?: true
 }
 
 /** A request to sign, as the senders see it (Mitarbeitende → Unterschriften). */

@@ -5,6 +5,7 @@ import { confirmsName } from '../../shared/domain/confirmName'
 import { mayDeleteEmployeeByHand } from '../../shared/domain/retention'
 import { can } from '../../shared/domain/permissions'
 import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_RETENTION } from '../../shared/domain/personnel'
+import { CRIMINAL_RECORD_KEY } from '../../shared/domain/requirements'
 import type { IsoDate } from '../../shared/domain/types'
 import type { SessionUser, SnapshotData } from '../../shared/types/api'
 import type { Db } from '../db/client'
@@ -13,7 +14,7 @@ import {
   earlySickLeaves, employeeChildren, employeeDocuments, employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeeHours, employeePayroll, employeeRequirements, employees, employeeTrainings, entries,
   formAttachments, formEditors, forms, knowledgeConfirmations, longAbsences, maternityCases, signRequestRecipients, signUnlocks, parentalLeaveBirths, parentalLeaves,
   groupBookChanges, helpOuts, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leavePlanners, leaveRequests, notifications, offlineStamps,
-  formReads, releaseSnapshots, requiredInspections,
+  formReads, releaseSnapshots, requiredInspectionLog, requiredInspections, requirementTypes,
   staffTalkForms, staffTalks, terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, users, warningAcks,
   weekTemplateEntries, applicantVisits, infoVisits,
 } from '../db/schema'
@@ -142,9 +143,9 @@ function removeEmployee(tx: Db, employeeId: number, before: Set<string>): void {
  * its helper here deletes all of them, as „Endgültig löschen“ does. „Mutterschutz-Unterlagen“ (`maternity`) the same from
  * the end of each case (server/services/maternity.ts). „Lohn und Steuer“ (`payroll`) is due with the personal data while a
  * Lohnbüro keeps the payroll records (the facility's retention setting, the default; the overview then lists and deletes
- * it as part of `immediate`), otherwise 6 years after the end of the leaving year (retentionDueDates). „Einsicht in das
- * Führungszeugnis“ (`inspection`, § 72a Abs. 5 SGB VIII) is due 3 months after leaving (at once if the activity was not
- * taken up: inspectionDeletableFrom).
+ * it as part of `immediate`), otherwise 6 years after the end of the leaving year (retentionDueDates). The inspection
+ * records („Einsicht-Vermerke“, `inspection`, § 72a Abs. 5 SGB VIII: the Führungszeugnis) are due the day after leaving
+ * and must be gone 3 months after it (at once if the activity was not taken up: inspectionDeadline).
  */
 export const RETENTION_CATEGORIES = ['immediate', 'inspection', 'payroll', 'time', 'assessment', 'bem', 'maternity', 'paidOvertime'] as const
 export type RetentionCategory = typeof RETENTION_CATEGORIES[number]
@@ -265,10 +266,22 @@ export function deleteImmediateData(tx: Db, employeeId: number): number {
   return changed
 }
 
-/** The recorded inspections of Pflichtdokumente „nur Einsicht vermerken“ (Führungszeugnis: day and box, no file). */
-const INSPECTION_ROWS: readonly EmployeeRows[] = [{ table: requiredInspections, column: requiredInspections.employeeId }]
+/** The Pflichttermin „Erweitertes Führungszeugnis“ (built-in kind criminal_record): the same § 72a data as the record. */
+const criminalRecordEntries = (match: 'IN' | 'NOT IN') => sql`${employeeRequirements.typeId} ${sql.raw(match)} (
+  SELECT ${requirementTypes.id} FROM ${requirementTypes} WHERE ${requirementTypes.builtinKey} = ${CRIMINAL_RECORD_KEY})`
 
-/** „Einsicht in das Führungszeugnis“: the person's recorded inspections (§ 72a Abs. 5 SGB VIII). */
+/**
+ * The recorded inspections of Pflichtdokumente „nur Einsicht vermerken“ (Führungszeugnis: dates and box, no file), the
+ * audit lines of who recorded, changed or deleted them when, and the entries of the Pflichttermin „Erweitertes
+ * Führungszeugnis“ (the day it was shown – the same data, so the same deadline, § 72a Abs. 5 SGB VIII).
+ */
+const INSPECTION_ROWS: readonly EmployeeRows[] = [
+  { table: requiredInspections, column: requiredInspections.employeeId },
+  { table: requiredInspectionLog, column: requiredInspectionLog.employeeId },
+  { table: employeeRequirements, column: employeeRequirements.employeeId, also: criminalRecordEntries('IN') },
+]
+
+/** „Einsicht-Vermerke“: the person's recorded inspections and their audit lines (§ 72a Abs. 5 SGB VIII). */
 export function deleteInspectionData(tx: Db, employeeId: number): number {
   return deleteRows(tx, employeeId, INSPECTION_ROWS)
 }
@@ -337,9 +350,9 @@ const documentsOf = (category: 'assessment' | 'paidOvertime'): EmployeeRows => (
 const ASSESSMENT_ROWS: readonly EmployeeRows[] = [
   { table: staffTalks, column: staffTalks.employeeId },
   { table: employeeTrainings, column: employeeTrainings.employeeId },
-  // The Pflichttermine (Belehrung nach § 34 IfSG, Betriebsarzt, Erste Hilfe, Führungszeugnis, Masern, JArbSchG
-  // examinations): proof that the duties were kept, like the trainings.
-  { table: employeeRequirements, column: employeeRequirements.employeeId },
+  // The Pflichttermine (Belehrung nach § 34 IfSG, Betriebsarzt, Erste Hilfe, Masern, JArbSchG examinations): proof that
+  // the duties were kept, like the trainings. Not the Führungszeugnis: its entries go with the inspection records.
+  { table: employeeRequirements, column: employeeRequirements.employeeId, also: criminalRecordEntries('NOT IN') },
   // „Gelesen und verstanden“ in „Wissen“: proof of instruction (Unterweisung) like the trainings, kept as long.
   { table: knowledgeConfirmations, column: knowledgeConfirmations.employeeId },
   // The record of a signature in the app (Zum Unterschreiben senden: when, the file's SHA-256, a reason for not

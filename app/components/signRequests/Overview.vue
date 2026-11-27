@@ -70,6 +70,10 @@ const BADGE: Record<SignRequestRecipientDto['status'], string> = {
           <span v-if="recipient.signedHash" class="font-mono text-xs text-gray-500" :title="t.hashTitle">{{ t.hash(recipient.signedHash) }}</span>
           <span v-if="recipient.copyModified" class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-800" :title="t.copyModifiedTitle">{{ t.copyModified }}</span>
           <span v-if="recipient.copyDeleted" class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">{{ t.copyDeleted }}</span>
+          <!-- The type became „nur Einsicht vermerken“ after sending: the copy is unlinked and on the cleanup list (said in full). -->
+          <span v-if="recipient.copyInspectionOnly" class="w-full rounded bg-amber-50 px-2 py-1 text-xs text-amber-900 ring-1 ring-amber-200">
+            <strong>{{ t.copyInspectionOnly }}:</strong> {{ t.copyInspectionOnlyTitle }}
+          </span>
           <UButton
             v-if="recipient.signedDocumentId" :to="employeeDocumentUrl(recipient.signedDocumentId)" target="_blank" external size="xs"
             color="neutral" variant="ghost" icon="i-lucide-external-link" :label="t.openCopy"

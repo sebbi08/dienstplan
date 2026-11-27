@@ -351,10 +351,16 @@ describe('API route permissions', () => {
 
   it('opens the mandatory appointments to managers only, apart from the read-only own view', () => {
     const touching = routes.filter(route => /requirement|training/i.test(route) || source(route).includes('services/requirements\''))
-    expect(touching).toHaveLength(11)
+    expect(touching).toHaveLength(13)
     for (const route of touching) {
       const code = source(route)
-      if (route === 'my/requirements.get.ts') {
+      if (route === 'required-inspection-files.get.ts') {
+        // The notes on the Führungszeugnis entries to delete (Datenschutz & Löschen): every facility the viewer may see.
+        expect(permissionCalls(route)).toEqual([{ key: 'employees.view', options: '' }])
+        expect(code).toContain('criminalRecordNotes(db, facilities)')
+        expect(code).toContain('listFacilities(db, viewer).facilities')
+      }
+      else if (route === 'my/requirements.get.ts') {
         // The own view takes nothing from the request: whose records it shows follows from the session alone.
         expect(code).toContain('requireUser(')
         expect(code).toContain('getMyRequirements(')
@@ -667,7 +673,9 @@ describe('API route permissions', () => {
       const editor = settings.includes(route)
       expect(permissionCalls(route), route).toEqual([{ key: editor ? 'settings.facility' : 'employees.view', options: '' }])
       // The service gets the session user (folder keys) and the facility of the request.
-      expect(source(route), route).toMatch(editor ? /\(useDb\(\), editor, editor\.facilityId/ : /\(useDb\(\), (actor|viewer), (actor|viewer)\.facilityId/)
+      // The cleanup notice lists every facility the viewer may see (the Träger: all, like the retention list).
+      if (route === 'required-inspection-files.get.ts') expect(source(route)).toContain('storedInspectionFileList(db, viewer, facilities)')
+      else expect(source(route), route).toMatch(editor ? /\(useDb\(\), editor, editor\.facilityId/ : /\(useDb\(\), (actor|viewer), (actor|viewer)\.facilityId/)
     }
     for (const route of ['employees/[id]/required-documents/[typeId].post.ts', 'employees/[id]/documents.post.ts']) {
       expect(source(route), route).toContain("assertUploadLength(getRequestHeader(event, 'content-length'))")

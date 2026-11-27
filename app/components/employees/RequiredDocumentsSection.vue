@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
+import { isCertificateType } from '#shared/domain/requiredDocuments'
 import type { EmployeeDocumentsDto, EmployeeRequiredDocumentDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { MAX_DOCUMENT_BYTES } from '~/utils/children'
@@ -15,9 +16,11 @@ import { pickedFile, uploadSizeError } from '~/utils/uploads'
  * type's); „Ausfüllen“ fills the type's template, saved into its folder and linked in the same request; „Zum
  * Unterschreiben senden“ sends the template to the
  * person (signRequests.manage), its signed copy linked by itself. A type „nur Einsicht vermerken“ (the Führungszeugnis,
- * § 72a Abs. 5 SGB VIII) has none of these: „Einsicht vermerken“ records the day and „keine einschlägige Eintragung“
- * (without the tick: „Eintragung vorhanden – bitte prüfen“); a file still kept from before is shown with „Datei jetzt
- * löschen“. Loaded once the tab is opened.
+ * § 72a Abs. 5 SGB VIII) has none of these: „Einsicht vermerken“ records the certificate's date, optionally the day of
+ * inspection, and „keine einschlägige Eintragung“ (starts unticked; without the tick: „Eintragung vorhanden – bitte
+ * prüfen“); a file kept for it is shown with „Datei jetzt löschen“; who recorded, changed or deleted the record when is
+ * listed. A record left after the type was switched back to „Datei“ stays read only with „Vermerk löschen“. The § 72a
+ * texts only for a Führungszeugnis (isCertificateType), neutral ones otherwise. Loaded once the tab is opened.
  */
 const props = defineProps<{ employeeId: number; employeeName: string; active: boolean }>()
 const t = de.requiredDocuments
@@ -34,20 +37,29 @@ const { busy, run } = useBusyAction(() => refresh())
 const tone: Record<EmployeeRequiredDocumentDto['state'], 'success' | 'warning' | 'error'> = {
   present: 'success', expiring: 'warning', expired: 'error', missing: 'error', entry: 'error',
 }
+/** The Führungszeugnis gets the texts naming § 72a SGB VIII, any other type „nur Einsicht“ neutral ones. */
+const certificate = (row: EmployeeRequiredDocumentDto) => isCertificateType(row.name)
 function stateText(row: EmployeeRequiredDocumentDto): string {
   if (row.state === 'missing') return t.states.missing
-  if (row.state === 'entry') return t.entryState
+  if (row.state === 'entry') return certificate(row) ? t.entryState : t.entryStateGeneric
   if (row.state === 'expired') return t.expiredOn(formatDate(row.expiresOn!))
   if (row.state === 'expiring') return t.expiresOn(formatDate(row.expiresOn!))
   return t.presentOn(formatDate(row.date!))
 }
-/** „eingesehen am … · vermerkt von … am …“ under the name of a type „nur Einsicht vermerken“. */
+/** „Führungszeugnis vom … · eingesehen am … · vermerkt von … am …“ under the name of the type. */
 function inspectionText(row: EmployeeRequiredDocumentDto): string {
   const record = row.inspection
   if (!record) return ''
   const at = formatDateTime(record.recordedAt)
-  return [t.inspectedOn(formatDate(record.inspectedOn)), record.recordedBy ? t.recordedBy(record.recordedBy, at) : t.recordedByUnknown(at)].join(' · ')
+  return [
+    (certificate(row) ? t.certificateOn : t.certificateOnGeneric)(formatDate(record.certificateDate)),
+    record.inspectedOn ? t.inspectedOn(formatDate(record.inspectedOn)) : '',
+    record.recordedBy ? t.recordedBy(record.recordedBy, at) : t.recordedByUnknown(at),
+  ].filter(Boolean).join(' · ')
 }
+/** The audit lines: who recorded, changed or deleted the record and when. */
+const historyText = (row: EmployeeRequiredDocumentDto) =>
+  row.history.map(line => t.historyLine(line.action, line.by, formatDateTime(line.at))).join(' · ')
 const templateUrl = (templateId: number) => `/api/print-templates/${templateId}/file`
 
 // „Hochladen“: the date, an optional title (else the type's name), a note and the file.
@@ -123,20 +135,23 @@ function afterFill(result: { id: number | null; linked: boolean }) {
   void refresh()
 }
 
-// „Einsicht vermerken“: the day (not in the future) and „keine einschlägige Eintragung“; nothing else is stored.
+// „Einsicht vermerken“: the certificate's date, optionally the day of inspection (neither in the future), and „keine
+// einschlägige Eintragung“ – unticked at the start, so it is always confirmed actively; nothing else is stored.
 const recording = ref<EmployeeRequiredDocumentDto | null>(null)
 const recordOpen = ref(false)
-const record = reactive({ inspectedOn: todayIso(), noRelevantEntry: true })
+const record = reactive({ certificateDate: '', inspectedOn: todayIso(), noRelevantEntry: false })
 function openRecord(row: EmployeeRequiredDocumentDto) {
   recording.value = row
-  Object.assign(record, { inspectedOn: row.inspection?.inspectedOn ?? todayIso(), noRelevantEntry: row.inspection?.noRelevantEntry ?? true })
+  Object.assign(record, { certificateDate: row.inspection?.certificateDate ?? '', inspectedOn: row.inspection?.inspectedOn ?? todayIso(), noRelevantEntry: false })
   recordOpen.value = true
 }
+const recordReady = computed(() => record.certificateDate !== '' && record.certificateDate <= todayIso()
+  && (record.inspectedOn === '' || (record.inspectedOn <= todayIso() && record.inspectedOn >= record.certificateDate)))
 async function saveRecord() {
   const row = recording.value
   if (!row) return
   const ok = await run(() => $fetch<{ ok: boolean }>(`/api/employees/${props.employeeId}/required-inspections/${row.typeId}`, {
-    method: 'PUT', body: { inspectedOn: record.inspectedOn, noRelevantEntry: record.noRelevantEntry },
+    method: 'PUT', body: { certificateDate: record.certificateDate, inspectedOn: record.inspectedOn || null, noRelevantEntry: record.noRelevantEntry },
   }), t.recorded)
   if (ok) recordOpen.value = false
 }
@@ -172,17 +187,19 @@ function openSend(row: EmployeeRequiredDocumentDto) {
             {{ de.personnel.folders[row.folder] }}<template v-if="row.mode === 'inspection'"> · {{ t.inspectionOnly }}</template>
           </div>
           <div v-if="row.inspection" class="text-xs text-gray-600">{{ inspectionText(row) }}</div>
+          <div v-if="row.mode === 'file' && row.inspection" class="text-xs text-amber-800">{{ t.readOnlyRecord }}</div>
+          <div v-if="row.history.length" class="text-xs text-gray-500">{{ t.historyTitle }}: {{ historyText(row) }}</div>
         </div>
         <UBadge size="sm" variant="soft" :color="tone[row.state]" :label="stateText(row)" />
-        <div v-if="row.mode === 'inspection'" class="flex flex-wrap gap-1">
+        <div v-if="row.mode === 'inspection' || row.inspection" class="flex flex-wrap gap-1">
           <UButton
-            size="xs" color="neutral" variant="outline" icon="i-lucide-eye" :label="row.inspection ? t.recordAgain : t.record" :disabled="busy"
-            @click="openRecord(row)"
+            v-if="row.mode === 'inspection'" size="xs" color="neutral" variant="outline" icon="i-lucide-eye" :label="row.inspection ? t.recordAgain : t.record"
+            :disabled="busy" @click="openRecord(row)"
           />
           <UButton v-if="row.inspection" size="xs" color="neutral" variant="ghost" icon="i-lucide-x" :label="t.removeRecord" :disabled="busy" @click="removeRecord(row)" />
         </div>
-        <div v-if="row.mode === 'inspection' && row.storedFiles.length" class="w-full space-y-1 rounded-md bg-amber-50 p-2 text-xs text-amber-900 ring-1 ring-amber-200">
-          <p>{{ t.storedFile }}</p>
+        <div v-if="row.storedFiles.length" class="w-full space-y-1 rounded-md bg-amber-50 p-2 text-xs text-amber-900 ring-1 ring-amber-200">
+          <p>{{ certificate(row) ? t.storedFile : t.storedFileGeneric }}</p>
           <div v-for="file in row.storedFiles" :key="file.id" class="flex flex-wrap items-center gap-2">
             <span class="min-w-0 break-words">{{ file.title || de.personnel.documents.untitled }} · {{ formatDate(file.documentDate) }}</span>
             <UButton size="xs" color="neutral" variant="outline" icon="i-lucide-external-link" :label="t.openFile" :to="employeeDocumentUrl(file.id)" target="_blank" />
@@ -244,15 +261,23 @@ function openSend(row: EmployeeRequiredDocumentDto) {
     <UModal v-model:open="recordOpen" :title="recording ? t.recordTitle(recording.name) : t.record">
       <template #body>
         <form class="space-y-3" @submit.prevent="saveRecord">
-          <p class="text-xs text-gray-500">{{ t.recordHint }}</p>
-          <UFormField :label="t.inspectionDate" :description="t.inspectionDateHint" required>
-            <DateTextInput v-model="record.inspectedOn" :label="t.inspectionDate" class="w-full" />
+          <p class="text-xs text-gray-500">{{ recording && certificate(recording) ? t.recordHint : t.recordHintGeneric }}</p>
+          <UFormField
+            :label="recording && certificate(recording) ? t.certificateDate : t.certificateDateGeneric" :description="t.certificateDateHint" required
+          >
+            <DateTextInput
+              v-model="record.certificateDate" :label="recording && certificate(recording) ? t.certificateDate : t.certificateDateGeneric"
+              :max="todayIso()" class="w-full"
+            />
           </UFormField>
-          <UFormField :description="t.noRelevantEntryHint">
-            <UCheckbox v-model="record.noRelevantEntry" :label="t.noRelevantEntry" />
+          <UFormField :label="t.inspectionDate" :description="t.inspectionDateHint">
+            <DateTextInput v-model="record.inspectedOn" :label="t.inspectionDate" :max="todayIso()" class="w-full" />
+          </UFormField>
+          <UFormField :description="recording && certificate(recording) ? t.noRelevantEntryHint : t.noRelevantEntryHintGeneric">
+            <UCheckbox v-model="record.noRelevantEntry" :label="recording && certificate(recording) ? t.noRelevantEntry : t.noRelevantEntryGeneric" />
           </UFormField>
           <div class="flex gap-2">
-            <UButton type="submit" :label="t.record" :loading="busy" :disabled="busy || !record.inspectedOn || record.inspectedOn > todayIso()" />
+            <UButton type="submit" :label="t.record" :loading="busy" :disabled="busy || !recordReady" />
             <UButton type="button" color="neutral" variant="ghost" :label="de.common.cancel" @click="recordOpen = false" />
           </div>
         </form>

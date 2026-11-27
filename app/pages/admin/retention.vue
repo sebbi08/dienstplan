@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RequiredInspectionFileDto, RetentionDeleteResult, RetentionItemDto } from '#shared/types/api'
+import type { CriminalRecordNoteDto, InspectionCleanupDto, RetentionDeleteResult, RetentionItemDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
 import { formatDate } from '~/utils/format'
@@ -16,8 +16,12 @@ import { areaPath, privacyPath, requestedPrivacyTab, sectionAnchor, visiblePriva
  *   of staff, applicants and cash boxes of ONE facility – the one chosen in „Einstellungen für“ (this page counts as a
  *   settings page for it, so a choice made in the settings is kept and sent along), named above them; links to the other
  *   privacy-relevant settings.
- *   Above it, a notice on Führungszeugnisse still kept as files (§ 72a Abs. 5 SGB VIII: not to be kept), with links to
- *   the person and the file – only files in folders the viewer may use, so only for those who may delete them.
+ *   Above it, what § 72a Abs. 5 SGB VIII does not let the Träger keep, for deleting by hand: files of a Pflichtdokument
+ *   „nur Einsicht vermerken“ (the Führungszeugnis), with links to the person and the file – only files in folders the
+ *   viewer may use, so only for those who may delete them – and notes on entries of the Pflichttermin „Erweitertes
+ *   Führungszeugnis“ with „Notiz löschen“. Every facility the viewer may see, as the list; a row of another facility than
+ *   the active one names it (its links work only there). An inspection record shows its deadline („spätestens bis“), in
+ *   red once passed.
  * - „Datensicherung“ (backup.download, one for all).
  * `?tab=periods` / `?tab=backup` open a tab; the old settings anchors lead here (MOVED_SECTIONS). Unsaved edits ask
  * before the page or a tab is left, as on the settings pages.
@@ -74,10 +78,15 @@ const { data, error, refresh } = await useFetch<RetentionItemDto[]>('/api/retent
   key: 'retention-overview', default: () => [], immediate: canDeleteDue.value,
 })
 
-// Führungszeugnisse kept as files (a type „nur Einsicht vermerken“): to be deleted after recording the inspection.
-const { data: inspectionFiles } = await useFetch<RequiredInspectionFileDto[]>('/api/required-inspection-files', {
-  key: 'required-inspection-files', default: () => [], immediate: canDeleteDue.value,
+// Kept against § 72a Abs. 5 SGB VIII: files of a type „nur Einsicht vermerken“ and notes on the Pflichttermin.
+const { data: cleanup, refresh: refreshCleanup } = await useFetch<InspectionCleanupDto>('/api/required-inspection-files', {
+  key: 'required-inspection-files', default: () => ({ files: [], notes: [] }), immediate: canDeleteDue.value,
 })
+const inspectionFiles = computed(() => cleanup.value.files)
+const criminalNotes = computed(() => cleanup.value.notes)
+const allCertificates = computed(() => inspectionFiles.value.every(file => file.certificate))
+const anyCertificate = computed(() => inspectionFiles.value.some(file => file.certificate))
+const activeFacility = computed(() => facilities.value?.activeId ?? null)
 const rd = de.requiredDocuments
 
 const ALL = 'all'
@@ -107,9 +116,35 @@ const whatOf = (item: RetentionItemDto) => {
   return item.maternity ? `${what} (${t.maternityDetail(formatDate(item.maternity.endedOn), item.maternity.employed)})` : what
 }
 
-/** The date, or without one: at once (cash box without entries, a record whose other data is gone) or after the rest. */
-const fromOf = (item: RetentionItemDto) =>
-  item.deletableFrom ? t.fromDate(formatDate(item.deletableFrom)) : item.due ? t.fromNow : t.fromAfterRest
+/**
+ * The date, or without one: at once (cash box without entries, a record whose other data is gone) or after the rest. An
+ * inspection record also shows its legal deadline (§ 72a Abs. 5 SGB VIII): „spätestens bis …“ or „unverzüglich“.
+ */
+function fromOf(item: RetentionItemDto): string {
+  const from = item.deletableFrom ? t.fromDate(formatDate(item.deletableFrom)) : item.due ? t.fromNow : t.fromAfterRest
+  if (!item.inspection) return from
+  const deadline = item.inspection.deleteBy ? t.deleteBy(formatDate(item.inspection.deleteBy)) : t.deleteNow
+  return item.inspection.overdue ? t.overdue(deadline) : `${from}, ${deadline}`
+}
+
+/** „Notiz löschen“ of a note on the Pflichttermin „Erweitertes Führungszeugnis“ (the day stays). */
+async function deleteNote(note: CriminalRecordNoteDto) {
+  if (busy.value || !await confirm(de.requirements.deleteNoteConfirm(formatDate(note.date)))) return
+  await guard(async () => {
+    try {
+      await $fetch(`/api/employee-requirements/${note.id}/note`, { method: 'DELETE' })
+      toast.add({ title: de.requirements.noteDeleted, color: 'success' })
+      return true
+    }
+    catch (failure) {
+      toast.add({ title: errorMessage(failure), color: 'error' })
+      return false
+    }
+    finally {
+      await refreshCleanup()
+    }
+  })
+}
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -255,13 +290,31 @@ async function deleteAll() {
     </p>
 
     <section v-if="inspectionFiles.length" class="space-y-2 rounded-lg bg-amber-50 p-4 text-sm ring-1 ring-amber-200">
-      <h2 class="font-semibold text-amber-900">{{ rd.filesTitle }} ({{ inspectionFiles.length }})</h2>
-      <p class="text-amber-900">{{ rd.filesHint }}</p>
+      <h2 class="font-semibold text-amber-900">{{ allCertificates ? rd.filesTitle : rd.filesTitleGeneric }} ({{ inspectionFiles.length }})</h2>
+      <p class="text-amber-900">{{ anyCertificate ? rd.filesHint : rd.filesHintGeneric }}</p>
       <ul class="space-y-1">
         <li v-for="file in inspectionFiles" :key="file.documentId" class="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span class="min-w-0 break-words">{{ rd.fileRow(file.employeeName, file.typeName, formatDate(file.documentDate)) }}</span>
-          <NuxtLink :to="`/admin/employees/${file.employeeId}?tab=records`" class="font-medium text-sky-700 hover:underline">{{ rd.toPerson }}</NuxtLink>
-          <a :href="`/api/employee-documents/${file.documentId}`" target="_blank" rel="noopener" class="font-medium text-sky-700 hover:underline">{{ rd.openFile }}</a>
+          <template v-if="file.facilityId === activeFacility">
+            <NuxtLink :to="`/admin/employees/${file.employeeId}?tab=records`" class="font-medium text-sky-700 hover:underline">{{ rd.toPerson }}</NuxtLink>
+            <a :href="`/api/employee-documents/${file.documentId}`" target="_blank" rel="noopener" class="font-medium text-sky-700 hover:underline">{{ rd.openFile }}</a>
+          </template>
+          <span v-else class="text-xs text-amber-800">{{ rd.otherFacility(file.facilityName) }}</span>
+        </li>
+      </ul>
+    </section>
+
+    <section v-if="criminalNotes.length" class="space-y-2 rounded-lg bg-amber-50 p-4 text-sm ring-1 ring-amber-200">
+      <h2 class="font-semibold text-amber-900">{{ rd.notesTitle }} ({{ criminalNotes.length }})</h2>
+      <p class="text-amber-900">{{ rd.notesHint }}</p>
+      <ul class="space-y-1">
+        <li v-for="note in criminalNotes" :key="note.id" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span class="min-w-0 break-words">{{ rd.noteRow(note.employeeName, formatDate(note.date)) }}</span>
+          <template v-if="note.facilityId === activeFacility">
+            <NuxtLink :to="`/admin/employees/${note.employeeId}?tab=records`" class="font-medium text-sky-700 hover:underline">{{ rd.toPerson }}</NuxtLink>
+            <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="de.requirements.deleteNote" :disabled="busy" @click="deleteNote(note)" />
+          </template>
+          <span v-else class="text-xs text-amber-800">{{ rd.otherFacility(note.facilityName) }}</span>
         </li>
       </ul>
     </section>
@@ -284,7 +337,7 @@ async function deleteAll() {
         <p v-if="!due.length" class="text-sm text-gray-500">{{ t.noneDue }}</p>
         <ul v-else class="divide-y divide-gray-100 overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
           <li v-for="item in due" :key="item.key" class="flex items-center gap-3 px-3 py-2">
-            <RetentionItemText :facility="item.facilityName" :what="whatOf(item)" :from="fromOf(item)" />
+            <RetentionItemText :facility="item.facilityName" :what="whatOf(item)" :from="fromOf(item)" :overdue="item.inspection?.overdue" />
             <UButton
               size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :label="t.delete"
               :loading="pendingKey === item.key" :disabled="busy" @click="deleteOne(item)"
@@ -297,7 +350,7 @@ async function deleteAll() {
         <h2 class="font-semibold text-gray-700">{{ t.laterTitle }}</h2>
         <ul class="divide-y divide-gray-100 overflow-hidden rounded-lg bg-white text-sm ring-1 ring-gray-200">
           <li v-for="item in later" :key="item.key" class="flex items-center gap-3 px-3 py-2">
-            <RetentionItemText :facility="item.facilityName" :what="whatOf(item)" :from="fromOf(item)" />
+            <RetentionItemText :facility="item.facilityName" :what="whatOf(item)" :from="fromOf(item)" :overdue="item.inspection?.overdue" />
           </li>
         </ul>
       </section>

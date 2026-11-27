@@ -625,8 +625,13 @@ export const requiredDocumentTypeSchema = z.object({
   active: z.boolean(),
   mode: z.enum(REQUIRED_DOCUMENT_MODES).default('file'),
 })
-/** „Einsicht vermerken“ (a type „nur Einsicht vermerken“): the day (the service refuses one after today) and the box. */
-export const requiredInspectionSchema = z.object({ inspectedOn: isoDate, noRelevantEntry: z.boolean() })
+/**
+ * „Einsicht vermerken“ (a type „nur Einsicht vermerken“): the certificate's date, optionally the day of inspection (the
+ * service refuses either after today) and the box.
+ */
+export const requiredInspectionSchema = z.object({
+  certificateDate: isoDate, inspectedOn: isoDate.nullable().default(null), noRelevantEntry: z.boolean(),
+})
 /** „Hochladen“ of a Pflichtdokument (multipart; the folder comes from the type). */
 export const requiredDocumentUploadFields = z.object({
   title: z.string().max(200).default(''),

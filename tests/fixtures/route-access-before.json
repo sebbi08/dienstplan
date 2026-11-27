@@ -200,6 +200,7 @@
   "employee-emergency-contacts/[id].put.ts": ["provider","admin"],
   "employee-hours/[id].delete.ts": ["provider","admin"],
   "employee-requirements/[id].delete.ts": ["provider","admin"],
+  "employee-requirements/[id]/note.delete.ts": ["provider","admin"],
   "employee-trainings/[id].delete.ts": ["provider","admin"],
   "employee-trainings/[id].put.ts": ["provider","admin"],
   "employees/[id].delete.ts": ["provider","admin"],

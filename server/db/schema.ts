@@ -4,7 +4,7 @@ import { EVENT_VISIBILITIES } from '../../shared/domain/calendarEvents'
 import type { OverviewColumnRef } from '../../shared/domain/childConsents'
 import type { RightsRole } from '../../shared/domain/permissionBundles'
 import { EMPLOYEE_DOCUMENT_FOLDERS } from '../../shared/domain/personnel'
-import { REQUIRED_DOCUMENT_MODES } from '../../shared/domain/requiredDocuments'
+import { INSPECTION_LOG_ACTIONS, REQUIRED_DOCUMENT_MODES } from '../../shared/domain/requiredDocuments'
 import type { GermanState } from '../../shared/domain/states'
 import { QUALIFICATIONS } from '../../shared/domain/staffing/types'
 import { TEMPLATE_VISIBILITIES } from '../../shared/domain/templateCategories'
@@ -862,19 +862,38 @@ export const requiredDocumentTypes = sqliteTable('required_document_types', {
 
 /**
  * „Einsicht vermerkt“ of a Pflichtdokument „nur Einsicht vermerken“ (the Erweitertes Führungszeugnis, § 72a Abs. 5 SGB
- * VIII): per person and type only the day of inspection, whether there is no relevant conviction, and who recorded it
- * when – no file, no further detail. One per person and type (recording again replaces it). Deletable 3 months after
- * leaving (retention category 'inspection'); goes with the person or the type.
+ * VIII): per person and type only what the law allows – that it was inspected (optionally on which day), the date of
+ * the certificate, whether there is a relevant conviction (§ 72a Abs. 1) – and who recorded it when; no file, no further
+ * detail. One per person and type (recording again replaces it). Deletable from the day after leaving, at the latest 3
+ * months after it (retention category 'inspection'); goes with the person or the type.
  */
 export const requiredInspections = sqliteTable('required_inspections', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
   typeId: integer('type_id').notNull().references(() => requiredDocumentTypes.id, { onDelete: 'cascade' }),
-  inspectedOn: text('inspected_on').notNull(),
+  /** „Datum des Führungszeugnisses“ (its issue date): the validity runs from it. */
+  certificateDate: text('certificate_date').notNull(),
+  /** „eingesehen am“ (optional; null = not entered). */
+  inspectedOn: text('inspected_on'),
   noRelevantEntry: integer('no_relevant_entry', { mode: 'boolean' }).notNull(),
   recordedBy: integer('recorded_by').references(() => users.id, { onDelete: 'set null' }),
   recordedAt: text('recorded_at').notNull(),
 }, table => [uniqueIndex('required_inspections_employee_type').on(table.employeeId, table.typeId), index('required_inspections_type').on(table.typeId)])
+
+/**
+ * Who recorded, changed or deleted an inspection record and when – nothing of its content (no day, no box). The user
+ * name at the time, as in the other audit logs. Kept with the record's retention category ('inspection': goes with the
+ * record after leaving, or with the person); a deleted type leaves its lines without the type.
+ */
+export const requiredInspectionLog = sqliteTable('required_inspection_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  employeeId: integer('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  typeId: integer('type_id').references(() => requiredDocumentTypes.id, { onDelete: 'set null' }),
+  action: text('action', { enum: INSPECTION_LOG_ACTIONS }).notNull(),
+  /** The account's employee name or user name at the time. */
+  actor: text('actor').notNull(),
+  at: text('at').notNull(),
+}, table => [index('required_inspection_log_employee').on(table.employeeId)])
 
 /**
  * An uploaded document (PDF, JPEG or PNG) in an employee's personnel file, in one of the folders (each with its own
@@ -896,7 +915,20 @@ export const employeeDocuments = sqliteTable('employee_documents', {
   fillable: integer('fillable', { mode: 'boolean' }),
   /** The Pflichtdokument it is (server/services/requiredDocuments.ts); null = none, or its type was deleted. */
   requiredTypeId: integer('required_type_id').references(() => requiredDocumentTypes.id, { onDelete: 'set null' }),
-}, table => [index('employee_documents_employee').on(table.employeeId), index('employee_documents_required_type').on(table.requiredTypeId)])
+  /**
+   * A file kept for a type „nur Einsicht vermerken“ (an old Führungszeugnis, or a signed copy that came in after the
+   * switch): must not be kept, so it stays on the cleanup list – the person's box and Datenschutz & Löschen – until it is
+   * deleted, wherever it is moved and whatever it is linked to. Set by the migration *_inspection_cleanup, when a type is
+   * switched to „nur Einsicht“ (for its linked files) and for such a signed copy; cleared only when the type is switched
+   * back to „Datei“ (its files are regular again).
+   */
+  inspectionCleanup: integer('inspection_cleanup', { mode: 'boolean' }).notNull().default(false),
+  /** The type „nur Einsicht“ the marked file was kept for (its name in the texts); null once that type is deleted. */
+  inspectionTypeId: integer('inspection_type_id').references(() => requiredDocumentTypes.id, { onDelete: 'set null' }),
+}, table => [
+  index('employee_documents_employee').on(table.employeeId), index('employee_documents_required_type').on(table.requiredTypeId),
+  index('employee_documents_inspection_type').on(table.inspectionTypeId),
+])
 
 /**
  * "Im Dienst erkrankt": the employee fell ill during the duty of that day and left early. The day stays a working day

@@ -162,7 +162,7 @@ describe('Pflichtdokumente', () => {
       uploadRequiredDocument(db, actor(traeger), 1, anna, typeId(name), { title: '', documentDate: '2026-01-01', note: '' }, file, NOW)
     }
     // The Führungszeugnis: only the inspection is recorded (§ 72a Abs. 5 SGB VIII).
-    recordInspection(db, actor(traeger), 1, anna, typeId('Erweitertes Führungszeugnis'), { inspectedOn: '2026-01-01', noRelevantEntry: true }, TODAY, NOW)
+    recordInspection(db, actor(traeger), 1, anna, typeId('Erweitertes Führungszeugnis'), { certificateDate: '2026-01-01', inspectedOn: null, noRelevantEntry: true }, TODAY, NOW)
     uploadRequiredDocument(db, actor(traeger), 1, anna, typeId('Erste-Hilfe-Nachweis'), { title: '', documentDate: '2024-01-01', note: '' }, file, NOW)
     // Someone who left before today does not count.
     db.update(employees).set({ leftOn: '2026-10-31' }).where(eq(employees.id, ben)).run()

@@ -26,6 +26,13 @@ export const BUILTIN_REQUIREMENTS = [
 export type BuiltinRequirementKey = (typeof BUILTIN_REQUIREMENTS)[number]['key']
 
 /**
+ * The Pflichttermin „Erweitertes Führungszeugnis“: its entries hold the same § 72a Abs. 5 SGB VIII data as the inspection
+ * record, so they take its retention (deletable from the day after leaving, at the latest 3 months after it) and no
+ * note (400 requirement_note_not_allowed; notes from before stay until deleted by hand, listed in Datenschutz & Löschen).
+ */
+export const CRIMINAL_RECORD_KEY = 'criminal_record' satisfies BuiltinRequirementKey
+
+/**
  * The kinds due before the first working day: the notice shows them for someone starting within
  * BEFORE_START_NOTICE_MONTHS already (the first examination of the JArbSchG has its own rule, youthExamStatus).
  */

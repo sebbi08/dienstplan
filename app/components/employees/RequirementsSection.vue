@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { todayIso } from '#shared/domain/dates'
-import { EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, type RequirementState } from '#shared/domain/requirements'
+import { CRIMINAL_RECORD_KEY, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, type RequirementState } from '#shared/domain/requirements'
 import type { EmployeeRequirementKindDto, EmployeeRequirementsDto, RequirementRecordDto, TrainingDto } from '#shared/types/api'
 import { de } from '~/locales/de'
 import { errorMessage } from '~/utils/errors'
@@ -9,7 +9,8 @@ import { intervalText } from '~/utils/requirements'
 
 /**
  * Mandatory appointments and trainings of one employee, for Leitung and Träger: per kind the newest record, the due
- * date and the state, with "Eintragen" and the history; below, the list of trainings.
+ * date and the state, with "Eintragen" and the history; below, the list of trainings. The Führungszeugnis takes no note
+ * (§ 72a Abs. 5 SGB VIII; the server refuses one): its form has only the date, a note from before shows with „Notiz löschen“.
  */
 const props = defineProps<{ employeeId: number }>()
 const { data, error, refresh } = await useFetch<EmployeeRequirementsDto>(`/api/employees/${props.employeeId}/requirements`)
@@ -48,6 +49,13 @@ function toggleHistory(typeId: number) {
 async function deleteRecord(kind: EmployeeRequirementKindDto, record: RequirementRecordDto) {
   if (await confirm(de.requirements.deleteRecordConfirm(kind.type.name, formatDate(record.date)))) {
     run(() => $fetch<unknown>(`/api/employee-requirements/${record.id}`, { method: 'DELETE' }), de.common.deleted)
+  }
+}
+/** The Pflichttermin „Erweitertes Führungszeugnis“: only the date (no note). */
+const noNote = (kind: EmployeeRequirementKindDto) => kind.type.builtinKey === CRIMINAL_RECORD_KEY
+async function deleteNote(record: RequirementRecordDto) {
+  if (await confirm(de.requirements.deleteNoteConfirm(formatDate(record.date)))) {
+    run(() => $fetch<unknown>(`/api/employee-requirements/${record.id}/note`, { method: 'DELETE' }), de.requirements.noteDeleted)
   }
 }
 
@@ -125,7 +133,8 @@ async function deleteTraining(item: TrainingDto) {
                   <UFormField :label="de.requirements.date">
                     <DateTextInput v-model="entry.date" :label="de.requirements.date" :min="EARLIEST_REQUIREMENT_DATE" :max="todayIso()" required />
                   </UFormField>
-                  <UFormField :label="de.requirements.note" class="min-w-48 flex-1">
+                  <p v-if="noNote(kind)" class="min-w-48 flex-1 text-xs text-gray-600">{{ de.requirements.noNote }}</p>
+                  <UFormField v-else :label="de.requirements.note" class="min-w-48 flex-1">
                     <UInput v-model="entry.note" maxlength="200" class="w-full" />
                   </UFormField>
                   <UButton type="submit" :label="de.requirements.enter" />
@@ -139,6 +148,10 @@ async function deleteTraining(item: TrainingDto) {
                   <li v-for="record in kind.records" :key="record.id" class="flex items-center gap-3 py-1">
                     <span class="whitespace-nowrap">{{ formatDate(record.date) }}</span>
                     <span class="flex-1 text-gray-600">{{ record.note }}</span>
+                    <UButton
+                      v-if="noNote(kind) && record.note" size="xs" color="error" variant="ghost" icon="i-lucide-eraser" :label="de.requirements.deleteNote"
+                      @click="deleteNote(record)"
+                    />
                     <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" :aria-label="de.common.delete" @click="deleteRecord(kind, record)" />
                   </li>
                 </ul>

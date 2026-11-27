@@ -1,14 +1,14 @@
-import { and, asc, desc, eq, inArray, max, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, max, ne } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import {
-  BEFORE_START_NOTICE_MONTHS, BUILTIN_REQUIREMENTS, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, addMonths, dueState,
+  BEFORE_START_NOTICE_MONTHS, BUILTIN_REQUIREMENTS, CRIMINAL_RECORD_KEY, EARLIEST_REQUIREMENT_DATE, LATEST_TRAINING_DATE, addMonths, dueState,
   firstCheckupTooEarly, isBeforeStartKey, isYouthExamKey, nextDueOn, requirementState, type RequirementState,
 } from '../../shared/domain/requirements'
 import { employmentStart, isEmployedOn } from '../../shared/domain/targets'
 import { youthExamStatus, youthFollowupBanFrom, youthFollowupBanOn } from '../../shared/domain/youthProtection'
 import type { IsoDate } from '../../shared/domain/types'
 import type {
-  DueRequirementDto, EmployeeRequirementsDto, MyRequirementsDto, RequirementTypeDto, SessionUser, TrainingDto,
+  CriminalRecordNoteDto, DueRequirementDto, EmployeeRequirementsDto, MyRequirementsDto, RequirementTypeDto, SessionUser, TrainingDto,
 } from '../../shared/types/api'
 import type { Db } from '../db/client'
 import { employeeRequirements, employeeTrainings, employees, requirementTypes } from '../db/schema'
@@ -216,11 +216,45 @@ export function addRequirementRecord(
   db: Db, facilityId: number, employeeId: number, input: RequirementRecordInput, today: IsoDate,
 ): number {
   assertHomeEmployee(db, facilityId, employeeId)
-  ownType(db, facilityId, input.typeId)
+  const type = ownType(db, facilityId, input.typeId)
   const date = checkedDate(input.date)
   if (date > today) throw new ServiceError(400, 'date_in_future')
-  return db.insert(employeeRequirements).values({ employeeId, typeId: input.typeId, date, note: optionalText(input.note) })
+  const note = optionalText(input.note)
+  // The Führungszeugnis: only the day it was shown, no note (§ 72a Abs. 5 SGB VIII lets nothing else be stored).
+  if (type.builtinKey === CRIMINAL_RECORD_KEY && note !== null) throw new ServiceError(400, 'requirement_note_not_allowed')
+  return db.insert(employeeRequirements).values({ employeeId, typeId: input.typeId, date, note })
     .returning({ id: employeeRequirements.id }).get().id
+}
+
+/**
+ * The notes still kept on entries of the Pflichttermin „Erweitertes Führungszeugnis“ (from before notes were refused
+ * there), for Datenschutz & Löschen: per facility given (those the viewer may see), every employee, also those who left;
+ * by facility, then name and date. The note itself is not sent – it is read in the person's Pflichttermine.
+ */
+export function criminalRecordNotes(db: Db, facilities: readonly { id: number; name: string }[]): CriminalRecordNoteDto[] {
+  return facilities.flatMap(facility => db.select({
+    id: employeeRequirements.id, employeeId: employees.id, employeeName: employees.name, date: employeeRequirements.date,
+  }).from(employeeRequirements)
+    .innerJoin(requirementTypes, eq(requirementTypes.id, employeeRequirements.typeId))
+    .innerJoin(employees, eq(employees.id, employeeRequirements.employeeId))
+    .where(and(eq(requirementTypes.facilityId, facility.id), eq(requirementTypes.builtinKey, CRIMINAL_RECORD_KEY),
+      isNotNull(employeeRequirements.note), ne(employeeRequirements.note, '')))
+    .all()
+    .sort((a, b) => a.employeeName.localeCompare(b.employeeName, 'de') || a.date.localeCompare(b.date) || a.id - b.id)
+    .map(row => ({ ...row, facilityId: facility.id, facilityName: facility.name })))
+}
+
+/**
+ * „Notiz löschen“: removes the note of an entry of the Pflichttermin „Erweitertes Führungszeugnis“ of one of the
+ * facility's employees (the day stays); any other entry is 404 requirement_not_found (its note is allowed).
+ */
+export function clearCriminalRecordNote(db: Db, facilityId: number, id: number): void {
+  const row = db.select({ id: employeeRequirements.id }).from(employeeRequirements)
+    .innerJoin(employees, eq(employeeRequirements.employeeId, employees.id))
+    .innerJoin(requirementTypes, eq(requirementTypes.id, employeeRequirements.typeId))
+    .where(and(eq(employeeRequirements.id, id), eq(employees.facilityId, facilityId), eq(requirementTypes.builtinKey, CRIMINAL_RECORD_KEY))).get()
+  if (!row) throw new ServiceError(404, 'requirement_not_found')
+  db.update(employeeRequirements).set({ note: null }).where(eq(employeeRequirements.id, id)).run()
 }
 
 /** Deletes a single record of one of the facility's employees; otherwise 404 requirement_not_found. */

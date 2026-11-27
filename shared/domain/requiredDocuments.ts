@@ -9,8 +9,15 @@ import type { IsoDate } from './types'
  * must have in the personnel file, each filed in a folder of it (whose key decides who sees and files it), optionally
  * valid for some months. A document of the file is linked to its type; the newest linked one decides the status.
  * A type „nur Einsicht vermerken“ (mode 'inspection', the Erweitertes Führungszeugnis, § 72a Abs. 5 SGB VIII) keeps no
- * file: per person the day of inspection and whether there is no relevant conviction decide the status.
+ * file: per person the certificate's date and whether there is no relevant conviction decide the status (the day of
+ * inspection is optional). A file once
+ * kept for such a type carries a marker (employee_documents.inspection_cleanup) and stays on the cleanup list until it
+ * is deleted, wherever it is moved or whatever it is linked to.
  */
+
+/** What happened to an inspection record (the audit lines: who and when, nothing of the content). */
+export const INSPECTION_LOG_ACTIONS = ['recorded', 'changed', 'deleted'] as const
+export type InspectionLogAction = typeof INSPECTION_LOG_ACTIONS[number]
 
 /** How a type is fulfilled: a document of the personnel file, or only a recorded inspection (no file). */
 export const REQUIRED_DOCUMENT_MODES = ['file', 'inspection'] as const
@@ -98,31 +105,51 @@ export function requiredDocumentStatus(
 
 /**
  * The status of a type „nur Einsicht vermerken“ from the person's recorded inspection: missing without one; with a
- * relevant entry (the box not ticked) 'entry', whatever the date; otherwise as a document dated on the day of inspection
- * (the validity runs from it).
+ * relevant entry (the box not ticked) 'entry', whatever the date; otherwise as a document dated on the certificate's
+ * date (the validity runs from it, as the certificate's age counts – not the day it was shown).
  */
 export function inspectionStatus(
-  validityMonths: number | null, inspection: { inspectedOn: IsoDate; noRelevantEntry: boolean } | null, today: IsoDate,
+  validityMonths: number | null, inspection: { certificateDate: IsoDate; noRelevantEntry: boolean } | null, today: IsoDate,
 ): { state: RequiredDocumentState; date: IsoDate | null; expiresOn: IsoDate | null } {
   if (inspection === null) return { state: 'missing', date: null, expiresOn: null }
-  if (!inspection.noRelevantEntry) return { state: 'entry', date: inspection.inspectedOn, expiresOn: null }
-  return requiredDocumentStatus(validityMonths, inspection.inspectedOn, today)
-}
-
-/** A day of inspection as entered: a real date, not after today (null), else the error code. */
-export function inspectionDateError(value: string, today: IsoDate): 'inspection_date_invalid' | 'inspection_date_future' | null {
-  if (!isValidIsoDate(value)) return 'inspection_date_invalid'
-  return value > today ? 'inspection_date_future' : null
+  if (!inspection.noRelevantEntry) return { state: 'entry', date: inspection.certificateDate, expiresOn: null }
+  return requiredDocumentStatus(validityMonths, inspection.certificateDate, today)
 }
 
 /**
- * From when the inspection record of someone who left may be deleted (§ 72a Abs. 5 SGB VIII: at the latest three
- * months after the activity ended; not taken up – the leaving day before the start – at once, the day after leaving).
+ * The dates of an inspection as entered: „Datum des Führungszeugnisses“ a real date, not after today; „eingesehen am“
+ * optional (null), the same, and not before the certificate's date. null when fine, else the error code.
  */
-export function inspectionDeletableFrom(leftOn: IsoDate, startedOn: IsoDate | null): IsoDate {
-  if (startedOn !== null && leftOn < startedOn) return addDays(leftOn, 1)
-  return addMonths(leftOn, 3)
+export function inspectionDateError(
+  certificateDate: string, inspectedOn: string | null, today: IsoDate,
+): 'certificate_date_invalid' | 'certificate_date_future' | 'inspection_date_invalid' | 'inspection_date_future' | 'inspection_before_certificate' | null {
+  if (!isValidIsoDate(certificateDate)) return 'certificate_date_invalid'
+  if (certificateDate > today) return 'certificate_date_future'
+  if (inspectedOn === null) return null
+  if (!isValidIsoDate(inspectedOn)) return 'inspection_date_invalid'
+  if (inspectedOn > today) return 'inspection_date_future'
+  return inspectedOn < certificateDate ? 'inspection_before_certificate' : null
 }
+
+/**
+ * The deadline of the inspection record of someone who left (§ 72a Abs. 5 SGB VIII: „unverzüglich zu löschen, wenn …
+ * keine Tätigkeit wahrgenommen wird“, otherwise „spätestens drei Monate nach der Beendigung“): deletable from the day
+ * after leaving, to be gone by `deleteBy` (the leaving day + 3 months, the last day allowed). Not taken up – the
+ * leaving day before the start – `deleteBy` is null: at once, so it is overdue as soon as it is listed.
+ */
+export function inspectionDeadline(leftOn: IsoDate, startedOn: IsoDate | null): { deletableFrom: IsoDate; deleteBy: IsoDate | null } {
+  return { deletableFrom: addDays(leftOn, 1), deleteBy: startedOn !== null && leftOn < startedOn ? null : addMonths(leftOn, 3) }
+}
+
+/** Whether the deadline has passed today (at once: whenever the record is listed at all). */
+export const inspectionOverdue = (deleteBy: IsoDate | null, today: IsoDate): boolean => deleteBy === null || today > deleteBy
+
+/**
+ * Whether a type is the Erweitertes Führungszeugnis (any type whose name holds „Führungszeugnis“, compared as the app
+ * compares names): only then do the texts name § 72a SGB VIII and „einschlägige Eintragung“; any other type „nur Einsicht
+ * vermerken“ gets neutral texts („in Ordnung“ / „Beanstandung“).
+ */
+export const isCertificateType = (name: string): boolean => name.trim().toLocaleLowerCase('de').includes('führungszeugnis')
 
 /** Whether the status needs attention (the list column and „Was noch fehlt“): missing, expired or an entry to check. */
 export const needsDocument = (state: RequiredDocumentState): boolean => state === 'missing' || state === 'expired' || state === 'entry'

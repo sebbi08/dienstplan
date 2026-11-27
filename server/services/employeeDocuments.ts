@@ -1,11 +1,11 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import { isValidIsoDate } from '../../shared/domain/dates'
 import { can, type PermissionKey } from '../../shared/domain/permissions'
 import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION, type EmployeeDocumentFolder } from '../../shared/domain/personnel'
 import type { IsoDate } from '../../shared/domain/types'
 import type { EmployeeDocumentDto, EmployeeDocumentMeta, EmployeeDocumentsDto } from '../../shared/types/api'
 import type { Db } from '../db/client'
-import { employeeDocuments, employees, users } from '../db/schema'
+import { employeeDocuments, employees, requiredDocumentTypes, users } from '../db/schema'
 import { ServiceError } from '../lib/errors'
 import { safeFileNamePart } from '../lib/fileName'
 import { DOCUMENT_EXTENSIONS, checkedDocumentFile, type DocumentMime } from '../lib/fileSignature'
@@ -56,6 +56,19 @@ function assertFolder(actor: DocumentActor, folder: EmployeeDocumentFolder): voi
 /** The document day; every write sets one, the column is only nullable like the child documents'. */
 export const dayOf = (row: { documentDate: string | null; uploadedAt: string }): IsoDate => row.documentDate ?? row.uploadedAt.slice(0, 10)
 
+/**
+ * Of the given documents, those that must not be kept (a file of a Pflichtdokument „nur Einsicht vermerken“, the
+ * Führungszeugnis, § 72a Abs. 5 SGB VIII): marked for deletion (inspection_cleanup) or linked to such a type. They can
+ * only be opened, moved and deleted – no „Bearbeiten“, no link to a type, no request to sign (400 document_inspection_file).
+ */
+export function inspectionFileIds(db: Db, ids: readonly number[]): Set<number> {
+  if (ids.length === 0) return new Set()
+  return new Set(db.select({ id: employeeDocuments.id }).from(employeeDocuments)
+    .leftJoin(requiredDocumentTypes, eq(requiredDocumentTypes.id, employeeDocuments.requiredTypeId))
+    .where(and(inArray(employeeDocuments.id, [...ids]), or(eq(employeeDocuments.inspectionCleanup, true), eq(requiredDocumentTypes.mode, 'inspection'))))
+    .all().map(row => row.id))
+}
+
 /** Folder kept, title and note trimmed, a real date (400 invalid_date). */
 function checkedMeta(meta: EmployeeDocumentMeta): EmployeeDocumentMeta {
   if (!isValidIsoDate(meta.documentDate)) throw new ServiceError(400, 'invalid_date')
@@ -91,12 +104,14 @@ export function listEmployeeDocuments(db: Db, actor: DocumentActor, facilityId: 
   const uploaderIds = [...new Set(rows.map(row => row.uploadedBy).filter((id): id is number => id !== null))]
   const usernames = new Map(uploaderIds.length === 0 ? [] : db.select({ id: users.id, username: users.username }).from(users)
     .where(inArray(users.id, uploaderIds)).all().map(user => [user.id, user.username]))
+  const notKept = inspectionFileIds(db, rows.map(row => row.id))
   const toDto = (row: MetaRow): EmployeeDocumentDto => ({
     id: row.id, folder: row.folder, title: row.title, documentDate: dayOf(row), note: row.note, mimeType: row.mimeType,
     size: row.size, uploadedBy: row.uploadedBy === null ? null : usernames.get(row.uploadedBy) ?? null, uploadedAt: row.uploadedAt,
     // Judged when the file was stored (null = a file of before, not judged yet).
     fillable: row.fillable === true,
     requiredTypeId: row.requiredTypeId,
+    ...(notKept.has(row.id) ? { inspectionFile: true as const } : {}),
   })
   return Object.fromEntries(folders.map(folder => [folder, rows.filter(row => row.folder === folder).map(toDto)]))
 }
@@ -127,7 +142,8 @@ export function readEmployeeDocumentFile(
 
 /**
  * Changes folder, title, date and note; the file stays as uploaded. Moving to another folder needs the right for both
- * folders (403 forbidden) and ends its link to a Pflichtdokument (that one's folder is the old one).
+ * folders (403 forbidden) and ends its link to a Pflichtdokument (that one's folder is the old one). A file marked for
+ * deletion (inspection_cleanup) keeps its marker, so it stays on the cleanup list wherever it goes.
  */
 export function updateEmployeeDocument(
   db: Db, actor: DocumentActor, facilityId: number, id: number, meta: EmployeeDocumentMeta,
@@ -140,12 +156,14 @@ export function updateEmployeeDocument(
 
 /**
  * A new file for the document („Bearbeiten“: the PDF filled further), with the folder's key like every change.
- * Only a PDF replaces a PDF; folder, title, date and note stay, the file counts as uploaded now by the actor.
+ * Only a PDF replaces a PDF; folder, title, date and note stay, the file counts as uploaded now by the actor. Never for a
+ * file that must not be kept (inspectionFileIds: 400 document_inspection_file) – it can only be deleted.
  */
 export function replaceEmployeeDocumentFile(
   db: Db, actor: DocumentActor, facilityId: number, id: number, file: { data: Buffer; filename: string }, now: Date = new Date(),
 ): void {
   const row = loadDocument(db, actor, facilityId, id)
+  if (inspectionFileIds(db, [id]).size > 0) throw new ServiceError(400, 'document_inspection_file')
   if (row.mimeType !== 'application/pdf') throw new ServiceError(400, 'document_type_invalid')
   const mimeType = checkedDocumentFile(file.data, ['application/pdf'])
   db.update(employeeDocuments).set({

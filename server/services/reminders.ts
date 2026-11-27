@@ -134,12 +134,21 @@ export function listReminders(db: Db, viewer: ChildViewer, today: IsoDate): Remi
 
   // The Träger (retention.delete; at the office, not at the shared tablet) is reminded while data of any facility may be deleted after
   // its retention period; the entry links to the page „Löschfristen“ and goes once nothing is due any more.
+  // A second, red entry while an inspection record (Führungszeugnis) is past its legal deadline (§ 72a Abs. 5 SGB VIII).
   if (can(viewer.permissions, 'retention.delete') && !viewer.onTablet) {
-    const due = retentionOverview(db, today).filter(item => item.due).length
+    const overview = retentionOverview(db, today)
+    const due = overview.filter(item => item.due).length
     if (due > 0) {
       items.push({
         kind: 'retention', date: today, state: 'today', name: '', childId: null, age: null, ownChild: false,
         canDone: false, time: null, meetingKind: null, count: due,
+      })
+    }
+    const overdue = overview.filter(item => item.inspection?.overdue === true).length
+    if (overdue > 0) {
+      items.push({
+        kind: 'retention', date: today, state: 'overdue', name: '', childId: null, age: null, ownChild: false,
+        canDone: false, time: null, meetingKind: null, count: overdue,
       })
     }
   }

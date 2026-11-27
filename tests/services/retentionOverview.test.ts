@@ -87,8 +87,8 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
     const name = facilityName(1)
     expect(items).toEqual<RetentionItemDto[]>([
       { key: `employee:${tina}:immediate`, kind: 'employee', category: 'immediate', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2026-03-16', due: true },
-      // The recorded inspection of the Führungszeugnis: 3 months after leaving (§ 72a Abs. 5 SGB VIII).
-      { key: `employee:${tina}:inspection`, kind: 'employee', category: 'inspection', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2026-06-15', due: false },
+      // The recorded inspection of the Führungszeugnis: from the day after leaving, gone 3 months after it (§ 72a Abs. 5 SGB VIII).
+      { key: `employee:${tina}:inspection`, kind: 'employee', category: 'inspection', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2026-03-16', inspection: { deleteBy: '2026-06-15', overdue: false }, due: true },
       { key: `employee:${tina}:maternity`, kind: 'employee', category: 'maternity', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2028-03-04', maternity: { endedOn: '2026-03-04', employed: false }, due: false },
       { key: `employee:${tina}:bem`, kind: 'employee', category: 'bem', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2028-05-04', bem: { endedOn: '2025-05-04', employed: false }, due: false },
       { key: `employee:${tina}:time`, kind: 'employee', category: 'time', facilityId: 1, facilityName: name, name: 'Tina Test', deletableFrom: '2029-01-01', due: false },
@@ -128,7 +128,7 @@ describe('the retention overview of an employee (Review Focus 2)', () => {
     expect(remove(`employee:${tina}:time`, '2029-01-01')).toBeGreaterThan(0)
     expect(categoryHasData(db, tina)).toEqual({ immediate: true, inspection: true, payroll: true, time: false, assessment: true, bem: true, maternity: true, paidOvertime: false })
     expect(itemsOf('2029-01-01', `employee:${tina}:`).map(item => [item.category, item.due]))
-      .toEqual([['immediate', true], ['inspection', true], ['bem', true], ['maternity', true], ['assessment', false], ['record', false]])
+      .toEqual([['inspection', true], ['immediate', true], ['bem', true], ['maternity', true], ['assessment', false], ['record', false]])
   })
 
   it('refuses the assessments on 31.12.2029 and the paid overtime on 31.12.2034 (409), deletes them on 1 January', () => {
@@ -295,11 +295,12 @@ describe('all facilities, order and guards (Review Focus 4)', () => {
     db.update(cashBoxes).set({ archived: true }).where(eq(cashBoxes.id, box)).run()
     const items = retentionOverview(db, '2026-10-27')
     expect(items.map(item => [item.facilityName, item.name, item.key, item.deletableFrom, item.due])).toEqual([
-      // Due, by facility name, then name.
+      // First what is past a legal deadline (the Führungszeugnis record, 3 months after leaving), …
+      ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:inspection`, '2026-03-16', true],
+      // … then due, by facility name, then name.
       ['Hort', 'Ole Hort', `child:${ole}`, purgeDate('2010-07-31', getChildRetentionYears(db)), true],
       ['Kita Sonnenschein', 'Alt', `cash:${box}`, null, true],
       ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:immediate`, '2026-03-16', true],
-      ['Kita Sonnenschein', 'Tina Test', `employee:${tina}:inspection`, '2026-06-15', true],
       // Later, by date: the signed requests to sign (one year after the signature), …
       ['Kita Sonnenschein', 'Belehrung', 'signRequest:1', '2027-10-27', false],
       ['Kita Sonnenschein', 'Belehrung', 'signRequest:3', '2027-10-27', false],

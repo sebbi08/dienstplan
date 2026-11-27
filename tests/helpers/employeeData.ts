@@ -4,7 +4,7 @@ import {
   balanceAdjustments, bemProcesses, bemSteps, childAttendanceChanges, childDevelopmentDocs, childNotes, childParentMeetings, earlySickLeaves, employeeChildren, employeeDocuments,
   employeeEmergencyConsent, employeeEmergencyConsentLog, employeeEmergencyContacts, employeePayroll, employeeRequirements,
   employeeTrainings, formAttachments, formEditors, formReads, forms, groupBookChanges, knowledgeConfirmations, knowledgeEntries, leaveEntitlements, leaveExtraDays, leaveForfeitReceipts, leaveRequests, longAbsences, maternityCases, notifications, offlineStamps, parentalLeaveBirths, parentalLeaves,
-  requiredDocumentTypes, requiredInspections, signRequestRecipients, signRequests, signUnlocks, teamMeetingParticipants, infoVisits, applicantVisits,
+  requiredDocumentTypes, requiredInspectionLog, requiredInspections, signRequestRecipients, signRequests, signUnlocks, teamMeetingParticipants, infoVisits, applicantVisits,
   terminalUnlocks, timeDayNotes, timeRecordChanges, timeRecords, warningAcks, weekTemplateEntries, weekTemplates,
 } from '../../server/db/schema'
 import { createCalendarEvent } from '../../server/services/calendar'
@@ -109,8 +109,12 @@ export function fillEmployeeData(
     const fz = db.select({ id: requiredDocumentTypes.id }).from(requiredDocumentTypes)
       .where(eq(requiredDocumentTypes.mode, 'inspection')).limit(1).get()!.id
     db.insert(requiredInspections).values({
-      employeeId: id, typeId: fz, inspectedOn: '2026-01-15', noRelevantEntry: true, recordedBy: leitung.id, recordedAt: now.toISOString(),
+      employeeId: id, typeId: fz, certificateDate: '2025-12-01', inspectedOn: '2026-01-15', noRelevantEntry: true, recordedBy: leitung.id,
+      recordedAt: now.toISOString(),
     }).run()
+    // Its audit line, and the Pflichttermin „Erweitertes Führungszeugnis“ – both go with the inspection record.
+    db.insert(requiredInspectionLog).values({ employeeId: id, typeId: fz, action: 'recorded', actor: 'leitung', at: now.toISOString() }).run()
+    db.insert(employeeRequirements).values({ employeeId: id, typeId: requirementTypeId(db, 'criminal_record'), date: '2026-01-15' }).run()
     db.insert(warningAcks).values({
       facilityId: 1, key: `missing_entry|2026-10-09|${id}`, date: '2026-10-09', signature: '', acknowledgedAt: now.toISOString(),
     }).run()

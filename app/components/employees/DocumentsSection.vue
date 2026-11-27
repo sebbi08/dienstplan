@@ -83,7 +83,8 @@ async function remove(document: EmployeeDocumentDto) {
 
 // Filling PDFs: „Aus Vorlage ausfüllen“ (the facility's templates the viewer sees) into a new document of a folder the
 // viewer may use, „Bearbeiten“ of a PDF document (fields, text, tick, cross, signature; replaces its file, with the
-// folder's key like every change).
+// folder's key like every change). Not for a file that must not be kept (inspectionFile, the Führungszeugnis): it is
+// marked „nicht aufbewahren“ and can only be opened, moved or deleted (the server refuses the rest).
 const { can } = useCan()
 const mayFill = computed(() => can('printTemplates.view'))
 const { data: templateList, execute: loadTemplates, status: templateStatus } = useFetch<PrintTemplateDto[]>('/api/print-templates', {
@@ -159,6 +160,10 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
           <UIcon :name="document.mimeType === 'application/pdf' ? 'i-lucide-file-text' : 'i-lucide-image'" class="mt-0.5 size-5 shrink-0 text-gray-500" aria-hidden="true" />
           <div class="min-w-0 flex-1 space-y-0.5">
             <a :href="employeeDocumentUrl(document.id)" target="_blank" rel="noopener" :class="[link, 'font-medium break-words']">{{ titleOf(document) }}</a>
+            <span
+              v-if="document.inspectionFile" class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900"
+              :title="de.personnel.documents.inspectionFileTitle"
+            >{{ de.personnel.documents.inspectionFile }}</span>
             <p class="text-gray-600">{{ formatDate(document.documentDate) }} · {{ formatSize(document.size) }}</p>
             <p v-if="document.note" class="whitespace-pre-line break-words text-gray-700">{{ document.note }}</p>
             <p class="text-xs text-gray-500">{{ t.uploadedBy(document.uploadedBy ?? t.unknownUploader, formatDateTime(document.uploadedAt)) }}</p>
@@ -167,11 +172,11 @@ const iconLink = 'inline-flex size-7 items-center justify-center rounded-md text
             <a :href="employeeDocumentUrl(document.id)" target="_blank" rel="noopener" :class="iconLink" :aria-label="t.open" :title="t.open"><UIcon name="i-lucide-external-link" class="size-4" /></a>
             <a :href="employeeDocumentUrl(document.id, true)" :class="iconLink" :aria-label="t.download" :title="t.download"><UIcon name="i-lucide-download" class="size-4" /></a>
             <UButton
-              v-if="document.mimeType === 'application/pdf'" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil-line"
+              v-if="document.mimeType === 'application/pdf' && !document.inspectionFile" size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil-line"
               :label="de.pdfFill.edit" :aria-label="de.pdfFill.editLabel(titleOf(document))" :disabled="busy" @click="refill(document)"
             />
             <UButton
-              v-if="canSend && document.mimeType === 'application/pdf'" size="xs" color="neutral" variant="ghost" icon="i-lucide-signature"
+              v-if="canSend && document.mimeType === 'application/pdf' && !document.inspectionFile" size="xs" color="neutral" variant="ghost" icon="i-lucide-signature"
               :label="de.signRequests.send" :disabled="busy" @click="startSend(document)"
             />
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :aria-label="de.common.edit" :disabled="busy" @click="openEdit(document)" />

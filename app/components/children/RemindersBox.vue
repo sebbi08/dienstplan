@@ -182,7 +182,9 @@ async function markDone(entry: ReminderDto) {
       >
         <UIcon :name="icons[entry.kind]" class="size-5 shrink-0" :class="entry.state === 'overdue' ? 'text-red-600' : 'text-gray-500'" role="img" :aria-label="r.kinds[entry.kind]" />
         <span v-if="entry.kind === 'retention'" class="min-w-0 flex-1">
-          <NuxtLink to="/admin/retention" class="font-medium text-sky-700 hover:underline">{{ r.retention(entry.count ?? 0) }}</NuxtLink>
+          <NuxtLink to="/admin/retention" class="font-medium hover:underline" :class="entry.state === 'overdue' ? 'text-red-700' : 'text-sky-700'">
+            {{ entry.state === 'overdue' ? r.retentionOverdue(entry.count ?? 0) : r.retention(entry.count ?? 0) }}
+          </NuxtLink>
         </span>
         <span v-else class="min-w-0 flex-1">
           {{ textOf(entry).before }}<NuxtLink

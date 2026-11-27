@@ -16,6 +16,7 @@ import { safeFileNamePart } from '../lib/fileName'
 import { checkedDocumentFile } from '../lib/fileSignature'
 import { fillableFile } from '../lib/pdfForm'
 import { listTemplates, readTemplateFile, templateVisibility, type TemplateViewer } from './printTemplates'
+import { inspectionFileIds } from './employeeDocuments'
 import { checkedSignRequestType } from './requiredDocuments'
 import { removeSignRequest } from './signRequestRecords'
 
@@ -78,6 +79,8 @@ function sourceFile(db: Db, sender: SignSender, kind: 'template' | 'document', i
   if (!row || row.facilityId !== sender.facilityId) throw new ServiceError(404, 'document_not_found')
   if (!can(sender.permissions, FOLDER_PERMISSION[row.folder])) throw new ServiceError(403, 'forbidden')
   if (row.mimeType !== 'application/pdf') throw new ServiceError(400, 'document_type_invalid')
+  // A file that must not be kept is not sent around either (only deleted).
+  if (inspectionFileIds(db, [id]).size > 0) throw new ServiceError(400, 'document_inspection_file')
   const { data } = db.select({ data: employeeDocuments.data }).from(employeeDocuments).where(eq(employeeDocuments.id, id)).get()!
   return { data, employeeId: row.employeeId, folder: row.folder, visibility: null }
 }
@@ -182,7 +185,9 @@ function visibleRequests(db: Db, sender: SignSender) {
 /**
  * The requests the sender may see, newest first, each with its recipients (name, status, when, reason). For a signed
  * one: the copy is linked when the viewer may use the folder it is in now; „copyModified“ when its file no longer has the
- * SHA-256 kept at signing (replaced via „Bearbeiten“, which sets a new upload time), „copyDeleted“ when it is gone.
+ * SHA-256 kept at signing (replaced via „Bearbeiten“, which sets a new upload time), „copyDeleted“ when it is gone,
+ * „copyInspectionOnly“ while it is a file that must not be kept (its type is „nur Einsicht vermerken“: filed unlinked,
+ * on the cleanup list).
  */
 export function listSignRequests(db: Db, sender: SignSender, today: IsoDate): SignRequestDto[] {
   const requests = visibleRequests(db, sender)
@@ -200,6 +205,7 @@ export function listSignRequests(db: Db, sender: SignSender, today: IsoDate): Si
   const copies = new Map(documentIds.length === 0 ? [] : db.select({
     id: employeeDocuments.id, folder: employeeDocuments.folder, uploadedAt: employeeDocuments.uploadedAt,
   }).from(employeeDocuments).where(inArray(employeeDocuments.id, documentIds)).all().map(row => [row.id, row]))
+  const notKept = inspectionFileIds(db, [...copies.keys()])
   /** Only a copy uploaded again since the signature can differ; its file is read and hashed then. */
   const modified = (documentId: number, signedAt: string | null, hash: string | null) => {
     const copy = copies.get(documentId)
@@ -216,6 +222,7 @@ export function listSignRequests(db: Db, sender: SignSender, today: IsoDate): Si
         signedDocumentId: copy && can(sender.permissions, FOLDER_PERMISSION[copy.folder]) ? copy.id : null,
         copyModified: signedDocumentId !== null && modified(signedDocumentId, recipient.signedAt, recipient.signedHash),
         copyDeleted: recipient.status === 'signed' && (signedDocumentId === null || !copy),
+        ...(copy && notKept.has(copy.id) ? { copyInspectionOnly: true as const } : {}),
       }
     })
     const { facilityId: _f, sourceFolder: _s, sourceTemplateId: _t, sourceVisibility: _v, deletedAt: _d, ...rest } = request
@@ -349,13 +356,18 @@ export function signMyRequest(
   const uploadedBy = signer.userId ?? db.select({ id: users.id }).from(users)
     .where(eq(users.employeeId, signer.employeeId)).get()?.id ?? null
   const hash = sha256(file)
-  // Sent „als Pflichtdokument“: the copy is that type's, as long as the type still files into the request's folder.
-  const requiredTypeId = row.requiredTypeId === null ? null : db.select({ folder: requiredDocumentTypes.folder }).from(requiredDocumentTypes)
-    .where(eq(requiredDocumentTypes.id, row.requiredTypeId)).get()?.folder === row.folder ? row.requiredTypeId : null
+  // Sent „als Pflichtdokument“: the copy is that type's, as long as the type still files into the request's folder. A
+  // type switched to „nur Einsicht vermerken“ since (the Führungszeugnis, § 72a Abs. 5 SGB VIII) takes no file: the copy
+  // goes into the folder unlinked, marked for deletion (the cleanup list; the sender's list says so).
+  const type = row.requiredTypeId === null ? undefined : db.select({ folder: requiredDocumentTypes.folder, mode: requiredDocumentTypes.mode })
+    .from(requiredDocumentTypes).where(eq(requiredDocumentTypes.id, row.requiredTypeId)).get()
+  const inspectionOnly = type?.mode === 'inspection'
+  const requiredTypeId = type && !inspectionOnly && type.folder === row.folder ? row.requiredTypeId : null
   return db.transaction((tx) => {
     const documentId = tx.insert(employeeDocuments).values({
       employeeId: signer.employeeId, folder: row.folder, title: signedDocumentTitle(row.title, now), documentDate: todayIso(now), note: '',
       mimeType, fillable: fillableFile(file, mimeType), size: file.length, data: file, uploadedBy, uploadedAt: now.toISOString(), requiredTypeId,
+      ...(inspectionOnly ? { inspectionCleanup: true, inspectionTypeId: row.requiredTypeId } : {}),
     }).returning({ id: employeeDocuments.id }).get().id
     tx.update(signRequestRecipients).set({ status: 'signed', signedAt: now.toISOString(), signedDocumentId: documentId, signedHash: hash })
       .where(and(eq(signRequestRecipients.id, recipientId), eq(signRequestRecipients.status, 'open'))).run()

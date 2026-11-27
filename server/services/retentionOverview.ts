@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNotNull, lt, ne } from 'drizzle-orm'
 import { childPurgeDate, childStatus, purgeDate } from '../../shared/domain/children'
 import { can } from '../../shared/domain/permissions'
-import { inspectionDeletableFrom } from '../../shared/domain/requiredDocuments'
+import { inspectionDeadline, inspectionOverdue } from '../../shared/domain/requiredDocuments'
 import { retentionDueDates, type RetentionSettings } from '../../shared/domain/retention'
 import type { IsoDate } from '../../shared/domain/types'
 import {
@@ -113,8 +113,10 @@ function employeeItems(db: Db, employee: EmployeeRow, ctx: Context): RetentionIt
         return maternity ? [maternity] : []
       }
       if (category === 'inspection') {
-        const from = inspectionDeletableFrom(employee.leftOn, startedOn(db, employee.id))
-        return [item(category, from, left && from <= ctx.today)]
+        // From the day after leaving, gone by the deadline (§ 72a Abs. 5 SGB VIII); overdue items come first, in red.
+        const { deletableFrom, deleteBy } = inspectionDeadline(employee.leftOn, startedOn(db, employee.id))
+        const due = left && deletableFrom <= ctx.today
+        return [{ ...item(category, deletableFrom, due), inspection: { deleteBy, overdue: due && inspectionOverdue(deleteBy, ctx.today) } }]
       }
       return [item(category, dueDates[category], left && dueDates[category] <= ctx.today)]
     }),
@@ -123,7 +125,7 @@ function employeeItems(db: Db, employee: EmployeeRow, ctx: Context): RetentionIt
 }
 
 /**
- * The day the activity began, for „not taken up“ (inspectionDeletableFrom): „beschäftigt seit“ of the contract data,
+ * The day the activity began, for „not taken up“ (inspectionDeadline): „beschäftigt seit“ of the contract data,
  * else the first weekly hours (as „Einstellen“ of an applicant enters them); null without either.
  */
 function startedOn(db: Db, employeeId: number): IsoDate | null {
@@ -273,9 +275,14 @@ const APPLICANT_COLUMNS = {
   declinedAt: applicantVisits.declinedAt, updatedAt: applicantVisits.updatedAt,
 }
 
-/** Due first (by facility, then name), then the later ones by date, the records without a date last. */
+/**
+ * Due first – those past a legal deadline (an inspection record, § 72a Abs. 5 SGB VIII) before the others – by
+ * facility, then name; then the later ones by date, the records without a date last.
+ */
 function compareItems(a: RetentionItemDto, b: RetentionItemDto): number {
   if (a.due !== b.due) return a.due ? -1 : 1
+  const overdue = (item: RetentionItemDto) => item.inspection?.overdue === true
+  if (overdue(a) !== overdue(b)) return overdue(a) ? -1 : 1
   if (!a.due && a.deletableFrom !== b.deletableFrom) {
     if (a.deletableFrom === null) return 1
     if (b.deletableFrom === null) return -1

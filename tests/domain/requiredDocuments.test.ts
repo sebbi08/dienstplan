@@ -1,23 +1,52 @@
 import { describe, expect, it } from 'vitest'
 import {
-  REQUIRED_DOCUMENT_EXAMPLES, REQUIRED_DOCUMENT_FOLDER, appliesToEmployee, defaultRequiredFolder, parseAppliesTo, requiredDocumentStatus,
-  serializeAppliesTo,
+  REQUIRED_DOCUMENT_EXAMPLES, REQUIRED_DOCUMENT_FOLDER, appliesToEmployee, defaultRequiredFolder, inspectionDateError, inspectionDeadline,
+  inspectionOverdue, inspectionStatus, isCertificateType, parseAppliesTo, requiredDocumentStatus, serializeAppliesTo,
 } from '../../shared/domain/requiredDocuments'
 import type { RequiredDocumentTypeDto } from '../../shared/types/api'
-import { keptRequiredType } from '../../app/utils/requiredDocuments'
+import { filesSignedCopy, keptRequiredType } from '../../app/utils/requiredDocuments'
 
 describe('Pflichtdokumente (shared rules)', () => {
-  it('keeps the preset type of „Zum Unterschreiben senden“ until the types are loaded, then only an active one of the folder', () => {
-    const type = (id: number, folder: RequiredDocumentTypeDto['folder'], active = true): RequiredDocumentTypeDto => ({
-      id, name: `T${id}`, folder, appliesTo: 'all', validityMonths: null, templateId: null, templateTitle: null, active,
+  it('keeps the preset type of „Zum Unterschreiben senden“ until the types are loaded, then only an active file type of the folder', () => {
+    const type = (id: number, folder: RequiredDocumentTypeDto['folder'], active = true, mode: RequiredDocumentTypeDto['mode'] = 'file'): RequiredDocumentTypeDto => ({
+      id, name: `T${id}`, folder, appliesTo: 'all', validityMonths: null, templateId: null, templateTitle: null, active, mode,
     })
     // Opened from the box: the folder is set before the types arrive – the preset stays.
     expect(keptRequiredType(null, 'contract', 5)).toBe(5)
-    const types = [type(5, 'contract'), type(6, 'salary'), type(7, 'contract', false)]
+    const types = [type(5, 'contract'), type(6, 'salary'), type(7, 'contract', false), type(8, 'required', true, 'inspection')]
     expect(keptRequiredType(types, 'contract', 5)).toBe(5)
     expect(keptRequiredType(types, 'salary', 5)).toBe(0)
     expect(keptRequiredType(types, 'contract', 7)).toBe(0)
     expect(keptRequiredType([], 'contract', 5)).toBe(0)
+    // A type „nur Einsicht vermerken“ (the Führungszeugnis) is never offered: it takes no signed copy.
+    expect(keptRequiredType(types, 'required', 8)).toBe(0)
+    expect(types.filter(entry => filesSignedCopy(entry, 'required'))).toEqual([])
+  })
+
+  it('names § 72a only for a Führungszeugnis, and sets the deadline of an inspection record', () => {
+    expect(isCertificateType(' Erweitertes FÜHRUNGSZEUGNIS ')).toBe(true)
+    expect(isCertificateType('Führungszeugnis (Ehrenamt)')).toBe(true)
+    expect(isCertificateType('Masernnachweis')).toBe(false)
+    // Deletable the day after leaving, gone by 3 months after it; not taken up: at once, overdue as soon as listed.
+    expect(inspectionDeadline('2026-03-15', '2020-01-01')).toEqual({ deletableFrom: '2026-03-16', deleteBy: '2026-06-15' })
+    expect(inspectionDeadline('2026-03-15', null)).toEqual({ deletableFrom: '2026-03-16', deleteBy: '2026-06-15' })
+    expect(inspectionDeadline('2026-03-15', '2026-04-01')).toEqual({ deletableFrom: '2026-03-16', deleteBy: null })
+    expect(inspectionOverdue('2026-06-15', '2026-06-15')).toBe(false)
+    expect(inspectionOverdue('2026-06-15', '2026-06-16')).toBe(true)
+    expect(inspectionOverdue(null, '2026-03-16')).toBe(true)
+  })
+
+  it('runs the validity of an inspection from the certificate\'s date and checks both dates', () => {
+    expect(inspectionStatus(60, { certificateDate: '2026-08-01', noRelevantEntry: true }, '2026-11-20'))
+      .toEqual({ state: 'present', date: '2026-08-01', expiresOn: '2031-08-01' })
+    expect(inspectionStatus(60, { certificateDate: '2026-08-01', noRelevantEntry: false }, '2026-11-20'))
+      .toEqual({ state: 'entry', date: '2026-08-01', expiresOn: null })
+    expect(inspectionDateError('2026-08-01', null, '2026-11-20')).toBeNull()
+    expect(inspectionDateError('2026-08-01', '2026-11-20', '2026-11-20')).toBeNull()
+    expect(inspectionDateError('2026-11-21', null, '2026-11-20')).toBe('certificate_date_future')
+    expect(inspectionDateError('2026-02-30', null, '2026-11-20')).toBe('certificate_date_invalid')
+    expect(inspectionDateError('2026-08-01', '2026-11-21', '2026-11-20')).toBe('inspection_date_future')
+    expect(inspectionDateError('2026-08-01', '2026-07-31', '2026-11-20')).toBe('inspection_before_certificate')
   })
 
   it('has the agreed examples, all in „Pflichtdokumente“ but the Arbeitsvertrag, the Führungszeugnis for 5 years and Erste Hilfe for 2', () => {

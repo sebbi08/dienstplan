@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { EMPLOYEE_DOCUMENT_FOLDERS, FOLDER_PERMISSION, type EmployeeDocumentFolder } from '#shared/domain/personnel'
-import { REQUIRED_DOCUMENT_LIMITS, REQUIRED_DOCUMENT_MODES, defaultRequiredFolder, type RequiredDocumentMode } from '#shared/domain/requiredDocuments'
+import { REQUIRED_DOCUMENT_LIMITS, REQUIRED_DOCUMENT_MODES, defaultRequiredFolder, isCertificateType, type RequiredDocumentMode } from '#shared/domain/requiredDocuments'
 import { QUALIFICATIONS, type Qualification } from '#shared/domain/staffing/types'
 import type { PrintTemplateDto, RequiredDocumentTypeDto, RequiredDocumentTypeInput } from '#shared/types/api'
 import { de } from '~/locales/de'
@@ -53,6 +53,13 @@ async function openDialog(type: RequiredDocumentTypeDto | null) {
   open.value = true
   templates.value = await $fetch<PrintTemplateDto[]>('/api/print-templates').catch(() => [])
 }
+
+/** The hint under „Nachweis“: § 72a only for a Führungszeugnis; what a switch of an existing type does to its data. */
+const modeHint = computed(() => [
+  form.mode === 'inspection' && isCertificateType(form.name) ? t.modeHintCertificate : t.modeHint,
+  editing.value?.mode === 'file' && form.mode === 'inspection' ? t.switchToInspection : '',
+  editing.value?.mode === 'inspection' && form.mode === 'file' ? t.switchToFile : '',
+].filter(Boolean).join(' '))
 
 const body = (): RequiredDocumentTypeInput => ({
   name: form.name, folder: form.folder,
@@ -145,7 +152,7 @@ function details(type: RequiredDocumentTypeDto): string {
           <UFormField :label="t.validity" :description="t.validityHint">
             <UInput v-model="form.validity" type="number" min="1" :max="REQUIRED_DOCUMENT_LIMITS.validityMonths" step="1" class="w-28" />
           </UFormField>
-          <UFormField :label="t.mode" :description="t.modeHint">
+          <UFormField :label="t.mode" :description="modeHint">
             <URadioGroup v-model="form.mode" :items="modeItems" />
           </UFormField>
           <UFormField v-if="form.mode === 'file'" :label="t.template">

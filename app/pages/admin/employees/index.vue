@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { confirmsName } from '#shared/domain/confirmName'
 import { isValidIsoDate, parseIsoDate, todayIso } from '#shared/domain/dates'
+import { isCertificateType } from '#shared/domain/requiredDocuments'
 import { mayDeleteEmployeeByHand, type RetentionSettings } from '#shared/domain/retention'
 import { statutoryMinimumLeave } from '#shared/domain/statutoryLeave'
 import { MONDAY_TO_FRIDAY, workdayCount } from '#shared/domain/targets'
@@ -97,7 +98,8 @@ const missingDocsOf = (id: number) => extrasOf.value.get(id)?.requiredDocuments 
 /** The names for the tooltip, the expired ones marked. */
 const missingDocNames = (id: number) => missingDocsOf(id).map((row) => {
   if (row.state === 'expired') return de.requiredDocuments.expiredName(row.name)
-  return row.state === 'entry' ? de.requiredDocuments.entryName(row.name) : row.name
+  if (row.state !== 'entry') return row.name
+  return isCertificateType(row.name) ? de.requiredDocuments.entryName(row.name) : de.requiredDocuments.entryNameGeneric(row.name)
 })
 const onlyMissingDocs = ref(false)
 const shownRow = (id: number) => !onlyMissingDocs.value || missingDocsOf(id).length > 0

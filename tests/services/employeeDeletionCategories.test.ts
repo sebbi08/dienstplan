@@ -2,7 +2,8 @@ import { and, eq, sql } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../../server/db/client'
 import {
-  balanceAdjustments, employeePayroll, employees, forms, leavePlanners, releaseSnapshots, staffTalkForms, staffTalks, users, warningAcks,
+  balanceAdjustments, employeePayroll, employeeRequirements, employees, forms, leavePlanners, releaseSnapshots, requirementTypes, staffTalkForms,
+  staffTalks, users, warningAcks,
 } from '../../server/db/schema'
 import { getActiveUser } from '../../server/services/auth'
 import { getBalanceOverview } from '../../server/services/balances'
@@ -42,8 +43,13 @@ const ASSESSMENT = [
   'staff_talks.employee_id', 'employee_trainings.employee_id', 'employee_requirements.employee_id', 'knowledge_confirmations.employee_id',
   'sign_request_recipients.employee_id', 'applicant_visits.employee_id',
 ]
-/** „Einsicht in das Führungszeugnis“ (§ 72a Abs. 5 SGB VIII): 3 months after leaving. */
+/**
+ * „Einsicht-Vermerke“ (§ 72a Abs. 5 SGB VIII): at the latest 3 months after leaving – the records and their audit lines.
+ * The entries of the Pflichttermin „Erweitertes Führungszeugnis“ go along (their column is listed with the assessments,
+ * whose other Pflichttermine stay).
+ */
 const INSPECTION = 'required_inspections.employee_id'
+const INSPECTION_LOG = 'required_inspection_log.employee_id'
 /** BEM-Unterlagen: the processes (their steps go along). */
 const BEM = 'bem_processes.employee_id'
 /** Mutterschutz-Unterlagen: the cases. */
@@ -143,7 +149,7 @@ beforeEach(() => {
 describe('the deletion categories of a left employee', () => {
   it('seeds every column that references employees, and each one belongs to a category', () => {
     const columns = employeeColumns(db).map(({ table, column }) => `${table}.${column}`).sort()
-    expect(columns).toEqual([...IMMEDIATE, INSPECTION, PAYROLL, ...TIME, ...ASSESSMENT, BEM, MATERNITY, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS, SENT_FROM].sort())
+    expect(columns).toEqual([...IMMEDIATE, INSPECTION, INSPECTION_LOG, PAYROLL, ...TIME, ...ASSESSMENT, BEM, MATERNITY, ADJUSTMENTS, DOCUMENTS, ACCIDENTS, PARTICIPANTS, SENT_FROM].sort())
     expect(nonZero(columns)).toEqual(columns)
     expect(adjustments(tina, true)).toBe(1)
     expect(adjustments(tina, false)).toBe(1)
@@ -177,10 +183,16 @@ describe('the deletion categories of a left employee', () => {
     expectBenUntouched()
     // Run again it changes nothing.
     expect(remove(['immediate'])).toEqual(ZERO)
-    // The recorded inspection of the Führungszeugnis is a category of its own (3 months after leaving).
-    expect(nonZero([INSPECTION])).toEqual([INSPECTION])
-    expect(remove(['inspection'])).toEqual({ ...ZERO, inspection: 1 })
-    expect(nonZero([INSPECTION])).toEqual([])
+    // The recorded inspection of the Führungszeugnis is a category of its own (3 months after leaving): the record, its
+    // audit line and the entry of the Pflichttermin „Erweitertes Führungszeugnis“; the other Pflichttermine stay.
+    const pflichttermine = () => db.select({ key: requirementTypes.builtinKey }).from(employeeRequirements)
+      .innerJoin(requirementTypes, eq(requirementTypes.id, employeeRequirements.typeId)).where(eq(employeeRequirements.employeeId, tina)).all()
+      .map(entry => entry.key).sort()
+    expect(pflichttermine()).toEqual(['criminal_record', 'first_aid'])
+    expect(nonZero([INSPECTION, INSPECTION_LOG])).toEqual([INSPECTION, INSPECTION_LOG])
+    expect(remove(['inspection'])).toEqual({ ...ZERO, inspection: 3 })
+    expect(nonZero([INSPECTION, INSPECTION_LOG])).toEqual([])
+    expect(pflichttermine()).toEqual(['first_aid'])
     // „Lohn und Steuer“ is a category of its own (its period depends on the Lohnbüro setting).
     expect(nonZero([PAYROLL])).toEqual([PAYROLL])
     expect(remove(['payroll'])).toEqual({ ...ZERO, payroll: 1 })
